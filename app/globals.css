@@ -13,14 +13,26 @@
    SIL Open Font License 1.1 · public/fonts/PretendardVariable.LICENSE.txt
 --------------------------------------------------------------------------- */
 /*
- * 표시용. 큰 글자 하나를 세울 때만 쓴다. Instrument Serif 는 획 대비가 커서
- * 작게 쓰면 가늘어져 읽히지 않는다. 본문이나 표에는 절대 쓰지 않는다.
- * SIL Open Font License 1.1 · public/fonts/InstrumentSerif.LICENSE.txt
+ * 표시용. 이름을 세우는 자리에만 쓴다.
+ *
+ * Cinzel 은 로마 비문 각자체라 대문자가 본체다. 우리가 이름을 늘 대문자로
+ * 쓰므로 소문자를 억지로 대문자로 바꾸는 것이 아니라 원래 모양 그대로다.
+ * 획이 굵어 작은 크기에서도 버틴다 - 가라몬드 계열은 여기서 가늘어져 사라진다.
+ *
+ * 라틴만 받았다. 한글은 Pretendard 가 맡는다. 본문이나 표에는 쓰지 않는다.
+ * SIL Open Font License 1.1 · public/fonts/Cinzel.LICENSE.txt
  */
 @font-face {
-  font-family: 'Instrument Serif';
-  src: url('/fonts/InstrumentSerif-Regular.woff2') format('woff2');
+  font-family: 'Cinzel';
+  src: url('/fonts/Cinzel-Regular.woff2') format('woff2');
   font-weight: 400;
+  font-style: normal;
+  font-display: fallback;
+}
+@font-face {
+  font-family: 'Cinzel';
+  src: url('/fonts/Cinzel-SemiBold.woff2') format('woff2');
+  font-weight: 600;
   font-style: normal;
   font-display: fallback;
 }
@@ -110,12 +122,7 @@
                'Apple SD Gothic Neo', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'Cascadia Mono', 'IBM Plex Mono', Consolas, 'D2Coding',
                ui-monospace, monospace;
-  /*
-   * 표시용. Times New Roman 이 먼저다. 사내 장비가 전부 Windows 라 늘 있고,
-   * 이탤릭 대문자로 세우면 격이 산다. 없는 장비를 위해 저장소에 넣어 둔
-   * Instrument Serif 가 뒤를 받친다.
-   */
-  --font-display: 'Times New Roman', Times, 'Instrument Serif', serif;
+  --font-display: 'Cinzel', 'Times New Roman', Times, serif;
 }
 
 :root {
@@ -160,12 +167,13 @@ h1 { line-height: 1.25; }
 /* 표시용 서체. 큰 글자 하나에만 */
 .display {
   font-family: var(--font-display);
-  font-weight: 400;
-  font-style: italic;
+  font-weight: 600;
   text-transform: uppercase;
-  /* 이탤릭 대문자는 붙여 두면 글자가 서로 밀린다. 자간을 넉넉히 준다 */
-  letter-spacing: 0.07em;
+  /* 각자체 대문자는 자간이 있어야 새겨진 것처럼 보인다 */
+  letter-spacing: 0.08em;
 }
+/* 크게 세울 때는 획을 얇게. 큰 글자에서 굵으면 둔해 보인다 */
+.display-lg { font-weight: 400; letter-spacing: 0.05em; }
 
 /* 숫자는 자리가 흔들리면 안 된다. 로트번호 · 순번 · 일시 · 수량 전부 */
 .tnum { font-variant-numeric: tabular-nums; }

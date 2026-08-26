@@ -109,7 +109,7 @@ begin
   return r;
 end $fn$;
 
--- 작업지시서 인쇄용. 한 공정의 자재별 소요량을 한 번에 뽑는다 (§7).
+-- 작업 지시서 인쇄용. 한 공정의 자재별 소요량을 한 번에 뽑는다 (§7).
 create or replace function operation_requirements(p_op uuid, p_sheets int, p_units int)
 returns table (
   component_item_id uuid, item_code text, item_name text, usage_uom text,

@@ -394,7 +394,7 @@ export default async function DayRecordSheet({ params }: {
       </table>
 
       <p className="mt-2 text-[10px] leading-relaxed text-black">
-        여기 적힌 것은 실제로 수행하고 투입한 내용입니다. 작업지시서의 예정과 달라도
+        여기 적힌 것은 실제로 수행하고 투입한 내용입니다. 작업 지시서의 예정과 달라도
         시스템이 고치지 않습니다. 순환자는 서명하지 않으며 이름만 표시합니다.
       </p>
 

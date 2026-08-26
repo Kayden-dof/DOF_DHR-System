@@ -75,7 +75,7 @@ export function VerifyForm({ id, verified }: { id: string; verified: boolean }) 
   return (
     <div className="rounded-md border border-warn/30 bg-warn-bg p-3">
       <p className="text-sm leading-relaxed text-ink">
-        <b>아직 서면 대조 확인 전입니다.</b> 확인 전에는 작업지시 발행에서 고를 수 없습니다.
+        <b>아직 서면 대조 확인 전입니다.</b> 확인 전에는 작업 지시 발행에서 고를 수 없습니다.
         공정과 자재 구성표를 모두 넣은 뒤, 서면 제품표준서와 한 항목씩 대조하고 확인하십시오.
       </p>
       {!confirm ? (

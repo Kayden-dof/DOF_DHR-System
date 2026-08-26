@@ -8,7 +8,7 @@ import type { FormState } from '@/lib/forms';
 async function mgr() {
   const user = await requireUser();
   if (!hasRole(user, 'SYS_ADMIN', 'PROD_MGR')) {
-    throw new Error('생산관리자 또는 시스템관리자만 작업지시를 다룰 수 있습니다');
+    throw new Error('생산관리자 또는 시스템관리자만 작업 지시를 다룰 수 있습니다');
   }
   return user;
 }
@@ -21,7 +21,7 @@ const bump = (id?: string) => {
 };
 
 /* ---------------------------------------------------------------------------
-   작업지시 발행 (§4.5)
+   작업 지시 발행 (§4.5)
 
    지시서번호와 배치번호는 채번 규칙이 만든다. 응용에서 조합하지 않는다 (§10).
    원재료 로트는 단일 컬럼이라 배치당 1개가 구조적으로 강제된다.
@@ -52,14 +52,37 @@ export async function issueWorkOrder(_p: FormState, form: FormData): Promise<For
          Number(form.get('sheet_count') ?? 0),
          String(form.get('issued_by_prod') ?? ''),
          String(form.get('issued_by_qa') ?? '')]);
-      return { id: row!.id, woNo, batchNo };
+
+      /*
+       * 예정 형명. 한 배치에서 여러 규격이 나온다.
+       * 실제는 재단에서 정해지고 이 값과 달라도 시스템이 고치지 않는다 (§7).
+       */
+      let seq = 0;
+      let planned = 0;
+      for (const [k, v] of form.entries()) {
+        const m = k.match(/^plan_(.+)$/);
+        if (!m) continue;
+        const qty = Number(v);
+        if (!Number.isFinite(qty) || qty <= 0) continue;
+        seq += 1;
+        planned += qty;
+        await db.rows(
+          `insert into work_order_plan (work_order_id, item_id, planned_qty, seq)
+           values ($1,$2,$3,$4)`, [row!.id, m[1], qty, seq]);
+      }
+
+      return { id: row!.id, woNo, batchNo, specs: seq, planned };
     });
 
     bump(out.id);
     return {
       ok: true,
-      message: `지시서 ${out.woNo} · 배치 ${out.batchNo}를 발행했습니다. ` +
-               `작업지시서를 인쇄해 현장에 내리십시오.`,
+      message:
+        `지시서 ${out.woNo} · 배치 ${out.batchNo}를 발행했습니다. ` +
+        (out.specs > 0
+          ? `예정 형명 ${out.specs}종 · 합계 ${out.planned}개. `
+          : '') +
+        '작업 지시서를 인쇄해 현장에 내리십시오.',
     };
   } catch (e) {
     return { error: dbMessage(e) };
@@ -79,7 +102,7 @@ export async function cancelWorkOrder(_p: FormState, form: FormData): Promise<Fo
     bump(id);
     return {
       ok: true,
-      message: '작업지시를 취소했습니다. 지시서번호와 배치번호는 소멸하며 재사용하지 않습니다.',
+      message: '작업 지시를 취소했습니다. 지시서번호와 배치번호는 소멸하며 재사용하지 않습니다.',
     };
   } catch (e) {
     return { error: dbMessage(e) };

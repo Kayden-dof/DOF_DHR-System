@@ -113,7 +113,7 @@ export default async function Dashboard() {
   }
   if ((d.ready ?? 0) === 0 && admin) {
     setup.push({
-      text: <>서면 대조가 확인된 제품표준서가 없습니다. 작업지시를 발행할 수 없습니다.</>,
+      text: <>서면 대조가 확인된 제품표준서가 없습니다. 작업 지시를 발행할 수 없습니다.</>,
       href: '/settings/dmr', label: '제품표준서',
     });
   }
@@ -217,7 +217,7 @@ export default async function Dashboard() {
           }
         >
           {d.batches.length === 0 ? (
-            <Empty hint="작업지시를 발행하면 여기에 나타납니다.">
+            <Empty hint="작업 지시를 발행하면 여기에 나타납니다.">
               진행 중인 배치가 없습니다.
             </Empty>
           ) : (

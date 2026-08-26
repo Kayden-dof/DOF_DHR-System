@@ -65,7 +65,7 @@ export default async function WorkHome() {
         <div className="card p-10 text-center">
           <p className="text-lg font-semibold text-ink">진행 중인 배치가 없습니다.</p>
           <p className="mt-2 text-sm text-muted">
-            작업지시가 발행되면 여기에 나타납니다.
+            작업 지시가 발행되면 여기에 나타납니다.
           </p>
         </div>
       ) : (

@@ -75,7 +75,7 @@ export default async function LoginPage() {
             * DHR 을 풀어 쓴다. 줄임말은 아는 사람에게만 이름이다. 이 화면은
             * 회사 밖 사람도 보고, 새로 온 사람도 첫날 본다.
             */}
-          <h1 className="display text-[1.375rem] leading-[1.35] text-ink">
+          <h1 className="display display-lg text-[1.5rem] leading-[1.35] text-ink">
             Device History Record
           </h1>
 

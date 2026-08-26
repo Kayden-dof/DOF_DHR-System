@@ -16,16 +16,18 @@ export interface RawLotOpt {
   supplier_name: string; supplier_status: string; expiry_date: string | null;
 }
 export interface UserOpt { id: string; full_name: string; roles: string[] }
+export interface FinOpt { id: string; code: string; name: string }
 
 /* ---------------------------------------------------------------------------
-   작업지시 발행
+   작업 지시 발행
 
    관리자가 책상에서 쓰는 화면이다. 키보드 입력을 그대로 둔다.
    장입 장수를 넣으면 자재 구성표로 소요량을 미리 계산해 보여 준다. 이 값이
-   작업지시서에 인쇄된다. 경고는 표시만 하고 발행을 막지 않는다 (§2).
+   작업 지시서에 인쇄된다. 경고는 표시만 하고 발행을 막지 않는다 (§2).
 --------------------------------------------------------------------------- */
-export default function IssueForm({ masters, rawLots, users, today }: {
-  masters: DmOpt[]; rawLots: RawLotOpt[]; users: UserOpt[]; today: string;
+export default function IssueForm({ masters, rawLots, finished, users, today }: {
+  masters: DmOpt[]; rawLots: RawLotOpt[]; finished: FinOpt[];
+  users: UserOpt[]; today: string;
 }) {
   const [state, action, pending] = useActionState<FormState, FormData>(issueWorkOrder, {});
   const [open, setOpen] = useState(false);
@@ -35,6 +37,26 @@ export default function IssueForm({ masters, rawLots, users, today }: {
   const [prod, setProd] = useState('');
   const [qa, setQa] = useState('');
   const [pv, setPv] = useState<IssuePreview>({});
+
+  /*
+   * 예정 형명. 한 배치에서 여러 규격이 나온다 (§3 ③). 두께는 원재료가 정하므로
+   * 배치 하나가 두께 구간 하나에 묶이고 그 안에서 크기별로 갈린다.
+   *
+   * 어디까지나 예정이다. 실제 형명과 수량은 재단에서 정해지고, 달라도 시스템이
+   * 고치지 않는다 (§7). 두 값이 나란히 남는다.
+   */
+  const [plan, setPlan] = useState<Record<string, string>>({});
+  const [find, setFind] = useState('');
+  const planned = Object.entries(plan).filter(([, q]) => Number(q) > 0);
+  const plannedUnits = planned.reduce((a, [, q]) => a + Number(q), 0);
+
+  const needle = find.trim().toLowerCase().replace(/\s+/g, '');
+  const shown = finished.filter((f) => {
+    if (Number(plan[f.id] ?? 0) > 0) return true;
+    if (!needle) return true;
+    const hay = `${f.code}${f.name}`.toLowerCase().replace(/\s+/g, '');
+    return hay.includes(needle);
+  });
 
   const ready = masters.filter((m) => m.verified_at);
   const dmSel = ready.find((m) => m.id === dm) ?? ready[0];
@@ -49,7 +71,7 @@ export default function IssueForm({ masters, rawLots, users, today }: {
   useEffect(() => {
     if (!dmSel || !lotSel) return;
     const id = setTimeout(() => {
-      previewIssue(dmSel.id, lotSel.id, sheets).then(setPv);
+      previewIssue(dmSel.id, lotSel.id, sheets, plannedUnits).then(setPv);
     }, 200);
     return () => clearTimeout(id);
   }, [dmSel?.id, lotSel?.id, sheets]);
@@ -61,7 +83,7 @@ export default function IssueForm({ masters, rawLots, users, today }: {
       <div className="flex flex-col items-end gap-2">
         <button onClick={() => setOpen(true)} className="btn-primary"
                 disabled={ready.length === 0 || rawLots.length === 0}>
-          작업지시 발행
+          작업 지시 발행
         </button>
         <div className="max-w-lg"><Msg state={state} /></div>
         {ready.length === 0 && (
@@ -76,7 +98,7 @@ export default function IssueForm({ masters, rawLots, users, today }: {
 
   return (
     <form action={action} className="card w-full p-4">
-      <h3 className="text-sm font-bold text-ink">작업지시 발행</h3>
+      <h3 className="text-sm font-bold text-ink">작업 지시 발행</h3>
       <p className="mt-1 text-xs leading-relaxed text-muted">
         지시서번호와 배치번호는 채번 규칙이 만듭니다. 원재료 로트는 배치당 하나입니다.
       </p>
@@ -112,6 +134,86 @@ export default function IssueForm({ masters, rawLots, users, today }: {
                  value={sheets} onChange={(e) => setSheets(Number(e.target.value))}
                  className="input tnum" />
         </div>
+        <div className="sm:col-span-2">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <label className="label mb-0">예정 형명 (여러 개 고를 수 있습니다)</label>
+            <span className="text-xs text-muted">
+              {planned.length > 0
+                ? <>형명 <b className="tnum text-ink">{planned.length}</b>종 ·
+                    합계 <b className="tnum text-ink">{plannedUnits}</b>개</>
+                : '고르지 않으면 지시서에 형명이 인쇄되지 않습니다'}
+            </span>
+          </div>
+
+          {/*
+            * 완제품이 62종이라 스크롤로 찾을 수 없다. 모델명과 규격 양쪽으로
+            * 걸러 준다. 이미 수량을 넣은 것은 걸러도 늘 위에 남긴다 - 안 그러면
+            * 검색어를 바꾸는 순간 방금 넣은 값이 화면에서 사라져 지워진 줄 안다.
+            */}
+          <div className="mt-1.5 flex flex-wrap items-center gap-2">
+            <input
+              value={find}
+              onChange={(e) => setFind(e.target.value)}
+              placeholder="모델명 또는 규격으로 찾기 (0505, 1.0x1.5, 2.0~2.5 …)"
+              autoComplete="off"
+              className="input h-9 flex-1 text-xs"
+            />
+            {find && (
+              <button type="button" onClick={() => setFind('')}
+                      className="btn-quiet h-9 px-3 text-xs">
+                지움
+              </button>
+            )}
+            {planned.length > 0 && (
+              <button type="button" onClick={() => setPlan({})}
+                      className="btn-quiet h-9 px-3 text-xs">
+                고른 것 비우기
+              </button>
+            )}
+          </div>
+
+          <div className="mt-2 max-h-64 overflow-y-auto rounded-lg border border-line">
+            <table className="w-full">
+              <thead>
+                <tr>
+                  <th className="th">모델명</th>
+                  <th className="th">규격</th>
+                  <th className="th w-32 text-right">예정 수량</th>
+                </tr>
+              </thead>
+              <tbody>
+                {shown.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} className="td text-center text-xs text-faint">
+                      찾는 형명이 없습니다.
+                    </td>
+                  </tr>
+                ) : shown.map((f) => {
+                  const on = Number(plan[f.id] ?? 0) > 0;
+                  return (
+                    <tr key={f.id} className={on ? 'bg-brand-soft' : undefined}>
+                      <td className="td font-mono text-xs">{f.code}</td>
+                      <td className="td text-xs">{f.name}</td>
+                      <td className="td text-right">
+                        <input
+                          type="number" min={1} inputMode="numeric"
+                          value={plan[f.id] ?? ''}
+                          onChange={(e) => setPlan((p) => ({ ...p, [f.id]: e.target.value }))}
+                          className="input h-8 w-24 tnum text-right text-xs"
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {planned.map(([id, q]) => (
+            <input key={id} type="hidden" name={`plan_${id}`} value={q} />
+          ))}
+        </div>
+
         <div>
           <label className="label">생산 발행자</label>
           <select name="issued_by_prod" required value={prod || prodOpts[0]?.id}
@@ -141,7 +243,7 @@ export default function IssueForm({ masters, rawLots, users, today }: {
       {pv.requirements && pv.requirements.length > 0 && (
         <div className="mt-3 rounded-md border border-line bg-canvas p-3">
           <p className="text-xs font-bold text-ink">
-            장입 {sheets}장 기준 소요량 (작업지시서에 인쇄됩니다)
+            장입 {sheets}장 기준 소요량 (작업 지시서에 인쇄됩니다)
           </p>
           <div className="mt-2 overflow-x-auto">
             <table className="w-full">

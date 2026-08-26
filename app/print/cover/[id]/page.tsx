@@ -185,7 +185,7 @@ export default async function CoverSheet({ params }: { params: Promise<{ id: str
             <td>{head.raw_item_code} (원재료)</td>
             <td className="font-mono font-bold">{head.raw_lot_no}</td>
             <td className="text-right tnum">{head.sheet_count} 장</td>
-            <td>작업지시 지정</td>
+            <td>작업 지시 지정</td>
             <td>배치 전체</td>
           </tr>
           {materials.map((m, i) => (

@@ -5,7 +5,9 @@ import { fmtDate, fmtDateTime } from '@/lib/fmt';
 import { WO_STATUS_LABEL } from '@/lib/forms';
 import Denied from '@/components/denied';
 import { PageHead, Panel, Empty, Tag } from '@/components/ui';
-import IssueForm, { type DmOpt, type RawLotOpt, type UserOpt } from './issue-form';
+import IssueForm, {
+  type DmOpt, type RawLotOpt, type UserOpt, type FinOpt,
+} from './issue-form';
 
 export const dynamic = 'force-dynamic';
 
@@ -71,6 +73,10 @@ export default async function ProductionPage({ searchParams }: { searchParams: S
               array_remove(array_agg(r.role::text), null)::text[] as roles
          from app_user u left join user_role r on r.user_id = u.id
         where u.is_active group by u.id order by u.full_name`),
+    // 예정 형명 후보. 같은 두께 구간이면 크기별로만 갈리므로 완제품 전부를
+    // 내주고 화면에서 걸러 고르게 한다.
+    finished: await db.rows<FinOpt>(
+      `select id, code, name from item where type = 'FIN' and is_active order by code`),
     today: await db.val<string>(`select to_char(timezone('Asia/Seoul', now()),'YYYY-MM-DD')`),
     counts: await db.rows<{ status: string; n: number }>(
       `select status::text as status, count(*)::int as n from work_order group by status`),
@@ -89,7 +95,7 @@ export default async function ProductionPage({ searchParams }: { searchParams: S
             공정 기록 입력은 현장 화면에서 합니다.
           </p>
         </div>
-        <IssueForm masters={d.masters} rawLots={d.rawLots}
+        <IssueForm masters={d.masters} rawLots={d.rawLots} finished={d.finished}
                    users={d.users} today={d.today ?? ''} />
       </div>
 
@@ -112,7 +118,7 @@ export default async function ProductionPage({ searchParams }: { searchParams: S
 
       <Panel>
         {d.orders.length === 0 ? (
-          <Empty>해당하는 작업지시가 없습니다.</Empty>
+          <Empty>해당하는 작업 지시가 없습니다.</Empty>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">

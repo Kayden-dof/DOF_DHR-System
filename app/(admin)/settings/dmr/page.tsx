@@ -77,7 +77,7 @@ export default async function DmrPage({ searchParams }: { searchParams: Search }
     <div className="space-y-5">
       <PageHead
         title="제품표준서"
-        note="서면 제품표준서가 정본입니다. 여기에는 개정 표기와 공정 · 자재 구성표만 옮겨 적습니다. 이 내용이 작업지시서의 소요량 계산 근거가 됩니다."
+        note="서면 제품표준서가 정본입니다. 여기에는 개정 표기와 공정 · 자재 구성표만 옮겨 적습니다. 이 내용이 작업 지시서의 소요량 계산 근거가 됩니다."
         action={<NewDeviceMaster items={d.items} />}
       />
 
@@ -128,7 +128,7 @@ export default async function DmrPage({ searchParams }: { searchParams: Search }
                 </div>
                 {!editable && dm.wo_count > 0 && (
                   <p className="border-t border-line bg-canvas px-4 py-2.5 text-xs leading-relaxed text-muted">
-                    이 개정으로 발행된 작업지시가 {dm.wo_count}건 있어 공정과 자재 구성표를
+                    이 개정으로 발행된 작업 지시가 {dm.wo_count}건 있어 공정과 자재 구성표를
                     더 이상 고칠 수 없습니다. 바꾸려면 새 개정을 만드십시오.
                   </p>
                 )}
@@ -172,7 +172,7 @@ export default async function DmrPage({ searchParams }: { searchParams: Search }
                   <div className="flex gap-2">
                     <dt className="w-32 shrink-0 font-semibold text-ink">원재료는 넣지 않는다</dt>
                     <dd className="text-muted">
-                      작업지시에 이미 지정되어 있습니다. 자재 구성표에 넣으면 S05가 이중으로 걸립니다.
+                      작업 지시에 이미 지정되어 있습니다. 자재 구성표에 넣으면 S05가 이중으로 걸립니다.
                     </dd>
                   </div>
                 </dl>

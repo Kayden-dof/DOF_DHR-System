@@ -67,7 +67,7 @@ export default async function SettingsHome() {
                 {blocking.map((t) => t.label).join(' · ')} 채번 규칙이 없습니다.
               </p>
               <p className="mt-1 text-muted">
-                규칙이 없으면 자재 입고와 작업지시 발행에서 번호를 만들 수 없습니다.
+                규칙이 없으면 자재 입고와 작업 지시 발행에서 번호를 만들 수 없습니다.
               </p>
               <Link href="/settings/numbering" className="btn-primary mt-3 h-9 px-3 text-xs">
                 채번 규칙 등록
@@ -96,7 +96,7 @@ export default async function SettingsHome() {
       <section className="card p-4">
         <h3 className="text-xs font-bold text-ink">등록 순서</h3>
         <ol className="mt-2 space-y-1.5 text-xs leading-relaxed text-muted">
-          <li>1. <b className="text-ink">채번 규칙</b>. 자재 입고와 작업지시가 번호를 여기서 받습니다.</li>
+          <li>1. <b className="text-ink">채번 규칙</b>. 자재 입고와 작업 지시가 번호를 여기서 받습니다.</li>
           <li>2. <b className="text-ink">품목</b>. 자재를 넣고 완제품 형명은 규칙으로 생성합니다.</li>
           <li>3. <b className="text-ink">공급자</b>와 단가. 자재 입고에서 고를 대상입니다.</li>
           <li>4. <b className="text-ink">제품표준서</b>. 공정과 자재 구성표를 넣고 서면과 대조 확인합니다.</li>

@@ -48,7 +48,7 @@ export async function verifyDeviceMaster(_p: FormState, form: FormData): Promise
     path(id);
     return {
       ok: true,
-      message: '서면 대조를 확인했습니다. 이제 작업지시 발행에서 고를 수 있습니다.',
+      message: '서면 대조를 확인했습니다. 이제 작업 지시 발행에서 고를 수 있습니다.',
     };
   } catch (e) {
     return { error: dbMessage(e) };

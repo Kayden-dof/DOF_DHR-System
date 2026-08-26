@@ -15,7 +15,7 @@ import type { PrintMeta } from '@/components/print-frame';
 --------------------------------------------------------------------------- */
 
 export const KIND_LABEL: Record<string, string> = {
-  WORK_ORDER: '작업지시서',
+  WORK_ORDER: '작업 지시서',
   DAY_RECORD: '제조기록서',
   COVER: '편철 표지',
   LABEL: '자재 라벨',

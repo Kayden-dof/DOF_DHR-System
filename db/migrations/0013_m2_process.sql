@@ -56,7 +56,7 @@ begin
   if new.product_lot_id is null then return new; end if;
   select work_order_id into v_wo from product_lot where id = new.product_lot_id;
   if v_wo is distinct from new.work_order_id then
-    raise exception '지정한 제품 로트는 이 작업지시의 로트가 아닙니다';
+    raise exception '지정한 제품 로트는 이 작업 지시의 로트가 아닙니다';
   end if;
   return new;
 end $fn$;

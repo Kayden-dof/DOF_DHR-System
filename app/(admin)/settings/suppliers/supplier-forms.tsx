@@ -86,7 +86,7 @@ export function NewSupplierForm() {
       <h3 className="mb-3 text-sm font-bold text-ink">새 공급자</h3>
       <Fields />
       <p className="mt-3 rounded-md bg-canvas px-3 py-2 text-xs leading-relaxed text-muted">
-        미승인 공급자의 자재도 등록과 사용을 막지 않습니다. 작업지시 발행 화면에서
+        미승인 공급자의 자재도 등록과 사용을 막지 않습니다. 작업 지시 발행 화면에서
         <b className="text-ink"> 경고로만 </b>표시합니다. 차단은 S01~S05 다섯 가지뿐입니다.
       </p>
       <Msg state={state} />

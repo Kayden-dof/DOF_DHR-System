@@ -122,7 +122,7 @@ export function CancelForm({ id }: { id: string }) {
   return (
     <form action={action} className="w-full rounded-md border border-danger/30 bg-danger-bg p-3">
       <input type="hidden" name="id" value={id} />
-      <p className="text-sm font-semibold text-ink">작업지시를 취소합니다</p>
+      <p className="text-sm font-semibold text-ink">작업 지시를 취소합니다</p>
       <Caution>
         지시서번호와 배치번호는 소멸하며 재사용하지 않습니다. 번호가 비는 것이 정상이고,
         취소 기록이 그 설명이 됩니다.

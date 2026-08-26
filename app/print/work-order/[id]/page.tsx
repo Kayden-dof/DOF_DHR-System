@@ -8,7 +8,7 @@ import PrintFrame, { SignRow } from '@/components/print-frame';
 export const dynamic = 'force-dynamic';
 
 /* ---------------------------------------------------------------------------
-   작업지시서 (§7)
+   작업 지시서 (§7)
 
    착수 전 · 배치 단위
    지시서·배치번호, 제품표준서 개정번호, 원재료 로트번호, 장입 장수,
@@ -26,6 +26,7 @@ interface Wo {
   supplier_name: string; supplier_lot_no: string; coa_no: string; coa_date: string;
   prod_name: string; qa_name: string; device_master_id: string;
 }
+interface PlanRow { item_code: string; item_name: string; planned_qty: number | null }
 interface OpRow {
   seq: number; code: string; name: string; after_cutting: boolean;
   materials: { item_code: string; item_name: string; usage_uom: string;
@@ -54,8 +55,20 @@ export default async function WorkOrderSheet({ params }: { params: Promise<{ id:
         where wo.id = $1`, [id]);
     if (!wo) return null;
 
+    /*
+     * 예정 형명. 한 배치에서 여러 규격이 나온다. 포장재처럼 제품 개수에
+     * 비례하는 자재는 이 합이 있어야 소요량을 미리 계산할 수 있다.
+     */
+    const plan = await db.rows<PlanRow>(
+      `select i.code as item_code, i.name as item_name, p.planned_qty
+         from work_order_plan p join item i on i.id = p.item_id
+        where p.work_order_id = $1
+        order by p.seq, i.code`, [id]);
+    const units = plan.reduce((a, r) => a + (r.planned_qty ?? 0), 0);
+
     return {
       wo,
+      plan,
       ops: await db.rows<OpRow>(
         `select o.seq, o.code, o.name, o.after_cutting,
                 coalesce((
@@ -63,15 +76,15 @@ export default async function WorkOrderSheet({ params }: { params: Promise<{ id:
                     'item_code', r.item_code, 'item_name', r.item_name,
                     'usage_uom', r.usage_uom, 'basis', r.basis::text,
                     'required', r.required) order by r.item_code)
-                    from operation_requirements(o.id, $2, 0) r), '[]'::json) as materials
+                    from operation_requirements(o.id, $2, $3) r), '[]'::json) as materials
            from dmr_operation o
           where o.device_master_id = $1 order by o.seq`,
-        [wo.device_master_id, wo.sheet_count]),
+        [wo.device_master_id, wo.sheet_count, units]),
     };
   });
 
   if (!d) notFound();
-  const { wo, ops } = d;
+  const { wo, ops, plan } = d;
 
   // 필요 용기 수: 장입 구간 기준 자재의 소요량 합. 시약이 통 단위로 나가므로
   // 그 합이 곧 현장에서 꺼내야 할 용기 수다.
@@ -88,7 +101,7 @@ export default async function WorkOrderSheet({ params }: { params: Promise<{ id:
   return (
     <PrintFrame
       meta={meta}
-      title="작업지시서"
+      title="작업 지시서"
       subtitle={<>배치 {wo.batch_no} · 지시서 {wo.wo_no}</>}
       back={`/production/${id}`}
     >
@@ -132,6 +145,46 @@ export default async function WorkOrderSheet({ params }: { params: Promise<{ id:
           </tr>
         </tbody>
       </table>
+
+      {plan.length > 0 && (
+        <>
+          {/*
+            * 예정 형명. 규격은 재단에서 확정되지만, 어떤 규격을 몇 개 낼
+            * 계획인지는 착수 전에 정해 두고 현장에 같이 내린다.
+            * 실제와 달라도 시스템이 고치지 않는다 (§7).
+            */}
+          <h2 className="mt-5 text-sm font-bold text-black">예정 형명</h2>
+          <table className="print-table mt-1.5">
+            <thead>
+              <tr>
+                <th className="w-[24%]">모델명</th>
+                <th className="w-[56%]">규격</th>
+                <th className="w-[20%] text-right">예정 수량</th>
+              </tr>
+            </thead>
+            <tbody>
+              {plan.map((r) => (
+                <tr key={r.item_code}>
+                  <td className="font-mono font-bold">{r.item_code}</td>
+                  <td>{r.item_name}</td>
+                  <td className="text-right tnum">{r.planned_qty ?? ''}</td>
+                </tr>
+              ))}
+              <tr>
+                <th colSpan={2} className="text-right">합계</th>
+                <td className="text-right tnum font-bold">
+                  {plan.reduce((a, r) => a + (r.planned_qty ?? 0), 0)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <p className="mt-1.5 text-[10px] leading-relaxed text-black">
+            규격은 재단 공정에서 확정됩니다. 위 수량은 예정입니다. 실제 규격과
+            수량은 재단 시 기록되어 생산 규격 기록지에 인쇄되므로 이 표에 손으로
+            적지 않습니다. 예정과 실제가 달라도 시스템이 고치지 않습니다.
+          </p>
+        </>
+      )}
 
       <h2 className="mt-5 text-sm font-bold text-black">공정 순서 및 자재 소요량</h2>
       <table className="print-table mt-1.5">

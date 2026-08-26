@@ -66,7 +66,7 @@ async function MaterialView({ userId, id }: { userId: string; id: string }) {
 
     return {
       lot,
-      // 원재료는 작업지시에 직접 붙는다
+      // 원재료는 작업 지시에 직접 붙는다
       batches: await db.rows<{ id: string; batch_no: string; sheet_count: number; status: string }>(
         `select id, batch_no, sheet_count, status::text as status
            from work_order where material_lot_id = $1 order by issued_at desc`, [id]),
@@ -126,7 +126,7 @@ async function MaterialView({ userId, id }: { userId: string; id: string }) {
         </Panel>
 
         {d.batches.length > 0 && (
-          <Panel title="이 원재료로 만든 배치" note="원재료는 작업지시에 직접 붙는다">
+          <Panel title="이 원재료로 만든 배치" note="원재료는 작업 지시에 직접 붙는다">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>

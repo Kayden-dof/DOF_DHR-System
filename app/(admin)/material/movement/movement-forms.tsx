@@ -65,7 +65,7 @@ export function MovementForm({ lots, orders }: { lots: LotOpt[]; orders: WoOpt[]
         </div>
         {needsWo && (
           <div className="lg:col-span-2">
-            <label className="label">작업지시 (공정 폐기는 필수)</label>
+            <label className="label">작업 지시 (공정 폐기는 필수)</label>
             <select name="work_order_id" required className="input">
               {orders.map((o) => (
                 <option key={o.id} value={o.id}>{o.batch_no} · {o.wo_no}</option>

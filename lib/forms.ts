@@ -2,7 +2,7 @@ export type FormState = { ok?: boolean; message?: string; error?: string };
 export const EMPTY_FORM_STATE: FormState = {};
 
 export const NUMBERING_TARGETS = [
-  { code: 'WORK_ORDER',   label: '작업지시서 번호', note: 'work_order.wo_no' },
+  { code: 'WORK_ORDER',   label: '작업 지시서 번호', note: 'work_order.wo_no' },
   { code: 'BATCH',        label: '배치번호',        note: 'work_order.batch_no' },
   { code: 'PRODUCT_LOT',  label: '제조번호',        note: 'product_lot.lot_no · 재단 시 부여' },
   { code: 'MATERIAL_LOT', label: '자재 로트번호',   note: 'material_lot.lot_no · 바코드 값' },
@@ -36,7 +36,7 @@ export const SUPPLIER_STATUS = [
 
 export const MOVEMENT_TYPES = [
   { code: 'RETURN',         label: '반납',      sign: 1,  note: '원 로트로 복귀한다' },
-  { code: 'DISPOSAL_WIP',   label: '공정 폐기', sign: -1, note: '작업지시를 지정해야 한다' },
+  { code: 'DISPOSAL_WIP',   label: '공정 폐기', sign: -1, note: '작업 지시를 지정해야 한다' },
   { code: 'DISPOSAL_STOCK', label: '재고 폐기', sign: -1, note: '기한 경과 · 파손 등' },
   { code: 'ADJUSTMENT',     label: '조정',      sign: 0,  note: '실사 차이' },
 ] as const;
@@ -90,7 +90,7 @@ export const TABLE_LABEL: Record<string, string> = {
   dmr_bom_tier:        '장입 구간',
   purchase_order:      '발주',
   material_lot:        '자재 로트',
-  work_order:          '작업지시',
+  work_order:          '작업 지시',
   product_lot:         '제품 로트',
   process_record:      '공정 기록',
   material_issue:      '자재 투입',

@@ -97,6 +97,10 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
            left join product_lot pl on pl.id = pr.product_lot_id
           where pr.work_order_id = $1
           order by pr.day_no, o.seq, pr.attempt`, [id]),
+      plan: await db.rows<{ item_id: string; item_code: string; item_name: string; planned_qty: number | null }>(
+        `select p.item_id, i.code as item_code, i.name as item_name, p.planned_qty
+           from work_order_plan p join item i on i.id = p.item_id
+          where p.work_order_id = $1 order by p.seq, i.code`, [id]),
       finished: await db.rows<FinOpt>(
         `select id, code, name from item where type = 'FIN' and is_active order by code`),
       today: await db.val<string>(`select to_char(timezone('Asia/Seoul', now()),'YYYY-MM-DD')`),
@@ -133,7 +137,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Link href={`/print/work-order/${wo.id}`} className="btn-ghost h-9 px-3 text-xs">
-            작업지시서 인쇄
+            작업 지시서 인쇄
           </Link>
           {d.lots.length > 0 && (
             <Link href={`/print/label-request/${wo.id}`} className="btn-ghost h-9 px-3 text-xs">
@@ -149,7 +153,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
 
       {wo.status === 'CANCELLED' && (
         <div className="card border-danger/30 bg-danger-bg p-4">
-          <p className="text-sm font-semibold text-ink">이 작업지시는 취소되었습니다.</p>
+          <p className="text-sm font-semibold text-ink">이 작업 지시는 취소되었습니다.</p>
           <p className="mt-1 text-sm text-muted">사유: {wo.cancelled_reason}</p>
           <p className="mt-1 text-xs text-muted">
             지시서번호와 배치번호는 소멸했으며 재사용하지 않습니다.
@@ -181,6 +185,47 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
           </Field>
         </div>
       </Panel>
+
+      {d.plan.length > 0 && (
+        <Panel
+          title="예정 형명"
+          note="발행 시점에 정한 계획. 실제는 재단에서 정해지며 달라도 시스템이 고치지 않는다"
+        >
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr>
+                  <th className="th">모델명</th>
+                  <th className="th">규격</th>
+                  <th className="th text-right">예정</th>
+                  <th className="th text-right">재단 실적</th>
+                  <th className="th text-right">차이</th>
+                </tr>
+              </thead>
+              <tbody>
+                {d.plan.map((r) => {
+                  const made = d.lots
+                    .filter((l) => l.item_code === r.item_code)
+                    .reduce((a, l) => a + l.qty_produced, 0);
+                  const diff = made - (r.planned_qty ?? 0);
+                  return (
+                    <tr key={r.item_id}>
+                      <td className="td font-mono text-xs">{r.item_code}</td>
+                      <td className="td text-sm">{r.item_name}</td>
+                      <td className="td tnum text-right text-muted">{r.planned_qty ?? ''}</td>
+                      <td className="td tnum text-right font-semibold">{made || ''}</td>
+                      {/* 차이는 사실만 적는다. 많고 적음을 판정하지 않는다 (§10) */}
+                      <td className={`td tnum text-right ${diff === 0 ? 'text-faint' : 'text-ink'}`}>
+                        {made === 0 ? '' : diff > 0 ? `+${diff}` : diff}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Panel>
+      )}
 
       <Panel
         title="제품 로트 (재단 분할)"

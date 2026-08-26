@@ -15,7 +15,7 @@ export const dynamic = 'force-dynamic';
      역추적  제품 로트 -> 배치 -> 원재료 로트와 투입 자재 전부
      정추적  자재 로트 -> 그 자재가 들어간 제품 로트 전부
 
-   원재료는 작업지시에 직접 붙고 시약·포장재는 공정 기록을 경유한다.
+   원재료는 작업 지시에 직접 붙고 시약·포장재는 공정 기록을 경유한다.
    두 경로를 모두 따라가야 계보가 온전하다.
 --------------------------------------------------------------------------- */
 
@@ -118,7 +118,7 @@ export default async function TracePage({ searchParams }: { searchParams: Search
           <h3 className="text-xs font-bold text-ink">계보가 성립하는 방식</h3>
           <ul className="mt-2 space-y-1.5 text-xs leading-relaxed text-muted">
             <li>
-              · <b className="text-ink">원재료</b>는 작업지시에 직접 붙습니다. 배치당 하나이므로
+              · <b className="text-ink">원재료</b>는 작업 지시에 직접 붙습니다. 배치당 하나이므로
               제품 로트에서 배치를 거쳐 원재료 로트까지 한 줄로 이어집니다.
             </li>
             <li>
@@ -130,7 +130,7 @@ export default async function TracePage({ searchParams }: { searchParams: Search
               갈립니다.
             </li>
             <li>
-              · 투입 기록에는 작업지시를 중복 저장하지 않습니다. 공정 기록을 경유하면 배치와
+              · 투입 기록에는 작업 지시를 중복 저장하지 않습니다. 공정 기록을 경유하면 배치와
               제품 로트 양쪽이 나오므로 경로가 하나면 충분하고, 둘이면 어긋납니다.
             </li>
           </ul>

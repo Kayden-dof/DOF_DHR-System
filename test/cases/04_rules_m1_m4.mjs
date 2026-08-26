@@ -311,7 +311,7 @@ export default [
                       day_no, work_date, worker_id)
                     values ($1,$2,$3,1,current_date,$4)`,
                    [woB.id, pl, m.ops['WS-DX2401-08'], m.worker]),
-      { code: 'P0001', message: '이 작업지시의 로트가 아닙니다' });
+      { code: 'P0001', message: '이 작업 지시의 로트가 아닙니다' });
   },
 },
 
