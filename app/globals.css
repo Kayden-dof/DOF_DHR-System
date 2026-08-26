@@ -12,6 +12,19 @@
 
    SIL Open Font License 1.1 · public/fonts/PretendardVariable.LICENSE.txt
 --------------------------------------------------------------------------- */
+/*
+ * 표시용. 큰 글자 하나를 세울 때만 쓴다. Instrument Serif 는 획 대비가 커서
+ * 작게 쓰면 가늘어져 읽히지 않는다. 본문이나 표에는 절대 쓰지 않는다.
+ * SIL Open Font License 1.1 · public/fonts/InstrumentSerif.LICENSE.txt
+ */
+@font-face {
+  font-family: 'Instrument Serif';
+  src: url('/fonts/InstrumentSerif-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: fallback;
+}
+
 @font-face {
   font-family: 'Pretendard Variable';
   src: url('/fonts/PretendardVariable.woff2') format('woff2-variations');
@@ -97,6 +110,7 @@
                'Apple SD Gothic Neo', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'Cascadia Mono', 'IBM Plex Mono', Consolas, 'D2Coding',
                ui-monospace, monospace;
+  --font-display: 'Instrument Serif', 'Times New Roman', serif;
 }
 
 :root {
@@ -137,6 +151,9 @@ body {
 /* 제목은 자간을 좁혀야 무게가 잡힌다. 한글은 라틴보다 조금 더 좁혀도 된다 */
 h1, h2, h3 { letter-spacing: -0.025em; font-weight: 700; }
 h1 { line-height: 1.25; }
+
+/* 표시용 서체. 큰 글자 하나에만 */
+.display { font-family: var(--font-display); font-weight: 400; letter-spacing: -0.01em; }
 
 /* 숫자는 자리가 흔들리면 안 된다. 로트번호 · 순번 · 일시 · 수량 전부 */
 .tnum { font-variant-numeric: tabular-nums; }

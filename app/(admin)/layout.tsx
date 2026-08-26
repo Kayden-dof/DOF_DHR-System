@@ -44,7 +44,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <Link href="/" className="flex shrink-0 items-center gap-2.5" aria-label="현황으로">
             <Wordmark className="h-[1.125rem] w-auto" />
             <span className="h-4 w-px bg-line-strong" aria-hidden />
-            <span className="text-[0.9375rem] font-bold tracking-tight text-ink">Lineage</span>
+            <span className="display text-[1.0625rem] leading-none text-ink">Registry</span>
             <span className="chip hidden bg-brand-tint text-brand sm:inline-flex">관리</span>
           </Link>
 

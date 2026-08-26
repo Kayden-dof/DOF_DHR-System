@@ -40,16 +40,30 @@ export default async function LoginPage() {
   return (
     <main className="grid min-h-screen lg:grid-cols-[1.1fr_minmax(29rem,0.9fr)]">
       {/* 로고 면. 좁은 화면에서는 접힌다 */}
-      <section className="band-dark relative hidden items-center justify-center overflow-hidden p-16 lg:flex">
+      <section className="band-dark relative hidden flex-col justify-between overflow-hidden p-14 lg:flex">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              'radial-gradient(120% 90% at 50% 50%, transparent 40%, rgb(10 8 20 / .45) 100%)',
+              'radial-gradient(130% 100% at 50% 42%, transparent 36%, rgb(8 6 18 / .5) 100%)',
           }}
         />
-        <WordmarkOnDark className="relative w-full max-w-[26rem]" />
+
+        <span aria-hidden className="relative h-px w-16 bg-white/25" />
+
+        <div className="relative">
+          <WordmarkOnDark className="w-full max-w-[23rem]" />
+
+          <div className="mt-9 flex items-center gap-4">
+            <span aria-hidden className="h-px w-12 shrink-0 bg-white/25" />
+            <span className="display text-[2.5rem] leading-none text-white">Registry</span>
+          </div>
+        </div>
+
+        <p className="relative text-[0.6875rem] font-medium tracking-[0.18em] text-on-dark-mute">
+          REGENERATIVE HEALTHCARE PLATFORM
+        </p>
       </section>
 
       {/* 입력 면 */}
@@ -57,19 +71,19 @@ export default async function LoginPage() {
         <div aria-hidden className="brand-rule absolute inset-x-0 top-0 lg:hidden" />
 
         <div className="flex w-full max-w-[25rem] flex-1 flex-col justify-center">
-          <div className="lg:hidden">
-            <Wordmark className="h-8 w-auto" />
+          {/* 좁은 화면에서는 여기가 브랜드 자리다 */}
+          <div className="mb-9 flex items-baseline gap-3 lg:hidden">
+            <Wordmark className="h-7 w-auto" />
+            <span className="display text-[1.75rem] leading-none text-brand">Registry</span>
           </div>
 
-          <div className="mt-8 flex items-end justify-between gap-4 lg:mt-0">
-            <div>
-              <h1 className="text-[2rem] font-bold leading-none tracking-[-0.03em] text-ink">
-                Lineage
-              </h1>
-              <p className="mt-2 text-sm font-medium text-muted">제조기록 계보</p>
-            </div>
-            <Wordmark className="hidden h-5 w-auto shrink-0 pb-1 lg:block" />
-          </div>
+          <h1 className="display hidden text-[2.75rem] leading-none text-ink lg:block">
+            Registry
+          </h1>
+
+          <p className="text-sm font-medium tracking-tight text-muted lg:mt-3.5">
+            DHR 지원 시스템
+          </p>
 
           <div aria-hidden className="mt-5 h-px bg-line" />
 

@@ -97,8 +97,7 @@ export default function LoginForm({ owners }: { owners: string[] }) {
 
       <div className="card-raised relative overflow-hidden">
         {/* 카드 위쪽 브랜드 띠. 면에 무게를 준다 */}
-        <div aria-hidden
-             className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-brand to-indigo" />
+        <div aria-hidden className="absolute inset-x-0 top-0 h-[3px] bg-brand" />
 
         <div className="divide-y divide-line-soft pt-[3px]">
           <Slot
@@ -128,7 +127,7 @@ export default function LoginForm({ owners }: { owners: string[] }) {
             <div
               aria-hidden={!open}
               inert={!open}
-              className={`grid grid-cols-3 gap-2 border-t border-line-soft bg-surface-sub p-3 transition-opacity duration-200 ${
+              className={`grid grid-cols-3 gap-2 border-t border-line bg-canvas p-3.5 transition-opacity duration-200 ${
                 open ? 'opacity-100' : 'opacity-0'
               }`}
             >
@@ -229,7 +228,7 @@ function Slot({
       />
 
       <span
-        className={`w-[3.75rem] shrink-0 text-[0.6875rem] font-bold tracking-wide transition-colors ${
+        className={`w-[3.5rem] shrink-0 text-[0.6875rem] font-bold tracking-[0.06em] transition-colors ${
           active ? 'text-brand' : 'text-muted'
         }`}
       >
@@ -237,7 +236,7 @@ function Slot({
       </span>
 
       <span className="flex h-7 min-w-0 flex-1 items-center">
-        <span className="truncate text-[1.4375rem] font-semibold leading-none tnum tracking-[0.18em] text-ink">
+        <span className="truncate text-[1.5rem] font-semibold leading-none tnum tracking-[0.2em] text-ink">
           {shown}
         </span>
         {active && (
