@@ -1,67 +1,84 @@
 @import "tailwindcss";
 
 /* ---------------------------------------------------------------------------
-   DOF 색 (사내 CI 원본에서 뽑음)
+   DOF 색
 
-     #562B8D  워드마크 자주        기본 브랜드
-     #342C68  법인 로고 남보라      어두운 면과 상단 밴드
-     #595656  조합형 서술어 진회색   본문 계열의 기준
-     #9FA0A0  깃발 회색            보조
+   값은 사내 디자인 시스템(Downloads/dof-design-system/tokens)의 실측 정본을
+   그대로 가져온다. 여기서 다시 재지 않는다. 내가 로고 PNG에서 뽑은 값과
+   1 단위쯤 어긋났는데, 그럴 때 이기는 쪽은 늘 정본이다. 슬라이드와 이 화면이
+   나란히 놓이는 자리가 생기기 때문이다.
 
-   자주는 hsl(266 53% 36%)이라 이 축으로 단계를 뽑았다. 회색은 CI가 중성에
-   가까운 웜그레이라 본문 계열도 같은 온도로 맞춘다. 임의로 고른 색을 섞지
-   않는다. 로고 옆에 놓았을 때 어긋나 보이면 그 화면은 브랜드를 벗어난 것이다.
+     violet-600 #562C8D  로고 자주            기본 브랜드
+     violet-700 #420E69  제목 자주            전사 템플릿 XML의 유일한 명시색
+     violet-500 #6E4FA2  기본 채움
+     violet-200 #D9C8EC  틴트 위 헤어라인
+     page       #F2F0EF  웜 오프화이트 바탕
+     band       #E9E5E6  상단 웜그레이 밴드
+     mist-300   #E4E0E6  기본 구분선
+     logo-grey  #9FA0A0  로고 아래 블록
+
+   여기에 CI 원본에서만 나오는 값 하나를 더한다.
+
+     ci-indigo  #342C68  법인 로고(BI 정방)의 남보라. 어두운 면에 쓴다
 
    현장 화면이라 다크 모드를 두지 않는다. 조명 밝은 제조소에서 대비만 확보한다.
 --------------------------------------------------------------------------- */
 @theme {
   /* 면 */
-  --color-canvas:      #F3F1F2;
-  --color-canvas-deep: #E7E3E6;
+  --color-canvas:      #F2F0EF;
+  --color-canvas-deep: #E9E5E6;
   --color-surface:     #FFFFFF;
-  --color-surface-sub: #FAF9FA;
-  --color-line:        #E7E3E8;
-  --color-line-soft:   #F0EDF1;
-  --color-line-strong: #CFC9D3;
+  --color-surface-sub: #FAFAF9;
+  --color-line:        #E4E0E6;
+  --color-line-soft:   #EFECF0;
+  --color-line-strong: #D4D1CD;
 
   /* 브랜드 */
-  --color-brand:       #562B8D;
-  --color-brand-deep:  #472178;
-  --color-brand-soft:  #F7F3FB;
-  --color-brand-tint:  #EFE8F8;
-  --color-brand-line:  #DCCFEC;
-  --color-brand-pale:  #B398D7;
+  --color-brand:       #562C8D;
+  --color-brand-deep:  #420E69;
+  --color-brand-mid:   #6E4FA2;
+  --color-brand-soft:  #F8F1FD;
+  --color-brand-tint:  #F4EFFA;
+  --color-brand-line:  #D9C8EC;
+  --color-brand-pale:  #B8A2D0;
 
   /* 법인 남보라. 상단 밴드와 어두운 면 */
   --color-indigo:      #342C68;
   --color-indigo-deep: #241E47;
-  --color-indigo-soft: #463C82;
+  --color-indigo-soft: #4A3470;
 
   /* CI 회색 원본. 로고에만 쓴다 */
   --color-ci-gray:     #9FA0A0;
 
   /* 글자 */
-  --color-ink:   #1F1D24;
-  --color-body:  #46434D;
-  --color-muted: #6C6875;
-  --color-faint: #9B97A3;
-  --color-on-dark:      #FFFFFF;
-  --color-on-dark-mute: #B9B2D0;
+  --color-ink:   #1F1F23;
+  --color-body:  #2A2530;
+  --color-muted: #6E6E6E;
+  --color-faint: #8B8394;
+  --color-on-dark:      #FAFAF9;
+  --color-on-dark-mute: #B8A2D0;
 
-  /* 상태. 브랜드와 싸우지 않도록 채도를 낮춰 둔다 */
-  --color-danger:    #A93535;
-  --color-danger-bg: #FCF0F0;
-  --color-danger-line: #EDCFCF;
-  --color-ok:        #2C6E45;
-  --color-ok-bg:     #EDF5F0;
-  --color-warn:      #855A00;
-  --color-warn-bg:   #FDF6E6;
-  --color-info:      #1F5680;
-  --color-info-bg:   #EDF3F9;
+  /* 상태. 주간보고 진행 상태 열에서 가져왔다 */
+  --color-danger:    #B23A3A;
+  --color-danger-bg: #FBEAEA;
+  --color-danger-line: #E8CFCF;
+  --color-ok:        #2E7D32;
+  --color-ok-bg:     #EAF5EA;
+  --color-warn:      #8A6100;
+  --color-warn-bg:   #FFF8E7;
+  --color-info:      #1D4ED8;
+  --color-info-bg:   #DBEAFE;
 
-  --font-sans: "Pretendard Variable", "Pretendard", "Malgun Gothic", "맑은 고딕",
-               -apple-system, "Segoe UI", sans-serif;
-  --font-mono: "Cascadia Mono", "D2Coding", ui-monospace, Consolas, monospace;
+  /*
+   * 맑은 고딕이 먼저다. 사내 문서 949개 글줄이 이 얼굴이고, 무엇보다 제조소
+   * 패드가 늘 망에 붙어 있다고 볼 수 없다. 글꼴을 내려받게 두면 늦게 왔을 때
+   * 숫자 자리가 흔들려 로트번호를 잘못 읽는다. 바깥에서 받아오는 글꼴은 두지
+   * 않는다.
+   */
+  --font-sans: 'Malgun Gothic', '맑은 고딕', Pretendard, 'Noto Sans KR',
+               'Apple SD Gothic Neo', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'Cascadia Mono', 'IBM Plex Mono', Consolas, 'D2Coding',
+               ui-monospace, monospace;
 }
 
 :root {
@@ -76,12 +93,15 @@
   --r-lg: 0.75rem;
   --r-xl: 1rem;
 
-  /* 그림자. 종이에 가깝게 얕게만 쌓는다 */
-  --sh-1: 0 1px 2px rgb(31 29 36 / .05);
-  --sh-2: 0 1px 2px rgb(31 29 36 / .05), 0 4px 12px -4px rgb(31 29 36 / .08);
-  --sh-3: 0 2px 4px rgb(31 29 36 / .06), 0 12px 32px -8px rgb(31 29 36 / .14);
+  /* 그림자. 원본 슬라이드는 전부 헤어라인이고 그림자가 없다.
+     화면에서만, 떠 있어야 하는 것에만 준다. */
+  --sh-1: 0 1px 2px rgb(26 26 31 / .06);
+  --sh-2: 0 1px 3px rgb(26 26 31 / .08), 0 1px 2px rgb(26 26 31 / .04);
+  --sh-3: 0 12px 32px rgb(26 26 31 / .11), 0 2px 6px rgb(26 26 31 / .05);
 
-  --ring: 0 0 0 3px color-mix(in srgb, var(--color-brand) 20%, transparent);
+  --ring: 0 0 0 3px rgb(110 79 162 / .28);
+
+  --ease: cubic-bezier(0.2, 0, 0.15, 1);
 }
 
 html, body { height: 100%; }

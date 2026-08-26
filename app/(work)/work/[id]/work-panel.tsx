@@ -130,8 +130,13 @@ export default function WorkPanel({
       <section className="card p-5">
         <div className="flex items-baseline justify-between">
           <h2 className="text-base font-bold text-ink">{day}일차 공정</h2>
-          <span className="text-sm text-muted tnum">
-            내 기록 {mine} / {ops.length}
+          <span className="text-sm text-muted">
+            마감 <b className="tnum text-ink">{mine}</b> / {ops.length}
+            {dayRecords.some((r) => !r.ended_at) && (
+              <span className="ml-2 font-bold text-warn">진행 중 {
+                dayRecords.filter((r) => !r.ended_at).length
+              }</span>
+            )}
           </span>
         </div>
 
@@ -352,13 +357,23 @@ function RunningCard({ woId, op, rec, lots, sheets }: {
 
   return (
     <div>
-      <div className="flex gap-1 border-b border-line px-4 pt-3">
+      {/* 장갑 낀 손이 누른다. 전환 단추도 조작 대상이므로 --tap 을 그대로 받는다 */}
+      <div className="grid grid-cols-2 gap-1 border-b border-line p-2">
         {(['material', 'end'] as const).map((t) => (
-          <button key={t} onClick={() => setTab(t)}
-                  className={`rounded-t-md px-4 py-2.5 text-sm font-semibold ${
-                    tab === t ? 'bg-canvas text-ink' : 'text-muted'
+          <button key={t} type="button" onClick={() => setTab(t)}
+                  aria-pressed={tab === t}
+                  className={`no-select flex h-[var(--tap)] items-center justify-center gap-2 rounded-md text-base font-bold transition-colors ${
+                    tab === t
+                      ? 'bg-brand-tint text-brand'
+                      : 'text-muted hover:bg-surface-sub'
                   }`}>
-            {t === 'material' ? `자재 투입 ${rec.issues.length > 0 ? `(${rec.issues.length})` : ''}` : '공정 마감'}
+            {t === 'material' ? '자재 투입' : '공정 마감'}
+            {t === 'material' && rec.issues.length > 0 && (
+              <span className="chip bg-brand text-white">{rec.issues.length}</span>
+            )}
+            {t === 'end' && missing.length > 0 && (
+              <span className="chip bg-warn-bg text-warn">자재 {missing.length}종 남음</span>
+            )}
           </button>
         ))}
       </div>

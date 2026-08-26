@@ -183,11 +183,17 @@ function Filters({
   base: (v: string | undefined) => string;
 }) {
   return (
-    <div className="flex items-center gap-1.5">
-      <span className="text-xs font-semibold text-muted">{label}</span>
+    // 표 이름이 20종 넘는다. 한 줄에 밀어 넣으면 오른쪽이 잘려 안 보이는 거르개가
+    // 생긴다. 줄바꿈해서 전부 보이게 둔다.
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className="w-10 shrink-0 text-[0.6875rem] font-bold tracking-wide text-muted">
+        {label}
+      </span>
       <Link
         href={base(undefined)}
-        className={`chip ${!current ? 'bg-brand text-white' : 'bg-canvas text-muted hover:text-ink'}`}
+        className={`chip ${!current
+          ? 'bg-brand text-white'
+          : 'bg-surface-sub text-muted ring-1 ring-line hover:text-ink'}`}
       >
         {all}
       </Link>
@@ -195,9 +201,9 @@ function Filters({
         <Link
           key={o.code}
           href={base(o.code)}
-          className={`chip ${
-            current === o.code ? 'bg-brand text-white' : 'bg-canvas text-muted hover:text-ink'
-          }`}
+          className={`chip ${current === o.code
+            ? 'bg-brand text-white'
+            : 'bg-surface-sub text-muted ring-1 ring-line hover:text-ink'}`}
         >
           {o.label}
         </Link>
