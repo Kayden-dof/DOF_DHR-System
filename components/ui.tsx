@@ -68,10 +68,10 @@ export function PageHead({
 }
 
 export function Panel({
-  title, note, action, children, className = '', flush = false,
+  title, note, action, children, className = '',
 }: {
   title?: string; note?: React.ReactNode; action?: React.ReactNode;
-  children: React.ReactNode; className?: string; flush?: boolean;
+  children: React.ReactNode; className?: string;
 }) {
   return (
     <section className={`card overflow-hidden ${className}`}>
@@ -84,7 +84,7 @@ export function Panel({
           {action && <div className="ml-auto shrink-0">{action}</div>}
         </header>
       )}
-      {flush ? children : <div className="contents">{children}</div>}
+      {children}
     </section>
   );
 }
