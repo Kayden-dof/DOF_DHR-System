@@ -118,18 +118,21 @@ try {
 
 // --- 초기 관리자 ---------------------------------------------------------------
 if (c.users === 0) {
-  const loginCode = process.env.SEED_LOGIN_CODE || '1001';
+  // 사내 사번이 6자리다. 개발 계정으로 만든다 - 비밀번호 초기화가 개발 계정만
+  // 할 수 있는 일이라, 첫 계정이 개발 계정이 아니면 아무도 초기화를 못 한다.
+  const loginCode = process.env.SEED_LOGIN_CODE || '000000';
   const pin = String(randomInt(100000, 1000000));
   const id = (
     await client.query(
-      `insert into app_user (login_code, full_name, pin_hash) values ($1,$2,$3) returning id`,
-      [loginCode, process.env.SEED_FULL_NAME || '초기 관리자', await hashPin(pin)],
+      `insert into app_user (login_code, full_name, pin_hash, is_developer)
+       values ($1,$2,$3,true) returning id`,
+      [loginCode, process.env.SEED_FULL_NAME || '개발 계정', await hashPin(pin)],
     )
   ).rows[0].id;
   await client.query(`insert into user_role (user_id, role) values ($1,'SYS_ADMIN')`, [id]);
 
   console.log('\n  ──────────────────────────────────────────');
-  console.log(`   초기 시스템관리자  로그인 ${loginCode} / 비밀번호 ${pin}`);
+  console.log(`   개발 계정  로그인 ${loginCode} / 비밀번호 ${pin}`);
   console.log('   이 값은 저장되지 않는다. 지금 적어 두고');
   console.log('   로그인 후 사용자 화면에서 즉시 변경할 것.');
   console.log('  ──────────────────────────────────────────');

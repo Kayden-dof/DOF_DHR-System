@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { requireUser, hasRole } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import { fmtDate, fmtDateTime } from '@/lib/fmt';
-import { NUMBERING_TARGETS, M1_CRITICAL_TARGETS, WO_STATUS_LABEL } from '@/lib/forms';
+import { NUMBERING_TARGETS, M1_CRITICAL_TARGETS, WO_STATUS_LABEL, tableLabel } from '@/lib/forms';
 import { Panel, Empty, Tag, TableWrap } from '@/components/ui';
 import ActionChip from '@/components/action-chip';
 
@@ -24,17 +24,6 @@ interface Counts {
   open_records: number; unprinted_days: number;
 }
 
-const TABLE_LABEL: Record<string, string> = {
-  work_order: '작업지시', product_lot: '제품 로트', process_record: '공정 기록',
-  material_issue: '자재 투입', material_lot: '자재 로트', purchase_order: '발주',
-  record_print: '인쇄', day_lock: '일차 잠금', stock_movement: '재고 증감',
-  steril_batch: '멸균 배치', steril_batch_lot: '멸균 동봉', shipment: '출고',
-  item: '품목', supplier: '공급자', item_supplier: '공급자 단가',
-  price_history: '단가 이력', shelf_life_history: '사용기간 이력',
-  device_master: '제품표준서', dmr_operation: '공정', dmr_bom: '자재 구성표',
-  dmr_bom_tier: '장입 구간', numbering_rule: '채번 규칙',
-  app_user: '계정', user_role: '역할',
-};
 
 export default async function Dashboard() {
   const user = await requireUser();
@@ -305,7 +294,7 @@ export default async function Dashboard() {
                 <li key={i} className="flex items-center gap-3 px-4 py-2.5">
                   <ActionChip action={r.action} />
                   <span className="min-w-0 flex-1 truncate text-sm text-ink">
-                    {TABLE_LABEL[r.table_name] ?? r.table_name}
+                    {tableLabel(r.table_name)}
                   </span>
                   <span className="shrink-0 text-xs text-muted">{r.actor_name ?? ''}</span>
                   <span className="shrink-0 tnum text-xs text-faint">{fmtDateTime(r.acted_at)}</span>

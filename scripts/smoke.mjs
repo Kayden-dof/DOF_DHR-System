@@ -94,10 +94,10 @@ async function sweep(label, cookie, paths) {
   }
 }
 
-const mgrCookie = session(userIds['1002']);
+const mgrCookie = session(userIds['100200']);
 await sweep('관리자 화면', mgrCookie, ADMIN);
 
-const workerCookie = session(userIds['2001']);
+const workerCookie = session(userIds['200100']);
 await sweep('현장 화면', workerCookie, WORKER);
 
 console.log(`\n${bad === 0 ? '전 화면 통과' : `실패 ${bad}건`}`);

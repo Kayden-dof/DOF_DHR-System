@@ -17,7 +17,9 @@ export interface UserRow {
   roles: RoleCode[];
 }
 
-export default function UserRowView({ u, meId }: { u: UserRow; meId: string }) {
+export default function UserRowView(
+  { u, meId, meIsDeveloper }: { u: UserRow; meId: string; meIsDeveloper: boolean },
+) {
   const [open, setOpen] = useState(false);
   const isMe = u.id === meId;
 
@@ -63,7 +65,7 @@ export default function UserRowView({ u, meId }: { u: UserRow; meId: string }) {
           <td colSpan={5} className="border-b border-line bg-canvas px-4 py-4">
             <div className="grid gap-5 lg:grid-cols-3">
               <RolePanel u={u} isMe={isMe} />
-              <PinPanel u={u} />
+              <PinPanel u={u} isMe={isMe} canReset={meIsDeveloper} />
               <FlagPanel u={u} isMe={isMe} />
             </div>
           </td>
@@ -129,7 +131,15 @@ function RolePanel({ u, isMe }: { u: UserRow; isMe: boolean }) {
   );
 }
 
-function PinPanel({ u }: { u: UserRow }) {
+/**
+ * 비밀번호 초기화.
+ *
+ * 남의 비밀번호를 바꾸면 그 사람 이름으로 기록을 남길 수 있게 된다. 기록은
+ * 지울 수 없어 사후 복구가 안 되므로 개발 계정만 할 수 있다. DB 트리거가 같은
+ * 것을 막고 있고, 여기서는 아예 단추를 내주지 않는다. 자기 비밀번호는 누구나
+ * 바꾼다.
+ */
+function PinPanel({ u, isMe, canReset }: { u: UserRow; isMe: boolean; canReset: boolean }) {
   const [state, action, pending] = useActionState<FormState, FormData>(setPin, {});
 
   if (!u.can_login) {
@@ -143,8 +153,19 @@ function PinPanel({ u }: { u: UserRow }) {
     );
   }
 
+  if (!isMe && !canReset) {
+    return (
+      <Panel title="비밀번호 초기화">
+        <p className="text-xs leading-relaxed text-muted">
+          다른 사람의 비밀번호는 <b className="text-ink">개발 계정</b>만 초기화할 수 있습니다.
+          초기화한 뒤에는 본인이 바로 바꾸게 하십시오.
+        </p>
+      </Panel>
+    );
+  }
+
   return (
-    <Panel title="비밀번호 재설정">
+    <Panel title={isMe ? '내 비밀번호 변경' : '비밀번호 초기화'}>
       <form action={action} className="flex gap-2">
         <input type="hidden" name="id" value={u.id} />
         <input

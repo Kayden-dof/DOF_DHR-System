@@ -55,8 +55,8 @@ export default async function WorkHome() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-bold text-ink">작업할 배치</h1>
-        <p className="mt-1.5 text-sm text-muted">
+        <h1 className="text-2xl font-bold text-white">작업할 배치</h1>
+        <p className="mt-1.5 text-sm text-on-dark-mute">
           {user.full_name} 님. 배치를 눌러 공정 기록을 작성하십시오.
         </p>
       </div>
@@ -69,7 +69,12 @@ export default async function WorkHome() {
           </p>
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div
+          // auto-fit 이라 배치가 하나뿐이면 그 하나가 화면을 다 쓴다.
+          // auto-fill 이면 빈 칸을 남겨 두어 타일이 한쪽에 몰린다.
+          className="grid gap-3.5"
+          style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(24rem, 1fr))' }}
+        >
           {batches.map((b) => (
             <Link key={b.id} href={`/work/${b.id}`}
                   className="tile no-select relative gap-0 overflow-hidden p-0">

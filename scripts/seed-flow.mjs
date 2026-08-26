@@ -44,10 +44,10 @@ const users = Object.fromEntries(
   (await all(`select login_code, id, full_name from app_user`))
     .map((u) => [u.login_code, u]));
 
-const admin = users['1001'];
-const mgrUser = users['1002'];
-const w1 = users['2001'];
-const w2 = users['2002'];
+const admin = users['000000'];
+const mgrUser = users['100200'];
+const w1 = users['200100'];
+const w2 = users['200200'];
 
 /** 진행할 배치를 찾는다. 없으면 화면과 같은 절차로 하나 발행한다. */
 async function pickWorkOrder() {

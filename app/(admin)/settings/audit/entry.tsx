@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { tableLabel } from '@/lib/forms';
 import { fmtDateTime, shortId } from '@/lib/fmt';
 import ActionChip from '@/components/action-chip';
 
@@ -68,7 +69,9 @@ export default function Entry({ e }: { e: AuditEntry }) {
     <>
       <tr>
         <td className="td tnum text-muted whitespace-nowrap">{fmtDateTime(e.acted_at)}</td>
-        <td className="td font-mono text-xs">{e.table_name}</td>
+        <td className="td">
+          <span className="text-sm text-ink">{tableLabel(e.table_name)}</span>
+        </td>
         <td className="td"><ActionChip action={e.action} /></td>
         <td className="td font-mono text-xs text-faint">{shortId(e.record_id)}</td>
         <td className="td">{e.actor_name ?? <span className="text-faint">-</span>}</td>

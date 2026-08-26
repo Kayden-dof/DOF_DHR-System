@@ -40,6 +40,12 @@ export default function IssueForm({ masters, rawLots, users, today }: {
   const dmSel = ready.find((m) => m.id === dm) ?? ready[0];
   const lotSel = rawLots.find((l) => l.id === lot) ?? rawLots[0];
 
+  // 발행자는 아무나 고를 수 없다. 지시서에는 생산과 품질 두 사람의 서명란이
+  // 나가므로, 그 역할을 가진 사람이 먼저 나와야 한다. 다만 목록을 잘라 내지는
+  // 않는다. 역할이 아직 부여되지 않은 초기에 발행이 통째로 막히면 곤란하다.
+  const prodOpts = byRole(users, ['PROD_MGR', 'SYS_ADMIN']);
+  const qaOpts = byRole(users, ['QP']);
+
   useEffect(() => {
     if (!dmSel || !lotSel) return;
     const id = setTimeout(() => {
@@ -108,21 +114,21 @@ export default function IssueForm({ masters, rawLots, users, today }: {
         </div>
         <div>
           <label className="label">생산 발행자</label>
-          <select name="issued_by_prod" required value={prod || users[0]?.id}
+          <select name="issued_by_prod" required value={prod || prodOpts[0]?.id}
                   onChange={(e) => setProd(e.target.value)} className="input">
-            {users.map((u) => <option key={u.id} value={u.id}>{u.full_name}</option>)}
+            <IssuerOptions users={users} roles={['PROD_MGR', 'SYS_ADMIN']} />
           </select>
         </div>
         <div>
           <label className="label">품질 발행자</label>
-          <select name="issued_by_qa" required value={qa || users[1]?.id || users[0]?.id}
+          <select name="issued_by_qa" required value={qa || qaOpts[0]?.id}
                   onChange={(e) => setQa(e.target.value)} className="input">
-            {users.map((u) => <option key={u.id} value={u.id}>{u.full_name}</option>)}
+            <IssuerOptions users={users} roles={['QP']} />
           </select>
         </div>
       </div>
 
-      {(prod || users[0]?.id) === (qa || users[1]?.id || users[0]?.id) && (
+      {(prod || prodOpts[0]?.id) === (qa || qaOpts[0]?.id) && (
         <p className="mt-2 rounded-md bg-danger-bg px-3 py-2 text-xs text-danger">
           생산과 품질 발행자가 같습니다. 서로 다른 사람이어야 저장됩니다.
         </p>
@@ -183,5 +189,40 @@ export default function IssueForm({ masters, rawLots, users, today }: {
         <button type="button" onClick={() => setOpen(false)} className="btn-ghost">닫기</button>
       </div>
     </form>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+/** 해당 역할을 가진 사람을 앞으로 뺀다. */
+function byRole(users: UserOpt[], roles: string[]) {
+  return users.filter((u) => u.roles.some((r) => roles.includes(r)));
+}
+
+/**
+ * 발행자 선택지.
+ *
+ * 역할을 가진 사람을 먼저 보여 주고, 나머지는 "그 외"로 내린다. 잘라 내지
+ * 않는 이유는 §2 때문이다. 차단은 다섯 개뿐이고 나머지는 표시로 처리한다.
+ * 역할을 아직 안 넣은 상태에서 발행이 막히면 그건 설계 오류다.
+ */
+function IssuerOptions({ users, roles }: { users: UserOpt[]; roles: string[] }) {
+  const has = byRole(users, roles);
+  const rest = users.filter((u) => !has.includes(u));
+  const label = roles.includes('QP') ? '품질책임자' : '생산관리자';
+
+  return (
+    <>
+      {has.length > 0 && (
+        <optgroup label={label}>
+          {has.map((u) => <option key={u.id} value={u.id}>{u.full_name}</option>)}
+        </optgroup>
+      )}
+      {rest.length > 0 && (
+        <optgroup label={has.length > 0 ? '그 외' : `${label} 역할 없음`}>
+          {rest.map((u) => <option key={u.id} value={u.id}>{u.full_name}</option>)}
+        </optgroup>
+      )}
+    </>
   );
 }

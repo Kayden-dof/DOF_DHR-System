@@ -94,7 +94,7 @@ export default async function WorkBatchPage({ params }: { params: Promise<{ id: 
   return (
     <div className="space-y-5">
       <div>
-        <Link href="/work" className="text-sm font-semibold text-muted hover:text-ink">
+        <Link href="/work" className="text-sm font-semibold text-on-dark-mute transition-colors hover:text-white">
           배치 목록으로
         </Link>
         <div className="mt-2 card p-4">

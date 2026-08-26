@@ -8,16 +8,27 @@ type Field = 'code' | 'pin';
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'clear', '0', 'back'];
 
-export default function LoginForm() {
-  const [state, formAction, pending] = useActionState<LoginState, FormData>(login, {});
-  const [field, setField] = useState<Field>('code');
+/* ---------------------------------------------------------------------------
+   로그인 입력
 
-  // 값과 입력 대상을 모두 ref로 들고 화면만 다시 그린다.
-  //
-  // 상태로 두면 값이 갱신되는 시점이 다음 렌더로 밀린다. 한 번에 두 번 이상
-  // 눌리면 그 사이 눌린 키가 아직 옛 값을 보고 판단해 자릿수를 세지 못하고,
-  // 비밀번호가 로그인 번호 칸에 그대로 이어 붙는다. 장갑 낀 손으로 빠르게
-  // 누르면 실제로 재현된다. ref는 누르는 즉시 반영되므로 연타에 영향받지 않는다.
+   번호판은 칸을 누르기 전까지 열지 않는다. 늘 펼쳐 두면 화면의 절반이 안 쓰는
+   단추로 차 있고, 정작 어디에 값이 들어가는지가 묻힌다. 칸을 누르면 그 칸이
+   켜지면서 번호판이 아래에서 열린다. 한 번 열리면 로그인 번호에서 비밀번호로
+   넘어가는 동안 닫히지 않으므로, 더 누르는 횟수는 처음 한 번뿐이다.
+
+   값과 입력 대상은 ref로 들고 화면만 다시 그린다. 상태로 두면 갱신이 다음
+   렌더로 밀려서, 한 프레임에 두 번 이상 눌리면 그 사이 눌린 키가 옛 값을 보고
+   판단한다. 그러면 비밀번호가 로그인 번호 칸에 그대로 이어 붙는다.
+   장갑 낀 손으로 빠르게 누르면 실제로 재현된다.
+--------------------------------------------------------------------------- */
+
+export default function LoginForm({ owners }: { owners: string[] }) {
+  const [state, formAction, pending] = useActionState<LoginState, FormData>(login, {});
+
+  // null 이면 번호판이 닫힌 상태다
+  const [field, setField] = useState<Field | null>(null);
+  const [askReset, setAskReset] = useState(false);
+
   const codeRef = useRef('');
   const pinRef = useRef('');
   const target = useRef<Field>('code');
@@ -29,9 +40,14 @@ export default function LoginForm() {
   const [, redraw] = useReducer((n: number) => n + 1, 0);
 
   function select(f: Field) {
-    if (f === 'code') autoJump.current = false;
+    // 로그인 번호 칸을 다시 눌렀다면 자릿수가 다른 번호를 고쳐 넣겠다는 뜻이므로
+    // 자동 이동을 끈다. 다만 비어 있는 칸을 눌러 번호판을 여는 것은 처음 시작하는
+    // 동작이라 그대로 둔다. 이걸 구분하지 않으면 번호판을 여는 탭이 곧 자동 이동을
+    // 꺼 버려서, 비밀번호가 로그인 번호 칸에 이어 붙는다.
+    if (f === 'code' && codeRef.current.length > 0) autoJump.current = false;
     target.current = f;
     setField(f);
+    setAskReset(false);
   }
 
   function press(k: string) {
@@ -71,99 +87,171 @@ export default function LoginForm() {
 
   const code = codeRef.current;
   const pin = pinRef.current;
+  const open = field !== null;
+  const ready = code.length > 0 && pin.length > 0;
 
   return (
     <form action={formAction} className="mt-7 w-full">
       <input type="hidden" name="login_code" value={code} />
       <input type="hidden" name="pin" value={pin} />
 
-      <div className="card-raised overflow-hidden p-5">
-        <div className="grid grid-cols-2 gap-2.5">
+      <div className="card-raised overflow-hidden">
+        <div className="divide-y divide-line-soft">
           <Slot
-            label="로그인 번호"
-            display={code}
+            label="사번"
+            value={code}
             active={field === 'code'}
-            filled={code.length >= LOGIN_CODE_LENGTH}
+            done={code.length >= LOGIN_CODE_LENGTH}
             onSelect={() => select('code')}
           />
           <Slot
             label="비밀번호"
-            display={'•'.repeat(pin.length)}
+            value={pin}
+            mask
             active={field === 'pin'}
-            filled={pin.length >= 6}
+            done={pin.length >= 6}
             onSelect={() => select('pin')}
           />
         </div>
 
-        <div className="mt-3.5 grid grid-cols-3 gap-2">
-          {KEYS.map((k) => (
-            <button
-              key={k}
-              type="button"
-              onClick={() => press(k)}
-              aria-label={k === 'clear' ? '전체 지움' : k === 'back' ? '한 자 지움' : k}
-              className={k === 'clear' || k === 'back' ? 'padkey padkey-alt' : 'padkey'}
-            >
-              {k === 'clear' ? '전체지움' : k === 'back' ? '⌫' : k}
-            </button>
-          ))}
-        </div>
-
-        {state.error && (
-          <p
-            role="alert"
-            className="rise mt-3.5 flex items-start gap-2 rounded-md border border-danger-line bg-danger-bg px-3 py-2.5 text-sm leading-relaxed text-danger"
-          >
-            <span aria-hidden className="mt-px font-bold">!</span>
-            {state.error}
-          </p>
-        )}
-
-        <button
-          type="submit"
-          disabled={pending || !code || !pin}
-          className="btn-primary mt-3.5 h-12 w-full text-[0.9375rem]"
+        {/* 번호판. 0fr 에서 1fr 로 늘려 높이를 부드럽게 연다 */}
+        <div
+          className={`grid transition-[grid-template-rows] duration-300 ease-out ${
+            open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+          }`}
         >
-          {pending ? '확인 중' : '로그인'}
+          <div className="overflow-hidden">
+            <div
+              aria-hidden={!open}
+              inert={!open}
+              className={`grid grid-cols-3 gap-2 border-t border-line-soft bg-surface-sub p-3 transition-opacity duration-200 ${
+                open ? 'opacity-100' : 'opacity-0'
+              }`}
+            >
+              {KEYS.map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  tabIndex={open ? 0 : -1}
+                  onClick={() => press(k)}
+                  aria-label={k === 'clear' ? '전체 지움' : k === 'back' ? '한 자 지움' : k}
+                  className={k === 'clear' || k === 'back' ? 'padkey padkey-alt' : 'padkey'}
+                >
+                  {k === 'clear' ? '전체지움' : k === 'back' ? '⌫' : k}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {state.error && (
+        <p
+          role="alert"
+          className="rise mt-3 flex items-start gap-2 rounded-lg border border-danger-line bg-danger-bg px-3.5 py-2.5 text-sm leading-relaxed text-danger"
+        >
+          <span aria-hidden className="mt-px font-bold">!</span>
+          {state.error}
+        </p>
+      )}
+
+      <button
+        type="submit"
+        disabled={pending || !ready}
+        className="btn-primary mt-3 h-[3.25rem] w-full rounded-lg text-[0.9375rem] tracking-tight"
+      >
+        {pending ? '확인 중' : '로그인'}
+      </button>
+
+      <div className="mt-3.5 text-center">
+        <button
+          type="button"
+          onClick={() => setAskReset((v) => !v)}
+          aria-expanded={askReset}
+          className="rounded px-2 py-1 text-xs font-semibold text-muted transition-colors hover:text-brand"
+        >
+          비밀번호 초기화
         </button>
       </div>
 
-      <p className="mt-5 text-center text-xs leading-relaxed text-faint">
-        로그인 번호 {LOGIN_CODE_LENGTH}자리를 누르면 비밀번호 칸으로 넘어갑니다.
-        <br />세션은 8시간 유지됩니다. 자리를 비울 때는 로그아웃하십시오.
-      </p>
+      <div
+        className={`grid transition-[grid-template-rows] duration-250 ease-out ${
+          askReset ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+        }`}
+      >
+        <div className="overflow-hidden">
+          <div className="rounded-lg border border-line bg-surface px-4 py-3 text-xs leading-relaxed text-muted">
+            {owners.length > 0 ? (
+              <>
+                <b className="text-ink">{owners.join(' · ')}</b> 에게 요청하십시오.
+                초기화한 뒤에는 본인이 바로 바꾸십시오.
+              </>
+            ) : (
+              <>초기화할 수 있는 계정이 등록되어 있지 않습니다.</>
+            )}
+          </div>
+        </div>
+      </div>
     </form>
   );
 }
 
+/* -------------------------------------------------------------------------- */
+
 function Slot({
-  label, display, active, filled, onSelect,
+  label, value, active, done, mask = false, onSelect,
 }: {
-  label: string; display: string; active: boolean; filled: boolean; onSelect: () => void;
+  label: string; value: string; active: boolean; done: boolean;
+  mask?: boolean; onSelect: () => void;
 }) {
+  const shown = mask ? '•'.repeat(value.length) : value;
+
   return (
     <button
       type="button"
       onClick={onSelect}
+      aria-label={`${label} 입력`}
       aria-current={active}
-      className={`no-select relative w-full rounded-md border px-3 pb-2 pt-2.5 text-left transition-all duration-150 ${
-        active
-          ? 'border-brand bg-brand-soft shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-brand)_16%,transparent)]'
-          : 'border-line-strong bg-surface hover:border-faint'
+      className={`no-select relative flex w-full items-center gap-4 px-4 py-3.5 text-left transition-colors duration-150 ${
+        active ? 'bg-brand-soft' : 'bg-surface hover:bg-surface-sub'
       }`}
     >
-      <span className={`block text-[0.6875rem] font-bold tracking-wide ${
-        active ? 'text-brand' : 'text-muted'}`}>
+      {/* 지금 입력받는 칸을 왼쪽 띠로 먼저 말한다 */}
+      <span
+        aria-hidden
+        className={`absolute inset-y-0 left-0 w-[3px] transition-colors ${
+          active ? 'bg-brand' : 'bg-transparent'
+        }`}
+      />
+
+      <span
+        className={`w-[3.75rem] shrink-0 text-[0.6875rem] font-bold tracking-wide transition-colors ${
+          active ? 'text-brand' : 'text-muted'
+        }`}
+      >
         {label}
       </span>
-      <span className="mt-0.5 block h-7 truncate text-xl font-semibold tnum tracking-[0.14em] text-ink">
-        {display || <span className="text-faint">&middot;</span>}
-      </span>
-      {filled && (
-        <span aria-hidden className="absolute right-2.5 top-2.5 text-xs font-bold text-brand">
-          &#10003;
+
+      <span className="flex h-7 min-w-0 flex-1 items-center">
+        <span className="truncate text-[1.4375rem] font-semibold leading-none tnum tracking-[0.18em] text-ink">
+          {shown}
         </span>
-      )}
+        {active && (
+          <span
+            aria-hidden
+            className="ml-0.5 inline-block h-6 w-[2px] shrink-0 animate-[blink_1.1s_steps(1,end)_infinite] rounded-full bg-brand"
+          />
+        )}
+      </span>
+
+      <span
+        aria-hidden
+        className={`shrink-0 text-sm font-bold text-brand transition-opacity duration-150 ${
+          done ? 'opacity-100' : 'opacity-0'
+        }`}
+      >
+        &#10003;
+      </span>
     </button>
   );
 }

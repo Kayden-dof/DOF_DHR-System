@@ -51,7 +51,8 @@ export default async function UsersPage() {
             </thead>
             <tbody>
               {users.map((u) => (
-                <UserRowView key={u.id} u={{ ...u, roles: u.roles ?? [] }} meId={me.id} />
+                <UserRowView key={u.id} u={{ ...u, roles: u.roles ?? [] }}
+                             meId={me.id} meIsDeveloper={me.is_developer} />
               ))}
             </tbody>
           </table>

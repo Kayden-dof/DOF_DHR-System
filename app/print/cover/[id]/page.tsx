@@ -119,7 +119,7 @@ export default async function CoverSheet({ params }: { params: Promise<{ id: str
               {head.raw_lot_no}
               {head.thickness_band && <span className="ml-2">두께 {head.thickness_band}</span>}
             </td>
-            <th>공급자 / 성적서</th>
+            <th>원재료 공급자 / 성적서</th>
             <td>{head.supplier_name} / {head.coa_no}</td>
           </tr>
           <tr>

@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { requireUser } from '@/lib/session';
 import { isAdmin, isWorker } from '@/lib/roles';
-import { Wordmark } from '@/components/logo';
+import { WordmarkOnDark } from '@/components/logo';
 import { logout } from './actions';
 
 /* ---------------------------------------------------------------------------
@@ -33,46 +33,52 @@ export default async function WorkLayout({ children }: { children: React.ReactNo
 
   return (
     <div className="touch flex min-h-screen flex-col bg-canvas">
-      <div className="brand-rule" />
-
-      <header className="sticky top-0 z-20 border-b border-line bg-surface/95 backdrop-blur">
-        <div className="mx-auto flex max-w-[1100px] items-center gap-4 px-4 py-3">
+      <header className="band-solid sticky top-0 z-20">
+        <div className="mx-auto flex max-w-[1400px] items-center gap-4 px-5 py-3">
           <Link href="/work" className="flex shrink-0 items-center gap-3" aria-label="배치 목록으로">
-            <Wordmark className="h-5 w-auto" />
-            <span className="h-5 w-px bg-line-strong" aria-hidden />
-            <span className="text-base font-bold tracking-tight text-ink">제조기록</span>
+            <WordmarkOnDark className="h-5 w-auto" />
+            <span className="h-5 w-px bg-white/25" aria-hidden />
+            <span className="text-base font-bold tracking-tight text-white">제조기록</span>
           </Link>
 
-          <span className="hidden text-sm text-muted sm:inline tnum">{today}</span>
+          <span className="hidden text-sm text-on-dark-mute sm:inline tnum">{today}</span>
 
           <div className="ml-auto flex items-center gap-3">
             <div className="flex items-center gap-2.5">
               <span
                 aria-hidden
-                className="grid h-11 w-11 place-items-center rounded-full bg-brand-tint text-base font-bold text-brand"
+                className="grid h-11 w-11 place-items-center rounded-full bg-white/15 text-base font-bold text-white"
               >
                 {user.full_name.slice(0, 1)}
               </span>
               <div className="leading-tight">
-                <div className="text-base font-bold text-ink">{user.full_name}</div>
-                <div className="text-xs text-muted">{isAdmin(user.roles) ? '관리자' : '작업자'}</div>
+                <div className="text-base font-bold text-white">{user.full_name}</div>
+                <div className="text-xs text-on-dark-mute">
+                  {isAdmin(user.roles) ? '관리자' : '작업자'}
+                </div>
               </div>
             </div>
 
             {isAdmin(user.roles) && (
-              <Link href="/" className="btn-ghost h-11">관리 화면</Link>
+              <Link href="/"
+                    className="inline-flex h-11 items-center rounded-md border border-white/25 px-4 text-sm font-semibold text-white transition-colors hover:bg-white/10">
+                관리 화면
+              </Link>
             )}
             <form action={logout}>
-              <button type="submit" className="btn-ghost h-11">로그아웃</button>
+              <button type="submit"
+                      className="inline-flex h-11 items-center rounded-md border border-white/25 px-4 text-sm font-semibold text-white transition-colors hover:bg-white/10">
+                로그아웃
+              </button>
             </form>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-[1100px] flex-1 px-4 py-5">{children}</main>
+      <main className="mx-auto w-full max-w-[1400px] flex-1 px-5 py-6">{children}</main>
 
-      <footer className="mx-auto w-full max-w-[1100px] px-4 pb-8">
-        <p className="border-t border-line pt-4 text-xs leading-relaxed text-faint">
+      <footer className="mx-auto w-full max-w-[1400px] px-5 pb-8">
+        <p className="border-t border-white/12 pt-4 text-xs leading-relaxed text-on-dark-mute">
           여기에 입력한 내용은 제조기록서로 인쇄됩니다. 인쇄한 묶음은 고칠 수 없으니
           인쇄 전에 확인하십시오.
         </p>

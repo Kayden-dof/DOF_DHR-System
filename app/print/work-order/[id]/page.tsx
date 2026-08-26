@@ -113,7 +113,7 @@ export default async function WorkOrderSheet({ params }: { params: Promise<{ id:
             <td>{wo.thickness_band ?? ''}</td>
           </tr>
           <tr>
-            <th>공급자</th>
+            <th>원재료 공급자</th>
             <td>{wo.supplier_name} / {wo.supplier_lot_no}</td>
             <th>성적서</th>
             <td>{wo.coa_no} ({fmtDate(wo.coa_date)})</td>

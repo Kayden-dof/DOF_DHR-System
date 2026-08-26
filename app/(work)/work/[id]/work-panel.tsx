@@ -50,13 +50,28 @@ export default function WorkPanel({
   productLots: PlOpt[]; meId: string; lockedDays: number[];
 }) {
   const myRecords = useMemo(() => records.filter((r) => r.worker_id === meId), [records, meId]);
+
+  /*
+   * 일차는 배치 전체가 공유하는 번호다 (§11 "지시서별 실작업일 순번").
+   * 내 기록만 보고 세면, 남이 2일차까지 해 둔 배치에 오늘 합류한 사람 화면에
+   * 1일차가 떠 버린다. 그대로 기록하면 제조기록서에 잘못된 일차가 찍히고,
+   * 인쇄하고 나면 고칠 방법이 없다 (S04).
+   *
+   * 그래서 일차 목록은 배치의 모든 기록에서 뽑는다. 어느 일차에 내 기록이
+   * 있는지는 따로 표시한다.
+   */
   const days = useMemo(() => {
-    const s = new Set(myRecords.map((r) => r.day_no));
+    const s = new Set(records.map((r) => r.day_no));
     return [...s].sort((a, b) => a - b);
-  }, [myRecords]);
+  }, [records]);
   const nextDay = (days.at(-1) ?? 0) + 1;
 
-  const [day, setDay] = useState(days.at(-1) ?? 1);
+  const myDays = useMemo(
+    () => new Set(myRecords.map((r) => r.day_no)), [myRecords]);
+
+  const [day, setDay] = useState(
+    // 내가 마지막으로 손댄 일차를 연다. 없으면 배치의 마지막 일차.
+    [...myDays].sort((a, b) => a - b).at(-1) ?? days.at(-1) ?? 1);
   const [opId, setOpId] = useState<string | null>(null);
 
   const locked = lockedDays.includes(day);
@@ -96,18 +111,25 @@ export default function WorkPanel({
           <span className="text-sm text-muted">지시서별 실작업일 순번</span>
         </div>
         <div className="mt-3.5 flex flex-wrap gap-2">
-          {days.map((n) => (
-            <button key={n} onClick={() => { setDay(n); setOpId(null); }}
-                    data-on={day === n}
-                    className="tile no-select w-[6.5rem] items-center gap-0.5 text-center">
-              <span className="text-xl font-bold tnum">{n}일차</span>
-              <span className={`text-xs ${lockedDays.includes(n) ? 'text-ok' : 'text-muted'}`}>
-                {lockedDays.includes(n)
-                  ? '마감됨'
-                  : `${myRecords.filter((r) => r.day_no === n).length}건`}
-              </span>
-            </button>
-          ))}
+          {days.map((n) => {
+            const mineHere = myRecords.filter((r) => r.day_no === n).length;
+            return (
+              <button key={n} onClick={() => { setDay(n); setOpId(null); }}
+                      data-on={day === n}
+                      className="tile no-select w-[6.5rem] items-center gap-0.5 text-center">
+                <span className="text-xl font-bold tnum">{n}일차</span>
+                <span className={`text-xs ${
+                  lockedDays.includes(n) ? 'text-ok' : mineHere > 0 ? 'text-muted' : 'text-faint'
+                }`}>
+                  {lockedDays.includes(n)
+                    ? '내 기록 마감'
+                    : mineHere > 0
+                      ? `내 기록 ${mineHere}건`
+                      : '다른 작업자'}
+                </span>
+              </button>
+            );
+          })}
           {!days.includes(nextDay) && (
             <button onClick={() => { setDay(nextDay); setOpId(null); }}
                     data-on={day === nextDay}

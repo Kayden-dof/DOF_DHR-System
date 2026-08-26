@@ -2,17 +2,12 @@ import Link from 'next/link';
 import { requireUser, hasRole } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import Denied from '@/components/denied';
+import { tableLabel } from '@/lib/forms';
 import Entry, { type AuditEntry } from './entry';
 
 export const dynamic = 'force-dynamic';
 
 const PER_PAGE = 50;
-
-const TABLE_LABEL: Record<string, string> = {
-  app_user: '계정',
-  user_role: '역할',
-  numbering_rule: '채번 규칙',
-};
 
 const ACTIONS = [
   { code: 'INSERT', label: '등록' },
@@ -97,7 +92,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Search
           base={(v) => qs({ table: v, page: 1 })}
           options={data.tables.map((t) => ({
             code: t.table_name,
-            label: TABLE_LABEL[t.table_name] ?? t.table_name,
+            label: tableLabel(t.table_name),
           }))}
         />
         <span className="h-5 w-px bg-line" />

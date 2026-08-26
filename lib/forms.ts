@@ -67,3 +67,39 @@ export const MATERIAL_STATUS_LABEL: Record<string, string> = {
   EXPIRED: '기한 경과',
   DISPOSED: '폐기',
 };
+
+/* ---------------------------------------------------------------------------
+   표 이름 한글 표기
+
+   감사추적과 현황에 표 이름이 그대로 나오면 읽는 사람이 스키마를 알아야 한다.
+   여기 한 곳에서만 옮긴다. 표가 늘면 여기에 한 줄 더한다. 옮긴 말이 없으면
+   원래 이름을 그대로 보여 준다 - 빈칸이 뜨는 것보다 낫다.
+--------------------------------------------------------------------------- */
+export const TABLE_LABEL: Record<string, string> = {
+  app_user:            '계정',
+  user_role:           '역할',
+  numbering_rule:      '채번 규칙',
+  item:                '품목',
+  supplier:            '공급자',
+  item_supplier:       '공급자 단가',
+  price_history:       '단가 이력',
+  shelf_life_history:  '사용기간 이력',
+  device_master:       '제품표준서',
+  dmr_operation:       '공정',
+  dmr_bom:             '자재 구성표',
+  dmr_bom_tier:        '장입 구간',
+  purchase_order:      '발주',
+  material_lot:        '자재 로트',
+  work_order:          '작업지시',
+  product_lot:         '제품 로트',
+  process_record:      '공정 기록',
+  material_issue:      '자재 투입',
+  stock_movement:      '재고 증감',
+  record_print:        '인쇄',
+  day_lock:            '일차 잠금',
+  steril_batch:        '멸균 배치',
+  steril_batch_lot:    '멸균 동봉',
+  shipment:            '출고',
+};
+
+export const tableLabel = (name: string) => TABLE_LABEL[name] ?? name;

@@ -66,19 +66,23 @@ const user = async (code, name, roles, pin) => {
   return id;
 };
 
-// 초기 관리자의 비밀번호는 deploy-db 가 무작위로 만든다. 시연 자료는 매번
-// 같은 상태에서 시작해야 하므로 여기서 알려진 값으로 덮는다. 위의 localhost
-// 검사를 통과한 경우에만 여기까지 온다.
-await c.query(`update app_user set pin_hash = $2 where id = $1`,
-  [admin, await hashPin('135790')]);
+// 개발 계정의 비밀번호는 deploy-db 가 무작위로 만든다. 시연 자료는 매번 같은
+// 상태에서 시작해야 하므로 여기서 알려진 값으로 덮는다. 위의 localhost 검사를
+// 통과한 경우에만 여기까지 온다.
+await c.query(
+  `update app_user set login_code = '000000', full_name = '개발 계정',
+          is_developer = true, pin_hash = $2
+    where id = $1`,
+  [admin, await hashPin('000000')]);
 await c.query(
   `insert into user_role (user_id, role) values ($1,'SYS_ADMIN')
    on conflict do nothing`, [admin]);
 
-const qa = await user('1002', '박품질', ['PROD_MGR'], '246810');
-const w1 = await user('2001', '김작업', ['WORKER'], '111111');
-const w2 = await user('2002', '이작업', ['WORKER'], '222222');
-await user('9001', '정품질책임', ['QP'], null);   // QP는 로그인하지 않는다
+// 사번 6자리. 실제 사번 체계로 바꿔 넣으면 된다.
+const qa = await user('100200', '박품질', ['PROD_MGR'], '246810');
+const w1 = await user('200100', '김작업', ['WORKER'], '111111');
+const w2 = await user('200200', '이작업', ['WORKER'], '222222');
+await user('900100', '정품질책임', ['QP'], null);   // QP는 로그인하지 않는다
 console.log('사용자 4명');
 
 // --- 공급자 -------------------------------------------------------------------
@@ -246,10 +250,10 @@ await c.query(
 
 console.log('\n완료. 로그인 계정');
 
-console.log('  1001 초기 관리자 (시스템관리자)   135790');
-console.log('  1002 박품질 (생산관리자)         246810');
-console.log('  2001 김작업 (작업자)             111111');
-console.log('  2002 이작업 (작업자)             222222');
-console.log('  9001 정품질책임 (품질책임자)     로그인하지 않는다');
+console.log('  000000 개발 계정 (시스템관리자)   000000');
+console.log('  100200 박품질 (생산관리자)        246810');
+console.log('  200100 김작업 (작업자)            111111');
+console.log('  200200 이작업 (작업자)            222222');
+console.log('  900100 정품질책임 (품질책임자)    로그인하지 않는다');
 
 await c.end();

@@ -23,8 +23,10 @@ const DIR = path.join(ROOT, '.pgdata-dev');
 const PORT = Number(process.env.PGPORT ?? 54330);
 const URL_ = `postgres://postgres:postgres@localhost:${PORT}/dhr`;
 
-const SEED_LOGIN = '1001';
-const SEED_PIN = '135790';
+// 사내 사번이 6자리다. 첫 계정은 개발 계정으로 만든다 - 비밀번호 초기화가
+// 개발 계정만 할 수 있는 일이라, 첫 계정이 개발 계정이 아니면 아무도 못 한다.
+const SEED_LOGIN = '000000';
+const SEED_PIN = '000000';
 
 const fresh = !existsSync(DIR);
 
@@ -72,12 +74,13 @@ const anyUser = await db.query(`select 1 from app_user limit 1`);
 if (anyUser.rowCount === 0) {
   const id = (
     await db.query(
-      `insert into app_user (login_code, full_name, pin_hash) values ($1,$2,$3) returning id`,
-      [SEED_LOGIN, '초기 관리자', await hashPin(SEED_PIN)],
+      `insert into app_user (login_code, full_name, pin_hash, is_developer)
+       values ($1,$2,$3,true) returning id`,
+      [SEED_LOGIN, '개발 계정', await hashPin(SEED_PIN)],
     )
   ).rows[0].id;
   await db.query(`insert into user_role (user_id, role) values ($1,'SYS_ADMIN')`, [id]);
-  console.log(`최초 관리자 생성 · 로그인 ${SEED_LOGIN} / 비밀번호 ${SEED_PIN}`);
+  console.log(`개발 계정 생성 · 로그인 ${SEED_LOGIN} / 비밀번호 ${SEED_PIN}`);
   console.log('   (로컬 개발용이다. 운영에 이 값을 쓰지 말 것)');
 }
 await db.end();

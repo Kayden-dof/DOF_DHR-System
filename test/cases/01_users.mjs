@@ -138,4 +138,60 @@ export default [
   },
 },
 
+{
+  id: 'U-13', expect: '예외',
+  name: '비밀번호 초기화: 개발 계정이 아니면 남의 비밀번호를 못 바꾼다',
+  async run(t) {
+    const actor  = await t.newUser({ is_developer: false });
+    const victim = await t.newUser();
+    await t.setActor(actor);
+    await t.rejects(
+      () => t.rows(`update app_user set pin_hash = 'x' where id = $1`, [victim]),
+      { code: 'P0001', message: '개발 계정만' });
+    await t.setActor(null);
+  },
+},
+
+{
+  id: 'U-14', expect: '통과',
+  name: '비밀번호 초기화: 개발 계정은 남의 비밀번호를 바꾼다',
+  async run(t) {
+    const actor  = await t.newUser({ is_developer: true });
+    const victim = await t.newUser();
+    await t.setActor(actor);
+    await t.resolves(
+      () => t.rows(`update app_user set pin_hash = 'reset' where id = $1`, [victim]));
+    t.eq(await t.val(`select pin_hash from app_user where id = $1`, [victim]),
+         'reset', 'pin_hash');
+    await t.setActor(null);
+  },
+},
+
+{
+  id: 'U-15', expect: '통과',
+  name: '비밀번호 초기화: 자기 비밀번호는 개발 계정이 아니어도 바꾼다',
+  async run(t) {
+    const me = await t.newUser({ is_developer: false });
+    await t.setActor(me);
+    await t.resolves(
+      () => t.rows(`update app_user set pin_hash = 'mine' where id = $1`, [me]));
+    t.eq(await t.val(`select pin_hash from app_user where id = $1`, [me]),
+         'mine', 'pin_hash');
+    await t.setActor(null);
+  },
+},
+
+{
+  id: 'U-16', expect: '통과',
+  name: '비밀번호 초기화: 비밀번호 외의 항목은 이 규칙과 무관하다',
+  async run(t) {
+    const actor  = await t.newUser({ is_developer: false });
+    const target = await t.newUser();
+    await t.setActor(actor);
+    await t.resolves(
+      () => t.rows(`update app_user set full_name = '이름변경' where id = $1`, [target]));
+    await t.setActor(null);
+  },
+},
+
 ];
