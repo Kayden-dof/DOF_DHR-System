@@ -18,7 +18,13 @@ export interface NavItem { href: string; label: string }
 export default function Nav({ items }: { items: NavItem[] }) {
   const path = usePathname();
   return (
-    <nav className="-mx-1 flex min-w-0 items-center gap-1 overflow-x-auto px-1">
+    /*
+     * 메뉴 칸이 상단 머리 높이를 그대로 받는다. 밑줄을 글자 아래 몇 px 로
+     * 잡아 두었더니 머리 높이가 바뀔 때마다 어긋났고, 지금은 아예 머리
+     * 바깥으로 나가 보이지 않았다. 칸이 머리만큼 높으면 bottom-0 이 곧
+     * 머리의 아랫선이다.
+     */
+    <nav className="-mx-1 flex h-full min-w-0 items-stretch gap-1 overflow-x-auto px-1">
       {items.map((it) => {
         const active = it.href === '/' ? path === '/' : path.startsWith(it.href);
         return (
@@ -26,16 +32,13 @@ export default function Nav({ items }: { items: NavItem[] }) {
             key={it.href}
             href={it.href}
             aria-current={active ? 'page' : undefined}
-            className={`relative shrink-0 rounded-md px-2.5 py-2 text-[0.8125rem] font-bold transition-colors ${
-              active ? 'text-ink' : 'text-muted hover:bg-canvas hover:text-ink'
+            className={`relative flex shrink-0 items-center px-2.5 text-[0.8125rem] font-bold transition-colors ${
+              active ? 'text-ink' : 'text-muted hover:text-ink'
             }`}
           >
             {it.label}
             {active && (
-              <span
-                aria-hidden
-                className="absolute inset-x-2.5 -bottom-[15px] h-[2px] bg-brand"
-              />
+              <span aria-hidden className="absolute inset-x-2.5 bottom-0 h-[2px] bg-brand" />
             )}
           </Link>
         );

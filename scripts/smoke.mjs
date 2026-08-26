@@ -10,8 +10,8 @@
    세션 쿠키는 앱과 같은 서명 규칙으로 직접 만든다.
 --------------------------------------------------------------------------- */
 import pg from 'pg';
-import { createHmac } from 'node:crypto';
 import { pgSsl } from './pgssl.mjs';
+import { sessionCookie as session } from './session-cookie.mjs';
 
 const BASE = process.argv[2] ?? 'http://localhost:3100';
 const url = process.env.DATABASE_URL;
@@ -30,23 +30,6 @@ const ids = {
 const userIds = Object.fromEntries(
   (await rows(`select login_code, id from app_user`)).map((u) => [u.login_code, u.id]));
 await db.end();
-
-/* --- 로그인 --------------------------------------------------------------- */
-
-/**
- * lib/session.ts 와 같은 규칙으로 세션 쿠키를 만든다. 서버 액션 식별자를
- * 긁는 방식은 빌드마다 바뀌어 시험이 먼저 깨진다. 서명 규칙은 우리 것이므로
- * 여기서 맞춰 두는 편이 오래간다. 규칙이 바뀌면 이 시험이 바로 실패한다.
- */
-function session(userId) {
-  const s = process.env.SESSION_SECRET;
-  if (!s || s.length < 32) throw new Error('SESSION_SECRET이 없거나 너무 짧습니다');
-  const payload = Buffer
-    .from(JSON.stringify({ v: 1, u: userId, e: Date.now() + 8 * 3600 * 1000 }))
-    .toString('base64url');
-  const sig = createHmac('sha256', Buffer.from(s, 'utf8')).update(payload).digest('base64url');
-  return `dhr_session=${payload}.${sig}`;
-}
 
 /* --- 훑을 경로 ------------------------------------------------------------ */
 

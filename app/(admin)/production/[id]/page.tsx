@@ -8,7 +8,7 @@ import { KIND_LABEL } from '@/lib/print';
 import Denied from '@/components/denied';
 import { Panel, Empty, Tag, Field, Caution } from '@/components/ui';
 import {
-  CutForm, LotStatusForm, CancelForm, FinishForm, RetrieveForm,
+  CutForm, LotStatusForm, CancelForm, FinishForm, RetrieveForm, DayPrintLink,
   type LotRow, type FinOpt,
 } from './batch-forms';
 
@@ -397,12 +397,10 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                     </td>
                     <td className="td tnum text-right text-muted">{r.printed || ''}</td>
                     <td className="td text-right">
-                      <Link
+                      <DayPrintLink
                         href={`/print/day-record/${wo.id}/${r.day_no}/${r.worker_id}`}
-                        className="btn-ghost h-8 px-3 text-xs"
-                      >
-                        {r.locked ? '재발행' : '인쇄'}
-                      </Link>
+                        locked={r.locked}
+                      />
                     </td>
                   </tr>
                 ))}

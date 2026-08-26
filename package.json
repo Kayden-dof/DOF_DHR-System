@@ -11,6 +11,8 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "node test/run.mjs",
+    "test:print": "node --env-file=.env.local test/print.mjs",
+    "smoke": "node --env-file=.env.local scripts/smoke.mjs",
     "test:pg": "node test/pg.mjs",
     "test:concurrency": "node test/concurrency.mjs",
     "deploy:db": "node scripts/deploy-db.mjs",

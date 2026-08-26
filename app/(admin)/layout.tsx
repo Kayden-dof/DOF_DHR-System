@@ -55,9 +55,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <span className="display text-[1.125rem] leading-none text-ink">DHR</span>
           </Link>
 
-          <Nav items={items} />
+          <div className="flex h-full min-w-0 flex-1 items-stretch">
+            <Nav items={items} />
+          </div>
 
-          <div className="ml-auto flex shrink-0 items-center gap-3">
+          <div className="flex shrink-0 items-center gap-3">
             {isWorker(user.roles) && (
               <Link href="/work" className="btn-ghost h-9">현장 화면</Link>
             )}

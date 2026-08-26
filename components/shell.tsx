@@ -82,8 +82,18 @@ const TEXT: Record<string, string> = {
 export function StatStrip({ items }: { items: StatItem[] }) {
   if (items.length === 0) return null;
 
+  /*
+   * 칸 사이를 gap-px 로 벌리고 바탕을 선 색으로 깔면, 항목이 줄바꿈될 때 남는
+   * 자리가 회색 덩어리로 남는다. 여섯 개가 네 개씩 끊기면 오른쪽 두 칸이
+   * 통째로 회색이 되어 무언가 깨진 것처럼 보였다.
+   *
+   * 바탕은 흰 면으로 두고 칸마다 왼쪽 · 위쪽 선을 그린다. 격자를 1px 씩 밖으로
+   * 밀어 첫 줄과 첫 칸의 선이 바깥 테두리 위에 정확히 겹치게 한다. 남는 자리는
+   * 그냥 흰 면이다.
+   */
   return (
-    <dl className="grid gap-px overflow-hidden rounded-xl border border-line bg-line"
+    <div className="overflow-hidden rounded-xl border border-line bg-surface">
+    <dl className="-m-px grid"
         style={{ gridTemplateColumns: `repeat(auto-fit, minmax(9.5rem, 1fr))` }}>
       {items.map((s) => {
         const zero = s.value === 0 || s.value === '0';
@@ -101,7 +111,7 @@ export function StatStrip({ items }: { items: StatItem[] }) {
           </>
         );
 
-        const cls = 'relative bg-surface px-4 py-3.5 transition-colors';
+        const cls = 'relative border-l border-t border-line bg-surface px-4 py-3.5 transition-colors';
         const edge = s.tone && !zero
           ? <span aria-hidden className={`absolute inset-y-0 left-0 w-[3px] ${EDGE[s.tone]}`} />
           : null;
@@ -115,6 +125,7 @@ export function StatStrip({ items }: { items: StatItem[] }) {
         );
       })}
     </dl>
+    </div>
   );
 }
 

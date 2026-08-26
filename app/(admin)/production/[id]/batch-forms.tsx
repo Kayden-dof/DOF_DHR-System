@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import { useActionState, useState } from 'react';
 import { PL_STATUS_LABEL, type FormState } from '@/lib/forms';
 import { Msg, Caution } from '@/components/ui';
@@ -162,6 +164,45 @@ export function FinishForm({ id }: { id: string }) {
       </button>
       <Msg state={state} />
     </form>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   기록서 첫 발행
+
+   이 화면을 여는 것만으로 그 묶음이 잠긴다 (S04). 화면이 그려지는 순간 순번과
+   자료 식별자가 붙은 종이가 존재하게 되고, 실제로 인쇄했는지는 브라우저 밖의
+   일이라 알 수 없기 때문이다.
+
+   그래서 한 번 더 묻는다. 다른 되돌릴 수 없는 조작에는 전부 확인 단계가
+   있는데 여기만 곧장 열리고 있었다. 내용을 보려고 눌렀다가 잠기면 되돌릴
+   방법이 없다 - 잠금 해제 함수는 만들지 않는다.
+
+   이미 잠긴 묶음은 묻지 않는다. 재발행은 잠금을 새로 만들지 않는다.
+--------------------------------------------------------------------------- */
+export function DayPrintLink({
+  href, locked,
+}: { href: string; locked: boolean }) {
+  const [ask, setAsk] = useState(false);
+
+  if (locked) {
+    return <Link href={href} className="btn-ghost h-8 px-3 text-xs">재발행</Link>;
+  }
+  if (!ask) {
+    return (
+      <button type="button" onClick={() => setAsk(true)} className="btn-ghost h-8 px-3 text-xs">
+        인쇄
+      </button>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-2 whitespace-nowrap">
+      <span className="text-xs text-warn">열면 잠깁니다</span>
+      <Link href={href} className="btn-primary h-8 px-3 text-xs">발행</Link>
+      <button type="button" onClick={() => setAsk(false)} className="btn-quiet h-8 px-2 text-xs">
+        그만
+      </button>
+    </span>
   );
 }
 
