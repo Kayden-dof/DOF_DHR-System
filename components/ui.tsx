@@ -155,10 +155,28 @@ const TONE: Record<string, string> = {
   faint: 'bg-canvas text-faint',
 };
 
+const DOT: Record<string, string> = {
+  ok: 'bg-ok', warn: 'bg-warn', danger: 'bg-danger',
+  info: 'bg-info', brand: 'bg-brand',
+};
+
+/**
+ * 상태 조각.
+ *
+ * 색만으로 상태를 말하면 색을 구별하지 못하는 사람에게는 아무 표시도 없는 것과
+ * 같다. 뜻이 있는 상태에는 점을 하나 붙여 모양으로도 갈리게 한다.
+ * 중립(quiet · faint)에는 붙이지 않는다 - 붙이면 모든 조각이 똑같아진다.
+ */
 export function Tag({
   tone = 'quiet', children,
 }: { tone?: keyof typeof TONE | string; children: React.ReactNode }) {
-  return <span className={`chip ${TONE[tone] ?? TONE.quiet}`}>{children}</span>;
+  const dot = DOT[tone];
+  return (
+    <span className={`chip ${TONE[tone] ?? TONE.quiet}`}>
+      {dot && <span aria-hidden className={`size-1.5 shrink-0 rounded-full ${dot}`} />}
+      {children}
+    </span>
+  );
 }
 
 /* 경고 묶음. 차단이 아니라 표시다 (§2 "경고만"). */

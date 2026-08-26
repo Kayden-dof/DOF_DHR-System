@@ -118,12 +118,11 @@ export default async function ProductionPage({ searchParams }: { searchParams: S
             <table className="w-full">
               <thead>
                 <tr>
-                  <th className="th">배치번호</th>
-                  <th className="th">지시서</th>
+                  <th className="th">배치 · 지시서</th>
                   <th className="th">형명 · 개정</th>
                   <th className="th">원재료 로트</th>
                   <th className="th text-right">장입</th>
-                  <th className="th text-right">제품 로트</th>
+                  <th className="th text-right">로트</th>
                   <th className="th text-right">일차</th>
                   <th className="th">상태</th>
                   <th className="th">발행</th>
@@ -133,8 +132,12 @@ export default async function ProductionPage({ searchParams }: { searchParams: S
               <tbody>
                 {d.orders.map((w) => (
                   <tr key={w.id}>
-                    <td className="td font-mono text-xs font-semibold">{w.batch_no}</td>
-                    <td className="td font-mono text-xs text-muted">{w.wo_no}</td>
+                    {/* 배치번호와 지시서번호는 늘 같이 읽는다. 한 칸에 묶어
+                        열을 하나 줄이면 표가 화면 안에 들어온다 */}
+                    <td className="td whitespace-nowrap">
+                      <div className="font-mono text-xs font-bold text-ink">{w.batch_no}</div>
+                      <div className="font-mono text-xs text-faint">{w.wo_no}</div>
+                    </td>
                     <td className="td whitespace-nowrap">
                       <div className="text-sm">{w.item_name}</div>
                       <div className="font-mono text-xs text-faint">

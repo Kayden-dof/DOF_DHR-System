@@ -164,7 +164,7 @@ export function SterilRow({ sb, today }: { sb: SbRow; today: string }) {
     <>
       <tr>
         <td className="td font-mono text-xs font-semibold">{sb.batch_no}</td>
-        <td className="td text-xs">{sb.vendor_name}</td>
+        <td className="td whitespace-nowrap text-xs">{sb.vendor_name}</td>
         <td className="td font-mono text-xs text-muted">{sb.request_no ?? ''}</td>
         <td className="td text-xs">
           {/* 규격별로 묶어 보여 준다. 제조번호는 펼쳐 보면 나온다 */}
