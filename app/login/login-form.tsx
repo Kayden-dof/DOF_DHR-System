@@ -1,6 +1,7 @@
 'use client';
 
-import { useActionState, useRef, useState } from 'react';
+import { useActionState, useReducer, useRef, useState } from 'react';
+import { LOGIN_CODE_LENGTH } from '@/lib/auth-const';
 import { login, type LoginState } from './actions';
 
 type Field = 'code' | 'pin';
@@ -9,63 +10,101 @@ const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'clear', '0', 'back']
 
 export default function LoginForm() {
   const [state, formAction, pending] = useActionState<LoginState, FormData>(login, {});
-  const [code, setCode] = useState('');
-  const [pin, setPin] = useState('');
   const [field, setField] = useState<Field>('code');
 
-  // 입력 대상은 ref로 즉시 반영한다. 상태로만 두면 필드를 바꾼 직후 누른
-  // 숫자가 아직 갱신되지 않은 이전 필드로 들어간다. 터치스크린에서 실제로
-  // 재현되고, PIN이 로그인 번호 칸에 찍힌다.
+  // 값과 입력 대상을 모두 ref로 들고 화면만 다시 그린다.
+  //
+  // 상태로 두면 값이 갱신되는 시점이 다음 렌더로 밀린다. 한 번에 두 번 이상
+  // 눌리면 그 사이 눌린 키가 아직 옛 값을 보고 판단해 자릿수를 세지 못하고,
+  // 비밀번호가 로그인 번호 칸에 그대로 이어 붙는다. 장갑 낀 손으로 빠르게
+  // 누르면 실제로 재현된다. ref는 누르는 즉시 반영되므로 연타에 영향받지 않는다.
+  const codeRef = useRef('');
+  const pinRef = useRef('');
   const target = useRef<Field>('code');
 
+  // 자동 이동은 한 번만. 사용자가 로그인 번호 칸을 다시 누르면 그때부터 끈다.
+  // 자릿수가 다른 번호를 쓰는 현장에서 계속 튕겨 나가면 입력을 못 한다.
+  const autoJump = useRef(true);
+
+  const [, redraw] = useReducer((n: number) => n + 1, 0);
+
   function select(f: Field) {
+    if (f === 'code') autoJump.current = false;
     target.current = f;
     setField(f);
   }
 
-  // 갱신은 반드시 함수형으로 한다. setValue(value + k) 처럼 이전 렌더의 값을
-  // 더하면 빠르게 연타할 때 앞의 입력이 덮어써져 자릿수가 조용히 사라진다.
   function press(k: string) {
-    const apply = (v: string) =>
-      k === 'clear' ? '' : k === 'back' ? v.slice(0, -1) : v.length >= 12 ? v : v + k;
-    if (target.current === 'code') setCode(apply);
-    else setPin(apply);
+    if (k === 'clear') {
+      // 전체 지움은 처음부터 다시 치겠다는 뜻이다. 자동 이동도 되살린다.
+      codeRef.current = '';
+      pinRef.current = '';
+      autoJump.current = true;
+      target.current = 'code';
+      setField('code');
+      redraw();
+      return;
+    }
+
+    const slot = target.current === 'code' ? codeRef : pinRef;
+    slot.current =
+      k === 'back'
+        ? slot.current.slice(0, -1)
+        : slot.current.length >= 12
+          ? slot.current
+          : slot.current + k;
+
+    // 자릿수를 채우면 비밀번호 칸으로 알아서 넘어간다. 장갑 낀 손으로 칸을
+    // 다시 짚는 동작을 없앤다. 판정도 ref라 다음 키 입력에 바로 반영된다.
+    if (
+      target.current === 'code' &&
+      autoJump.current &&
+      codeRef.current.length === LOGIN_CODE_LENGTH
+    ) {
+      autoJump.current = false;
+      target.current = 'pin';
+      setField('pin');
+    }
+
+    redraw();
   }
 
+  const code = codeRef.current;
+  const pin = pinRef.current;
+
   return (
-    <form action={formAction} className="w-full max-w-sm">
+    <form action={formAction} className="mt-7 w-full">
       <input type="hidden" name="login_code" value={code} />
       <input type="hidden" name="pin" value={pin} />
 
-      <div className="card p-6">
-        <div className="space-y-3">
+      <div className="card-raised overflow-hidden p-5">
+        <div className="grid grid-cols-2 gap-2.5">
           <Slot
             label="로그인 번호"
             display={code}
             active={field === 'code'}
+            filled={code.length >= LOGIN_CODE_LENGTH}
             onSelect={() => select('code')}
           />
           <Slot
             label="비밀번호"
             display={'•'.repeat(pin.length)}
             active={field === 'pin'}
+            filled={pin.length >= 6}
             onSelect={() => select('pin')}
           />
         </div>
 
-        <div className="mt-5 grid grid-cols-3 gap-2">
+        <div className="mt-3.5 grid grid-cols-3 gap-2">
           {KEYS.map((k) => (
             <button
               key={k}
               type="button"
               onClick={() => press(k)}
-              className={
-                k === 'clear' || k === 'back'
-                  ? 'h-14 rounded-md border border-line-strong text-sm font-semibold text-muted hover:bg-canvas active:bg-line'
-                  : 'h-14 rounded-md border border-line-strong bg-surface text-xl font-semibold tnum hover:bg-canvas active:bg-line'
-              }
+              aria-label={k === 'clear' ? '전체 지움' : k === 'back' ? '한 자 지움' : k}
+              className={k === 'clear' || k === 'back' ? 'padkey padkey-alt' : 'padkey'}
             >
-              {k === 'clear' ? '전체지움' : k === 'back' ? '←' : k}
+              {k === 'clear' ? '전체지움' : k === 'back' ? '⌫' : k}
             </button>
           ))}
         </div>
@@ -73,8 +112,9 @@ export default function LoginForm() {
         {state.error && (
           <p
             role="alert"
-            className="mt-4 rounded-md bg-danger-bg px-3 py-2 text-sm text-danger"
+            className="rise mt-3.5 flex items-start gap-2 rounded-md border border-danger-line bg-danger-bg px-3 py-2.5 text-sm leading-relaxed text-danger"
           >
+            <span aria-hidden className="mt-px font-bold">!</span>
             {state.error}
           </p>
         )}
@@ -82,34 +122,48 @@ export default function LoginForm() {
         <button
           type="submit"
           disabled={pending || !code || !pin}
-          className="btn-primary mt-4 h-12 w-full text-base"
+          className="btn-primary mt-3.5 h-12 w-full text-[0.9375rem]"
         >
-          {pending ? '확인 중…' : '로그인'}
+          {pending ? '확인 중' : '로그인'}
         </button>
       </div>
 
-      <p className="mt-4 text-center text-xs leading-relaxed text-faint">
-        세션은 8시간 유지됩니다. 자리를 비울 때는 로그아웃하십시오.
+      <p className="mt-5 text-center text-xs leading-relaxed text-faint">
+        로그인 번호 {LOGIN_CODE_LENGTH}자리를 누르면 비밀번호 칸으로 넘어갑니다.
+        <br />세션은 8시간 유지됩니다. 자리를 비울 때는 로그아웃하십시오.
       </p>
     </form>
   );
 }
 
 function Slot({
-  label, display, active, onSelect,
-}: { label: string; display: string; active: boolean; onSelect: () => void }) {
+  label, display, active, filled, onSelect,
+}: {
+  label: string; display: string; active: boolean; filled: boolean; onSelect: () => void;
+}) {
   return (
     <button
       type="button"
       onClick={onSelect}
-      className={`w-full rounded-md border px-3 py-2 text-left transition-colors ${
-        active ? 'border-brand ring-2 ring-brand/20 bg-brand-soft' : 'border-line-strong bg-surface'
+      aria-current={active}
+      className={`no-select relative w-full rounded-md border px-3 pb-2 pt-2.5 text-left transition-all duration-150 ${
+        active
+          ? 'border-brand bg-brand-soft shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-brand)_16%,transparent)]'
+          : 'border-line-strong bg-surface hover:border-faint'
       }`}
     >
-      <span className="block text-xs font-semibold text-muted">{label}</span>
-      <span className="block h-7 text-xl tnum tracking-widest text-ink">
-        {display || <span className="text-faint">·</span>}
+      <span className={`block text-[0.6875rem] font-bold tracking-wide ${
+        active ? 'text-brand' : 'text-muted'}`}>
+        {label}
       </span>
+      <span className="mt-0.5 block h-7 truncate text-xl font-semibold tnum tracking-[0.14em] text-ink">
+        {display || <span className="text-faint">&middot;</span>}
+      </span>
+      {filled && (
+        <span aria-hidden className="absolute right-2.5 top-2.5 text-xs font-bold text-brand">
+          &#10003;
+        </span>
+      )}
     </button>
   );
 }

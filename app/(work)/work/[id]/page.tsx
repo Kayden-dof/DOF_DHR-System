@@ -53,6 +53,7 @@ export default async function WorkBatchPage({ params }: { params: Promise<{ id: 
         `select pr.id, pr.operation_id, pr.day_no, pr.attempt, pr.product_lot_id,
                 pl.lot_no as product_lot_no, pr.started_at, pr.ended_at,
                 pr.equipment_id, pr.rework_qty, pr.no_material_reason, pr.worker_id,
+                u.full_name as worker_name,
                 coalesce((
                   select json_agg(json_build_object(
                     'item_id', i.id, 'item_code', i.code, 'item_name', i.name,
@@ -63,6 +64,7 @@ export default async function WorkBatchPage({ params }: { params: Promise<{ id: 
                     join item i on i.id = ml.item_id
                    where mi.process_record_id = pr.id), '[]'::json) as issues
            from process_record pr
+           join app_user u on u.id = pr.worker_id
            left join product_lot pl on pl.id = pr.product_lot_id
           where pr.work_order_id = $1
           order by pr.day_no, pr.attempt`, [id]),

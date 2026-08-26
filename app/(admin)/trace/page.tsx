@@ -62,19 +62,21 @@ export default async function TracePage({ searchParams }: { searchParams: Search
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-xl font-bold text-ink">조회</h1>
-        <p className="mt-1 text-sm text-muted">
-          로트번호 하나로 위아래를 모두 따라갑니다.
-        </p>
-      </div>
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4 border-b border-line pb-4">
+        <div className="min-w-0">
+          <h1 className="text-[1.375rem] font-bold text-ink">조회</h1>
+          <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-muted">
+            로트번호 하나로 위아래를 모두 따라갑니다.
+          </p>
+        </div>
 
-      <SubNav
-        items={[
-          { href: '/trace', label: '계보 추적' },
-          { href: '/trace/cost', label: '원가' },
-        ]}
-      />
+        <SubNav
+          items={[
+            { href: '/trace', label: '계보 추적' },
+            { href: '/trace/cost', label: '원가' },
+          ]}
+        />
+      </div>
 
       <PageHead
         title="계보 추적"

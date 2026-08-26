@@ -1,46 +1,87 @@
 @import "tailwindcss";
 
 /* ---------------------------------------------------------------------------
-   DOF 브랜드 토큰 (2026-08-20 실측)
-   로고 퍼플 #562C8D · 제목 퍼플 #420E69 · 웜 오프화이트 #F2F0EF
+   DOF 색 (사내 CI 원본에서 뽑음)
+
+     #562B8D  워드마크 자주        기본 브랜드
+     #342C68  법인 로고 남보라      어두운 면과 상단 밴드
+     #595656  조합형 서술어 진회색   본문 계열의 기준
+     #9FA0A0  깃발 회색            보조
+
+   자주는 hsl(266 53% 36%)이라 이 축으로 단계를 뽑았다. 회색은 CI가 중성에
+   가까운 웜그레이라 본문 계열도 같은 온도로 맞춘다. 임의로 고른 색을 섞지
+   않는다. 로고 옆에 놓았을 때 어긋나 보이면 그 화면은 브랜드를 벗어난 것이다.
 
    현장 화면이라 다크 모드를 두지 않는다. 조명 밝은 제조소에서 대비만 확보한다.
 --------------------------------------------------------------------------- */
 @theme {
-  --color-canvas:      #F2F0EF;
-  --color-canvas-deep: #E7E4E3;
+  /* 면 */
+  --color-canvas:      #F3F1F2;
+  --color-canvas-deep: #E7E3E6;
   --color-surface:     #FFFFFF;
-  --color-line:        #E9E5E6;
-  --color-line-strong: #C9C4C6;
+  --color-surface-sub: #FAF9FA;
+  --color-line:        #E7E3E8;
+  --color-line-soft:   #F0EDF1;
+  --color-line-strong: #CFC9D3;
 
-  --color-brand:       #562C8D;
-  --color-brand-deep:  #420E69;
-  --color-brand-soft:  #F1ECF8;
-  --color-brand-line:  #D9CCEC;
+  /* 브랜드 */
+  --color-brand:       #562B8D;
+  --color-brand-deep:  #472178;
+  --color-brand-soft:  #F7F3FB;
+  --color-brand-tint:  #EFE8F8;
+  --color-brand-line:  #DCCFEC;
+  --color-brand-pale:  #B398D7;
 
-  --color-ink:   #1C1A1F;
-  --color-muted: #6B6870;
-  --color-faint: #9A969E;
+  /* 법인 남보라. 상단 밴드와 어두운 면 */
+  --color-indigo:      #342C68;
+  --color-indigo-deep: #241E47;
+  --color-indigo-soft: #463C82;
 
-  --color-danger:    #B23A3A;
-  --color-danger-bg: #FBEFEF;
-  --color-ok:        #2E7D32;
-  --color-ok-bg:     #EDF5EE;
-  --color-warn:      #8A6100;
-  --color-warn-bg:   #FFF8E7;
-  --color-info:      #1F5E8C;
-  --color-info-bg:   #EDF4FA;
+  /* CI 회색 원본. 로고에만 쓴다 */
+  --color-ci-gray:     #9FA0A0;
 
-  --font-sans: "Pretendard", "Malgun Gothic", "맑은 고딕", -apple-system,
-               "Segoe UI", sans-serif;
+  /* 글자 */
+  --color-ink:   #1F1D24;
+  --color-body:  #46434D;
+  --color-muted: #6C6875;
+  --color-faint: #9B97A3;
+  --color-on-dark:      #FFFFFF;
+  --color-on-dark-mute: #B9B2D0;
+
+  /* 상태. 브랜드와 싸우지 않도록 채도를 낮춰 둔다 */
+  --color-danger:    #A93535;
+  --color-danger-bg: #FCF0F0;
+  --color-danger-line: #EDCFCF;
+  --color-ok:        #2C6E45;
+  --color-ok-bg:     #EDF5F0;
+  --color-warn:      #855A00;
+  --color-warn-bg:   #FDF6E6;
+  --color-info:      #1F5680;
+  --color-info-bg:   #EDF3F9;
+
+  --font-sans: "Pretendard Variable", "Pretendard", "Malgun Gothic", "맑은 고딕",
+               -apple-system, "Segoe UI", sans-serif;
   --font-mono: "Cascadia Mono", "D2Coding", ui-monospace, Consolas, monospace;
 }
 
 :root {
   /* 조작 모드별 최소 타겟 크기.
      현장은 장갑을 낀 손가락이다. 56px 아래로 내리지 않는다. */
-  --tap: 2.5rem;       /* 관리자. 키보드와 마우스를 쓴다 */
+  --tap: 2.375rem;     /* 관리자. 키보드와 마우스를 쓴다 */
   --tap-touch: 3.5rem; /* 실무자. 장갑 낀 손가락 */
+
+  /* 모서리. 큰 면일수록 넉넉하게 준다 */
+  --r-sm: 0.375rem;
+  --r-md: 0.5rem;
+  --r-lg: 0.75rem;
+  --r-xl: 1rem;
+
+  /* 그림자. 종이에 가깝게 얕게만 쌓는다 */
+  --sh-1: 0 1px 2px rgb(31 29 36 / .05);
+  --sh-2: 0 1px 2px rgb(31 29 36 / .05), 0 4px 12px -4px rgb(31 29 36 / .08);
+  --sh-3: 0 2px 4px rgb(31 29 36 / .06), 0 12px 32px -8px rgb(31 29 36 / .14);
+
+  --ring: 0 0 0 3px color-mix(in srgb, var(--color-brand) 20%, transparent);
 }
 
 html, body { height: 100%; }
@@ -49,9 +90,14 @@ body {
   background: var(--color-canvas);
   color: var(--color-ink);
   font-family: var(--font-sans);
+  font-feature-settings: "ss01", "cv01";
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
   overscroll-behavior-y: none;
 }
+
+/* 제목은 자간을 조금 좁혀야 무게가 잡힌다 */
+h1, h2, h3 { letter-spacing: -0.015em; }
 
 /* 숫자는 자리가 흔들리면 안 된다. 로트번호 · 순번 · 일시 · 수량 전부 */
 .tnum { font-variant-numeric: tabular-nums; }
@@ -63,29 +109,49 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+:focus-visible { outline: none; box-shadow: var(--ring); border-radius: var(--r-sm); }
+
+::selection { background: var(--color-brand-tint); color: var(--color-brand-deep); }
+
+/* 스크롤바. 넓은 표가 많아 기본 막대가 화면을 갈라 놓는다 */
+* { scrollbar-width: thin; scrollbar-color: var(--color-line-strong) transparent; }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-thumb {
+  background: var(--color-line-strong);
+  border: 3px solid transparent;
+  border-radius: 99px;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover { background: var(--color-faint); background-clip: content-box; }
+
 /* ---------------------------------------------------------------------------
    면과 테두리
 
-   그림자를 거의 쓰지 않는다. 인쇄물이 정본인 시스템이라 화면도 종이에 가깝게
-   둔다. 위계는 테두리와 배경 톤으로 만든다.
+   그림자를 아껴 쓴다. 인쇄물이 정본인 시스템이라 화면도 종이에 가깝게 둔다.
+   위계는 테두리와 배경 톤으로 만들고, 그림자는 떠 있어야 하는 것에만 준다.
 --------------------------------------------------------------------------- */
 .card {
   background: var(--color-surface);
   border: 1px solid var(--color-line);
-  border-radius: 0.625rem;
+  border-radius: var(--r-lg);
 }
 .card-raised {
   background: var(--color-surface);
   border: 1px solid var(--color-line);
-  border-radius: 0.625rem;
-  box-shadow: 0 1px 2px rgb(28 26 31 / 0.04), 0 1px 1px rgb(28 26 31 / 0.03);
+  border-radius: var(--r-lg);
+  box-shadow: var(--sh-1);
+  transition: box-shadow 160ms ease, border-color 160ms ease, transform 160ms ease;
+}
+a.card-raised:hover, button.card-raised:hover {
+  box-shadow: var(--sh-2);
+  border-color: var(--color-brand-line);
 }
 
 .section-head {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.75rem 1rem;
+  padding: 0.875rem 1.125rem;
   border-bottom: 1px solid var(--color-line);
 }
 
@@ -93,9 +159,23 @@ body {
 .brand-rule {
   height: 3px;
   background: linear-gradient(90deg,
-    var(--color-brand) 0%, var(--color-brand-deep) 38%,
+    var(--color-brand) 0%, var(--color-indigo) 38%,
     var(--color-canvas-deep) 38%, var(--color-canvas-deep) 100%);
 }
+
+/* 어두운 상단. 법인 남보라를 축으로 아주 얕은 기울기만 준다 */
+.band-dark {
+  background:
+    radial-gradient(90% 70% at 88% 8%,
+      color-mix(in srgb, var(--color-brand) 62%, transparent) 0%, transparent 60%),
+    radial-gradient(70% 55% at 0% 100%,
+      color-mix(in srgb, var(--color-indigo-soft) 70%, transparent) 0%, transparent 66%),
+    linear-gradient(155deg, var(--color-indigo) 0%, var(--color-indigo-deep) 62%, #191536 100%);
+  color: var(--color-on-dark);
+}
+
+/* 얇은 구분선. 표와 목록 사이 */
+.hairline { border-color: var(--color-line-soft); }
 
 /* ---------------------------------------------------------------------------
    폼
@@ -107,7 +187,7 @@ body {
   font-weight: 600;
   color: var(--color-muted);
   margin-bottom: 0.375rem;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.005em;
 }
 
 .input {
@@ -115,19 +195,17 @@ body {
   height: var(--tap);
   padding: 0 0.75rem;
   border: 1px solid var(--color-line-strong);
-  border-radius: 0.375rem;
+  border-radius: var(--r-sm);
   background: var(--color-surface);
   font-size: 0.875rem;
   color: var(--color-ink);
   outline: none;
-  transition: border-color 120ms, box-shadow 120ms;
+  transition: border-color 140ms ease, box-shadow 140ms ease, background-color 140ms ease;
 }
 select.input { padding-right: 0.5rem; }
-textarea.input { height: auto; min-height: 5rem; padding: 0.5rem 0.75rem; line-height: 1.6; }
-.input:focus {
-  border-color: var(--color-brand);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-brand) 18%, transparent);
-}
+textarea.input { height: auto; min-height: 5rem; padding: 0.5rem 0.75rem; line-height: 1.65; }
+.input:hover:not(:disabled):not(:focus) { border-color: var(--color-faint); }
+.input:focus { border-color: var(--color-brand); box-shadow: var(--ring); }
 .input:disabled { background: var(--color-canvas); color: var(--color-faint); cursor: not-allowed; }
 .input::placeholder { color: var(--color-faint); }
 
@@ -138,10 +216,10 @@ textarea.input { height: auto; min-height: 5rem; padding: 0.5rem 0.75rem; line-h
   min-height: var(--tap);
   padding: 0 0.75rem;
   border: 1px dashed var(--color-line-strong);
-  border-radius: 0.375rem;
-  background: var(--color-canvas);
+  border-radius: var(--r-sm);
+  background: var(--color-surface-sub);
   font-size: 0.875rem;
-  color: var(--color-ink);
+  color: var(--color-body);
 }
 
 /* ---------------------------------------------------------------------------
@@ -153,61 +231,92 @@ textarea.input { height: auto; min-height: 5rem; padding: 0.5rem 0.75rem; line-h
   justify-content: center;
   gap: 0.375rem;
   height: var(--tap);
-  padding: 0 1rem;
-  border-radius: 0.375rem;
-  font-size: 0.875rem;
+  padding: 0 0.875rem;
+  border-radius: var(--r-sm);
+  font-size: 0.8125rem;
   font-weight: 600;
+  letter-spacing: -0.005em;
   white-space: nowrap;
   cursor: pointer;
   border: 1px solid transparent;
-  transition: background-color 120ms, border-color 120ms, color 120ms;
+  transition: background-color 140ms ease, border-color 140ms ease,
+              color 140ms ease, box-shadow 140ms ease;
   -webkit-tap-highlight-color: transparent;
 }
 .btn:disabled, .btn-primary:disabled, .btn-ghost:disabled,
-.btn-danger:disabled, .btn-quiet:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-danger:disabled, .btn-quiet:disabled { opacity: 0.4; cursor: not-allowed; }
 
-.btn-primary { background: var(--color-brand); color: #fff; border-color: var(--color-brand); }
-.btn-primary:hover:not(:disabled) { background: var(--color-brand-deep); border-color: var(--color-brand-deep); }
+.btn-primary {
+  background: var(--color-brand);
+  color: #fff;
+  border-color: var(--color-brand);
+  box-shadow: var(--sh-1);
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--color-brand-deep);
+  border-color: var(--color-brand-deep);
+  box-shadow: var(--sh-2);
+}
+.btn-primary:active:not(:disabled) { box-shadow: none; }
 
 .btn-ghost { background: var(--color-surface); color: var(--color-ink); border-color: var(--color-line-strong); }
-.btn-ghost:hover:not(:disabled) { background: var(--color-canvas); }
+.btn-ghost:hover:not(:disabled) { background: var(--color-surface-sub); border-color: var(--color-faint); }
 
 .btn-quiet { background: transparent; color: var(--color-muted); }
-.btn-quiet:hover:not(:disabled) { background: var(--color-canvas); color: var(--color-ink); }
+.btn-quiet:hover:not(:disabled) { background: var(--color-canvas-deep); color: var(--color-ink); }
 
-.btn-danger { background: var(--color-surface); color: var(--color-danger); border-color: var(--color-danger); }
-.btn-danger:hover:not(:disabled) { background: var(--color-danger-bg); }
+.btn-danger { background: var(--color-surface); color: var(--color-danger); border-color: var(--color-danger-line); }
+.btn-danger:hover:not(:disabled) { background: var(--color-danger-bg); border-color: var(--color-danger); }
 
 /* ---------------------------------------------------------------------------
    표
 --------------------------------------------------------------------------- */
 .th {
   text-align: left;
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   line-height: 1rem;
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: 0.03em;
   color: var(--color-muted);
-  padding: 0.5rem 0.75rem;
+  padding: 0.625rem 0.875rem;
   border-bottom: 1px solid var(--color-line);
   white-space: nowrap;
-  background: var(--color-canvas);
+  background: var(--color-surface-sub);
 }
 .td {
-  padding: 0.5rem 0.75rem;
+  padding: 0.625rem 0.875rem;
   font-size: 0.875rem;
-  border-bottom: 1px solid var(--color-line);
+  color: var(--color-body);
+  border-bottom: 1px solid var(--color-line-soft);
   vertical-align: middle;
 }
+tbody tr:last-child .td { border-bottom: none; }
+tbody tr { transition: background-color 120ms ease; }
+tbody tr:hover .td { background: var(--color-surface-sub); }
 
 .chip {
   display: inline-flex;
   align-items: center;
-  padding: 0.125rem 0.5rem;
-  border-radius: 0.25rem;
-  font-size: 0.75rem;
-  line-height: 1.25rem;
-  font-weight: 600;
+  gap: 0.25rem;
+  padding: 0.0625rem 0.4375rem;
+  border-radius: 0.3125rem;
+  font-size: 0.6875rem;
+  line-height: 1.125rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
   white-space: nowrap;
+}
+
+/* 화면 안 이동 경로. 계층이 깊은 화면에서 지금 위치를 알려 준다 */
+.crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--color-faint);
+  text-transform: uppercase;
 }
 
 /* ---------------------------------------------------------------------------
@@ -218,56 +327,77 @@ textarea.input { height: auto; min-height: 5rem; padding: 0.5rem 0.75rem; line-h
 --------------------------------------------------------------------------- */
 .touch { --tap: var(--tap-touch); font-size: 1.0625rem; }
 .touch .label { font-size: 0.875rem; margin-bottom: 0.5rem; }
-.touch .input { font-size: 1.0625rem; padding: 0 1rem; }
+.touch .input { font-size: 1.0625rem; padding: 0 1rem; border-radius: var(--r-md); }
 .touch .btn, .touch .btn-primary, .touch .btn-ghost,
-.touch .btn-danger, .touch .btn-quiet { font-size: 1rem; padding: 0 1.5rem; }
+.touch .btn-danger, .touch .btn-quiet {
+  font-size: 1rem; padding: 0 1.5rem; border-radius: var(--r-md);
+}
 .touch .td { padding: 0.875rem 1rem; font-size: 1rem; }
-.touch .th { padding: 0.75rem 1rem; font-size: 0.8125rem; }
-.touch .chip { font-size: 0.875rem; padding: 0.25rem 0.625rem; }
+.touch .th { padding: 0.75rem 1rem; font-size: 0.75rem; }
+.touch .chip { font-size: 0.8125rem; padding: 0.1875rem 0.5625rem; border-radius: var(--r-sm); }
+.touch .card, .touch .card-raised { border-radius: var(--r-xl); }
+.touch .section-head { padding: 1rem 1.25rem; }
 
 /* 큰 선택 타일. 현장에서 손가락으로 고르는 모든 것 */
 .tile {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 0.25rem;
+  gap: 0.1875rem;
   min-height: var(--tap-touch);
   padding: 0.875rem 1rem;
   border: 1px solid var(--color-line-strong);
-  border-radius: 0.5rem;
+  border-radius: var(--r-md);
   background: var(--color-surface);
   text-align: left;
   cursor: pointer;
-  transition: border-color 120ms, background-color 120ms;
+  transition: border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
   -webkit-tap-highlight-color: transparent;
 }
-.tile:hover { background: var(--color-canvas); }
+.tile:hover { background: var(--color-surface-sub); border-color: var(--color-faint); }
 .tile:active { background: var(--color-canvas-deep); }
 .tile[aria-pressed="true"], .tile[data-on="true"] {
   border-color: var(--color-brand);
   background: var(--color-brand-soft);
-  box-shadow: inset 0 0 0 1px var(--color-brand);
+  box-shadow: inset 0 0 0 1px var(--color-brand), var(--sh-1);
 }
-.tile:disabled { opacity: 0.45; cursor: not-allowed; }
+.tile:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* 숫자 패드 키 */
 .padkey {
-  height: 3.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 3.5rem;
   border: 1px solid var(--color-line-strong);
-  border-radius: 0.5rem;
+  border-radius: var(--r-md);
   background: var(--color-surface);
+  color: var(--color-ink);
   font-size: 1.375rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   cursor: pointer;
+  box-shadow: var(--sh-1);
   -webkit-tap-highlight-color: transparent;
   -webkit-user-select: none;
   user-select: none;
-  transition: background-color 90ms;
+  transition: background-color 90ms ease, box-shadow 90ms ease, transform 90ms ease;
 }
-.padkey:hover { background: var(--color-canvas); }
-.padkey:active { background: var(--color-canvas-deep); }
-.padkey-alt { font-size: 0.9375rem; color: var(--color-muted); }
+.padkey:hover { background: var(--color-surface-sub); }
+.padkey:active {
+  background: var(--color-brand-soft);
+  border-color: var(--color-brand-line);
+  box-shadow: none;
+  transform: translateY(1px);
+}
+.padkey-alt {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-muted);
+  background: var(--color-surface-sub);
+  box-shadow: none;
+}
+.padkey-alt:hover { background: var(--color-canvas-deep); }
 
 /* ---------------------------------------------------------------------------
    인쇄 (§7 인쇄는 1급 기능)
@@ -281,7 +411,7 @@ textarea.input { height: auto; min-height: 5rem; padding: 0.5rem 0.75rem; line-h
   padding: 14mm 12mm 16mm;
   background: #fff;
   border: 1px solid var(--color-line);
-  box-shadow: 0 1px 3px rgb(28 26 31 / 0.06);
+  box-shadow: var(--sh-2);
 }
 .print-table { border-collapse: collapse; width: 100%; }
 .print-table th, .print-table td {
@@ -317,4 +447,23 @@ textarea.input { height: auto; min-height: 5rem; padding: 0.5rem 0.75rem; line-h
 
   thead { display: table-header-group; }
   tr { page-break-inside: avoid; }
+}
+
+/* ---------------------------------------------------------------------------
+   움직임
+
+   기록을 쓰는 화면이라 화려한 전환을 두지 않는다. 새로 나타나는 판만
+   짧게 올라오게 해 어디가 바뀌었는지 눈이 따라가게 한다.
+--------------------------------------------------------------------------- */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: none; }
+}
+.rise { animation: rise 180ms ease-out both; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

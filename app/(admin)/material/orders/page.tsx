@@ -2,7 +2,8 @@ import { requireUser } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import { fmtDate } from '@/lib/fmt';
 import { PageHead, Panel, Empty, Tag } from '@/components/ui';
-import OrderForms, { type OrderRow, type ItemOpt, type SupplierOpt } from './order-forms';
+import { NewOrder, CancelOrder,
+         type OrderRow, type ItemOpt, type SupplierOpt } from './order-forms';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,7 +45,7 @@ export default async function OrdersPage() {
       <PageHead
         title="발주"
         note="발주중 수량은 최소 재고선 알림에 반영되어 같은 자재로 알림이 반복되지 않습니다."
-        action={<OrderForms.New items={d.items} suppliers={d.suppliers} today={d.today ?? ''} />}
+        action={<NewOrder items={d.items} suppliers={d.suppliers} today={d.today ?? ''} />}
       />
 
       {d.alerts.length > 0 && (
@@ -126,7 +127,7 @@ export default async function OrdersPage() {
                         {o.lot_count > 0 && <Tag tone="quiet">로트 {o.lot_count}</Tag>}
                       </td>
                       <td className="td text-right">
-                        {o.status === 'ORDERED' && <OrderForms.Cancel id={o.id} poNo={o.po_no} />}
+                        {o.status === 'ORDERED' && <CancelOrder id={o.id} poNo={o.po_no} />}
                       </td>
                     </tr>
                   );

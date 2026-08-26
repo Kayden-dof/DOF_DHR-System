@@ -1,3 +1,4 @@
+import React from 'react';
 import { requireUser, hasRole } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import { fmtDate } from '@/lib/fmt';
@@ -64,17 +65,21 @@ export default async function CostPage() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-xl font-bold text-ink">조회</h1>
-        <p className="mt-1 text-sm text-muted">로트번호 하나로 위아래를 모두 따라갑니다.</p>
-      </div>
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4 border-b border-line pb-4">
+        <div className="min-w-0">
+          <h1 className="text-[1.375rem] font-bold text-ink">조회</h1>
+          <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-muted">
+            로트번호 하나로 위아래를 모두 따라갑니다.
+          </p>
+        </div>
 
-      <SubNav
-        items={[
-          { href: '/trace', label: '계보 추적' },
-          { href: '/trace/cost', label: '원가' },
-        ]}
-      />
+        <SubNav
+          items={[
+            { href: '/trace', label: '계보 추적' },
+            { href: '/trace/cost', label: '원가' },
+          ]}
+        />
+      </div>
 
       <PageHead
         title="원가"
@@ -189,7 +194,9 @@ export default async function CostPage() {
               </thead>
               <tbody>
                 {[...spendByMonth.entries()].map(([month, rows]) => (
-                  <>
+                  // 조각에도 키가 있어야 한다. 없으면 월이 늘었을 때 React가
+                  // 행을 잘못 이어 붙여 다른 달 금액이 섞여 보인다.
+                  <React.Fragment key={month}>
                     {rows.map((s, i) => (
                       <tr key={`${month}-${s.item_code}`}>
                         {i === 0 && (
@@ -211,7 +218,7 @@ export default async function CostPage() {
                         {won(rows.reduce((a, r) => a + Number(r.amount), 0))}
                       </td>
                     </tr>
-                  </>
+                  </React.Fragment>
                 ))}
               </tbody>
             </table>

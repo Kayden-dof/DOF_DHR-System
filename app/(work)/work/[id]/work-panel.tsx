@@ -18,7 +18,7 @@ export interface Rec {
   product_lot_id: string | null; product_lot_no: string | null;
   started_at: Date | null; ended_at: Date | null;
   equipment_id: string | null; rework_qty: number | null; no_material_reason: string | null;
-  worker_id: string;
+  worker_id: string; worker_name: string;
   issues: { item_id: string; item_code: string; item_name: string;
             lot_no: string; qty: string; usage_uom: string }[];
 }
@@ -72,27 +72,46 @@ export default function WorkPanel({
     return rs.some((r) => !r.ended_at) ? 'open' : 'done';
   };
 
+  /*
+   * 기록지는 작업자별로 나온다. 그래서 내 기록만 내 화면에 뜬다.
+   * 그런데 같은 배치를 두 사람이 나눠 하면 남이 이미 끝낸 공정이 내 화면에서는
+   * 빈칸으로 보여 그대로 다시 하게 된다. 누가 언제 했는지는 판정이 아니라
+   * 사실이므로 표시만 한다. 그 사람의 기록을 내가 고칠 수는 없다.
+   */
+  const othersOf = (o: Op) => {
+    const rs = records.filter((r) => r.operation_id === o.id && r.worker_id !== meId);
+    if (rs.length === 0) return null;
+    const names = [...new Set(rs.map((r) => r.worker_name))].join(' · ');
+    return { names, days: [...new Set(rs.map((r) => r.day_no))].sort((a, b) => a - b) };
+  };
+
+  const mine = ops.filter((o) => stateOf(o) === 'done').length;
+
   return (
     <div className="space-y-5">
       {/* 일차 --------------------------------------------------------------- */}
-      <section className="card p-4">
+      <section className="card p-5">
         <div className="flex items-baseline justify-between">
           <h2 className="text-base font-bold text-ink">일차</h2>
           <span className="text-sm text-muted">지시서별 실작업일 순번</span>
         </div>
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="mt-3.5 flex flex-wrap gap-2">
           {days.map((n) => (
             <button key={n} onClick={() => { setDay(n); setOpId(null); }}
                     data-on={day === n}
-                    className="tile no-select w-28 items-center text-center">
+                    className="tile no-select w-[6.5rem] items-center gap-0.5 text-center">
               <span className="text-xl font-bold tnum">{n}일차</span>
-              {lockedDays.includes(n) && <span className="text-xs text-ok">마감됨</span>}
+              <span className={`text-xs ${lockedDays.includes(n) ? 'text-ok' : 'text-muted'}`}>
+                {lockedDays.includes(n)
+                  ? '마감됨'
+                  : `${myRecords.filter((r) => r.day_no === n).length}건`}
+              </span>
             </button>
           ))}
           {!days.includes(nextDay) && (
             <button onClick={() => { setDay(nextDay); setOpId(null); }}
                     data-on={day === nextDay}
-                    className="tile no-select w-28 items-center border-dashed text-center">
+                    className="tile no-select w-[6.5rem] items-center gap-0.5 border-dashed text-center">
               <span className="text-xl font-bold tnum">{nextDay}일차</span>
               <span className="text-xs text-muted">새로 시작</span>
             </button>
@@ -108,25 +127,46 @@ export default function WorkPanel({
       </section>
 
       {/* 공정 --------------------------------------------------------------- */}
-      <section className="card p-4">
-        <h2 className="text-base font-bold text-ink">{day}일차 공정</h2>
-        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+      <section className="card p-5">
+        <div className="flex items-baseline justify-between">
+          <h2 className="text-base font-bold text-ink">{day}일차 공정</h2>
+          <span className="text-sm text-muted tnum">
+            내 기록 {mine} / {ops.length}
+          </span>
+        </div>
+
+        <div className="mt-3.5 grid gap-2 sm:grid-cols-2">
           {ops.map((o) => {
             const st = stateOf(o);
+            const others = othersOf(o);
             return (
               <button key={o.id} onClick={() => setOpId(o.id === opId ? null : o.id)}
-                      data-on={o.id === opId} className="tile no-select">
+                      data-on={o.id === opId}
+                      className="tile no-select relative gap-1 pl-6">
+                <span aria-hidden className={`absolute inset-y-2 left-2 w-1 rounded-full ${
+                  st === 'open' ? 'bg-warn'
+                    : st === 'done' ? 'bg-ok'
+                    : others ? 'bg-line-strong' : 'bg-transparent'
+                }`} />
+
                 <div className="flex items-center gap-2">
-                  <span className="w-6 text-center text-sm font-bold tnum text-faint">{o.seq}</span>
-                  <span className="text-base font-semibold text-ink">{o.name}</span>
+                  <span className="w-5 text-center text-sm font-bold tnum text-faint">{o.seq}</span>
+                  <span className="flex-1 text-base font-semibold text-ink">{o.name}</span>
                   {st === 'open' && <Tag tone="warn">진행 중</Tag>}
                   {st === 'done' && <Tag tone="ok">마감</Tag>}
                 </div>
-                <div className="pl-8 text-xs text-muted">
+
+                <div className="pl-7 text-xs text-muted">
                   {o.code}
                   {o.after_cutting && ' · 제품 로트별'}
                   {o.bom.length > 0 && ` · 자재 ${o.bom.length}종`}
                 </div>
+
+                {others && st === 'none' && (
+                  <div className="pl-7 text-xs text-faint">
+                    {others.names} 님이 {others.days.join(' · ')}일차에 기록
+                  </div>
+                )}
               </button>
             );
           })}

@@ -81,29 +81,31 @@ export default async function ProductionPage({ searchParams }: { searchParams: S
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-xl font-bold text-ink">생산</h1>
-        <p className="mt-1 text-sm text-muted">
-          작업지시 발행과 배치 진행. 공정 기록 입력은 현장 화면에서 합니다.
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4 border-b border-line pb-4">
+        <div className="min-w-0">
+          <h1 className="text-[1.375rem] font-bold text-ink">생산</h1>
+          <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-muted">
+            배치 하나는 원재료 로트 하나를 가공하는 단위입니다. 번호는 재사용하지 않습니다.
+            공정 기록 입력은 현장 화면에서 합니다.
+          </p>
+        </div>
+        <IssueForm masters={d.masters} rawLots={d.rawLots}
+                   users={d.users} today={d.today ?? ''} />
       </div>
 
-      <PageHead
-        title="작업지시"
-        note="배치 하나는 원재료 로트 하나를 가공하는 단위입니다. 번호는 재사용하지 않습니다."
-        action={<IssueForm masters={d.masters} rawLots={d.rawLots}
-                           users={d.users} today={d.today ?? ''} />}
-      />
-
-      <div className="card flex flex-wrap items-center gap-1.5 p-3">
+      <div className="inline-flex flex-wrap items-center gap-1 rounded-lg border border-line bg-surface-sub p-1">
         <Link href="/production"
-              className={`chip ${!status ? 'bg-brand text-white' : 'bg-canvas text-muted'}`}>
-          전체 {total}
+              className={`rounded-[0.3125rem] px-3 py-1.5 text-xs font-bold transition-all ${
+                !status ? 'bg-surface text-brand shadow-[0_1px_2px_rgb(31_29_36/.06)]'
+                        : 'text-muted hover:text-ink'}`}>
+          전체 <span className="tnum">{total}</span>
         </Link>
         {Object.entries(WO_STATUS_LABEL).map(([code, label]) => (
           <Link key={code} href={`/production?status=${code}`}
-                className={`chip ${status === code ? 'bg-brand text-white' : 'bg-canvas text-muted'}`}>
-            {label} {byStatus.get(code) ?? 0}
+                className={`rounded-[0.3125rem] px-3 py-1.5 text-xs font-bold transition-all ${
+                  status === code ? 'bg-surface text-brand shadow-[0_1px_2px_rgb(31_29_36/.06)]'
+                                  : 'text-muted hover:text-ink'}`}>
+            {label} <span className="tnum">{byStatus.get(code) ?? 0}</span>
           </Link>
         ))}
       </div>

@@ -79,7 +79,7 @@ export default async function CoverSheet({ params }: { params: Promise<{ id: str
                     and rp.day_no = pr.day_no and rp.worker_id = pr.worker_id) as prints
            from process_record pr join app_user u on u.id = pr.worker_id
           where pr.work_order_id = $1
-          group by pr.day_no, pr.worker_id, u.full_name
+          group by pr.work_order_id, pr.day_no, pr.worker_id, u.full_name
           order by pr.day_no, u.full_name`, [id]),
     };
   });

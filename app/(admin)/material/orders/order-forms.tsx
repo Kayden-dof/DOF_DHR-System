@@ -14,7 +14,9 @@ export interface OrderRow {
 export interface ItemOpt { id: string; code: string; name: string; usage_uom: string; type: string }
 export interface SupplierOpt { id: string; name: string; status: string }
 
-function New({ items, suppliers, today }: {
+// 'use client' 모듈은 함수만 서버 경계를 넘는다. 컴포넌트를 객체로 묶어
+// 내보내면 서버 쪽에서 undefined 가 되어 화면이 통째로 500 으로 죽는다.
+export function NewOrder({ items, suppliers, today }: {
   items: ItemOpt[]; suppliers: SupplierOpt[]; today: string;
 }) {
   const [state, action, pending] = useActionState<FormState, FormData>(createOrder, {});
@@ -79,7 +81,7 @@ function New({ items, suppliers, today }: {
   );
 }
 
-function Cancel({ id, poNo }: { id: string; poNo: string }) {
+export function CancelOrder({ id, poNo }: { id: string; poNo: string }) {
   const [state, action, pending] = useActionState<FormState, FormData>(cancelOrder, {});
   const [ask, setAsk] = useState(false);
 
@@ -102,5 +104,3 @@ function Cancel({ id, poNo }: { id: string; poNo: string }) {
   );
 }
 
-const OrderForms = { New, Cancel };
-export default OrderForms;

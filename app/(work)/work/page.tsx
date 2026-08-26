@@ -56,7 +56,7 @@ export default async function WorkHome() {
     <div className="space-y-5">
       <div>
         <h1 className="text-2xl font-bold text-ink">작업할 배치</h1>
-        <p className="mt-1 text-sm text-muted">
+        <p className="mt-1.5 text-sm text-muted">
           {user.full_name} 님. 배치를 눌러 공정 기록을 작성하십시오.
         </p>
       </div>
@@ -72,46 +72,55 @@ export default async function WorkHome() {
         <div className="grid gap-3 sm:grid-cols-2">
           {batches.map((b) => (
             <Link key={b.id} href={`/work/${b.id}`}
-                  className="tile no-select gap-2 p-5 hover:border-brand">
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-xl font-bold text-ink">{b.batch_no}</span>
-                <Tag tone={b.status === 'IN_PROCESS' ? 'brand' : 'info'}>
-                  {WO_STATUS_LABEL[b.status] ?? b.status}
-                </Tag>
-                {b.my_open > 0 && <Tag tone="warn">진행 중 {b.my_open}</Tag>}
+                  className="tile no-select relative gap-0 overflow-hidden p-0">
+              {/* 진행 중인 배치는 왼쪽 띠로 먼저 눈에 들어오게 한다 */}
+              <span aria-hidden className={`absolute inset-y-0 left-0 w-1 ${
+                b.my_open > 0 ? 'bg-warn' : b.status === 'IN_PROCESS' ? 'bg-brand' : 'bg-line-strong'
+              }`} />
+
+              <div className="flex items-start gap-3 px-5 pb-3 pt-4">
+                <div className="min-w-0 flex-1">
+                  <div className="font-mono text-xl font-bold tracking-tight text-ink">
+                    {b.batch_no}
+                  </div>
+                  <div className="mt-0.5 text-base text-body">{b.item_name}</div>
+                </div>
+                <div className="flex shrink-0 flex-col items-end gap-1">
+                  <Tag tone={b.status === 'IN_PROCESS' ? 'brand' : 'info'}>
+                    {WO_STATUS_LABEL[b.status] ?? b.status}
+                  </Tag>
+                  {b.my_open > 0 && <Tag tone="warn">마감 전 {b.my_open}</Tag>}
+                </div>
               </div>
 
-              <div className="text-base text-ink">{b.item_name}</div>
+              <dl className="grid grid-cols-3 gap-px border-t border-line-soft bg-line-soft">
+                {[
+                  ['장입', `${b.sheet_count}장`],
+                  ['내 기록', `${b.my_records}건`],
+                  b.lot_count > 0
+                    ? ['제품 로트', `${b.lot_count}건`]
+                    : ['마감 일차', `${b.my_locked_days}일`],
+                ].map(([k, v]) => (
+                  <div key={k} className="bg-surface px-5 py-2.5">
+                    <dt className="text-xs text-muted">{k}</dt>
+                    <dd className="mt-0.5 text-base font-bold tnum text-ink">{v}</dd>
+                  </div>
+                ))}
+              </dl>
 
-              <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted">
-                <span>장입 <b className="tnum text-ink">{b.sheet_count}</b>장</span>
-                <span>원재료 <span className="font-mono text-ink">{b.raw_lot_no}</span></span>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-line-soft px-5 py-2.5 text-sm text-muted">
+                <span>원재료 <span className="font-mono text-body">{b.raw_lot_no}</span></span>
                 {b.thickness_band && <span>두께 {b.thickness_band}</span>}
-              </div>
-
-              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm">
-                <span className="text-muted">
-                  내 기록 <b className="tnum text-ink">{b.my_records}</b>건
-                </span>
-                {b.my_locked_days > 0 && (
-                  <span className="text-muted">
-                    마감 <b className="tnum text-ink">{b.my_locked_days}</b>일차
-                  </span>
-                )}
-                {b.lot_count > 0 && (
-                  <span className="text-muted">
-                    제품 로트 <b className="tnum text-ink">{b.lot_count}</b>
-                  </span>
-                )}
+                {b.last_day && <span className="tnum">{b.last_day}일차까지 기록</span>}
               </div>
             </Link>
           ))}
         </div>
       )}
 
-      <div className="card p-4">
+      <div className="card bg-surface-sub p-5">
         <h2 className="text-sm font-bold text-ink">기억할 것</h2>
-        <ul className="mt-2 space-y-1.5 text-sm leading-relaxed text-muted">
+        <ul className="mt-2.5 space-y-2 text-sm leading-relaxed text-muted">
           <li>· 공정을 시작하면 시작 시각이 찍히고, 마감하면 종료 시각이 찍힙니다.</li>
           <li>· 자재를 넣지 않고 마감하려면 <b className="text-ink">해당 없음 사유</b>를 골라야 합니다.</li>
           <li>· 일차를 마감하고 기록서를 인쇄하면 <b className="text-ink">그 묶음은 고칠 수 없습니다.</b></li>

@@ -8,3 +8,6 @@ env.deploy
 .env*.local
 next-env.d.ts
 *.tsbuildinfo
+
+# 회사 CI 원본. 공개 저장소에 올리지 않는다. 필요한 벡터는 components/logo.tsx 에 있다
+08. 회사 로고(CI).zip

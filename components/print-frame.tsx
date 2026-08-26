@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { Wordmark } from './logo';
 import { useEffect, useState } from 'react';
 
 export interface PrintMeta {
@@ -33,26 +34,29 @@ export default function PrintFrame({
 
   return (
     <>
-      <div className="no-print mx-auto mb-4 flex max-w-[210mm] flex-wrap items-center gap-2 px-2">
-        {back && (
-          <Link href={back} className="btn-ghost h-9 px-3 text-xs">돌아가기</Link>
-        )}
-        <span className="text-xs text-muted">
-          인쇄 회차 <b className="tnum text-ink">{meta.seq}</b>
-          {meta.seq > 1 && <span className="ml-1 text-warn">재발행</span>}
-        </span>
-        <button onClick={() => window.print()} disabled={!ready}
-                className="btn-primary ml-auto h-9 px-4 text-xs">
-          인쇄
-        </button>
+      <div className="no-print sticky top-0 z-20 mb-5 border-b border-line bg-canvas/90 backdrop-blur">
+        <div className="mx-auto flex max-w-[210mm] flex-wrap items-center gap-3 px-2 py-3">
+          {back && <Link href={back} className="btn-ghost h-9">돌아가기</Link>}
+          <div className="leading-tight">
+            <div className="text-[0.8125rem] font-bold text-ink">{meta.kindLabel}</div>
+            <div className="text-xs text-muted">
+              인쇄 회차 <b className="tnum text-ink">{meta.seq}</b>
+              {meta.seq > 1 && <span className="ml-1.5 font-bold text-warn">재발행</span>}
+            </div>
+          </div>
+          <button onClick={() => window.print()} disabled={!ready}
+                  className="btn-primary ml-auto h-9">
+            인쇄
+          </button>
+        </div>
       </div>
 
       <div className="sheet">
         <header className="mb-4 border-b-2 border-black pb-2">
           <div className="flex items-start justify-between">
             <div>
-              <div className="text-[10px] font-bold tracking-widest text-black">DOF</div>
-              <h1 className="text-lg font-bold text-black">{title}</h1>
+              <Wordmark className="h-3.5 w-auto" purple="#000" gray="#666" />
+              <h1 className="mt-1.5 text-lg font-bold text-black">{title}</h1>
               {subtitle && <div className="mt-0.5 text-xs text-black">{subtitle}</div>}
             </div>
             <table className="text-[10px] text-black">
