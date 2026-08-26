@@ -109,15 +109,25 @@ async function bomLots(opId) {
 }
 
 /** 시작 → 자재 → 마감. 화면의 세 단추와 같다. */
+/*
+ * 공정 시각이 앞으로 흐르게 한다. 모두 같은 시각으로 넣으면 앞 공정 종료보다 뒤
+ * 공정 시작이 빨라져서 검토 지원이 전부 시각 모순으로 잡는다. 시연 자료가
+ * 경고를 만들어 내면 진짜 경고가 묻힌다.
+ */
+let clock = 0;
+
 async function runOp(actor, opCode, { day, lot = null, attempt = 1, units = 0, rotation = null } = {}) {
   const op = opBy[opCode];
+  const startMin = 480 + clock * 40;   // 08:00 부터 40분 간격
+  clock += 1;
   const prId = await as(actor.id, async () => {
     const id = await val(
       `insert into process_record (work_order_id, product_lot_id, operation_id, attempt,
          day_no, work_date, worker_id, rotation_worker_id, started_at)
-       values ($1,$2,$3,$4,$5,(timezone('Asia/Seoul', now()))::date,$6,$7, now() - interval '3 hours')
+       values ($1,$2,$3,$4,$5,(timezone('Asia/Seoul', now()))::date,$6,$7,
+               (timezone('Asia/Seoul', now()))::date + ($8 || ' minutes')::interval)
        returning id`,
-      [wo.id, lot, op.id, attempt, day, actor.id, rotation]);
+      [wo.id, lot, op.id, attempt, day, actor.id, rotation, startMin]);
     return id;
   });
 
@@ -132,6 +142,11 @@ async function runOp(actor, opCode, { day, lot = null, attempt = 1, units = 0, r
          values ($1,$2,$3,$4)`, [prId, b.lot_id, qty, actor.id]));
   }
 
+  await as(actor.id, () =>
+    client.query(
+      `update process_record
+          set ended_at = (timezone('Asia/Seoul', now()))::date + ($2 || ' minutes')::interval
+        where id = $1`, [prId, startMin + 30]));
   await as(actor.id, () => client.query(`select complete_process($1)`, [prId]));
   say(`${op.code} ${op.name}${lot ? ' · 로트별' : ''} 마감`);
   return prId;

@@ -117,6 +117,12 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
       finished: await db.rows<FinOpt>(
         `select id, code, name from item where type = 'FIN' and is_active order by code`),
       today: await db.val<string>(`select to_char(timezone('Asia/Seoul', now()),'YYYY-MM-DD')`),
+      /*
+       * 검토 지원 (§8.5). 산술로 판정되는 것만 돌아온다.
+       * 이상이 없으면 빈 배열이고, 그때는 아무것도 그리지 않는다.
+       */
+      review: await db.rows<{ kind: string; detail: string; day_no: number | null; ref: string }>(
+        `select kind, detail, day_no, ref from review_flags($1)`, [id]),
       prints: await db.rows<PrintRow>(
         `select v.id, v.kind, v.short_hash, v.seq, v.pages, v.printed_at,
                 v.printed_by_name, v.retrieved_at, v.retrieve_reason,
@@ -246,6 +252,52 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
             </table>
           </div>
         </Panel>
+      )}
+
+      {/* ---------------------------------------------------------------
+          검토 지원 (§8.5)
+
+          명백히 어긋나거나 빠진 항목을 눈에 띄게 표시한다. 사실만 적고 판정
+          문구를 쓰지 않는다. 이상이 없으면 이 칸 자체가 나오지 않는다.
+
+          "이상 없음"을 절대 표시하지 않는다. 그 문구가 뜨는 순간 검토자가 그것을
+          믿고 넘어가는데, 시스템이 잡을 수 있는 항목보다 잡을 수 없는 항목이
+          훨씬 많다. 잘못된 안심을 만드는 것이 돕지 않는 것보다 위험하다.
+
+          표시가 있어도 인쇄와 진행을 막지 않는다. 차단은 S01~S05 뿐이다.
+      --------------------------------------------------------------- */}
+      {d.review.length > 0 && (
+        <section className="card border-warn/40">
+          <header className="section-head bg-warn-bg">
+            <div>
+              <h3 className="text-[0.875rem] font-bold text-ink">
+                확인해 볼 항목 <span className="tnum">{d.review.length}</span>
+              </h3>
+              <p className="mt-0.5 text-xs leading-relaxed text-muted">
+                산술로 어긋나는 것만 짚었습니다. 적합 여부는 전체를 보는 검토자가 판단합니다.
+              </p>
+            </div>
+          </header>
+
+          <ul className="divide-y divide-line-soft">
+            {d.review.map((r, i) => (
+              <li key={i} className="flex items-start gap-3 px-4 py-3">
+                <Tag tone="warn">{r.kind}</Tag>
+                <span className="min-w-0 flex-1 text-sm leading-relaxed text-ink">
+                  {r.detail}
+                </span>
+                {r.day_no !== null && (
+                  <span className="shrink-0 tnum text-xs text-muted">{r.day_no}일차</span>
+                )}
+              </li>
+            ))}
+          </ul>
+
+          <p className="border-t border-line-soft bg-surface-sub px-4 py-2.5 text-xs leading-relaxed text-muted">
+            여기에 없는 항목이 곧 문제가 없다는 뜻은 아닙니다. 시스템은 계산으로
+            판정되는 것만 짚습니다.
+          </p>
+        </section>
       )}
 
       <Panel
