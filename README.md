@@ -1,12 +1,21 @@
-# DOF DHR 지원 시스템 - M0
+# DOF DHR 지원 시스템
 
-사용자 · 권한 · 감사추적 · 채번 규칙. `CLAUDE.md` §4.1, §4.10, §5(S03), §8 구현.
+의료기기 GMP 제조소용 제조기록 **지원** 도구. `CLAUDE.md` 전 범위(M0~M4) 구현.
 
-DB 계층(마이그레이션 5종)과 그 위의 관리 화면 4개로 이루어진다. §4.10이
-*"관리 화면에서 정의하고 시스템은 그 정의를 해석해 번호를 만든다"*,
-*"M0에서 규칙 관리 화면과 함수까지 완성해 둔다"*고 정한 범위다.
+**정본은 서명된 종이다.** 시스템은 종이를 발행하고 입력된 기록을 집계한다.
+판정하지 않고, 차단하지 않고(S01~S05 다섯 개 제외), 전자서명을 받지 않는다.
 
-M1 이후 표(`item`, `material_lot`, `work_order`, `process_record` …)는 만들지 않았다.
+| | 범위 | 상태 |
+|---|---|---|
+| M0 | 사용자 · 권한 · 감사추적 · 채번 규칙 | 완료 |
+| M1 | 기준정보 · 자재 로트 · 작업지시 · 자재 투입 | 완료 |
+| M2 | 제품 로트 · 공정 기록 · 인쇄 · 잠금 | 완료 |
+| M3 | 재고 · 발주 · 용액 제조 · 조회 | 완료 |
+| M4 | 멸균 · 출하 승인 · 출고 · 원가 집계 | 완료 |
+
+조작 모드는 **로그인 이후로 갈린다.** 관리자 역할이면 관리 화면(`/`), 작업자면
+현장 화면(`/work`)으로 넘어간다. 현장은 장갑 낀 손과 패드를 전제하므로 키보드를
+쓰지 않고 조작 대상이 56px 아래로 내려가지 않는다.
 
 ---
 
@@ -17,25 +26,46 @@ db/migrations/
   0001_app_role.sql      응용 접속 역할
   0002_audit.sql         audit_log · trg_audit · 삭제/TRUNCATE 차단 · current_user_id
   0003_users.sql         role_code · app_user · user_role · has_role · 개발계정 QP 금지
-  0004_numbering.sql     numbering_rule · numbering_counter · render_number ·
-                         preview_number · next_number · 규칙/카운터 불변식
+  0004_numbering.sql     numbering_rule · numbering_counter · next_number · 불변식
   0005_grants.sql        app_role 권한 부여 및 회수 (S03)
+  0006_supabase_hardening.sql  anon 등 API 역할 권한 회수 (Supabase에서만 의미)
+  0007_m1_item.sql       item · 완제품 형명 생성 (62종을 손으로 넣지 않는다)
+  0008_m1_supplier.sql   supplier · 단가 · 사용기간 이력
+  0009_m1_dmr.sql        device_master · dmr_operation · dmr_bom · required_qty
+  0010_m1_material.sql   purchase_order · material_lot (S01 · S02)
+  0011_m1_work_order.sql work_order · 발행 경고
+  0012_m2_product_lot.sql  product_lot · cut_product_lot (재단 분할)
+  0013_m2_process.sql    process_record · material_issue · v_lot_genealogy
+  0014_m2_print_lock.sql record_print · day_lock · is_locked (S04) · complete_process (S05)
+  0015_m3_stock.sql      stock_movement · 용액 제조 · 재고 뷰 · 최소 재고선 알림
+  0016_m4_steril_shipment.sql  멸균 위탁 · 출고 · 원가 뷰
+  0017_grants_audit.sql  표 21개에 감사추적 · 삭제 차단 · 권한 일괄 적용
 
 app/
-  login/                 패드 로그인 (§4.1)
-  (app)/                 인증 후 화면 - 현황 · 채번 규칙 · 사용자 · 감사추적
+  login/                 패드 로그인 (§4.1). 번호 4자리를 채우면 비밀번호로 넘어간다
+  (admin)/               관리 화면. 현황 · 생산 · 자재 · 출하 · 조회 · 설정
+  (work)/                현장 화면. 배치 타일 · 공정 기록 · 일차 마감
+  print/                 양식 6종 (§7). 인쇄는 1급 기능이다
 lib/
   db.ts                  트랜잭션 · app_role 강제 · 예외 해석
   session.ts             8시간 서명 쿠키 · 매 요청 계정 재확인
-  auth.ts                숫자 PIN scrypt 해시
-  roles.ts fmt.ts forms.ts
+  auth.ts roles.ts fmt.ts forms.ts print.ts
+components/
+  logo.tsx               CI 원본(.ai)의 벡터 좌표를 그대로 옮긴 워드마크
+  ui.tsx num-pad.tsx print-frame.tsx barcode.tsx
 
 test/
-  run.mjs                기능 시험 56건
+  run.mjs                규칙 · 구조 · 채번 · 계보 시험 108건
   concurrency.mjs        동시 채번 · 규칙 교체 경합 6건 (실제 서버 필요)
   pg.mjs                 실제 PostgreSQL을 띄워 위 둘을 한 번에
 
-scripts/dev.mjs          로컬 DB 기동 + 마이그레이션 + 시드 + next dev
+scripts/
+  dev.mjs                로컬 DB 기동 + 마이그레이션 + next dev
+  deploy-db.mjs          원격(Supabase)에 마이그레이션 적용
+  demo.mjs               로컬 DB를 통째로 다시 세운다 (localhost 전용)
+  seed-demo.mjs          기준정보 시드
+  seed-flow.mjs          배치 하나를 발행부터 출고까지 진행
+  smoke.mjs              실자료가 든 상태에서 화면 29개를 한 번씩 연다
 reports/                 시험 결과. 출력이 그대로 OQ 각본이 된다 (§8.1)
 ```
 
@@ -64,7 +94,7 @@ PostgreSQL 18을 띄우고(첫 실행이면 초기화 · 마이그레이션 · �
 npm run test:pg
 ```
 
-실제 PostgreSQL을 띄워 기능 56건 + 동시성 6건을 모두 돌린 뒤 서버를 내린다.
+실제 PostgreSQL을 띄워 기능 108건 + 동시성 6건을 모두 돌린 뒤 서버를 내린다.
 `npm test`는 PGlite(메모리)로 기능 시험만 빠르게 돌린다 - 동시성 시험은 빠진다.
 동시 채번 조건은 `SESSIONS`, `PER_SESSION`으로 바꾼다(기본 2세션 × 50회).
 
@@ -79,13 +109,32 @@ npm run test:pg
 
 ## 화면
 
+### 관리 화면 (키보드 · 마우스)
+
 | | 하는 일 |
 |---|---|
-| **로그인** | 숫자 패드. `login_code` + PIN, 세션 8시간 (§4.1) |
-| **현황** | 채번 대상 6종의 규칙 유무, 계정 · 역할 현황, 최근 감사추적. M1이 의존하는 대상에 규칙이 없으면 착수 불가를 경고한다 |
-| **채번 규칙** | §4.10의 관리 화면. 대상별 패턴 등록 · 교체 · 내리기, 형식 미리보기, 토큰 도움말 |
-| **사용자 · 역할** | 계정 등록, 역할 부여 · 회수, 비밀번호 재설정, 활성 · 개발계정 전환 |
-| **감사추적** | 표 · 작업 · 수행자 필터, 항목별 이전→이후 값 대조 |
+| **현황** | 지금 막혀 있는 것과 진행 중인 것. 이상이 없으면 아무것도 표시하지 않는다 |
+| **생산** | 작업지시 발행(소요량 미리보기), 배치 진행, 재단 분할, 인쇄 |
+| **자재** | 입고 등록(S01 · S02), 발주, 재고, 반납 · 폐기 · 용액 제조 |
+| **출하** | 멸균 위탁 발송 · 회수, 서면 출하 승인 전사, 출고 |
+| **조회** | 로트번호 하나로 정추적 · 역추적. 제품 원가와 자재 지출 |
+| **설정** | 채번 규칙 · 품목 · 공급자 · 제품표준서 · 사용자 · 감사추적 |
+
+### 현장 화면 (패드 · 장갑)
+
+| | 하는 일 |
+|---|---|
+| **배치 목록** | 지금 손댈 수 있는 배치만 큰 타일로 |
+| **공정 기록** | 일차 · 공정을 타일로 고르고, 수량은 숫자 패드, 사유는 정해진 문구에서 고른다 |
+| **일차 마감** | 마감하면 기록서가 발행되고 그 묶음이 잠긴다 (S04). 푸는 방법은 없다 |
+
+남이 이미 기록한 공정은 회색 띠와 이름으로 표시한다. 기록지는 작업자별이라
+내 화면에는 빈칸으로 보이는데, 그대로 두면 같은 공정을 두 번 한다.
+
+### 인쇄 (§7)
+
+작업지시서 · 제조기록서 · 라벨요청서 · 편철 표지 · 자재 라벨 · 출하 승인 요청서.
+모든 인쇄물에 인쇄 일시 · 인쇄자 · 인쇄 회차 · 자료 식별자 · 쪽 번호가 들어간다.
 
 ### 화면은 규칙을 판정하지 않는다
 
@@ -133,8 +182,12 @@ npm run test:pg
    grant app_role to dhr_app;
    ```
 2. `SESSION_SECRET`(32자 이상)과 `DATABASE_URL`을 환경변수로 준다.
-3. **채번 규칙을 등록한다.** M0은 채번 *기구*만 제공하고 규칙은 비어 있다.
+3. **채번 규칙을 등록한다.** 시스템은 채번 *기구*만 제공하고 규칙은 비어 있다.
    규칙 없이 채번을 부르면 예외가 난다. 현황 화면이 미등록 대상을 경고한다.
+4. **제품표준서를 등록하고 서면과 대조 확인한다.** 확인하지 않은 개정으로는
+   작업지시를 발행할 수 없다.
+
+> **M1이 끝나기 전에 실제 로트를 등록하지 않는다.** 계보는 소급이 안 된다.
 
 ---
 
