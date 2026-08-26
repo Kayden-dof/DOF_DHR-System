@@ -2,6 +2,9 @@ import { requireUser, hasRole } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import { NUMBERING_TARGETS } from '@/lib/forms';
 import Denied from '@/components/denied';
+import { PageShell } from '@/components/shell';
+import { SubNav } from '../../nav';
+import { SETTINGS_NAV } from '../../sections';
 import TargetCard, { type RuleRow } from './target-card';
 
 export const dynamic = 'force-dynamic';
@@ -34,15 +37,18 @@ export default async function NumberingPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-base font-bold text-ink">채번 규칙</h1>
-        <p className="mt-1 max-w-3xl text-sm leading-relaxed text-muted">
-          번호 형식은 코드에 박지 않고 여기서 정의합니다. 시스템은 이 정의를 해석해
-          번호를 만듭니다 (§4.10). <b className="text-ink">등록한 규칙은 수정할 수 없고,
-          번호는 재사용하지 않습니다</b> - 지시서를 취소해도 그 번호는 소멸합니다.
-        </p>
-      </div>
+    <PageShell
+      section="설정"
+      title="채번 규칙"
+      lede={
+        <>
+          번호 형식은 코드에 박지 않고 여기서 정의합니다.{' '}
+          <b className="text-ink">등록한 규칙은 수정할 수 없고, 번호는 재사용하지 않습니다.</b>{' '}
+          지시서를 취소해도 그 번호는 소멸합니다.
+        </>
+      }
+      nav={<SubNav items={SETTINGS_NAV} />}
+    >
 
       <div className="card p-4">
         <h2 className="text-xs font-bold text-ink">알아둘 것</h2>
@@ -78,6 +84,6 @@ export default async function NumberingPage() {
           />
         ))}
       </div>
-    </div>
+    </PageShell>
   );
 }

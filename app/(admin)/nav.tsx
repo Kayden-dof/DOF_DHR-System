@@ -10,11 +10,15 @@ export interface NavItem { href: string; label: string }
 
    현재 위치를 밑줄 하나로만 말한다. 배경까지 칠하면 상단이 얼룩덜룩해지고
    글자 무게가 흔들려 어디가 지금인지 오히려 흐려진다.
+
+   지금 자리는 가장 짙은 글자색으로 둔다. 자주로 칠했더니 회색 글자들보다
+   오히려 옅어서, 색은 붙었는데 눈은 다른 데를 봤다. 강조는 밑줄이 맡고
+   글자는 대비만 맡는다.
 --------------------------------------------------------------------------- */
 export default function Nav({ items }: { items: NavItem[] }) {
   const path = usePathname();
   return (
-    <nav className="-mx-1 flex min-w-0 items-center gap-0.5 overflow-x-auto px-1">
+    <nav className="-mx-1 flex min-w-0 items-center gap-1 overflow-x-auto px-1">
       {items.map((it) => {
         const active = it.href === '/' ? path === '/' : path.startsWith(it.href);
         return (
@@ -22,15 +26,15 @@ export default function Nav({ items }: { items: NavItem[] }) {
             key={it.href}
             href={it.href}
             aria-current={active ? 'page' : undefined}
-            className={`relative shrink-0 rounded-md px-3 py-2 text-[0.8125rem] font-bold transition-colors ${
-              active ? 'text-brand' : 'text-muted hover:bg-canvas hover:text-ink'
+            className={`relative shrink-0 rounded-md px-2.5 py-2 text-[0.8125rem] font-bold transition-colors ${
+              active ? 'text-ink' : 'text-muted hover:bg-canvas hover:text-ink'
             }`}
           >
             {it.label}
             {active && (
               <span
                 aria-hidden
-                className="absolute inset-x-2 -bottom-[11px] h-[2px] rounded-full bg-brand"
+                className="absolute inset-x-2.5 -bottom-[15px] h-[2px] bg-brand"
               />
             )}
           </Link>

@@ -3,9 +3,10 @@ import { requireUser, hasRole } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import { fmtDate } from '@/lib/fmt';
 import Denied from '@/components/denied';
-import { PageHead, Panel, Empty } from '@/components/ui';
+import { Panel, Empty } from '@/components/ui';
 import { PageShell } from '@/components/shell';
 import { SubNav } from '../../nav';
+import { TRACE_NAV } from '../../sections';
 
 export const dynamic = 'force-dynamic';
 
@@ -68,28 +69,15 @@ export default async function CostPage() {
     <PageShell
       section="조회"
       title="원가"
-      lede="제품 원가는 실제로 들어간 자재의 매입가입니다. 자재 지출은 기간에 사들인 금액입니다. 두 값은 성격이 달라 합치지 않습니다."
-      nav={
-        <SubNav
-          items={[
-            { href: '/trace', label: '계보 추적' },
-            { href: '/trace/verify', label: '인쇄물' },
-            { href: '/trace/cost', label: '원가' },
-          ]}
-        />
+      lede={
+        <>
+          <b className="text-ink">제품 원가</b>는 실제로 들어간 자재의 매입가입니다.
+          폐기분은 포함하지 않습니다. <b className="text-ink">자재 지출</b>은 기간에
+          사들인 금액이며 어디에 쓰였는지와 무관합니다. 두 값은 성격이 다르므로 합치지 않습니다.
+        </>
       }
+      nav={<SubNav items={TRACE_NAV} />}
     >
-
-      <PageHead
-        title="원가"
-        note={
-          <>
-            <b className="text-ink">제품 원가</b>는 실제로 들어간 자재의 매입가입니다.
-            폐기분은 포함하지 않습니다. <b className="text-ink">자재 지출</b>은 기간에
-            사들인 금액이며 어디에 쓰였는지와 무관합니다. 두 값은 성격이 다르므로 합치지 않습니다.
-          </>
-        }
-      />
 
       <Panel title="배치별 자재 원가">
         {d.batches.length === 0 ? (
@@ -131,7 +119,7 @@ export default async function CostPage() {
 
       <Panel
         title="제품 로트별 원가"
-        note="배치 공통분은 생산 수량 비율로 배분한다"
+        note="배치 공통분은 생산 수량 비율로 배분합니다"
       >
         {d.lots.length === 0 ? (
           <Empty>제품 로트가 없습니다.</Empty>
@@ -177,7 +165,7 @@ export default async function CostPage() {
         )}
       </Panel>
 
-      <Panel title="자재 지출" note="매입 기준. 제품 원가와 섞지 않는다">
+      <Panel title="자재 지출" note="매입 기준">
         {d.spend.length === 0 ? (
           <Empty>입고 기록이 없습니다.</Empty>
         ) : (

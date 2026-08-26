@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { requireUser, hasRole, ROLE_LABEL } from '@/lib/session';
 import { isAdmin, isWorker } from '@/lib/roles';
 import { Wordmark } from '@/components/logo';
+import Watermark, { stamp } from '@/components/watermark';
 import { logout } from './actions';
 import Nav, { type NavItem } from './nav';
 
@@ -39,28 +40,32 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <div className="flex min-h-screen flex-col">
       <div className="brand-rule" />
 
-      <header className="sticky top-0 z-30 border-b border-line bg-surface/85 backdrop-blur-md">
-        <div className="mx-auto flex max-w-[1400px] items-center gap-5 px-5 py-2.5 lg:gap-7">
-          <Link href="/" className="flex shrink-0 items-center gap-2.5" aria-label="현황으로">
-            <Wordmark className="h-[1.125rem] w-auto" />
-            <span className="h-4 w-px bg-line-strong" aria-hidden />
-            <span className="display text-[1.0625rem] leading-none text-ink">DHR</span>
-            <span className="chip hidden bg-brand-tint text-brand sm:inline-flex">관리</span>
+      {/*
+        * 상단은 밝게 둔다. 어두운 면은 현장 화면이 가져갔다. 두 모드가 같은
+        * 얼굴을 하면 관리 화면인 줄 알고 현장 기록을 만지게 된다.
+        *
+        * 대신 자리를 넉넉히 준다. 44px 에 다 밀어 넣으니 로고도 메뉴도 이름도
+        * 전부 작아져서 무엇 하나 서지 못했다. 크기를 키우는 대신 높이를 준다.
+        */}
+      <header className="sticky top-0 z-30 border-b border-line bg-surface/90 backdrop-blur-md">
+        <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-6 px-5 lg:gap-9">
+          <Link href="/" className="flex shrink-0 items-center gap-3" aria-label="현황으로">
+            <Wordmark className="h-5 w-auto" />
+            <span className="h-5 w-px bg-line-strong" aria-hidden />
+            <span className="display text-[1.125rem] leading-none text-ink">DHR</span>
           </Link>
 
           <Nav items={items} />
 
-          <div className="ml-auto flex items-center gap-2.5">
+          <div className="ml-auto flex shrink-0 items-center gap-3">
             {isWorker(user.roles) && (
-              <Link href="/work" className="btn-ghost h-8">
-                현장 화면
-              </Link>
+              <Link href="/work" className="btn-ghost h-9">현장 화면</Link>
             )}
 
             <div className="hidden items-center gap-2.5 md:flex">
               <span
                 aria-hidden
-                className="grid h-8 w-8 place-items-center rounded-full bg-brand-tint text-xs font-bold text-brand"
+                className="grid size-9 place-items-center rounded-full bg-brand-tint text-[0.8125rem] font-bold text-brand"
               >
                 {initial}
               </span>
@@ -77,24 +82,27 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               </div>
             </div>
 
+            <span className="hidden h-5 w-px bg-line md:block" aria-hidden />
+
             <form action={logout}>
-              <button type="submit" className="btn-quiet h-8">로그아웃</button>
+              <button type="submit" className="btn-quiet h-9">로그아웃</button>
             </form>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-[1400px] flex-1 px-5 py-7">{children}</main>
+      <main className="mx-auto w-full max-w-[1400px] flex-1 px-5 py-8">{children}</main>
 
-      <footer className="mx-auto w-full max-w-[1400px] px-5 pb-10 pt-4">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
-          <p className="max-w-2xl text-xs leading-relaxed text-faint">
-            정본은 서명된 종이다. 이 시스템은 종이를 발행하고 입력된 기록을 집계한다.
-            판정하지 않고, 전자서명을 받지 않는다.
-          </p>
-          <p className="text-[0.6875rem] tracking-wide text-faint">DOF Inc.</p>
+      <footer className="mx-auto w-full max-w-[1400px] px-5 pb-10 pt-6">
+        <div className="flex items-center justify-between gap-4 border-t border-line pt-4">
+          <Wordmark className="h-3.5 w-auto opacity-35" purple="var(--color-faint)"
+                    gray="var(--color-faint)" />
+          <p className="text-[0.6875rem] tracking-wide text-faint">&copy; DOF Inc.</p>
         </div>
       </footer>
+
+      {/* 감사 04. 캡처를 막지는 못하고, 찍히면 누가 언제 봤는지가 함께 남는다 */}
+      <Watermark text={stamp(user.full_name, user.login_code)} />
     </div>
   );
 }

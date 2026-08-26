@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { requireUser, hasRole } from '@/lib/session';
 import { withActor } from '@/lib/db';
-import { fmtDate, fmtDateTime } from '@/lib/fmt';
+import { fmtDate, fmtTime } from '@/lib/fmt';
 import {
   NUMBERING_TARGETS, M1_CRITICAL_TARGETS, WO_STATUS_LABEL, tableLabel,
 } from '@/lib/forms';
@@ -96,12 +96,39 @@ export default async function Dashboard() {
         where ml.status = 'AVAILABLE' and ml.expiry_date is not null
           and ml.expiry_date < (timezone('Asia/Seoul', now()))::date + 30
         order by ml.expiry_date limit 6`),
+    /*
+     * 마감하지 않은 일차. "미마감 일차" 숫자를 눌러 갈 곳이 없었다. 숫자만
+     * 띄워 놓고 그 숫자가 무엇으로 이루어졌는지 볼 자리를 주지 않으면 그
+     * 숫자는 아무 일도 시키지 못한다.
+     *
+     * 묶음 키가 (지시서, 일차, 작업자)다. 같은 날 두 사람이 작업하면 기록지가
+     * 두 장 나오고 각자 자기 것만 마감한다 (§4.9).
+     */
+    pending: await db.rows<{
+      wo_id: string; batch_no: string; day_no: number;
+      worker_name: string; records: number; open: number; work_date: string;
+    }>(
+      `select pr.work_order_id as wo_id, wo.batch_no, pr.day_no,
+              u.full_name as worker_name,
+              count(*)::int as records,
+              count(*) filter (where pr.ended_at is null)::int as open,
+              max(pr.work_date)::text as work_date
+         from process_record pr
+         join work_order wo on wo.id = pr.work_order_id
+         join app_user u on u.id = pr.worker_id
+        where not exists (select 1 from day_lock dl
+                           where dl.work_order_id = pr.work_order_id
+                             and dl.day_no = pr.day_no
+                             and dl.worker_id = pr.worker_id)
+        group by 1,2,3,4
+        order by max(pr.work_date) desc, wo.batch_no, pr.day_no
+        limit 7`),
     recent: await db.rows<{
       table_name: string; action: string; acted_at: Date; actor_name: string | null;
     }>(
       `select a.table_name, a.action, a.acted_at, u.full_name as actor_name
          from audit_log a left join app_user u on u.id = a.actor_id
-        order by a.id desc limit 8`),
+        order by a.id desc limit 7`),
   }));
 
   const c = d.c!;
@@ -145,13 +172,21 @@ export default async function Dashboard() {
   const hour = Number(new Intl.DateTimeFormat('en-US', {
     timeZone: 'Asia/Seoul', hour: 'numeric', hour12: false,
   }).format(new Date()));
-  const greeting = hour < 11 ? '오전' : hour < 17 ? '오후' : '저녁';
+  const greeting = hour < 11 ? '아침' : hour < 17 ? '오후' : '저녁';
+
+  /*
+   * 눈썹 자리에 오늘 날짜를 둔다. 다른 화면이 구역 이름을 놓는 자리인데,
+   * 현황에서 "현황"이라고 다시 적는 것은 아무것도 말하지 않는다. 작업일이
+   * 기록의 축인 시스템이라 날짜가 그 자리에 있을 값이다.
+   */
+  const today = new Intl.DateTimeFormat('ko-KR', {
+    timeZone: 'Asia/Seoul', year: 'numeric', month: 'long', day: 'numeric', weekday: 'long',
+  }).format(new Date());
 
   return (
     <PageShell
-      section="현황"
-      title={`${greeting}입니다, ${user.full_name} 님`}
-      lede="지금 손을 대야 할 것부터 보여 줍니다. 이상이 없으면 아무것도 표시하지 않습니다."
+      section={today}
+      title={`${greeting} 인사드립니다, ${user.full_name} 님`}
       action={<Link href="/production" className="btn-primary">생산으로</Link>}
       stats={<StatStrip items={stats} />}
     >
@@ -166,19 +201,15 @@ export default async function Dashboard() {
                   <Link href={s.href} className="btn-ghost h-8">{s.label}</Link>
                 </div>
               ))}
-              <p className="text-xs text-muted">
-                M1이 끝나기 전에 실제 로트를 등록하지 마십시오. 계보는 소급이 안 됩니다.
-              </p>
             </div>
           </div>
         </section>
       )}
 
-      <div className="grid gap-5 lg:grid-cols-3">
+      <div className="grid items-start gap-5 lg:grid-cols-3">
         <Panel
           className={d.expiring.length > 0 ? 'lg:col-span-2' : 'lg:col-span-3'}
           title="진행 중인 배치"
-          note="발행 · 진행 중 · 재단 완료"
           action={
             <Link href="/production" className="text-xs font-bold text-brand hover:underline">
               전체 보기
@@ -267,30 +298,87 @@ export default async function Dashboard() {
         )}
       </div>
 
-      <Panel
-        title="최근 활동"
-        note="감사추적에 남은 순서 그대로"
-        action={admin
-          ? <Link href="/settings/audit" className="text-xs font-bold text-brand hover:underline">감사추적</Link>
-          : null}
-      >
-        {d.recent.length === 0 ? (
-          <Empty>기록이 없습니다.</Empty>
-        ) : (
-          <ul className="divide-y divide-line-soft">
-            {d.recent.map((r, i) => (
-              <li key={i} className="flex items-center gap-3 px-4 py-2.5">
-                <ActionChip action={r.action} />
-                <span className="min-w-0 flex-1 truncate text-sm text-ink">
-                  {tableLabel(r.table_name)}
-                </span>
-                <span className="shrink-0 text-xs text-muted">{r.actor_name ?? ''}</span>
-                <span className="shrink-0 tnum text-xs text-faint">{fmtDateTime(r.acted_at)}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Panel>
+      <div className="grid items-start gap-5 lg:grid-cols-3">
+        {/*
+          * 마감 대기. 위 숫자 띠의 "미마감 일차"가 무엇으로 이루어졌는지가
+          * 여기 있다. 숫자를 띄워 놓고 그 안을 볼 자리를 주지 않으면 그 숫자는
+          * 아무 일도 시키지 못한다.
+          *
+          * 마감 자체는 여기서 하지 않는다. 인쇄가 곧 잠금이라 (S04) 되돌릴 수
+          * 없고, 되돌릴 수 없는 조작은 배치를 열어 놓고 해야 한다.
+          */}
+        <Panel
+          className="lg:col-span-2"
+          title="마감 대기"
+          action={
+            <Link href="/production" className="text-xs font-bold text-brand hover:underline">
+              생산으로
+            </Link>
+          }
+        >
+          {d.pending.length === 0 ? (
+            <Empty>마감을 기다리는 일차가 없습니다.</Empty>
+          ) : (
+            <Table>
+              <thead>
+                <tr>
+                  <Th>배치</Th>
+                  <Th>작업일</Th>
+                  <Th>작업자</Th>
+                  <Th right>기록</Th>
+                  <Th>진행</Th>
+                  <ActionTh />
+                </tr>
+              </thead>
+              <tbody>
+                {d.pending.map((p) => (
+                  <RowLink key={`${p.wo_id}-${p.day_no}-${p.worker_name}`}
+                           href={`/production/${p.wo_id}`}>
+                    <IdCell
+                      id={p.batch_no}
+                      sub={`${p.day_no}일차`}
+                      tone={p.open > 0 ? 'info' : 'warn'}
+                    />
+                    <Td nowrap className="tnum text-muted">{fmtDate(p.work_date)}</Td>
+                    <Td nowrap>{p.worker_name}</Td>
+                    <Td right>{p.records}</Td>
+                    <Td>
+                      {p.open > 0
+                        ? <Tag tone="info">공정 {p.open}건 진행 중</Tag>
+                        : <Tag tone="warn">기록서 미발행</Tag>}
+                    </Td>
+                  </RowLink>
+                ))}
+              </tbody>
+            </Table>
+          )}
+        </Panel>
+
+        <Panel
+          title="최근 활동"
+          action={admin
+            ? <Link href="/settings/audit" className="text-xs font-bold text-brand hover:underline">감사추적</Link>
+            : null}
+        >
+          {d.recent.length === 0 ? (
+            <Empty>기록이 없습니다.</Empty>
+          ) : (
+            <ul className="divide-y divide-line-soft">
+              {d.recent.map((r, i) => (
+                <li key={i} className="flex items-center gap-2.5 px-4 py-2.5">
+                  <ActionChip action={r.action} />
+                  <span className="min-w-0 flex-1 truncate text-[0.8125rem] text-ink">
+                    {tableLabel(r.table_name)}
+                  </span>
+                  <span className="shrink-0 tnum text-xs text-faint">
+                    {fmtTime(r.acted_at)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
+      </div>
     </PageShell>
   );
 }

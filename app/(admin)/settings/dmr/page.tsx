@@ -1,8 +1,11 @@
 import Link from 'next/link';
 import { requireUser } from '@/lib/session';
 import { withActor } from '@/lib/db';
+import { PageShell } from '@/components/shell';
+import { SubNav } from '../../nav';
+import { SETTINGS_NAV } from '../../sections';
 import { fmtDate, fmtDateTime } from '@/lib/fmt';
-import { PageHead, Panel, Empty, Tag, Field } from '@/components/ui';
+import { Panel, Empty, Tag, Field } from '@/components/ui';
 import {
   NewDeviceMaster, VerifyForm, AddOperationForm, OperationCard,
   type OperationRow, type ItemOption,
@@ -74,12 +77,13 @@ export default async function DmrPage({ searchParams }: { searchParams: Search }
   const editable = !!dm && dm.wo_count === 0;
 
   return (
-    <div className="space-y-5">
-      <PageHead
-        title="제품표준서"
-        note="서면 제품표준서가 정본입니다. 여기에는 개정 표기와 공정 · 자재 구성표만 옮겨 적습니다. 이 내용이 작업 지시서의 소요량 계산 근거가 됩니다."
-        action={<NewDeviceMaster items={d.items} />}
-      />
+    <PageShell
+      section="설정"
+      title="제품표준서"
+      lede="서면 제품표준서가 정본입니다. 여기에는 개정 표기와 공정 · 자재 구성표만 옮겨 적습니다. 이 내용이 작업 지시서의 소요량 계산 근거가 됩니다."
+      action={<NewDeviceMaster items={d.items} />}
+      nav={<SubNav items={SETTINGS_NAV} />}
+    >
 
       {d.masters.length === 0 ? (
         <Panel><Empty>등록된 제품표준서가 없습니다. 완제품 형명을 먼저 만드십시오.</Empty></Panel>
@@ -138,7 +142,7 @@ export default async function DmrPage({ searchParams }: { searchParams: Search }
 
               <Panel
                 title="공정 순서"
-                note="재단 이후 공정은 기록이 제품 로트에 붙는다"
+                note="재단 이후 공정은 기록이 제품 로트에 붙습니다"
               >
                 {d.operations.length === 0 ? (
                   <Empty>등록된 공정이 없습니다.</Empty>
@@ -181,6 +185,6 @@ export default async function DmrPage({ searchParams }: { searchParams: Search }
           )}
         </>
       )}
-    </div>
+    </PageShell>
   );
 }

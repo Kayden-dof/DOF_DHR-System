@@ -1,6 +1,9 @@
 import { requireUser } from '@/lib/session';
 import { withActor } from '@/lib/db';
-import { PageHead, Panel, Empty } from '@/components/ui';
+import { PageShell } from '@/components/shell';
+import { SubNav } from '../../nav';
+import { SHIPPING_NAV } from '../../sections';
+import { Panel, Empty } from '@/components/ui';
 import { SterilForm, SterilRow, type PlOpt, type SbRow } from '../shipping-forms';
 
 export const dynamic = 'force-dynamic';
@@ -42,12 +45,13 @@ export default async function SterilPage() {
   }));
 
   return (
-    <div className="space-y-5">
-      <PageHead
-        title="멸균 위탁"
-        note="50개(25ea 2줄) 박스 단위로 발송합니다. 한 박스에 여러 제품 로트가 들어갈 수 있습니다."
-        action={<SterilForm lots={d.lots} today={d.today ?? ''} />}
-      />
+    <PageShell
+      section="출하"
+      title="멸균 위탁"
+      lede="50개(25ea 2줄) 박스 단위로 발송합니다. 한 박스에 여러 제품 로트가 들어갈 수 있습니다."
+      action={<SterilForm lots={d.lots} today={d.today ?? ''} />}
+      nav={<SubNav items={SHIPPING_NAV} />}
+    >
 
       <Panel>
         {d.batches.length === 0 ? (
@@ -94,6 +98,6 @@ export default async function SterilPage() {
           </li>
         </ul>
       </section>
-    </div>
+    </PageShell>
   );
 }

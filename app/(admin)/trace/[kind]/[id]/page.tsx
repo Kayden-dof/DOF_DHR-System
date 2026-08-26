@@ -126,7 +126,7 @@ async function MaterialView({ userId, id }: { userId: string; id: string }) {
         </Panel>
 
         {d.batches.length > 0 && (
-          <Panel title="이 원재료로 만든 배치" note="원재료는 작업 지시에 직접 붙는다">
+          <Panel title="이 원재료로 만든 배치">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
@@ -158,7 +158,7 @@ async function MaterialView({ userId, id }: { userId: string; id: string }) {
 
         <Panel
           title="이 자재가 들어간 곳"
-          note="공정 기록을 경유한 계보. 재단 후 공정은 제품 로트별로 갈린다"
+          note="공정 기록을 경유한 계보입니다"
         >
           {d.products.length === 0 ? (
             <Empty>아직 공정에 투입되지 않았습니다.</Empty>
@@ -258,7 +258,7 @@ async function BatchView({ userId, kind, id }: {
         <p className="mt-1 text-sm text-muted">{wo.item_name} · {wo.dmr_revision}</p>
       </div>
 
-      <Panel title="원재료" note="배치당 하나. 여기서 계보가 시작된다">
+      <Panel title="원재료" note="배치당 하나. 계보의 시작점입니다">
         <div className="grid gap-x-6 gap-y-3 px-4 py-3 sm:grid-cols-2 lg:grid-cols-4">
           <Field label="원재료 로트">
             <Link href={`/trace/material/${wo.raw_lot_id}`}
@@ -317,11 +317,11 @@ async function BatchView({ userId, kind, id }: {
         )}
       </Panel>
 
-      <Panel title="재단 전 투입 자재" note="배치 전체에 걸린다">
+      <Panel title="재단 전 투입 자재">
         {pre.length === 0 ? <Empty>기록이 없습니다.</Empty> : <GenTable rows={pre} />}
       </Panel>
 
-      <Panel title="재단 후 투입 자재" note="제품 로트별로 갈린다">
+      <Panel title="재단 후 투입 자재">
         {post.length === 0 ? <Empty>기록이 없습니다.</Empty> : (
           <GenTable rows={post} lots={lots} />
         )}

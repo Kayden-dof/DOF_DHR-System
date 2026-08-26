@@ -1,8 +1,12 @@
 import { requireUser } from '@/lib/session';
 import { withActor } from '@/lib/db';
+import { PageShell } from '@/components/shell';
+import { SubNav } from '../nav';
+import { MATERIAL_NAV } from '../sections';
 import { fmtDate } from '@/lib/fmt';
 import { MATERIAL_STATUS_LABEL } from '@/lib/forms';
-import { PageHead, Panel, Empty, Tag } from '@/components/ui';
+import { Panel, Empty, Tag } from '@/components/ui';
+import { Table, Th, Td, IdCell, TwoLine } from '@/components/table';
 import ReceiveForm, { type ItemOpt, type SupplierOpt, type OrderOpt } from './receive-form';
 
 export const dynamic = 'force-dynamic';
@@ -70,13 +74,14 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
   };
 
   return (
-    <div className="space-y-5">
-      <PageHead
-        title="자재 로트"
-        note="입고할 때 성적서 번호가 반드시 들어갑니다 (S02). 로트번호는 채번 규칙이 만들며 바코드 값으로 씁니다."
-        action={<ReceiveForm items={d.items} suppliers={d.suppliers}
-                             orders={d.orders} today={d.today ?? ''} />}
-      />
+    <PageShell
+      section="자재"
+      title="자재 로트"
+      lede="입고할 때 성적서 번호가 반드시 들어갑니다 (S02). 로트번호는 채번 규칙이 만들며 바코드 값으로 씁니다."
+      action={<ReceiveForm items={d.items} suppliers={d.suppliers}
+                           orders={d.orders} today={d.today ?? ''} />}
+      nav={<SubNav items={MATERIAL_NAV} />}
+    >
 
       <div className="card flex flex-wrap items-center gap-2 p-3">
         <div className="flex flex-wrap items-center gap-1.5">
@@ -102,75 +107,71 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
         {d.lots.length === 0 ? (
           <Empty>해당하는 자재 로트가 없습니다.</Empty>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr>
-                  <th className="th">로트번호</th>
-                  <th className="th">품목</th>
-                  <th className="th">공급자</th>
-                  <th className="th">성적서</th>
-                  <th className="th text-right">입고</th>
-                  <th className="th text-right">잔여</th>
-                  <th className="th">유효기한</th>
-                  <th className="th">상태</th>
-                  <th className="th text-right">사용 배치</th>
-                </tr>
-              </thead>
-              <tbody>
-                {d.lots.map((l) => {
-                  const soon = l.expiry_date &&
-                    new Date(l.expiry_date).getTime() - Date.now() < 30 * 864e5;
-                  return (
-                    <tr key={l.id}>
-                      <td className="td font-mono text-xs font-semibold">
-                        {l.lot_no}
-                        {l.thickness_band && (
-                          <span className="ml-1.5 text-faint">{l.thickness_band}</span>
-                        )}
-                      </td>
-                      <td className="td">
-                        <div className="text-sm">{l.item_name}</div>
-                        <div className="font-mono text-xs text-faint">{l.item_code}</div>
-                      </td>
-                      <td className="td text-xs">
+          <Table>
+            <thead>
+              <tr>
+                <Th>로트번호</Th>
+                <Th>품목</Th>
+                <Th>공급자</Th>
+                <Th>성적서</Th>
+                <Th right>입고</Th>
+                <Th right>잔여</Th>
+                <Th>유효기한</Th>
+                <Th>상태</Th>
+                <Th right>사용 배치</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {d.lots.map((l) => {
+                const soon = l.expiry_date &&
+                  new Date(l.expiry_date).getTime() - Date.now() < 30 * 864e5;
+                /*
+                 * 상태를 행마다 색 조각으로 찍지 않는다. 열한 줄이 모두 "사용 가능"
+                 * 이면 그 열은 아무것도 말하지 않으면서 눈만 잡는다. 손대야 할
+                 * 상태에만 색을 주고, 나머지는 글자로만 적는다.
+                 */
+                const off = l.status !== 'AVAILABLE';
+                return (
+                  <tr key={l.id}>
+                    <IdCell
+                      id={l.lot_no}
+                      sub={l.thickness_band ?? undefined}
+                      tone={l.status === 'DISPOSED' ? 'danger'
+                          : l.status === 'EXPIRED' ? 'warn' : undefined}
+                    />
+                    <TwoLine top={l.item_name} bottom={l.item_code} />
+                    <Td>
+                      <div className="flex items-center gap-1.5 text-[0.8125rem]">
                         {l.supplier_name}
                         {l.supplier_status !== 'APPROVED' && <Tag tone="warn">미승인</Tag>}
-                        <div className="font-mono text-xs text-faint">{l.supplier_lot_no}</div>
-                      </td>
-                      <td className="td">
-                        <div className="font-mono text-xs">{l.coa_no}</div>
-                        <div className="tnum text-xs text-faint">{fmtDate(l.coa_date)}</div>
-                      </td>
-                      <td className="td tnum text-right text-muted">
-                        {Number(l.qty_received)} {l.usage_uom}
-                      </td>
-                      <td className="td tnum text-right font-semibold">
-                        {Number(l.qty_available)}
-                      </td>
-                      <td className="td tnum text-xs">
-                        {l.expiry_date
-                          ? <span className={soon ? 'font-semibold text-warn' : ''}>
-                              {fmtDate(l.expiry_date)}
-                            </span>
-                          : ''}
-                      </td>
-                      <td className="td">
-                        <Tag tone={l.status === 'AVAILABLE' ? 'ok'
-                                 : l.status === 'EXPIRED' ? 'warn'
-                                 : l.status === 'DISPOSED' ? 'danger' : 'quiet'}>
-                          {MATERIAL_STATUS_LABEL[l.status] ?? l.status}
-                        </Tag>
-                      </td>
-                      <td className="td tnum text-right text-muted">{l.used_in || ''}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                      </div>
+                      <div className="font-mono text-xs text-faint">{l.supplier_lot_no}</div>
+                    </Td>
+                    <TwoLine
+                      top={<span className="font-mono text-[0.8125rem]">{l.coa_no}</span>}
+                      bottom={<span className="tnum">{fmtDate(l.coa_date)}</span>}
+                    />
+                    <Td right className="text-muted">
+                      {Number(l.qty_received)} {l.usage_uom}
+                    </Td>
+                    <Td right className="font-semibold text-ink">
+                      {Number(l.qty_available)}
+                    </Td>
+                    <Td nowrap className={`tnum text-xs ${
+                      soon ? 'font-semibold text-warn' : 'text-muted'}`}>
+                      {l.expiry_date ? fmtDate(l.expiry_date) : ''}
+                    </Td>
+                    <Td nowrap className={`text-xs ${off ? 'font-semibold text-warn' : 'text-faint'}`}>
+                      {MATERIAL_STATUS_LABEL[l.status] ?? l.status}
+                    </Td>
+                    <Td right className="text-muted">{l.used_in || ''}</Td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </Table>
         )}
       </Panel>
-    </div>
+    </PageShell>
   );
 }

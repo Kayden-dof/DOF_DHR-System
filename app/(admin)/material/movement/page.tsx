@@ -1,8 +1,11 @@
 import { requireUser } from '@/lib/session';
 import { withActor } from '@/lib/db';
+import { PageShell } from '@/components/shell';
+import { SubNav } from '../../nav';
+import { MATERIAL_NAV } from '../../sections';
 import { fmtDateTime } from '@/lib/fmt';
 import { MOVEMENT_TYPES } from '@/lib/forms';
-import { PageHead, Panel, Empty, Tag } from '@/components/ui';
+import { Panel, Empty, Tag } from '@/components/ui';
 import { MovementForm, SolutionForm, type LotOpt, type WoOpt } from './movement-forms';
 
 export const dynamic = 'force-dynamic';
@@ -42,17 +45,18 @@ export default async function MovementPage() {
     ?? (t === 'SOLUTION' ? '용액 제조' : t);
 
   return (
-    <div className="space-y-5">
-      <PageHead
-        title="재고 증감 · 용액 제조"
-        note="반납은 원 로트로 복귀시킵니다. 성적서 연결을 유지하기 위함입니다."
-      />
+    <PageShell
+      section="자재"
+      title="재고 증감 · 용액 제조"
+      lede="반납은 원 로트로 복귀시킵니다. 성적서 연결을 유지하기 위함입니다."
+      nav={<SubNav items={MATERIAL_NAV} />}
+    >
 
       <div className="grid gap-5 lg:grid-cols-2">
         <Panel title="재고 증감" note="반납 · 폐기 · 조정">
           <MovementForm lots={d.lots} orders={d.orders} />
         </Panel>
-        <Panel title="용액 제조" note="당일 제조 · 당일 폐기. 로트를 만들지 않는다">
+        <Panel title="용액 제조" note="당일 제조 · 당일 폐기">
           <SolutionForm lots={d.lots} />
         </Panel>
       </div>
@@ -108,6 +112,6 @@ export default async function MovementPage() {
           </div>
         )}
       </Panel>
-    </div>
+    </PageShell>
   );
 }

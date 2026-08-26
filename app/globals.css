@@ -205,7 +205,13 @@ h2 { line-height: 1.3; }
   -webkit-tap-highlight-color: transparent;
 }
 
-:focus-visible { outline: none; box-shadow: var(--ring); border-radius: var(--r-sm); }
+/*
+ * 초점 테두리.
+ *
+ * 여기서 모서리를 강제하지 않는다. 강제하면 동그란 것(아바타 · 패드 키)이
+ * 초점을 받는 순간 네모가 된다. 요소가 가진 모서리를 그대로 두고 테두리만 얹는다.
+ */
+:focus-visible { outline: none; box-shadow: var(--ring); }
 
 ::selection { background: var(--color-brand-tint); color: var(--color-brand-deep); }
 
@@ -239,10 +245,16 @@ h2 { line-height: 1.3; }
    * 카드는 평평하다. 테두리 하나로 면을 가른다.
    * 그림자는 진짜로 떠 있는 것(card-raised)에만 준다.
    */
+  /*
+   * 바탕(#F2F0EF)과 카드(#FFF)의 차이가 3% 뿐이라 테두리 하나로는 카드가
+   * 바탕에 녹는다. 그림자를 주면 전부 떠 버리므로, 뜨지 않을 만큼만 - 1px
+   * 아래로 떨어지는 아주 얕은 것 하나 - 얹어 가장자리를 세운다.
+   */
   .card {
     background: var(--color-surface);
     border: 1px solid var(--color-line);
     border-radius: var(--r-lg);
+    box-shadow: 0 1px 1px rgb(26 26 31 / .035);
   }
   /* 카드 안의 표는 카드 모서리에 맞춰 잘린다 */
   .card { overflow: hidden; }
@@ -269,12 +281,19 @@ h2 { line-height: 1.3; }
     border-bottom: 1px solid var(--color-line-soft);
   }
 
-  /* 브랜드 밴드. 전사 양식의 상단 밴드를 화면으로 옮긴 것 */
+  /*
+   * 브랜드 밴드. 전사 양식 상단 띠를 화면으로 옮긴 것.
+   *
+   * 기울기가 아니라 색이 딱 끊기는 구간 셋이다. 자주에서 남보라로 넘어가고
+   * 나머지는 구분선 색으로 화면 끝까지 간다. 3px 은 굵어서 장식으로 보였다.
+   * 2px 이면 문서 머리의 인쇄된 띠처럼 읽힌다.
+   */
   .brand-rule {
-    height: 3px;
+    height: 2px;
     background: linear-gradient(90deg,
-      var(--color-brand) 0%, var(--color-indigo) 38%,
-      var(--color-canvas-deep) 38%, var(--color-canvas-deep) 100%);
+      var(--color-brand) 0%, var(--color-brand) 22%,
+      var(--color-indigo) 22%, var(--color-indigo) 38%,
+      var(--color-line) 38%, var(--color-line) 100%);
   }
 
   /*
@@ -576,6 +595,25 @@ h2 { line-height: 1.3; }
 }
 
 /* ---------------------------------------------------------------------------
+   계정 워터마크
+
+   화면 전체에 로그인 계정과 시각을 아주 옅게 깐다. 캡처를 막지는 못하고,
+   막는 척하지도 않는다. 찍힌 그림에 누가 언제 봤는지가 함께 남을 뿐이다.
+
+   조작을 가로채면 안 되므로 pointer-events 를 끈다. 인쇄물에는 나오지 않는다 -
+   정본은 종이고 거기엔 서명이 들어가므로 화면 표시가 끼어들 자리가 아니다.
+
+   자리 비움 잠금(z-50)보다 아래에 둔다. 잠금 화면에는 이름이 이미 크게 있다.
+--------------------------------------------------------------------------- */
+.watermark {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+  background-repeat: repeat;
+}
+
+/* ---------------------------------------------------------------------------
    인쇄 (§7 인쇄는 1급 기능)
 
    종이가 정본이다. 화면 장식은 전부 걷어내고 자료만 남긴다.
@@ -621,7 +659,7 @@ h2 { line-height: 1.3; }
   @page { size: A4 portrait; margin: 14mm 12mm 16mm 12mm; }
 
   html, body { background: #fff; }
-  .no-print { display: none !important; }
+  .no-print, .watermark { display: none !important; }
 
   .sheet {
     width: auto;

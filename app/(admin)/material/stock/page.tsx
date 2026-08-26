@@ -1,8 +1,11 @@
 import { requireUser } from '@/lib/session';
 import { withActor } from '@/lib/db';
+import { PageShell } from '@/components/shell';
+import { SubNav } from '../../nav';
+import { MATERIAL_NAV } from '../../sections';
 import { fmtDate } from '@/lib/fmt';
 import { ITEM_TYPES } from '@/lib/forms';
-import { PageHead, Panel, Empty, Tag } from '@/components/ui';
+import { Panel, Empty, Tag } from '@/components/ui';
 import StockTools from './stock-tools';
 
 export const dynamic = 'force-dynamic';
@@ -34,17 +37,18 @@ export default async function StockPage() {
   for (const r of d.material) byType.set(r.type, [...(byType.get(r.type) ?? []), r]);
 
   return (
-    <div className="space-y-5">
-      <PageHead
-        title="재고"
-        note={
-          <>
-            자재는 품목별 합계, 완제품은 <b className="text-ink">유효기한 순</b>으로 봅니다.
-            사용기간이 짧고 형명이 많아 형명별로 보면 임박품이 묻힙니다.
-          </>
-        }
-        action={<StockTools alerts={d.alerts ?? 0} />}
-      />
+    <PageShell
+      section="자재"
+      title="재고"
+      lede={
+        <>
+          자재는 품목별 합계, 완제품은 <b className="text-ink">유효기한 순</b>으로 봅니다.
+          사용기간이 짧고 형명이 많아 형명별로 보면 임박품이 묻힙니다.
+        </>
+      }
+      action={<StockTools alerts={d.alerts ?? 0} />}
+      nav={<SubNav items={MATERIAL_NAV} />}
+    >
 
       {ITEM_TYPES.filter((t) => t.code !== 'FIN').map((t) => {
         const rows = byType.get(t.code) ?? [];
@@ -89,7 +93,7 @@ export default async function StockPage() {
         );
       })}
 
-      <Panel title="완제품" note="유효기한 순. 임박품이 위로 온다">
+      <Panel title="완제품" note="유효기한 순">
         {d.finished.length === 0 ? (
           <Empty>출하 가능한 완제품이 없습니다.</Empty>
         ) : (
@@ -141,6 +145,6 @@ export default async function StockPage() {
           </div>
         )}
       </Panel>
-    </div>
+    </PageShell>
   );
 }

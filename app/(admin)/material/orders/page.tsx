@@ -1,7 +1,10 @@
 import { requireUser } from '@/lib/session';
 import { withActor } from '@/lib/db';
+import { PageShell } from '@/components/shell';
+import { SubNav } from '../../nav';
+import { MATERIAL_NAV } from '../../sections';
 import { fmtDate } from '@/lib/fmt';
-import { PageHead, Panel, Empty, Tag } from '@/components/ui';
+import { Panel, Empty, Tag } from '@/components/ui';
 import { NewOrder, CancelOrder,
          type OrderRow, type ItemOpt, type SupplierOpt } from './order-forms';
 
@@ -41,12 +44,13 @@ export default async function OrdersPage() {
   }));
 
   return (
-    <div className="space-y-5">
-      <PageHead
-        title="발주"
-        note="발주중 수량은 최소 재고선 알림에 반영되어 같은 자재로 알림이 반복되지 않습니다."
-        action={<NewOrder items={d.items} suppliers={d.suppliers} today={d.today ?? ''} />}
-      />
+    <PageShell
+      section="자재"
+      title="발주"
+      lede="발주중 수량은 최소 재고선 알림에 반영되어 같은 자재로 알림이 반복되지 않습니다."
+      action={<NewOrder items={d.items} suppliers={d.suppliers} today={d.today ?? ''} />}
+      nav={<SubNav items={MATERIAL_NAV} />}
+    >
 
       {d.alerts.length > 0 && (
         <Panel title="최소 재고선 아래" note="보유 + 발주중이 기준선에 못 미치는 품목">
@@ -137,6 +141,6 @@ export default async function OrdersPage() {
           </div>
         )}
       </Panel>
-    </div>
+    </PageShell>
   );
 }

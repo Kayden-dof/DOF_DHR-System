@@ -6,6 +6,7 @@ import { KIND_LABEL } from '@/lib/print';
 import { Panel, Empty, Tag, Field } from '@/components/ui';
 import { PageShell } from '@/components/shell';
 import { SubNav } from '../../nav';
+import { TRACE_NAV } from '../../sections';
 
 export const dynamic = 'force-dynamic';
 
@@ -54,15 +55,7 @@ export default async function VerifyPage({
       section="조회"
       title="인쇄물 조회"
       lede="종이 아래쪽에 찍힌 자료 식별자 12자리를 넣으십시오. 바코드를 읽어도 같은 값이 들어갑니다."
-      nav={
-        <SubNav
-          items={[
-            { href: '/trace', label: '계보 추적' },
-            { href: '/trace/verify', label: '인쇄물' },
-            { href: '/trace/cost', label: '원가' },
-          ]}
-        />
-      }
+      nav={<SubNav items={TRACE_NAV} />}
     >
       <form className="card flex gap-2 p-3">
         <input

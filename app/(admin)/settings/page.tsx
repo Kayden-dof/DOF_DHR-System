@@ -3,6 +3,9 @@ import { requireUser } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import { NUMBERING_TARGETS, M1_CRITICAL_TARGETS } from '@/lib/forms';
 import { Tag } from '@/components/ui';
+import { PageShell } from '@/components/shell';
+import { SubNav } from '../nav';
+import { SETTINGS_NAV } from '../sections';
 
 export const dynamic = 'force-dynamic';
 
@@ -57,7 +60,12 @@ export default async function SettingsHome() {
   ];
 
   return (
-    <div className="space-y-5">
+    <PageShell
+      section="설정"
+      title="기준정보와 계정"
+      lede="여기서 정한 것이 생산 화면의 선택지가 됩니다."
+      nav={<SubNav items={SETTINGS_NAV} />}
+    >
       {blocking.length > 0 && (
         <div className="card border-warn/40 bg-warn-bg p-4">
           <div className="flex items-start gap-3">
@@ -103,6 +111,6 @@ export default async function SettingsHome() {
           <li>5. <b className="text-ink">사용자</b>. 작업자에게 역할을 부여하면 현장 화면을 씁니다.</li>
         </ol>
       </section>
-    </div>
+    </PageShell>
   );
 }

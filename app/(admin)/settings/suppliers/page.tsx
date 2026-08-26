@@ -1,7 +1,10 @@
 import { requireUser } from '@/lib/session';
 import { withActor } from '@/lib/db';
+import { PageShell } from '@/components/shell';
+import { SubNav } from '../../nav';
+import { SETTINGS_NAV } from '../../sections';
 import { fmtDate } from '@/lib/fmt';
-import { PageHead, Panel, Empty } from '@/components/ui';
+import { Panel, Empty } from '@/components/ui';
 import {
   NewSupplierForm, SupplierRowView, PriceForm, ShelfLifeForm,
   type SupplierRow, type ItemOption,
@@ -52,12 +55,13 @@ export default async function SuppliersPage() {
   }));
 
   return (
-    <div className="space-y-5">
-      <PageHead
-        title="공급자 · 단가 · 사용기간"
-        note="승인 상태는 경고 표시에만 쓰입니다. 미승인 공급자의 자재도 등록과 사용을 막지 않습니다."
-        action={<NewSupplierForm />}
-      />
+    <PageShell
+      section="설정"
+      title="공급자 · 단가 · 사용기간"
+      lede="승인 상태는 경고 표시에만 쓰입니다. 미승인 공급자의 자재도 등록과 사용을 막지 않습니다."
+      action={<NewSupplierForm />}
+      nav={<SubNav items={SETTINGS_NAV} />}
+    >
 
       <Panel>
         {d.suppliers.length === 0 ? (
@@ -85,7 +89,7 @@ export default async function SuppliersPage() {
       </Panel>
 
       <div className="grid gap-5 lg:grid-cols-2">
-        <Panel title="단가 등록" note="사용 단위 기준 공급가액. 이력으로 쌓인다">
+        <Panel title="단가 등록" note="사용 단위 기준 공급가액">
           <PriceForm items={d.items} suppliers={d.suppliers} today={d.today ?? ''} />
           {d.prices.length > 0 && (
             <div className="overflow-x-auto border-t border-line">
@@ -111,7 +115,7 @@ export default async function SuppliersPage() {
           )}
         </Panel>
 
-        <Panel title="사용기간 등록" note="완제품 유효기한의 근거. 안정성 시험 보고서 번호가 필요하다">
+        <Panel title="사용기간 등록" note="완제품 유효기한의 근거입니다. 안정성 시험 보고서 번호가 필요합니다.">
           <ShelfLifeForm items={d.items} today={d.today ?? ''} />
           {d.shelf.length > 0 && (
             <div className="overflow-x-auto border-t border-line">
@@ -137,6 +141,6 @@ export default async function SuppliersPage() {
           )}
         </Panel>
       </div>
-    </div>
+    </PageShell>
   );
 }

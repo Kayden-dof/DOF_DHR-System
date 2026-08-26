@@ -3,9 +3,10 @@ import { requireUser, hasRole } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import { fmtDate, fmtDateTime } from '@/lib/fmt';
 import Denied from '@/components/denied';
-import { PageHead, Panel, Empty, Tag, Field } from '@/components/ui';
+import { Panel, Empty, Tag, Field } from '@/components/ui';
 import { PageShell } from '@/components/shell';
 import { SubNav } from '../nav';
+import { TRACE_NAV } from '../sections';
 
 export const dynamic = 'force-dynamic';
 
@@ -66,22 +67,8 @@ export default async function TracePage({ searchParams }: { searchParams: Search
       section="조회"
       title="계보 추적"
       lede="제조번호 · 자재 로트번호 · 배치번호 · 성적서 번호 중 아무거나 넣으십시오."
-      nav={
-        <SubNav
-          items={[
-            { href: '/trace', label: '계보 추적' },
-            { href: '/trace/verify', label: '인쇄물' },
-            { href: '/trace/cost', label: '원가' },
-          ]}
-        />
-      }
+      nav={<SubNav items={TRACE_NAV} />}
     >
-
-      <PageHead
-        title="계보 추적"
-        note="제조번호 · 자재 로트번호 · 배치번호 · 성적서 번호 중 아무거나 넣으십시오."
-      />
-
       <form className="card flex gap-2 p-3">
         <input name="q" defaultValue={q} autoComplete="off"
                placeholder="P2608-0001 · ML-2608-0003 · B2608-0001 · COA-..."

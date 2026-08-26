@@ -1,8 +1,11 @@
 import { requireUser } from '@/lib/session';
 import { withActor } from '@/lib/db';
+import { PageShell } from '@/components/shell';
+import { SubNav } from '../nav';
+import { SHIPPING_NAV } from '../sections';
 import { fmtDate } from '@/lib/fmt';
 import { PL_STATUS_LABEL } from '@/lib/forms';
-import { PageHead, Panel, Empty, Tag } from '@/components/ui';
+import { Panel, Empty, Tag } from '@/components/ui';
 import { ApproveForm, type PlOpt } from './shipping-forms';
 
 export const dynamic = 'force-dynamic';
@@ -30,11 +33,12 @@ export default async function ReleasePage() {
   const approved = d.lots.filter((l) => l.release_approved_by);
 
   return (
-    <div className="space-y-5">
-      <PageHead
-        title="출하 승인"
-        note="요청서를 인쇄해 품질책임자의 서면 승인을 받고, 그 내용을 여기에 옮겨 적습니다. 시스템은 판정하지 않습니다."
-      />
+    <PageShell
+      section="출하"
+      title="출하 승인"
+      lede="요청서를 인쇄해 품질책임자의 서면 승인을 받고, 그 내용을 여기에 옮겨 적습니다. 시스템은 판정하지 않습니다."
+      nav={<SubNav items={SHIPPING_NAV} />}
+    >
 
       <Panel title="승인 대기" note="유효기한이 이른 것부터">
         {pending.length === 0 ? (
@@ -118,6 +122,6 @@ export default async function ReleasePage() {
           </div>
         )}
       </Panel>
-    </div>
+    </PageShell>
   );
 }

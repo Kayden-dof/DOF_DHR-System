@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { requireUser } from '@/lib/session';
 import { isAdmin, isWorker } from '@/lib/roles';
 import { WordmarkOnDark } from '@/components/logo';
+import Watermark, { stamp } from '@/components/watermark';
 import { logout } from './actions';
 import IdleLock from './idle-lock';
 
@@ -86,12 +87,15 @@ export default async function WorkLayout({ children }: { children: React.ReactNo
         */}
       <IdleLock minutes={20} name={user.full_name} initial={user.full_name.slice(0, 1)} />
 
-      <footer className="mx-auto w-full max-w-[1400px] px-5 pb-8">
-        <p className="border-t border-white/12 pt-4 text-xs leading-relaxed text-on-dark-mute">
-          여기에 입력한 내용은 제조기록서로 인쇄됩니다. 인쇄한 묶음은 고칠 수 없으니
-          인쇄 전에 확인하십시오.
-        </p>
+      <footer className="mx-auto w-full max-w-[1400px] px-5 pb-8 pt-4">
+        <div className="flex items-center justify-between gap-4 border-t border-white/12 pt-4">
+          <WordmarkOnDark className="h-3.5 w-auto opacity-30" />
+          <p className="text-[0.6875rem] tracking-wide text-white/35">&copy; DOF Inc.</p>
+        </div>
       </footer>
+
+      {/* 감사 04. 현장 패드는 여러 사람이 번갈아 쓴다. 바탕이 어두우니 밝게 깐다 */}
+      <Watermark text={stamp(user.full_name, user.login_code)} tone="light" />
     </div>
   );
 }

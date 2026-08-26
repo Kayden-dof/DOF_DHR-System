@@ -216,7 +216,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
       {d.plan.length > 0 && (
         <Panel
           title="예정 형명"
-          note="발행 시점에 정한 계획. 실제는 재단에서 정해지며 달라도 시스템이 고치지 않는다"
+          note="발행 시점의 계획입니다. 실제 수량은 재단에서 정해집니다."
         >
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -302,7 +302,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
 
       <Panel
         title="제품 로트 (재단 분할)"
-        note="재단에서 형명별로 나누고 제조번호를 부여한다"
+        note="형명별 · 제조번호"
         action={d.lots.length > 0 ? (
           // 라벨요청서는 재단 뒤에 뽑는다 (§7). 재단 결과가 그대로 요청 내용이다.
           <Link href={`/print/label-request/${wo.id}`} className="btn-ghost h-8">
@@ -368,7 +368,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
         )}
       </Panel>
 
-      <Panel title="일차별 기록지" note="인쇄하면 그 묶음이 잠긴다 (S04)">
+      <Panel title="일차별 기록지" note="인쇄하면 그 묶음이 잠깁니다 (S04)">
         {d.days.length === 0 ? (
           <Empty>아직 공정 기록이 없습니다. 현장 화면에서 작성합니다.</Empty>
         ) : (

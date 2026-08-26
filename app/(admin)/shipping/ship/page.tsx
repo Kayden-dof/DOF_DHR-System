@@ -1,7 +1,10 @@
 import { requireUser } from '@/lib/session';
 import { withActor } from '@/lib/db';
+import { PageShell } from '@/components/shell';
+import { SubNav } from '../../nav';
+import { SHIPPING_NAV } from '../../sections';
 import { fmtDate } from '@/lib/fmt';
-import { PageHead, Panel, Empty, Tag } from '@/components/ui';
+import { Panel, Empty, Tag } from '@/components/ui';
 import { ShipForm, type PlOpt } from '../shipping-forms';
 
 export const dynamic = 'force-dynamic';
@@ -42,11 +45,12 @@ export default async function ShipPage() {
   }));
 
   return (
-    <div className="space-y-5">
-      <PageHead
-        title="출고"
-        note="출하 승인이 기록된 제품 로트만 출고할 수 있습니다. 출하 가능 수량을 넘길 수 없습니다."
-      />
+    <PageShell
+      section="출하"
+      title="출고"
+      lede="출하 승인이 기록된 제품 로트만 출고할 수 있습니다. 출하 가능 수량을 넘길 수 없습니다."
+      nav={<SubNav items={SHIPPING_NAV} />}
+    >
 
       <Panel title="출고 가능" note="유효기한이 이른 것부터">
         {d.lots.length === 0 ? (
@@ -138,6 +142,6 @@ export default async function ShipPage() {
           </div>
         )}
       </Panel>
-    </div>
+    </PageShell>
   );
 }

@@ -2,6 +2,9 @@ import { requireUser, hasRole } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import { ROLE_LABEL, ROLE_NOTE, ROLE_ORDER } from '@/lib/roles';
 import Denied from '@/components/denied';
+import { PageShell } from '@/components/shell';
+import { SubNav } from '../../nav';
+import { SETTINGS_NAV } from '../../sections';
 import NewUserForm from './new-user-form';
 import UserRowView, { type UserRow } from './user-row';
 
@@ -26,16 +29,13 @@ export default async function UsersPage() {
   );
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-base font-bold text-ink">사용자 · 역할</h1>
-          <p className="mt-1 max-w-3xl text-sm leading-relaxed text-muted">
-            계정은 삭제하지 않고 비활성화합니다. 역할 부여와 회수는 모두 감사추적에 남습니다.
-          </p>
-        </div>
-        <NewUserForm />
-      </div>
+    <PageShell
+      section="설정"
+      title="사용자 · 역할"
+      lede="계정은 삭제하지 않고 비활성화합니다. 역할 부여와 회수는 모두 감사추적에 남습니다."
+      action={<NewUserForm />}
+      nav={<SubNav items={SETTINGS_NAV} />}
+    >
 
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">
@@ -74,6 +74,6 @@ export default async function UsersPage() {
           계정을 개발 계정으로 돌리는 것도 막혀 있습니다 - 둘 다 DB 계층에서 거부됩니다.
         </p>
       </section>
-    </div>
+    </PageShell>
   );
 }

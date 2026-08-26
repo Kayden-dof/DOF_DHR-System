@@ -36,36 +36,13 @@ export function Msg({ state, className = '' }: { state: FormState; className?: s
   return null;
 }
 
-/** 화면 맨 위. 제목과 그 화면이 무엇을 하는 곳인지 한 줄. */
-export function PageTitle({
-  title, note, action, crumb,
-}: { title: string; note?: React.ReactNode; action?: React.ReactNode; crumb?: string }) {
-  return (
-    <div className="flex flex-wrap items-end justify-between gap-4">
-      <div className="min-w-0">
-        {crumb && <p className="crumb mb-1.5">{crumb}</p>}
-        <h1 className="text-[1.375rem] font-bold text-ink">{title}</h1>
-        {note && <p className="mt-1.5 max-w-3xl text-sm leading-relaxed text-muted">{note}</p>}
-      </div>
-      {action && <div className="flex shrink-0 items-center gap-2">{action}</div>}
-    </div>
-  );
-}
-
-/** 한 화면 안의 구역 머리. 페이지 제목보다 한 단계 아래. */
-export function PageHead({
-  title, note, action,
-}: { title: string; note?: React.ReactNode; action?: React.ReactNode }) {
-  return (
-    <div className="flex flex-wrap items-start justify-between gap-4">
-      <div>
-        <h2 className="text-[0.9375rem] font-bold text-ink">{title}</h2>
-        {note && <p className="mt-1 max-w-3xl text-sm leading-relaxed text-muted">{note}</p>}
-      </div>
-      {action}
-    </div>
-  );
-}
+/*
+ * 화면 머리는 PageShell 하나로 낸다 (components/shell.tsx).
+ *
+ * PageTitle · PageHead 를 여기 두었더니 구역 레이아웃이 하나를 내고 화면이 또
+ * 하나를 내서 제목이 두 겹, 설명문이 두 개가 되었다. 화면마다 어느 쪽이 이
+ * 화면의 이름인지 읽는 사람이 판단해야 했다. 낼 곳을 하나로 줄인다.
+ */
 
 export function Panel({
   title, note, action, children, className = '',

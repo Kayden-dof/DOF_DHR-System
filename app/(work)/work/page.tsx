@@ -123,13 +123,27 @@ export default async function WorkHome() {
         </div>
       )}
 
-      <div className="card bg-surface-sub p-5">
-        <h2 className="text-sm font-bold text-ink">기억할 것</h2>
-        <ul className="mt-2.5 space-y-2 text-sm leading-relaxed text-muted">
-          <li>· 공정을 시작하면 시작 시각이 찍히고, 마감하면 종료 시각이 찍힙니다.</li>
-          <li>· 자재를 넣지 않고 마감하려면 <b className="text-ink">해당 없음 사유</b>를 골라야 합니다.</li>
-          <li>· 일차를 마감하고 기록서를 인쇄하면 <b className="text-ink">그 묶음은 고칠 수 없습니다.</b></li>
-          <li>· 빠뜨린 것은 다음 일차에 정정 기록으로 남기십시오. 지우거나 되돌리는 방법은 없습니다.</li>
+      {/*
+        * 안내는 흰 카드에 담지 않는다.
+        *
+        * 이 화면에서 흰 면은 "누를 것"이다. 안내까지 흰 카드에 담으니 누를 수
+        * 있는 것과 읽기만 할 것이 같은 얼굴이 되고, 장갑 낀 손이 안내문을 먼저
+        * 누른다. 읽기만 할 것은 바탕 위에 글자로 둔다.
+        *
+        * 네 줄 중 두 줄만 남긴다. 시각이 찍히는 것과 정정 기록은 화면이 그때
+        * 그 자리에서 다시 말한다. 여기서는 되돌릴 수 없는 것 둘만 짚는다.
+        */}
+      <div className="border-t border-white/12 pt-5">
+        <ul className="space-y-2.5 text-sm leading-relaxed text-on-dark-mute">
+          <li>
+            자재를 넣지 않고 마감하려면{' '}
+            <b className="font-semibold text-white">해당 없음 사유</b>를 골라야 합니다.
+          </li>
+          <li>
+            일차를 마감하고 기록서를 인쇄하면{' '}
+            <b className="font-semibold text-white">그 묶음은 고칠 수 없습니다.</b>{' '}
+            빠뜨린 것은 다음 일차에 정정 기록으로 남기십시오.
+          </li>
         </ul>
       </div>
     </div>

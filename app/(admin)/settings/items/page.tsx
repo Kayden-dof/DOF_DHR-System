@@ -1,7 +1,10 @@
 import { requireUser } from '@/lib/session';
 import { withActor } from '@/lib/db';
+import { PageShell } from '@/components/shell';
+import { SubNav } from '../../nav';
+import { SETTINGS_NAV } from '../../sections';
 import { ITEM_TYPES } from '@/lib/forms';
-import { PageHead, Panel, Empty, Tag } from '@/components/ui';
+import { Panel, Empty, Tag } from '@/components/ui';
 import { NewItemForm, GenerateFinished, ItemRowView, type ItemRow } from './item-forms';
 
 export const dynamic = 'force-dynamic';
@@ -41,22 +44,23 @@ export default async function ItemsPage({ searchParams }: { searchParams: Search
   };
 
   return (
-    <div className="space-y-5">
-      <PageHead
-        title="품목"
-        note={
-          <>
-            자재와 완제품을 한 표에서 다룹니다. 재고 · 불출 · 단가는 전부 사용 단위 기준이며,
-            구매 단위는 입고 등록에서만 받아 환산합니다.
-          </>
-        }
-        action={
-          <div className="flex gap-2">
-            <GenerateFinished />
-            <NewItemForm />
-          </div>
-        }
-      />
+    <PageShell
+      section="설정"
+      title="품목"
+      lede={
+        <>
+          자재와 완제품을 한 표에서 다룹니다. 재고 · 불출 · 단가는 전부 사용 단위 기준이며,
+          구매 단위는 입고 등록에서만 받아 환산합니다.
+        </>
+      }
+      action={
+        <div className="flex gap-2">
+          <GenerateFinished />
+          <NewItemForm />
+        </div>
+      }
+      nav={<SubNav items={SETTINGS_NAV} />}
+    >
 
       <div className="card flex flex-wrap items-center gap-2 p-3">
         <div className="flex flex-wrap items-center gap-1.5">
@@ -114,6 +118,6 @@ export default async function ItemsPage({ searchParams }: { searchParams: Search
           ))}
         </dl>
       </section>
-    </div>
+    </PageShell>
   );
 }

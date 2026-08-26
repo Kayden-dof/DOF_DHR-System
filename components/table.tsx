@@ -50,9 +50,13 @@ export function Td({
 /** 첫 칸. 신원과 그 아래 딸린 값 한 줄. */
 export function IdCell({
   id, sub, tone,
-}: { id: React.ReactNode; sub?: React.ReactNode; tone?: 'warn' | 'danger' | 'ok' | 'brand' }) {
+}: {
+  id: React.ReactNode; sub?: React.ReactNode;
+  tone?: 'warn' | 'danger' | 'ok' | 'brand' | 'info';
+}) {
   const bar = tone && {
-    warn: 'bg-warn', danger: 'bg-danger', ok: 'bg-ok', brand: 'bg-brand',
+    warn: 'bg-warn', danger: 'bg-danger', ok: 'bg-ok',
+    brand: 'bg-brand', info: 'bg-info',
   }[tone];
 
   return (
