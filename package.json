@@ -1,0 +1,17 @@
+{
+  "name": "dof-dhr",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "DOF DHR 지원 시스템 - M0 (사용자/권한/감사추적/채번)",
+  "scripts": {
+    "test": "node test/run.mjs",
+    "test:concurrency": "node test/concurrency.mjs",
+    "test:pg": "node test/pg.mjs"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.5.7",
+    "embedded-postgres": "^18.4.0-beta.17",
+    "pg": "^8.23.0"
+  }
+}
