@@ -190,12 +190,11 @@ export default async function WorkOrderSheet({ params }: { params: Promise<{ id:
       <table className="print-table mt-1.5">
         <thead>
           <tr>
-            <th className="w-[6%] text-center">순번</th>
-            <th className="w-[16%]">공정 코드</th>
-            <th className="w-[22%]">공정명</th>
-            <th className="w-[32%]">자재</th>
-            <th className="w-[12%] text-right">소요량</th>
-            <th className="w-[12%]">확인</th>
+            <th className="w-[7%] text-center">순번</th>
+            <th className="w-[18%]">공정 코드</th>
+            <th className="w-[25%]">공정명</th>
+            <th className="w-[35%]">자재</th>
+            <th className="w-[15%] text-right">소요량</th>
           </tr>
         </thead>
         <tbody>
@@ -207,7 +206,6 @@ export default async function WorkOrderSheet({ params }: { params: Promise<{ id:
                 <td className="font-mono">{o.code}</td>
                 <td>{o.name}{o.after_cutting ? ' (재단 이후)' : ''}</td>
                 <td className="text-center">-</td>
-                <td />
                 <td />
               </tr>
             ) : (
@@ -224,13 +222,10 @@ export default async function WorkOrderSheet({ params }: { params: Promise<{ id:
                   )}
                   <td>{m.item_name} ({m.item_code})</td>
                   <td className="text-right tnum">
-                    {m.basis === 'PER_UNIT'
-                      ? '재단 후 확정'
-                      : m.required === null
-                        ? '구간 없음'
-                        : `${Number(m.required)} ${m.usage_uom}`}
+                    {m.required === null
+                      ? (m.basis === 'PER_UNIT' ? '재단 후 확정' : '구간 없음')
+                      : `${Number(m.required)} ${m.usage_uom}`}
                   </td>
-                  {i === 0 && <td rowSpan={rows} />}
                 </tr>
               ))
             );
@@ -239,6 +234,8 @@ export default async function WorkOrderSheet({ params }: { params: Promise<{ id:
       </table>
 
       <p className="mt-2 text-[10px] leading-relaxed text-black">
+        실제로 투입한 자재의 로트번호와 수량은 제조기록서에 기록되므로 이 표에
+        따로 표시하지 않습니다.
         시약과 포장재의 로트번호는 이 지시서에 인쇄하지 않습니다. 착수 전에 확정되지 않으며,
         실제 투입 로트는 제조기록서에 기록합니다. 여기 적힌 소요량은 예정이며, 실제와 달라도
         시스템이 고치지 않습니다.
