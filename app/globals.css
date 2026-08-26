@@ -110,7 +110,12 @@
                'Apple SD Gothic Neo', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'Cascadia Mono', 'IBM Plex Mono', Consolas, 'D2Coding',
                ui-monospace, monospace;
-  --font-display: 'Instrument Serif', 'Times New Roman', serif;
+  /*
+   * 표시용. Times New Roman 이 먼저다. 사내 장비가 전부 Windows 라 늘 있고,
+   * 이탤릭 대문자로 세우면 격이 산다. 없는 장비를 위해 저장소에 넣어 둔
+   * Instrument Serif 가 뒤를 받친다.
+   */
+  --font-display: 'Times New Roman', Times, 'Instrument Serif', serif;
 }
 
 :root {
@@ -153,7 +158,14 @@ h1, h2, h3 { letter-spacing: -0.025em; font-weight: 700; }
 h1 { line-height: 1.25; }
 
 /* 표시용 서체. 큰 글자 하나에만 */
-.display { font-family: var(--font-display); font-weight: 400; letter-spacing: -0.01em; }
+.display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-style: italic;
+  text-transform: uppercase;
+  /* 이탤릭 대문자는 붙여 두면 글자가 서로 밀린다. 자간을 넉넉히 준다 */
+  letter-spacing: 0.07em;
+}
 
 /* 숫자는 자리가 흔들리면 안 된다. 로트번호 · 순번 · 일시 · 수량 전부 */
 .tnum { font-variant-numeric: tabular-nums; }

@@ -57,7 +57,7 @@ export default async function LoginPage() {
 
           <div className="mt-9 flex items-center gap-4">
             <span aria-hidden className="h-px w-12 shrink-0 bg-white/25" />
-            <span className="display text-[2.5rem] leading-none text-white">Registry</span>
+            <span className="display text-[2.5rem] leading-none text-white">DHR</span>
           </div>
         </div>
 
@@ -74,15 +74,15 @@ export default async function LoginPage() {
           {/* 좁은 화면에서는 여기가 브랜드 자리다 */}
           <div className="mb-9 flex items-baseline gap-3 lg:hidden">
             <Wordmark className="h-7 w-auto" />
-            <span className="display text-[1.75rem] leading-none text-brand">Registry</span>
+            <span className="display text-[1.75rem] leading-none text-brand">DHR</span>
           </div>
 
           <h1 className="display hidden text-[2.75rem] leading-none text-ink lg:block">
-            Registry
+            DHR
           </h1>
 
-          <p className="text-sm font-medium tracking-tight text-muted lg:mt-3.5">
-            DHR 지원 시스템
+          <p className="text-sm font-medium tracking-tight text-muted lg:mt-4">
+            제조기록 지원 시스템
           </p>
 
           <div aria-hidden className="mt-5 h-px bg-line" />

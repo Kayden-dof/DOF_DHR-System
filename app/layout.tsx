@@ -27,11 +27,11 @@ const FAVICON =
 
 export const metadata: Metadata = {
   title: {
-    default: 'DOF Registry',
-    template: '%s · DOF Registry',
+    default: 'DOF DHR',
+    template: '%s · DOF DHR',
   },
-  description: '제조기록 등록부. 정본은 서명된 종이다.',
-  applicationName: 'DOF Registry',
+  description: '제조기록 지원 시스템. 정본은 서명된 종이다.',
+  applicationName: 'DOF DHR',
   icons: { icon: FAVICON },
   robots: { index: false, follow: false },
 };
