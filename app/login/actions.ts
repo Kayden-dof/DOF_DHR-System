@@ -38,11 +38,41 @@ function dbFailureMessage(e: unknown): string {
   return `로그인을 처리할 수 없습니다 - ${why} (${code}). 관리자에게 문의하십시오.`;
 }
 
+/**
+ * 남은 잠금 시간을 사람이 읽는 말로.
+ */
+function lockMessage(sec: number): string {
+  const m = Math.ceil(sec / 60);
+  return `비밀번호를 여러 번 틀렸습니다. ${m}분 뒤에 다시 시도하십시오.`;
+}
+
 export async function login(_prev: LoginState, form: FormData): Promise<LoginState> {
   const code = String(form.get('login_code') ?? '').trim();
   const pin = String(form.get('pin') ?? '');
 
   if (!code || !pin) return { error: '로그인 번호와 비밀번호를 입력하십시오' };
+
+  /*
+   * 시도 제한을 먼저 본다.
+   *
+   * 비밀번호가 숫자 6자리라 조합이 10^6 이다. 검증 한 번이 느려도 병렬로 돌리면
+   * 전수 시도가 몇 시간 범위이고, 주소는 인터넷에 열려 있다. 남의 계정으로
+   * 들어가면 그 사람 이름으로 기록이 남고 되돌릴 방법이 없다.
+   *
+   * 잠긴 상태에서는 비밀번호 검증 자체를 하지 않는다. 검증을 하면 걸리는 시간이
+   * 달라져서 그 계정이 있는지가 드러난다.
+   *
+   * 잠금은 사번 단위로만 건다. 접속지로도 걸면 좋겠지만 제조소가 공인 IP 하나를
+   * 공유하면 한 사람의 오타로 전원이 잠긴다. 그 위험이 더 크다.
+   */
+  try {
+    const lock = await withActor(null, (db) =>
+      db.val<number>(`select login_lock_seconds($1)`, [code]));
+    if (lock && lock > 0) return { error: lockMessage(lock) };
+  } catch (e) {
+    // 잠금 조회가 실패했다고 로그인을 막지는 않는다. 현장이 서 버린다.
+    console.error('[login] 시도 제한 조회 실패', e);
+  }
 
   let row: UserRow | undefined;
   try {
@@ -67,7 +97,27 @@ export async function login(_prev: LoginState, form: FormData): Promise<LoginSta
   // 없는 계정 · 비활성 · 로그인 불가(QP) · 비밀번호 불일치를 구분해서 알리지
   // 않는다. 어느 번호가 존재하는지 알려주지 않기 위함이다.
   const ok = !!row && row.is_active && row.can_login && (await verifyPin(pin, row.pin_hash));
-  if (!ok || !row) return { error: '로그인 번호 또는 비밀번호가 올바르지 않습니다' };
+
+  if (!ok || !row) {
+    try {
+      await withActor(null, (db) => db.rows(`select login_fail($1)`, [code]));
+      // 이번 실패로 잠겼으면 그 사실을 바로 알린다. 몇 번 남았는지는 알리지
+      // 않는다 - 남은 횟수를 알려 주면 그 수만큼만 시도하고 기다리면 된다.
+      const lock = await withActor(null, (db) =>
+        db.val<number>(`select login_lock_seconds($1)`, [code]));
+      if (lock && lock > 0) return { error: lockMessage(lock) };
+    } catch (e) {
+      console.error('[login] 실패 기록 실패', e);
+    }
+    return { error: '로그인 번호 또는 비밀번호가 올바르지 않습니다' };
+  }
+
+  // 들어왔으면 쌓인 실패를 지운다. 잠금 계산용 자료이지 기록이 아니다.
+  try {
+    await withActor(null, (db) => db.rows(`select login_ok($1)`, [code]));
+  } catch (e) {
+    console.error('[login] 실패 기록 정리 실패', e);
+  }
 
   try {
     await startSession(row.id);

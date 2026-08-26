@@ -194,4 +194,48 @@ export default [
   },
 },
 
+{
+  id: 'U-17', expect: '확인',
+  name: '로그인 시도 제한: 5회 실패까지는 잠기지 않는다',
+  async run(t) {
+    const code = 'thr-a';
+    for (let i = 0; i < 4; i += 1) await t.rows(`select login_fail($1)`, [code]);
+    t.eq(await t.val(`select coalesce(login_lock_seconds($1), 0)`, [code]), 0, '4회 후');
+  },
+},
+
+{
+  id: 'U-18', expect: '확인',
+  name: '로그인 시도 제한: 5회를 넘으면 잠긴다',
+  async run(t) {
+    const code = 'thr-b';
+    for (let i = 0; i < 5; i += 1) await t.rows(`select login_fail($1)`, [code]);
+    const sec = await t.val(`select coalesce(login_lock_seconds($1), 0)`, [code]);
+    if (!(sec > 0 && sec <= 600)) {
+      throw new Error(`잠금 남은 시간이 1~600초여야 하는데 ${sec}`);
+    }
+  },
+},
+
+{
+  id: 'U-19', expect: '확인',
+  name: '로그인 시도 제한: 들어오면 실패 기록이 지워진다',
+  async run(t) {
+    const code = 'thr-c';
+    for (let i = 0; i < 6; i += 1) await t.rows(`select login_fail($1)`, [code]);
+    await t.rows(`select login_ok($1)`, [code]);
+    t.eq(await t.val(`select coalesce(login_lock_seconds($1), 0)`, [code]), 0, '성공 후');
+  },
+},
+
+{
+  id: 'U-20', expect: '확인',
+  name: '로그인 시도 제한: 다른 사번은 잠기지 않는다',
+  async run(t) {
+    const code = 'thr-d';
+    for (let i = 0; i < 6; i += 1) await t.rows(`select login_fail($1)`, [code]);
+    t.eq(await t.val(`select coalesce(login_lock_seconds($1), 0)`, ['thr-e']), 0, '다른 사번');
+  },
+},
+
 ];
