@@ -12,22 +12,23 @@
     "typecheck": "tsc --noEmit",
     "test": "node test/run.mjs",
     "test:pg": "node test/pg.mjs",
-    "test:concurrency": "node test/concurrency.mjs"
+    "test:concurrency": "node test/concurrency.mjs",
+    "deploy:db": "node scripts/deploy-db.mjs"
   },
   "dependencies": {
-    "@electric-sql/pglite": "^0.5.7",
-    "embedded-postgres": "^18.4.0-beta.17",
     "next": "^16.3.3",
     "pg": "^8.23.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.7",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^26.3.0",
     "@types/pg": "^8.23.1",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.5",
+    "embedded-postgres": "^18.4.0-beta.17",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2"
   }

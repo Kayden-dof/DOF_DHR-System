@@ -3,5 +3,6 @@ node_modules/
 .pgdata-dev/
 .next/
 .env.local
+.env.deploy
 next-env.d.ts
 *.tsbuildinfo
