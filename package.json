@@ -13,7 +13,8 @@
     "test": "node test/run.mjs",
     "test:pg": "node test/pg.mjs",
     "test:concurrency": "node test/concurrency.mjs",
-    "deploy:db": "node scripts/deploy-db.mjs"
+    "deploy:db": "node scripts/deploy-db.mjs",
+    "ca:sync": "node scripts/ca-sync.mjs"
   },
   "dependencies": {
     "next": "^16.3.3",
