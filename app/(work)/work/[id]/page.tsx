@@ -45,7 +45,12 @@ export default async function WorkBatchPage({ params }: { params: Promise<{ id: 
                     'required', required_qty(o.id, b.component_item_id, $2, 0))
                     order by ci.code)
                     from dmr_bom b join item ci on ci.id = b.component_item_id
-                   where b.operation_id = o.id), '[]'::json) as bom
+                   where b.operation_id = o.id), '[]'::json) as bom,
+                -- 이 공정에 걸린 설비. 없으면 현장 화면에 칸 자체가 나오지 않는다
+                coalesce((
+                  select json_agg(json_build_object(
+                    'code', q.code, 'name', q.name) order by q.code)
+                    from operation_equipment_list(o.id) q), '[]'::json) as equipment
            from dmr_operation o
           where o.device_master_id = $1 order by o.seq`,
         [wo.device_master_id, wo.sheet_count]),

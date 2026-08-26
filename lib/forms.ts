@@ -95,6 +95,8 @@ export const TABLE_LABEL: Record<string, string> = {
   process_record:      '공정 기록',
   material_issue:      '자재 투입',
   stock_movement:      '재고 증감',
+  equipment:           '설비',
+  operation_equipment: '공정 설비',
   record_print:        '인쇄',
   day_lock:            '일차 잠금',
   steril_batch:        '멸균 배치',

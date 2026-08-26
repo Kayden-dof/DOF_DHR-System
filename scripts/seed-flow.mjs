@@ -120,14 +120,18 @@ async function runOp(actor, opCode, { day, lot = null, attempt = 1, units = 0, r
   const op = opBy[opCode];
   const startMin = 480 + clock * 40;   // 08:00 부터 40분 간격
   clock += 1;
+  // 그 공정에 걸린 설비가 있으면 첫 번째를 적는다. 현장에서는 타일로 고른다
+  const equip = await val(
+    `select code from operation_equipment_list($1) limit 1`, [op.id]);
+
   const prId = await as(actor.id, async () => {
     const id = await val(
       `insert into process_record (work_order_id, product_lot_id, operation_id, attempt,
-         day_no, work_date, worker_id, rotation_worker_id, started_at)
-       values ($1,$2,$3,$4,$5,(timezone('Asia/Seoul', now()))::date,$6,$7,
+         day_no, work_date, worker_id, rotation_worker_id, equipment_id, started_at)
+       values ($1,$2,$3,$4,$5,(timezone('Asia/Seoul', now()))::date,$6,$7,$9,
                (timezone('Asia/Seoul', now()))::date + ($8 || ' minutes')::interval)
        returning id`,
-      [wo.id, lot, op.id, attempt, day, actor.id, rotation, startMin]);
+      [wo.id, lot, op.id, attempt, day, actor.id, rotation, startMin, equip]);
     return id;
   });
 

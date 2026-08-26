@@ -210,6 +210,32 @@ if (!dm) {
   await unitBom(ops['WS-DX2401-08'], label, 2);
   await unitBom(ops['WS-DX2401-09'], box, 0.02);   // 50개 박스 하나
   console.log('제품표준서 Rev.02 · 공정 12 · 자재 구성표 8');
+
+  /*
+   * 설비.
+   *
+   * 공정에 걸어 두면 현장 화면이 그 공정에 걸린 것만 타일로 보여 준다.
+   * 고르는 것을 강제하지 않는다 - 차단은 S01~S05 뿐이다.
+   */
+  const eq = {};
+  for (const [code, name, note, at] of [
+    ['SC-01', '초임계 가공 장비',   'CO₂ 초임계', ['WS-DX2401-02']],
+    ['MX-01', '교반기 1호',         null,         ['WS-DX2401-01', 'WS-DX2401-03']],
+    ['MX-02', '교반기 2호',         null,         ['WS-DX2401-04', 'WS-DX2401-05']],
+    ['FD-01', '동결건조기',         null,         ['WS-DX2401-06']],
+    ['CT-01', '재단기',             null,         ['WS-DX2401-07']],
+    ['SL-01', '실링기',             '1·2차 포장', ['WS-DX2401-08']],
+  ]) {
+    eq[code] = await val(
+      `insert into equipment (code, name, note) values ($1,$2,$3) returning id`,
+      [code, name, note]);
+    for (const opCode of at) {
+      await c.query(
+        `insert into operation_equipment (operation_id, equipment_id) values ($1,$2)`,
+        [ops[opCode], eq[code]]);
+    }
+  }
+  console.log('설비 6 · 공정 연결 7');
 }
 
 // --- 자재 입고 ----------------------------------------------------------------

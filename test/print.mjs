@@ -90,6 +90,7 @@ const day = await one(
 
 const issues = day ? await rows(
   `select ml.lot_no, mi.qty, i.name as item_name, o.code as op_code, o.name as op_name,
+          pr.equipment_id,
           to_char(timezone('Asia/Seoul', pr.started_at),'HH24:MI') as started,
           to_char(timezone('Asia/Seoul', pr.ended_at),'HH24:MI') as ended
      from process_record pr
@@ -194,6 +195,9 @@ if (day) {
       { label: `투입 로트 ${i.item_name}`, value: i.lot_no })),
     ...mats.slice(0, 5).map((i) => (
       { label: `투입 수량 ${i.item_name}`, value: String(Number(i.qty)) })),
+    // 설비를 적었으면 종이에도 그 코드가 있어야 한다. 늘 비어 있던 칸이다
+    ...[...new Set(issues.map((i) => i.equipment_id).filter(Boolean))].map((q) => (
+      { label: '설비번호', value: q })),
     { label: '작업자 서명란', value: '서명' },
   ]);
 } else {

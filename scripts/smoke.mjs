@@ -38,7 +38,7 @@ const ADMIN = [
   '/material/movement', '/shipping', '/shipping/steril', '/shipping/ship',
   '/trace', '/trace/verify', '/trace/cost',
   '/settings', '/settings/numbering', '/settings/items', '/settings/suppliers',
-  '/settings/dmr', '/settings/users', '/settings/audit',
+  '/settings/dmr', '/settings/equipment', '/settings/users', '/settings/audit',
   ids.wo && `/production/${ids.wo}`,
   ids.wo && `/print/work-order/${ids.wo}`,
   ids.wo && `/print/label-request/${ids.wo}`,
