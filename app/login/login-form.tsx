@@ -16,11 +16,13 @@ export default function LoginForm() {
   const value = field === 'code' ? code : pin;
   const setValue = field === 'code' ? setCode : setPin;
 
+  // 반드시 함수형 갱신을 쓴다. setValue(value + k) 처럼 이전 렌더의 값을 더하면
+  // 빠르게 연타할 때 같은 값 위에 덮어써서 자릿수가 조용히 사라진다.
+  // 터치스크린에서 번호를 빠르게 치는 것이 정상 사용이라 실제로 재현된다.
   function press(k: string) {
     if (k === 'clear') return setValue('');
-    if (k === 'back') return setValue(value.slice(0, -1));
-    if (value.length >= 12) return;
-    setValue(value + k);
+    if (k === 'back') return setValue((v) => v.slice(0, -1));
+    setValue((v) => (v.length >= 12 ? v : v + k));
   }
 
   return (
