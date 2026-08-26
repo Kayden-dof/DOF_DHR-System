@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useState } from 'react';
+import { useActionState, useRef, useState } from 'react';
 import { login, type LoginState } from './actions';
 
 type Field = 'code' | 'pin';
@@ -13,16 +13,23 @@ export default function LoginForm() {
   const [pin, setPin] = useState('');
   const [field, setField] = useState<Field>('code');
 
-  const value = field === 'code' ? code : pin;
-  const setValue = field === 'code' ? setCode : setPin;
+  // 입력 대상은 ref로 즉시 반영한다. 상태로만 두면 필드를 바꾼 직후 누른
+  // 숫자가 아직 갱신되지 않은 이전 필드로 들어간다 —— 터치스크린에서 실제로
+  // 재현되고, PIN이 로그인 번호 칸에 찍힌다.
+  const target = useRef<Field>('code');
 
-  // 반드시 함수형 갱신을 쓴다. setValue(value + k) 처럼 이전 렌더의 값을 더하면
-  // 빠르게 연타할 때 같은 값 위에 덮어써서 자릿수가 조용히 사라진다.
-  // 터치스크린에서 번호를 빠르게 치는 것이 정상 사용이라 실제로 재현된다.
+  function select(f: Field) {
+    target.current = f;
+    setField(f);
+  }
+
+  // 갱신은 반드시 함수형으로 한다. setValue(value + k) 처럼 이전 렌더의 값을
+  // 더하면 빠르게 연타할 때 앞의 입력이 덮어써져 자릿수가 조용히 사라진다.
   function press(k: string) {
-    if (k === 'clear') return setValue('');
-    if (k === 'back') return setValue((v) => v.slice(0, -1));
-    setValue((v) => (v.length >= 12 ? v : v + k));
+    const apply = (v: string) =>
+      k === 'clear' ? '' : k === 'back' ? v.slice(0, -1) : v.length >= 12 ? v : v + k;
+    if (target.current === 'code') setCode(apply);
+    else setPin(apply);
   }
 
   return (
@@ -36,13 +43,13 @@ export default function LoginForm() {
             label="로그인 번호"
             display={code}
             active={field === 'code'}
-            onSelect={() => setField('code')}
+            onSelect={() => select('code')}
           />
           <Slot
             label="비밀번호"
             display={'•'.repeat(pin.length)}
             active={field === 'pin'}
-            onSelect={() => setField('pin')}
+            onSelect={() => select('pin')}
           />
         </div>
 
