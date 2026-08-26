@@ -147,7 +147,7 @@ async function closeDay(actor, day) {
   if (payload.length === 0) return;
 
   const hash = createHash('sha256')
-    .update(JSON.stringify(payload)).digest('hex').slice(0, 12).toUpperCase();
+    .update(JSON.stringify(payload)).digest('hex').slice(0, 12);   // 앱과 같게 소문자로 둔다
 
   await as(actor.id, async () => {
     const seq = await val(

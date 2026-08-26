@@ -53,7 +53,7 @@ function session(userId) {
 const ADMIN = [
   '/', '/production', '/material', '/material/orders', '/material/stock',
   '/material/movement', '/shipping', '/shipping/steril', '/shipping/ship',
-  '/trace', '/trace/cost',
+  '/trace', '/trace/verify', '/trace/cost',
   '/settings', '/settings/numbering', '/settings/items', '/settings/suppliers',
   '/settings/dmr', '/settings/users', '/settings/audit',
   ids.wo && `/production/${ids.wo}`,

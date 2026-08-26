@@ -4,9 +4,13 @@ import { requireUser, hasRole } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import { fmtDate, fmtDateTime } from '@/lib/fmt';
 import { WO_STATUS_LABEL, PL_STATUS_LABEL } from '@/lib/forms';
+import { KIND_LABEL } from '@/lib/print';
 import Denied from '@/components/denied';
 import { Panel, Empty, Tag, Field, Caution } from '@/components/ui';
-import { CutForm, LotStatusForm, CancelForm, FinishForm, type LotRow, type FinOpt } from './batch-forms';
+import {
+  CutForm, LotStatusForm, CancelForm, FinishForm, RetrieveForm,
+  type LotRow, type FinOpt,
+} from './batch-forms';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,6 +25,12 @@ interface Wo {
 interface DayRow {
   day_no: number; work_date: string; worker_id: string; worker_name: string;
   records: number; locked: boolean; printed: number;
+}
+interface PrintRow {
+  id: string; kind: string; short_hash: string; seq: number; pages: number;
+  printed_at: Date; printed_by_name: string;
+  retrieved_at: Date | null; retrieve_reason: string | null;
+  newer_count: number; day_no: number | null; worker_name: string | null;
 }
 interface RecRow {
   id: string; day_no: number; work_date: string; attempt: number;
@@ -107,10 +117,12 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
       finished: await db.rows<FinOpt>(
         `select id, code, name from item where type = 'FIN' and is_active order by code`),
       today: await db.val<string>(`select to_char(timezone('Asia/Seoul', now()),'YYYY-MM-DD')`),
-      prints: await db.rows<{ kind: string; seq: number; printed_at: Date; printed_by_name: string }>(
-        `select rp.kind::text as kind, rp.seq, rp.printed_at, u.full_name as printed_by_name
-           from record_print rp join app_user u on u.id = rp.printed_by
-          where rp.work_order_id = $1 order by rp.printed_at desc limit 20`, [id]),
+      prints: await db.rows<PrintRow>(
+        `select v.id, v.kind, v.short_hash, v.seq, v.pages, v.printed_at,
+                v.printed_by_name, v.retrieved_at, v.retrieve_reason,
+                v.newer_count, v.day_no, v.worker_name
+           from v_print_lookup v
+          where v.work_order_id = $1 order by v.printed_at desc limit 40`, [id]),
     };
   });
 
@@ -403,22 +415,57 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
       </Panel>
 
       {d.prints.length > 0 && (
-        <Panel title="인쇄 이력">
+        <Panel
+          title="인쇄 이력"
+          note="다시 뽑은 회차가 있으면 앞 종이를 거둬들이고 그 사실을 남깁니다"
+        >
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr>
-                  <th className="th">양식</th><th className="th text-right">회차</th>
-                  <th className="th">일시</th><th className="th">인쇄자</th>
+                  <th className="th">양식</th>
+                  <th className="th">대상</th>
+                  <th className="th">자료 식별자</th>
+                  <th className="th text-right">회차</th>
+                  <th className="th text-right">매수</th>
+                  <th className="th">일시 · 인쇄자</th>
+                  <th className="th">상태</th>
+                  <th className="th sticky right-0 w-0" />
                 </tr>
               </thead>
               <tbody>
-                {d.prints.map((p, i) => (
-                  <tr key={i}>
-                    <td className="td text-xs">{p.kind}</td>
+                {d.prints.map((p) => (
+                  <tr key={p.id}>
+                    <td className="td whitespace-nowrap text-xs">
+                      {KIND_LABEL[p.kind] ?? p.kind}
+                    </td>
+                    <td className="td whitespace-nowrap text-xs text-muted">
+                      {p.day_no !== null
+                        ? <>{p.day_no}일차 {p.worker_name ?? ''}</>
+                        : '배치'}
+                    </td>
+                    <td className="td font-mono text-xs">{p.short_hash}</td>
                     <td className="td tnum text-right text-xs">{p.seq}</td>
-                    <td className="td tnum text-xs text-muted">{fmtDateTime(p.printed_at)}</td>
-                    <td className="td text-xs text-muted">{p.printed_by_name}</td>
+                    <td className="td tnum text-right text-xs text-muted">{p.pages}</td>
+                    <td className="td whitespace-nowrap text-xs text-muted">
+                      <div className="tnum">{fmtDateTime(p.printed_at)}</div>
+                      <div className="text-faint">{p.printed_by_name}</div>
+                    </td>
+                    <td className="td">
+                      {/* 사실만 적는다. 무효라고 말하지 않는다 (§10) */}
+                      {p.retrieved_at ? (
+                        <Tag tone="ok">회수됨</Tag>
+                      ) : p.newer_count > 0 ? (
+                        <Tag tone="danger">뒤에 {p.newer_count}회 더 뽑음</Tag>
+                      ) : (
+                        <Tag tone="quiet">최신</Tag>
+                      )}
+                    </td>
+                    <td className="td sticky right-0 bg-surface text-right">
+                      {!p.retrieved_at && p.newer_count > 0 && (
+                        <RetrieveForm id={p.id} woId={wo.id} label={p.short_hash} />
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

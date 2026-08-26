@@ -169,3 +169,29 @@ export async function setLotStatus(_p: FormState, form: FormData): Promise<FormS
     return { error: dbMessage(e) };
   }
 }
+
+/* ---------------------------------------------------------------------------
+   인쇄물 회수 기록
+
+   재발행하면 앞서 뽑은 종이가 현장에 남는다. 같은 기록의 종이가 두 장 도는 것이
+   이 시스템에서 가장 위험한 상태다. 거둬들였다는 사실을 남겨 둔다.
+
+   되돌릴 수 없다. 이미 회수로 적힌 것을 안 한 것으로 만들 수 없다. DB 함수가
+   그것을 막고, 여기서는 예외 문구를 그대로 올린다.
+--------------------------------------------------------------------------- */
+export async function retrievePrint(_p: FormState, form: FormData): Promise<FormState> {
+  try {
+    const me = await mgr();
+    const id = String(form.get('print_id') ?? '');
+    const reason = String(form.get('reason') ?? '').trim();
+    if (!reason) return { error: '회수 사유를 적으십시오' };
+
+    await withActor(me.id, (db) =>
+      db.rows(`select retrieve_print($1, $2)`, [id, reason]));
+
+    bump(String(form.get('work_order_id') ?? ''));
+    return { ok: true, message: '회수로 기록했습니다.' };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}

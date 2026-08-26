@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { Wordmark } from './logo';
+import Barcode from './barcode';
 import { useEffect, useState } from 'react';
 
 export interface PrintMeta {
@@ -78,9 +79,33 @@ export function Sheet({
   page?: number;
   children: React.ReactNode;
 }) {
+  const short = meta.dataHash.slice(0, 12);
+  const reissued = meta.seq > 1;
+
   return (
-      <div className="sheet">
-        <header className="mb-4 border-b-2 border-black pb-2">
+      <div className="sheet relative">
+        {/*
+          * 재발행본 워터마크.
+          *
+          * 이 시스템에서 가장 위험한 상태는 같은 기록의 종이가 두 장 도는 것이다.
+          * 회차는 머리글에도 찍히지만 작아서 겹쳐 놓으면 안 보인다. 종이 한가운데를
+          * 가로지르는 표시가 있어야 멀리서도, 뒤집어 놓아도 눈에 들어온다.
+          *
+          * 1회차에는 아무것도 넣지 않는다. 평소와 다른 것에만 표시가 붙어야
+          * 그 표시가 눈에 들어온다.
+          */}
+        {reissued && (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden"
+          >
+            <span className="-rotate-[24deg] whitespace-nowrap text-[64px] font-bold tracking-[0.1em] text-black/[0.07]">
+              재발행 {meta.seq}회차
+            </span>
+          </div>
+        )}
+
+        <header className="relative mb-4 border-b-2 border-black pb-2">
           <div className="flex items-start justify-between">
             <div>
               <Wordmark className="h-3.5 w-auto" purple="#000" gray="#666" />
@@ -103,24 +128,37 @@ export function Sheet({
                 </tr>
                 <tr>
                   <td className="pr-2 text-right">자료 식별자</td>
-                  <td className="font-mono">{meta.dataHash.slice(0, 12)}</td>
+                  <td className="font-mono font-bold">{short}</td>
                 </tr>
               </tbody>
             </table>
           </div>
         </header>
 
-        {children}
+        <div className="relative">{children}</div>
 
-        <footer className="mt-6 border-t border-black pt-1.5 text-[9px] text-black">
-          <div className="flex justify-between">
-            <span>
-              {meta.kindLabel} · 자료 식별자 {meta.dataHash.slice(0, 12)} · 회차 {meta.seq}
-            </span>
-            <span className="tnum">{page} / {meta.pages}</span>
-          </div>
-          <div className="mt-0.5">
-            이 인쇄물은 서명 후 정본이 됩니다. 시스템은 판정하지 않으며 전자서명을 받지 않습니다.
+        <footer className="relative mt-6 border-t border-black pt-1.5 text-[9px] text-black">
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <div>
+                {meta.kindLabel} · 자료 식별자{' '}
+                <span className="font-mono font-bold">{short}</span> · 회차 {meta.seq}
+                {reissued && <b> · 재발행본</b>}
+              </div>
+              <div className="mt-0.5">
+                이 인쇄물은 서명 후 정본이 됩니다. 시스템은 판정하지 않으며
+                전자서명을 받지 않습니다.
+              </div>
+              <div className="mt-0.5">
+                조회 화면에서 위 자료 식별자를 넣으면 이 종이가 언제 어떤 자료로
+                뽑혔는지, 뒤에 다시 뽑은 회차가 있는지 확인할 수 있습니다.
+              </div>
+            </div>
+            {/* 손으로 옮겨 적다 틀리지 않게 바코드로도 찍는다 */}
+            <div className="shrink-0 text-right">
+              <Barcode value={short.toUpperCase()} height={26} module={1} />
+              <div className="tnum mt-0.5">{page} / {meta.pages}</div>
+            </div>
           </div>
         </footer>
       </div>

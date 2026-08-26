@@ -3,7 +3,7 @@
 import { useActionState, useState } from 'react';
 import { PL_STATUS_LABEL, type FormState } from '@/lib/forms';
 import { Msg, Caution } from '@/components/ui';
-import { cutLot, setLotStatus, cancelWorkOrder, finishWorkOrder } from '../actions';
+import { cutLot, setLotStatus, cancelWorkOrder, finishWorkOrder, retrievePrint } from '../actions';
 
 export interface LotRow {
   id: string; lot_no: string; item_code: string; item_name: string;
@@ -159,6 +159,47 @@ export function FinishForm({ id }: { id: string }) {
       <button type="submit" disabled={pending} className="btn-primary h-9 px-3 text-xs">종료</button>
       <button type="button" onClick={() => setAsk(false)} className="btn-quiet h-9 px-2 text-xs">
         아니오
+      </button>
+      <Msg state={state} />
+    </form>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   인쇄물 회수 기록
+
+   되돌릴 수 없다. 이미 회수로 적힌 것을 안 한 것으로 만들 수 없고 사유도
+   고쳐 쓸 수 없다. 그래서 한 번 더 묻는다.
+--------------------------------------------------------------------------- */
+export function RetrieveForm({ id, woId, label }: { id: string; woId: string; label: string }) {
+  const [state, action, pending] = useActionState<FormState, FormData>(retrievePrint, {});
+  const [open, setOpen] = useState(false);
+
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} className="btn-quiet h-8">
+        회수 기록
+      </button>
+    );
+  }
+
+  return (
+    <form action={action} className="flex flex-wrap items-center justify-end gap-2">
+      <input type="hidden" name="print_id" value={id} />
+      <input type="hidden" name="work_order_id" value={woId} />
+      <span className="font-mono text-xs text-muted">{label}</span>
+      <select name="reason" required className="input h-8 w-44 text-xs">
+        <option value="">사유 선택</option>
+        <option>재발행으로 앞 종이 회수</option>
+        <option>오출력 회수</option>
+        <option>파손 · 오염으로 회수</option>
+        <option>기타 회수</option>
+      </select>
+      <button type="submit" disabled={pending} className="btn-danger h-8">
+        {pending ? '기록 중' : '회수'}
+      </button>
+      <button type="button" onClick={() => setOpen(false)} className="btn-quiet h-8">
+        그만
       </button>
       <Msg state={state} />
     </form>

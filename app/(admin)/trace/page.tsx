@@ -73,6 +73,7 @@ export default async function TracePage({ searchParams }: { searchParams: Search
         <SubNav
           items={[
             { href: '/trace', label: '계보 추적' },
+            { href: '/trace/verify', label: '인쇄물' },
             { href: '/trace/cost', label: '원가' },
           ]}
         />
