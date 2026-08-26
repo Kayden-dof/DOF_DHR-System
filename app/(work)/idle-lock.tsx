@@ -93,6 +93,32 @@ function LockScreen({
     redraw();
   }
 
+  /*
+   * 실물 키보드. 로그인 화면과 같은 규칙이다. 현장 패드에 키보드가 없어도
+   * 관리 장비에서 같은 화면이 뜨는 일이 있고, 손해 볼 것이 없다.
+   */
+  // 등록은 한 번, 실행은 늘 최신 렌더의 함수로. press 와 submit 이 busy 상태를
+  // 닫아 두므로, 최초 클로저를 그대로 부르면 낡은 busy 를 보고 판단한다.
+  const keysRef = useRef({ press, submit });
+  keysRef.current = { press, submit };
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const t = e.target as HTMLElement | null;
+      if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (/^[0-9]$/.test(e.key)) { e.preventDefault(); keysRef.current.press(e.key); }
+      else if (e.key === 'Backspace') { e.preventDefault(); keysRef.current.press('back'); }
+      else if (e.key === 'Escape') { e.preventDefault(); keysRef.current.press('clear'); }
+      else if (e.key === 'Enter') {
+        if (t && t.tagName === 'BUTTON') return;
+        e.preventDefault();
+        void keysRef.current.submit();
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   async function submit() {
     if (busy || !pin.current) return;
     setBusy(true);

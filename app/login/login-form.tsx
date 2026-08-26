@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useReducer, useRef, useState } from 'react';
+import { useActionState, useEffect, useReducer, useRef, useState } from 'react';
 import { LOGIN_CODE_LENGTH } from '@/lib/auth-const';
 import { login, type LoginState } from './actions';
 
@@ -38,6 +38,7 @@ export default function LoginForm({ owners }: { owners: string[] }) {
   const autoJump = useRef(true);
 
   const [, redraw] = useReducer((n: number) => n + 1, 0);
+  const formRef = useRef<HTMLFormElement>(null);
 
   function select(f: Field) {
     // 로그인 번호 칸을 다시 눌렀다면 자릿수가 다른 번호를 고쳐 넣겠다는 뜻이므로
@@ -85,13 +86,65 @@ export default function LoginForm({ owners }: { owners: string[] }) {
     redraw();
   }
 
+  /*
+   * 실물 키보드.
+   *
+   * 사무 책상에서는 화면 단추보다 키보드가 빠르다. 숫자 · 백스페이스 · 엔터를
+   * 화면 번호판의 같은 동작으로 잇는다. 값 처리 규칙(12자 상한 · 자동 이동)을
+   * 두 벌로 만들지 않고 press() 하나를 같이 쓴다.
+   *
+   *   숫자       지금 칸에 들어간다. 칸을 고르기 전이면 사번부터 시작한다
+   *   Backspace  한 자 지움
+   *   Escape     전체 지움
+   *   Enter      사번만 찼으면 비밀번호 칸으로, 둘 다 찼으면 로그인
+   *
+   * 비밀번호 초기화 패널의 글자 입력칸에 초점이 있을 때는 비켜선다. 거기서
+   * 치는 숫자는 그 칸의 것이다.
+   */
+  const pressRef = useRef(press);
+  pressRef.current = press;
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const t = e.target as HTMLElement | null;
+      if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      if (/^[0-9]$/.test(e.key)) {
+        e.preventDefault();
+        if (target.current === 'code' && field === null) setField('code');
+        pressRef.current(e.key);
+      } else if (e.key === 'Backspace') {
+        e.preventDefault();
+        pressRef.current('back');
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        pressRef.current('clear');
+      } else if (e.key === 'Enter') {
+        // 단추에 초점이 있으면 그 단추의 몫이다. 번호판 키를 엔터로 누르는
+        // 것까지 여기서 가로채면 키보드 사용자의 기본 동작이 죽는다.
+        if (t && t.tagName === 'BUTTON') return;
+        e.preventDefault();
+        if (codeRef.current.length > 0 && pinRef.current.length === 0) {
+          // 사번만 찼으면 "다음 칸"이다
+          target.current = 'pin';
+          setField('pin');
+          redraw();
+        } else if (codeRef.current.length > 0 && pinRef.current.length > 0) {
+          formRef.current?.requestSubmit();
+        }
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [field]);
+
   const code = codeRef.current;
   const pin = pinRef.current;
   const open = field !== null;
   const ready = code.length > 0 && pin.length > 0;
 
   return (
-    <form action={formAction} className="mt-6 w-full">
+    <form ref={formRef} action={formAction} className="mt-6 w-full">
       <input type="hidden" name="login_code" value={code} />
       <input type="hidden" name="pin" value={pin} />
 
