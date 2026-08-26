@@ -17,12 +17,29 @@ export interface PlOpt {
 export interface SbRow {
   id: string; batch_no: string; request_no: string | null; vendor_name: string;
   shipped_at: string | null; received_at: string | null; cert_no: string | null;
-  lots: { lot_no: string; item_code: string; qty: number }[];
+  lots: { lot_no: string; item_code: string; item_name: string; qty: number }[];
   total: number;
 }
 
 /* 멸균 발송은 50개(25ea 2줄) 박스 단위다. 박스 수를 같이 보여 준다. */
 const BOX = 50;
+
+/**
+ * 규격별로 몇 개인지 묶는다.
+ *
+ * 제품 규격은 재단에서야 정해진다. 그래서 멸균은 "제품 로트 몇 건"이 아니라
+ * "어느 규격 몇 개"로 나가야 위탁 업체와 수량을 맞출 수 있고, 회수 때 대조도
+ * 그 단위로 한다. 제품 로트 하나가 규격 하나라 로트를 규격으로 모으면 된다.
+ */
+function bySpec(rows: { item_code: string; item_name: string; qty: number }[]) {
+  const m = new Map<string, { code: string; name: string; qty: number }>();
+  for (const r of rows) {
+    const cur = m.get(r.item_code);
+    if (cur) cur.qty += r.qty;
+    else m.set(r.item_code, { code: r.item_code, name: r.item_name, qty: r.qty });
+  }
+  return [...m.values()].sort((a, b) => a.code.localeCompare(b.code));
+}
 
 export function SterilForm({ lots, today }: { lots: PlOpt[]; today: string }) {
   const [state, action, pending] = useActionState<FormState, FormData>(createSterilBatch, {});
@@ -31,6 +48,13 @@ export function SterilForm({ lots, today }: { lots: PlOpt[]; today: string }) {
 
   const total = Object.values(picked).reduce((s, n) => s + n, 0);
   const boxes = Math.ceil(total / BOX);
+
+  // 고른 로트를 규격으로 모아 둔다. 발송 전에 규격별 수량이 눈에 보여야
+  // 의뢰서에 그대로 옮겨 적을 수 있다.
+  const specSummary = bySpec(
+    lots
+      .filter((l) => (picked[l.id] ?? 0) > 0)
+      .map((l) => ({ item_code: l.item_code, item_name: l.item_name, qty: picked[l.id] })));
 
   if (!open) {
     return (
@@ -102,10 +126,23 @@ export function SterilForm({ lots, today }: { lots: PlOpt[]; today: string }) {
       </div>
 
       {total > 0 && (
-        <p className="mt-2 rounded-md bg-info-bg px-3 py-2 text-xs text-ink">
-          총 <b className="tnum">{total}</b>개. 50개(25ea 2줄) 박스 기준{' '}
-          <b className="tnum">{boxes}</b>박스입니다.
-        </p>
+        <div className="mt-2 rounded-md border border-info/20 bg-info-bg px-3.5 py-3">
+          <p className="text-xs text-ink">
+            총 <b className="tnum">{total}</b>개. 50개(25ea 2줄) 박스 기준{' '}
+            <b className="tnum">{boxes}</b>박스입니다.
+          </p>
+          <dl className="mt-2 grid gap-x-5 gap-y-1 sm:grid-cols-2">
+            {specSummary.map((x) => (
+              <div key={x.code} className="flex items-baseline justify-between gap-3 text-xs">
+                <dt className="truncate text-muted">
+                  {x.name}
+                  <span className="ml-1.5 font-mono text-[0.6875rem] text-faint">{x.code}</span>
+                </dt>
+                <dd className="shrink-0 font-bold tnum text-ink">{x.qty} 개</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
       )}
 
       <Msg state={state} />
@@ -130,10 +167,11 @@ export function SterilRow({ sb, today }: { sb: SbRow; today: string }) {
         <td className="td text-xs">{sb.vendor_name}</td>
         <td className="td font-mono text-xs text-muted">{sb.request_no ?? ''}</td>
         <td className="td text-xs">
-          {sb.lots.map((l) => (
-            <div key={l.lot_no}>
-              <span className="font-mono">{l.lot_no}</span>
-              <span className="ml-1 tnum text-muted">{l.qty}</span>
+          {/* 규격별로 묶어 보여 준다. 제조번호는 펼쳐 보면 나온다 */}
+          {bySpec(sb.lots).map((x) => (
+            <div key={x.code} className="flex items-baseline gap-2">
+              <span className="font-mono text-[0.6875rem] text-muted">{x.code}</span>
+              <span className="tnum font-semibold text-ink">{x.qty}</span>
             </div>
           ))}
         </td>

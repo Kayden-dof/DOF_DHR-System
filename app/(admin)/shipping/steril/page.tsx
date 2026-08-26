@@ -26,7 +26,8 @@ export default async function SterilPage() {
               sb.cert_no,
               coalesce((
                 select json_agg(json_build_object(
-                  'lot_no', pl.lot_no, 'item_code', i.code, 'qty', sbl.qty)
+                  'lot_no', pl.lot_no, 'item_code', i.code,
+                  'item_name', i.name, 'qty', sbl.qty)
                   order by pl.lot_no)
                   from steril_batch_lot sbl
                   join product_lot pl on pl.id = sbl.product_lot_id

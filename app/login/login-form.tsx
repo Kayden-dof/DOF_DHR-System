@@ -91,12 +91,16 @@ export default function LoginForm({ owners }: { owners: string[] }) {
   const ready = code.length > 0 && pin.length > 0;
 
   return (
-    <form action={formAction} className="mt-7 w-full">
+    <form action={formAction} className="mt-6 w-full">
       <input type="hidden" name="login_code" value={code} />
       <input type="hidden" name="pin" value={pin} />
 
-      <div className="card-raised overflow-hidden">
-        <div className="divide-y divide-line-soft">
+      <div className="card-raised relative overflow-hidden">
+        {/* 카드 위쪽 브랜드 띠. 면에 무게를 준다 */}
+        <div aria-hidden
+             className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-brand to-indigo" />
+
+        <div className="divide-y divide-line-soft pt-[3px]">
           <Slot
             label="사번"
             value={code}
@@ -158,7 +162,7 @@ export default function LoginForm({ owners }: { owners: string[] }) {
       <button
         type="submit"
         disabled={pending || !ready}
-        className="btn-primary mt-3 h-[3.25rem] w-full rounded-lg text-[0.9375rem] tracking-tight"
+        className="btn-primary mt-3.5 h-[3.5rem] w-full rounded-xl text-base tracking-tight"
       >
         {pending ? '확인 중' : '로그인'}
       </button>

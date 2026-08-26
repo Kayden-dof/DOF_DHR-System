@@ -73,6 +73,7 @@ export default function WorkPanel({
     // 내가 마지막으로 손댄 일차를 연다. 없으면 배치의 마지막 일차.
     [...myDays].sort((a, b) => a - b).at(-1) ?? days.at(-1) ?? 1);
   const [opId, setOpId] = useState<string | null>(null);
+  const [showEarlier, setShowEarlier] = useState(false);
 
   const locked = lockedDays.includes(day);
   const dayRecords = myRecords.filter((r) => r.day_no === day);
@@ -99,6 +100,27 @@ export default function WorkPanel({
     const names = [...new Set(rs.map((r) => r.worker_name))].join(' · ');
     return { names, days: [...new Set(rs.map((r) => r.day_no))].sort((a, b) => a - b) };
   };
+
+  /*
+   * 한 배치에서 같은 공정을 두 번 하지 않는다. 그래서 다른 일차에 이미 마감된
+   * 공정은 오늘 할 일 목록에서 빼고 아래로 내린다.
+   *
+   * 지우지는 않는다. 재세척처럼 회차를 다시 기록해야 하는 경우가 실제로 있고
+   * (WS-05 pH 8 초과), 공정 순서를 강제하지 않는 것이 §10 이다. 접어 둘 뿐이라
+   * 필요하면 한 번 눌러 펼치고 그 자리에서 다음 회차로 기록한다.
+   */
+  const closedElsewhere = (o: Op) => {
+    const rs = records.filter(
+      (r) => r.operation_id === o.id && r.ended_at && r.day_no !== day);
+    if (rs.length === 0) return null;
+    return {
+      days: [...new Set(rs.map((r) => r.day_no))].sort((a, b) => a - b),
+      names: [...new Set(rs.map((r) => r.worker_name))].join(' · '),
+    };
+  };
+
+  const todo = ops.filter((o) => stateOf(o) !== 'none' || !closedElsewhere(o));
+  const earlier = ops.filter((o) => stateOf(o) === 'none' && closedElsewhere(o));
 
   const mine = ops.filter((o) => stateOf(o) === 'done').length;
 
@@ -163,41 +185,43 @@ export default function WorkPanel({
         </div>
 
         <div className="mt-3.5 grid gap-2 sm:grid-cols-2">
-          {ops.map((o) => {
-            const st = stateOf(o);
-            const others = othersOf(o);
-            return (
-              <button key={o.id} onClick={() => setOpId(o.id === opId ? null : o.id)}
-                      data-on={o.id === opId}
-                      className="tile no-select relative gap-1 pl-6">
-                <span aria-hidden className={`absolute inset-y-2 left-2 w-1 rounded-full ${
-                  st === 'open' ? 'bg-warn'
-                    : st === 'done' ? 'bg-ok'
-                    : others ? 'bg-line-strong' : 'bg-transparent'
-                }`} />
-
-                <div className="flex items-center gap-2">
-                  <span className="w-5 text-center text-sm font-bold tnum text-faint">{o.seq}</span>
-                  <span className="flex-1 text-base font-semibold text-ink">{o.name}</span>
-                  {st === 'open' && <Tag tone="warn">진행 중</Tag>}
-                  {st === 'done' && <Tag tone="ok">마감</Tag>}
-                </div>
-
-                <div className="pl-7 text-xs text-muted">
-                  {o.code}
-                  {o.after_cutting && ' · 제품 로트별'}
-                  {o.bom.length > 0 && ` · 자재 ${o.bom.length}종`}
-                </div>
-
-                {others && st === 'none' && (
-                  <div className="pl-7 text-xs text-faint">
-                    {others.names} 님이 {others.days.join(' · ')}일차에 기록
-                  </div>
-                )}
-              </button>
-            );
-          })}
+          {todo.map((o) => (
+            <OpTile key={o.id} o={o} state={stateOf(o)} others={othersOf(o)}
+                    selected={o.id === opId}
+                    onPick={() => setOpId(o.id === opId ? null : o.id)} />
+          ))}
         </div>
+
+        {todo.length === 0 && (
+          <p className="mt-3.5 rounded-md bg-surface-sub px-4 py-6 text-center text-sm text-muted">
+            이 일차에 남은 공정이 없습니다.
+          </p>
+        )}
+
+        {earlier.length > 0 && (
+          <div className="mt-4 border-t border-line-soft pt-4">
+            <button type="button" onClick={() => setShowEarlier((v) => !v)}
+                    aria-expanded={showEarlier}
+                    className="flex w-full items-center justify-between rounded-md px-1 py-2 text-left">
+              <span className="text-sm font-semibold text-muted">
+                앞 일차에 마감한 공정 <b className="tnum text-ink">{earlier.length}</b>
+              </span>
+              <span className="text-xs text-faint">
+                {showEarlier ? '접기' : '재작업이면 펼치십시오'}
+              </span>
+            </button>
+
+            {showEarlier && (
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                {earlier.map((o) => (
+                  <OpTile key={o.id} o={o} state="closed" others={closedElsewhere(o)}
+                          selected={o.id === opId}
+                          onPick={() => setOpId(o.id === opId ? null : o.id)} />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </section>
 
       {/* 선택한 공정 --------------------------------------------------------- */}
@@ -224,6 +248,57 @@ export default function WorkPanel({
         </div>
       )}
     </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+/** 공정 하나. 왼쪽 띠가 상태를 먼저 말한다. */
+function OpTile({
+  o, state, others, selected, onPick,
+}: {
+  o: Op;
+  state: 'none' | 'open' | 'done' | 'closed';
+  others: { names: string; days: number[] } | null;
+  selected: boolean;
+  onPick: () => void;
+}) {
+  const bar = state === 'open' ? 'bg-warn'
+    : state === 'done' ? 'bg-ok'
+    : state === 'closed' ? 'bg-line-strong'
+    : others ? 'bg-line-strong' : 'bg-transparent';
+
+  return (
+    <button onClick={onPick} data-on={selected}
+            className={`tile no-select relative gap-1 pl-6 ${
+              state === 'closed' ? 'opacity-70' : ''}`}>
+      <span aria-hidden className={`absolute inset-y-2 left-2 w-1 rounded-full ${bar}`} />
+
+      <div className="flex items-center gap-2">
+        <span className="w-5 text-center text-sm font-bold tnum text-faint">{o.seq}</span>
+        <span className="flex-1 text-base font-semibold text-ink">{o.name}</span>
+        {state === 'open' && <Tag tone="warn">진행 중</Tag>}
+        {state === 'done' && <Tag tone="ok">마감</Tag>}
+        {state === 'closed' && others && (
+          <Tag tone="quiet">{others.days.join(' · ')}일차 마감</Tag>
+        )}
+      </div>
+
+      <div className="pl-7 text-xs text-muted">
+        {o.code}
+        {o.after_cutting && ' · 제품 로트별'}
+        {o.bom.length > 0 && ` · 자재 ${o.bom.length}종`}
+      </div>
+
+      {others && state === 'none' && (
+        <div className="pl-7 text-xs text-faint">
+          {others.names} 님이 {others.days.join(' · ')}일차에 기록
+        </div>
+      )}
+      {others && state === 'closed' && (
+        <div className="pl-7 text-xs text-faint">{others.names}</div>
+      )}
+    </button>
   );
 }
 
@@ -452,16 +527,30 @@ function MaterialForm({ woId, rec, op, lots, sheets }: {
 
       {lot && (
         <NumPad
+          /*
+           * 로트를 고를 때마다 패드를 새로 만든다. key 가 없으면 앞 로트의
+           * 예상값이 그대로 남아 다음 자재에 딸려 들어간다.
+           */
+          key={lot.id}
           name="qty"
           label={`투입 수량 (${lot.usage_uom})`}
           unit={lot.usage_uom}
           max={Number(lot.qty_available)}
+          /*
+           * 자재 구성표에서 계산한 예상 소요량을 미리 채운다. 장갑 낀 손으로
+           * 같은 숫자를 매번 찍는 일을 없앤다.
+           *
+           * 채워 넣은 값이지 확인된 값이 아니다. 그래서 아래에 예상값임을 그대로
+           * 적어 두고, 다르면 지우고 실제 넣은 양을 적게 한다. 시스템은 둘을
+           * 비교해 판정하지 않는다 (§7 "예정과 실제가 달라도 고쳐주지 않는다").
+           */
+          initial={need !== null ? String(need) : ''}
           hint={
             need !== null ? (
               <>
-                자재 구성표 기준 장입 {sheets}장의 소요량은{' '}
-                <b className="text-ink tnum">{need} {lot.usage_uom}</b>입니다.
-                실제로 넣은 양을 그대로 적으십시오. 예정과 달라도 시스템이 고치지 않습니다.
+                자재 구성표 기준 장입 {sheets}장의 <b className="text-ink">예상</b> 소요량{' '}
+                <b className="text-ink tnum">{need} {lot.usage_uom}</b>을 미리 채웠습니다.
+                실제로 넣은 양이 다르면 고쳐 적으십시오.
               </>
             ) : null
           }

@@ -21,13 +21,15 @@ export interface PrintMeta {
    화면에서만 보이는 조작 막대는 인쇄에서 사라진다.
 --------------------------------------------------------------------------- */
 export default function PrintFrame({
-  meta, title, subtitle, back, children,
+  meta, title, subtitle, back, children, after,
 }: {
   meta: PrintMeta;
   title: string;
   subtitle?: React.ReactNode;
   back?: string;
   children: React.ReactNode;
+  /** 뒤에 이어 붙는 장. Sheet 로 만든다. */
+  after?: React.ReactNode;
 }) {
   const [ready, setReady] = useState(false);
   useEffect(() => setReady(true), []);
@@ -51,6 +53,32 @@ export default function PrintFrame({
         </div>
       </div>
 
+      <Sheet meta={meta} title={title} subtitle={subtitle} page={1}>
+        {children}
+      </Sheet>
+
+      {after}
+    </>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   낱장
+
+   양식 하나가 여러 장이 될 때가 있다. 장마다 머리글과 꼬리글을 같은 자료
+   식별자로 다시 찍는다. 종이가 흩어졌을 때 어느 묶음의 몇 장째인지 그 장만
+   보고 알 수 있어야 한다.
+--------------------------------------------------------------------------- */
+export function Sheet({
+  meta, title, subtitle, page = 1, children,
+}: {
+  meta: PrintMeta;
+  title: string;
+  subtitle?: React.ReactNode;
+  page?: number;
+  children: React.ReactNode;
+}) {
+  return (
       <div className="sheet">
         <header className="mb-4 border-b-2 border-black pb-2">
           <div className="flex items-start justify-between">
@@ -89,14 +117,13 @@ export default function PrintFrame({
             <span>
               {meta.kindLabel} · 자료 식별자 {meta.dataHash.slice(0, 12)} · 회차 {meta.seq}
             </span>
-            <span className="tnum">1 / {meta.pages}</span>
+            <span className="tnum">{page} / {meta.pages}</span>
           </div>
           <div className="mt-0.5">
             이 인쇄물은 서명 후 정본이 됩니다. 시스템은 판정하지 않으며 전자서명을 받지 않습니다.
           </div>
         </footer>
       </div>
-    </>
   );
 }
 

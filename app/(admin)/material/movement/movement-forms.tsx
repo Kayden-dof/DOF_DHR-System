@@ -94,7 +94,7 @@ export function MovementForm({ lots, orders }: { lots: LotOpt[]; orders: WoOpt[]
 /* ---------------------------------------------------------------------------
    용액 제조 (§4.7)
 
-   20X PBS와 30% 에탄올 희석액은 당일 제조 · 당일 폐기라 로트를 만들지 않는다.
+   20× PBS와 30% 에탄올 희석액은 당일 제조 · 당일 폐기라 로트를 만들지 않는다.
    원료가 차감되는 것만 기록한다.
 --------------------------------------------------------------------------- */
 export function SolutionForm({ lots }: { lots: LotOpt[] }) {
@@ -106,7 +106,7 @@ export function SolutionForm({ lots }: { lots: LotOpt[] }) {
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <label className="label">제조한 용액</label>
-          <input name="name" required autoComplete="off" placeholder="20X PBS"
+          <input name="name" required autoComplete="off" placeholder="20× PBS"
                  className="input" />
         </div>
         <div>

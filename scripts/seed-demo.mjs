@@ -107,10 +107,10 @@ const item = async (code, name, type, pu, uu, conv = 1, min = null, lead = null)
 
 const raw     = await item('RM-006', '돈피 원재료', 'RAW', '장', '장', 1, 20, 30);
 const rgAlk   = await item('RG-001', '알칼리 시약', 'REAGENT', '통', '통', 1, 6, 14);
-const rgH2O2  = await item('RG-002', 'H2O2 시약', 'REAGENT', '통', '통', 1, 6, 14);
+const rgH2O2  = await item('RG-002', 'H₂O₂ 시약', 'REAGENT', '통', '통', 1, 6, 14);
 const rgNaCl  = await item('RG-003', 'NaCl', 'REAGENT', '포', 'kg', 25, 50, 10);
 const rgEtOH  = await item('RG-004', '에탄올', 'REAGENT', '통', 'L', 20, 40, 10);
-const pbs     = await item('RG-005', '20X PBS 원액', 'REAGENT', '통', 'L', 20, 20, 10);
+const pbs     = await item('RG-005', '20× PBS 원액', 'REAGENT', '통', 'L', 20, 20, 10);
 const tyvek   = await item('PM-001', '타이백 파우치', 'PACK', 'EA', 'EA', 1, 100, 21);
 const pouch   = await item('PM-002', '내포장 파우치', 'PACK', 'EA', 'EA', 1, 300, 21);
 const label   = await item('PM-003', '제품 라벨', 'PACK', 'EA', 'EA', 1, 500, 14);
@@ -167,7 +167,7 @@ if (!dm) {
     [1,  'WS-DX2401-01', 'NaCl 처리·세척', false],
     [2,  'WS-DX2401-02', '초임계 가공',     false],
     [3,  'WS-DX2401-03', '알칼리 처리',     false],
-    [4,  'WS-DX2401-04', 'H2O2 처리',       false],
+    [4,  'WS-DX2401-04', 'H₂O₂ 처리',       false],
     [5,  'WS-DX2401-05', '세척',            false],
     [6,  'WS-DX2401-06', '동결건조',        false],
     [7,  'PI-DX2401-01', '1차 반제품 검사', false],

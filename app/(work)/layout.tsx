@@ -38,7 +38,8 @@ export default async function WorkLayout({ children }: { children: React.ReactNo
           <Link href="/work" className="flex shrink-0 items-center gap-3" aria-label="배치 목록으로">
             <WordmarkOnDark className="h-5 w-auto" />
             <span className="h-5 w-px bg-white/25" aria-hidden />
-            <span className="text-base font-bold tracking-tight text-white">제조기록</span>
+            <span className="text-base font-bold tracking-tight text-white">Lineage</span>
+            <span className="chip bg-white/15 text-white">현장</span>
           </Link>
 
           <span className="hidden text-sm text-on-dark-mute sm:inline tnum">{today}</span>

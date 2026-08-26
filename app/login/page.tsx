@@ -56,22 +56,27 @@ export default async function LoginPage() {
       <section className="relative flex flex-col items-center bg-canvas px-5 py-9">
         <div aria-hidden className="brand-rule absolute inset-x-0 top-0 lg:hidden" />
 
-        <div className="flex w-full max-w-[24rem] flex-1 flex-col justify-center">
+        <div className="flex w-full max-w-[25rem] flex-1 flex-col justify-center">
           <div className="lg:hidden">
             <Wordmark className="h-8 w-auto" />
           </div>
 
-          <div className="mt-8 lg:mt-0">
-            <p className="crumb">DX2401</p>
-            <h1 className="mt-2 text-[1.75rem] font-bold leading-tight tracking-tight text-ink">
-              DHR 지원 시스템
-            </h1>
+          <div className="mt-8 flex items-end justify-between gap-4 lg:mt-0">
+            <div>
+              <h1 className="text-[2rem] font-bold leading-none tracking-[-0.03em] text-ink">
+                Lineage
+              </h1>
+              <p className="mt-2 text-sm font-medium text-muted">제조기록 계보</p>
+            </div>
+            <Wordmark className="hidden h-5 w-auto shrink-0 pb-1 lg:block" />
           </div>
+
+          <div aria-hidden className="mt-5 h-px bg-line" />
 
           <LoginForm owners={owners} />
         </div>
 
-        <footer className="mt-10 w-full max-w-[24rem] text-center text-[0.6875rem] leading-relaxed text-faint">
+        <footer className="mt-10 w-full max-w-[25rem] border-t border-line pt-4 text-center text-[0.6875rem] leading-relaxed text-faint">
           <p>Design by 기술고도화팀 &middot; Byunghwi Kim</p>
           <p className="mt-1">&copy; {new Date().getFullYear()} DOF Inc.</p>
         </footer>
