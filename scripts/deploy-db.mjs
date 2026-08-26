@@ -96,6 +96,26 @@ if (c.tables !== 5 || !c.app_role || c.funcs < 6) {
   process.exit(1);
 }
 
+// --- 응용 경로 확인 -------------------------------------------------------------
+// lib/db.ts 는 모든 질의를 `set local role app_role` 아래에서 돌린다.
+// 이 계정이 app_role 멤버가 아니면 앱의 첫 질의부터 42501로 막힌다.
+// 스키마만 확인하면 놓치는 지점이라 실제 경로를 그대로 밟아 본다.
+try {
+  await client.query('begin');
+  await client.query('set local role app_role');
+  await client.query(`select set_config('app.user_id', '', true)`);
+  await client.query('select 1 from app_user limit 1');
+  await client.query('commit');
+  console.log('  응용 경로(set local role app_role) 정상');
+} catch (e) {
+  await client.query('rollback').catch(() => undefined);
+  console.error(`
+응용 경로 실패: ${e.code} ${e.message}`);
+  console.error('  접속 계정이 app_role 멤버가 아니다. 0001_app_role.sql 의 GRANT를 확인할 것.');
+  await client.end();
+  process.exit(1);
+}
+
 // --- 초기 관리자 ---------------------------------------------------------------
 if (c.users === 0) {
   const loginCode = process.env.SEED_LOGIN_CODE || '1001';

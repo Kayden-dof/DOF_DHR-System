@@ -1,0 +1,82 @@
+================================================================================================
+ DOF DHR 지원 시스템 — M0 적격성 시험 (OQ)
+ 범위      : §4.1 사용자·권한 / §4.10 채번 / §5 S03 감사추적 / §8 시험 요건
+ 실행 일시 : 2026-08-26 15:06:08 (Asia/Seoul)
+ 대상 DB   : PGlite (메모리)
+ 엔진      : PostgreSQL 18.3 (PGlite 0.5.7)
+ 마이그레이션: 0001_app_role.sql, 0002_audit.sql, 0003_users.sql, 0004_numbering.sql, 0005_grants.sql, 0006_supabase_hardening.sql
+================================================================================================
+
+[§4.1]  사용자 · 역할   (12건)
+------------------------------------------------------------------------------------------------
+ U-01    login_code 중복 등록                                          기대 거부         PASS
+ U-02    full_name 없이 계정 등록                                      기대 거부         PASS
+ U-03    QP 계정 등록 (pin_hash null, can_login false)                 기대 통과         PASS
+ U-04    개발 계정에 QP 역할 부여                                      기대 거부         PASS
+ U-05    일반 계정에 QP 역할 부여                                      기대 통과         PASS
+ U-06    QP 보유 계정을 개발 계정으로 전환 (역방향 경로 · 사양 보강)   기대 거부         PASS
+ U-07    QP 회수 후 개발 계정 전환                                     기대 통과         PASS
+ U-08    개발 계정에 QP 외 역할(SYS_ADMIN) 부여                        기대 통과         PASS
+ U-09    존재하지 않는 사용자에게 역할 부여                            기대 거부         PASS
+ U-10    current_user_id(): app.user_id 미설정 시 null                 기대 확인         PASS
+ U-11    current_user_id(): 설정값 반환                                기대 확인         PASS
+ U-12    has_role(): 보유 역할 true, 미보유 역할 false                 기대 확인         PASS
+
+[§5]    S03 삭제 금지 · 감사추적   (18건)
+------------------------------------------------------------------------------------------------
+ S03-01  app_role의 audit_log DELETE                                   기대 권한 거부    PASS
+ S03-02  app_role의 app_user DELETE                                    기대 권한 거부    PASS
+ S03-03  app_role의 numbering_rule DELETE                              기대 권한 거부    PASS
+ S03-04  app_role의 numbering_counter 직접 접근 (§4.10 미노출)         기대 권한 거부    PASS
+ S03-05  app_role의 audit_log INSERT (감사기록 위조)                   기대 권한 거부    PASS
+ S03-06  app_role의 audit_log UPDATE                                   기대 권한 거부    PASS
+ S03-07  소유자 권한의 audit_log DELETE (권한 검사 우회)               기대 거부         PASS
+ S03-08  소유자 권한의 audit_log TRUNCATE (DELETE 권한과 무관한 경로)  기대 거부         PASS
+ S03-09  소유자 권한의 audit_log UPDATE (사양 보강)                    기대 거부         PASS
+ S03-10  소유자 권한의 numbering_rule DELETE / TRUNCATE                기대 거부         PASS
+ S03-11  소유자 권한의 numbering_counter DELETE (번호 재사용 경로)     기대 거부         PASS
+ S03-12  app_user UPDATE 후 audit_log에 이전 값이 남는지               기대 확인         PASS
+ S03-13  audit_log.actor_id가 app.user_id와 일치                       기대 확인         PASS
+ S03-14  user_role 감사: id 컬럼이 없는 표의 record_id (사양 보강)     기대 확인         PASS
+ S03-15  user_role 회수(DELETE) 이력 보존 (사양 보강)                  기대 확인         PASS
+ S03-16  numbering_rule 등록이 감사기록에 남는지                       기대 확인         PASS
+ S03-17  app_role의 정상 기록 작성과 감사 트리거 동작 (security definer)기대 통과         PASS
+ S03-18  app_user · user_role TRUNCATE (감사 없이 비우는 경로)         기대 거부         PASS
+
+[§4.10] 채번 규칙   (26건)
+------------------------------------------------------------------------------------------------
+ N-01    규칙 미정의 상태에서 채번 시도                                기대 예외         PASS
+ N-02    동일 규칙으로 100회 연속 채번                                 기대 중복 0건     PASS
+ N-03    reset=YEARLY 규칙에서 연도 경계                               기대 순번 초기화  PASS
+ N-04    품목별 규칙과 공통 규칙 동시 존재                             기대 품목별 우선  PASS
+ N-05    품목 미지정 · 규칙 없는 품목은 공통 규칙으로                  기대 공통 규칙 적용PASS
+ N-06    같은 target·품목에 활성 규칙 중복 등록                        기대 거부         PASS
+ N-07    구 규칙을 내리고 신규 규칙 등록                               기대 순번 승계    PASS
+ N-08    날짜 토큰 치환 정확성 (YYYY · YY · MM · DD)                   기대 확인         PASS
+ N-09    SEQ 자릿수는 seq_width가 결정한다 (패턴의 n이 아니다)         기대 확인         PASS
+ N-10    reset=NEVER 의 cycle_key                                      기대 확인         PASS
+ N-11    reset=DAILY 의 cycle_key                                      기대 확인         PASS
+ N-12    reset=MONTHLY 의 cycle_key                                    기대 확인         PASS
+ N-13    채번 날짜가 세션 타임존에 흔들리지 않는다 (사양 보강)         기대 확인         PASS
+ N-14    numbering_counter 순번 되돌리기 (사양 보강)                   기대 거부         PASS
+ N-15    초기 이관용 시작 순번 지정 (앞으로 건너뛰기)                  기대 통과         PASS
+ N-16    채번 규칙 패턴 제자리 수정 (사양 보강)                        기대 거부         PASS
+ N-17    내린 규칙 재활성화 (사양 보강)                                기대 거부         PASS
+ N-18    app_role의 next_number() 실행 (security definer 경유)         기대 통과         PASS
+ N-19    seq_width 허용 범위 밖(11) 규칙 등록                          기대 거부         PASS
+ N-20    품목 토큰은 item 표(M1) 도입 전에는 쓸 수 없다                기대 예외         PASS
+ N-21    순번 승계는 같은 cycle_key 안에서만                           기대 주기별 격리  PASS
+ N-22    공통 규칙(item_id null) 교체도 승계된다                       기대 순번 승계    PASS
+ N-23    다른 품목의 카운터는 승계하지 않는다                          기대 품목별 격리  PASS
+ N-24    3세대 연속 교체에도 순번이 이어진다                           기대 순번 승계    PASS
+ N-25    형식 미리보기는 순번을 소비하지 않고 실제 발행과 일치한다     기대 확인         PASS
+ N-26    numbering_counter는 감사 대상이 아니다 (설계 결정)            기대 확인         PASS
+
+================================================================================================
+ 합계 56건 · 통과 56 · 실패 0
+================================================================================================
+
+ 이 실행에 포함되지 않은 §8 항목
+   · 동시 세션 2개에서 각 50회 채번  →  test/concurrency.mjs (실제 서버 필요)
+   · S01 S02 S04 S05, 인쇄 충실성, 계보 정확성, 소요량 계산  →  M1 이후
+================================================================================================
