@@ -53,12 +53,7 @@ export default async function LoginPage() {
         <span aria-hidden className="relative h-px w-16 bg-white/25" />
 
         <div className="relative">
-          <WordmarkOnDark className="w-full max-w-[23rem]" />
-
-          <div className="mt-9 flex items-center gap-4">
-            <span aria-hidden className="h-px w-12 shrink-0 bg-white/25" />
-            <span className="display text-[2.5rem] leading-none text-white">DHR</span>
-          </div>
+          <WordmarkOnDark className="w-full max-w-[22rem]" />
         </div>
 
         <p className="relative text-[0.6875rem] font-medium tracking-[0.18em] text-on-dark-mute">
@@ -72,16 +67,19 @@ export default async function LoginPage() {
 
         <div className="flex w-full max-w-[25rem] flex-1 flex-col justify-center">
           {/* 좁은 화면에서는 여기가 브랜드 자리다 */}
-          <div className="mb-9 flex items-baseline gap-3 lg:hidden">
+          <div className="mb-8 lg:hidden">
             <Wordmark className="h-7 w-auto" />
-            <span className="display text-[1.75rem] leading-none text-brand">DHR</span>
           </div>
 
-          <h1 className="display hidden text-[2.75rem] leading-none text-ink lg:block">
-            DHR
+          {/*
+            * DHR 을 풀어 쓴다. 줄임말은 아는 사람에게만 이름이다. 이 화면은
+            * 회사 밖 사람도 보고, 새로 온 사람도 첫날 본다.
+            */}
+          <h1 className="display text-[1.375rem] leading-[1.35] text-ink">
+            Device History Record
           </h1>
 
-          <p className="text-sm font-medium tracking-tight text-muted lg:mt-4">
+          <p className="mt-2.5 text-sm font-medium tracking-tight text-muted">
             제조기록 지원 시스템
           </p>
 
