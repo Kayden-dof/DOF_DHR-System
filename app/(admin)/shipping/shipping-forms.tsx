@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { fmtDate } from '@/lib/fmt';
 import type { FormState } from '@/lib/forms';
@@ -9,7 +10,7 @@ import { createSterilBatch, updateSterilBatch, approveRelease, ship } from './ac
 
 export interface PlOpt {
   id: string; lot_no: string; item_code: string; item_name: string;
-  qty_available: number; batch_no: string; status: string;
+  qty_available: number; batch_no: string; wo_id: string; status: string;
   expiry_date: string; manufactured_on: string;
   release_approved_by: string | null; release_approved_on: string | null;
   shipped: number;
@@ -229,6 +230,97 @@ export function SterilRow({ sb, today }: { sb: SbRow; today: string }) {
   );
 }
 
+/* ---------------------------------------------------------------------------
+   출하 승인 요청서 발행
+
+   배치에서 생산된 규격들을 보여 주고, 미출고 잔여 중 무엇을 몇 개 요청할지
+   골라 요청서 한 장을 발행한다. 골라진 내용이 그대로 종이에 실리고, 요청서
+   번호(RR-배치번호-회차)는 발행되는 순간 종이에 찍힌다.
+
+   수량 상한은 잔여다. 잔여보다 큰 요청은 화면에서부터 만들 수 없다 - 이건
+   기록 차단이 아니라 인쇄 요청의 형식이다.
+--------------------------------------------------------------------------- */
+export function RequestBuilder({ groups }: {
+  groups: { wo_id: string; batch_no: string; item_name: string; lots: PlOpt[] }[];
+}) {
+  const router = useRouter();
+  // 배치별 선택 상태. 로트 id -> 요청 수량 (0 이면 뺀 것)
+  const [qty, setQty] = useState<Record<string, number>>(() => {
+    const init: Record<string, number> = {};
+    for (const g of groups) {
+      for (const l of g.lots) {
+        // 승인 안 된 로트는 잔여 전량으로 미리 골라 둔다. 흔한 경우를 기본값으로
+        init[l.id] = l.release_approved_by ? 0 : l.qty_available;
+      }
+    }
+    return init;
+  });
+
+  const set = (id: string, v: number, max: number) =>
+    setQty((q) => ({ ...q, [id]: Math.max(0, Math.min(max, Math.floor(v) || 0)) }));
+
+  return (
+    <div className="divide-y divide-line-soft">
+      {groups.map((g) => {
+        const picked = g.lots.filter((l) => (qty[l.id] ?? 0) > 0);
+        const total = picked.reduce((a, l) => a + qty[l.id], 0);
+        const sel = picked.map((l) => `${l.id}:${qty[l.id]}`).join(',');
+        return (
+          <div key={g.wo_id} className="px-4 py-3">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span className="font-mono text-sm font-bold text-ink">{g.batch_no}</span>
+              <span className="min-w-0 flex-1 truncate text-xs text-muted">{g.item_name}</span>
+              <button
+                type="button"
+                disabled={picked.length === 0}
+                onClick={() => router.push(`/print/release-request/${g.wo_id}?sel=${sel}`)}
+                className="btn-primary h-9 px-4 text-xs"
+              >
+                요청서 발행{picked.length > 0 && <> · {picked.length}건 {total}개</>}
+              </button>
+            </div>
+
+            <ul className="mt-2 space-y-1.5">
+              {g.lots.map((l) => {
+                const v = qty[l.id] ?? 0;
+                const on = v > 0;
+                return (
+                  <li key={l.id} className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5">
+                      <input
+                        type="checkbox"
+                        checked={on}
+                        onChange={(e) => set(l.id, e.target.checked ? l.qty_available : 0, l.qty_available)}
+                        className="size-4 shrink-0 accent-brand"
+                      />
+                      <span className={`font-mono text-[0.8125rem] font-bold ${on ? 'text-ink' : 'text-faint'}`}>
+                        {l.lot_no}
+                      </span>
+                      <span className="min-w-0 truncate text-xs text-muted">{l.item_name}</span>
+                      {l.release_approved_by && <Tag tone="ok">승인됨</Tag>}
+                    </label>
+                    <span className="tnum text-xs text-muted">잔여 {l.qty_available}</span>
+                    <input
+                      type="number"
+                      min={0}
+                      max={l.qty_available}
+                      value={on ? v : ''}
+                      placeholder="0"
+                      onChange={(e) => set(l.id, Number(e.target.value), l.qty_available)}
+                      className="input h-8 w-20 text-right text-xs tnum"
+                      aria-label={`${l.lot_no} 요청 수량`}
+                    />
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 /* -------------------------------------------------------------------------- */
 
 export function ApproveForm({ lot, today }: { lot: PlOpt; today: string }) {
@@ -237,14 +329,9 @@ export function ApproveForm({ lot, today }: { lot: PlOpt; today: string }) {
 
   if (!open) {
     return (
-      <div className="flex justify-end gap-2">
-        <Link href={`/print/release/${lot.id}`} className="btn-ghost h-8 px-3 text-xs">
-          요청서 인쇄
-        </Link>
-        <button onClick={() => setOpen(true)} className="btn-ghost h-8 px-3 text-xs">
-          승인 기록
-        </button>
-      </div>
+      <button onClick={() => setOpen(true)} className="btn-ghost h-8 px-3 text-xs">
+        승인 기록
+      </button>
     );
   }
 
@@ -294,6 +381,17 @@ export function ShipForm({ lot, today }: { lot: PlOpt; today: string }) {
     <form action={action} className="rounded-md border border-line bg-canvas p-3 text-left">
       <input type="hidden" name="product_lot_id" value={lot.id} />
       <div className="flex flex-wrap items-end gap-2">
+        {/*
+          * 서면 승인이 끝난 요청서의 번호를 옮겨 적는다. 이 번호로 출고가 어느
+          * 종이의 승인에 근거했는지 이어진다. 성적서 번호(coa_no)와 같은
+          * 방식의 고리다. 필수로 막지는 않는다 - 차단은 S01~S05 뿐이다.
+          */}
+        <div className="w-44">
+          <label className="label">출하 승인서 번호</label>
+          <input name="release_request_no" autoComplete="off"
+                 placeholder={`RR-${lot.batch_no}-01`}
+                 className="input h-9 font-mono text-xs" />
+        </div>
         <div className="w-44">
           <label className="label">거래처</label>
           <input name="customer_name" required autoComplete="off" className="input h-9 text-xs" />

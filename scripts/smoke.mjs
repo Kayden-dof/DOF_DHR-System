@@ -44,7 +44,7 @@ const ADMIN = [
   ids.wo && `/print/label-request/${ids.wo}`,
   ids.wo && `/print/cover/${ids.wo}`,
   ids.mat && `/print/label/${ids.mat}`,
-  ids.lot && `/print/release/${ids.lot}`,
+  ids.lot && ids.wo && `/print/release-request/${ids.wo}?sel=${ids.lot}:1`,
   ids.lot && `/trace/product/${ids.lot}`,
   ids.wo && `/trace/batch/${ids.wo}`,
   ids.mat && `/trace/material/${ids.mat}`,

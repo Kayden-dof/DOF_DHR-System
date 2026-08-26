@@ -250,17 +250,25 @@ if (mat) {
 
 /* --- 6. 출하 승인 요청서 --------------------------------------------------- */
 
-const rel = lots[0];
-if (rel) {
-  await sheet('⑥ 출하 승인 요청서', `/print/release/${rel.id}`, [
+/*
+ * 요청서는 배치 안에서 고른 로트 묶음 단위다. 로트 두 건을 서로 다른 수량으로
+ * 골라 발행하고, 고른 수량이 그대로 종이에 나오는지와 요청서 번호 형식까지
+ * 본다. 회차는 이 발행으로 하나 늘어난 값이다.
+ */
+if (lots.length > 0) {
+  const pick = lots.slice(0, 2).map((l, i) => ({ ...l, req: Math.min(l.qty_available, i + 1) }));
+  const selArg = pick.map((l) => `${l.id}:${l.req}`).join(',');
+  await sheet('⑥ 출하 승인 요청서',
+    `/print/release-request/${wo.id}?sel=${encodeURIComponent(selArg)}`, [
     ...common('출하 승인 요청서'),
-    { label: '제품명',       value: rel.item_name },
-    { label: '규격',         value: rel.item_code },
-    { label: '제조번호',     value: rel.lot_no },
-    { label: '배치번호',     value: wo.batch_no },
-    { label: '제조일',       value: rel.manufactured_on },
-    { label: '유효기한',     value: rel.expiry_date },
-    { label: '잔여 수량',    value: String(rel.qty_available) },
+    { label: '요청서 번호 형식', value: `RR-${wo.batch_no}-` },
+    { label: '배치번호',         value: wo.batch_no },
+    ...pick.flatMap((l) => [
+      { label: `제조번호 ${l.item_code}`, value: l.lot_no },
+      { label: `모델명 ${l.lot_no}`,      value: l.item_code },
+      { label: `유효기한 ${l.lot_no}`,    value: l.expiry_date },
+    ]),
+    { label: '요청 합계', value: String(pick.reduce((a, l) => a + l.req, 0)) },
     { label: '품질책임자란', value: '품질책임자' },
   ]);
 }

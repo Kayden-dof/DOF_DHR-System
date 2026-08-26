@@ -7,7 +7,7 @@ import { fmtDate } from '@/lib/fmt';
 import { PL_STATUS_LABEL } from '@/lib/forms';
 import Link from 'next/link';
 import { Panel, Empty, Tag } from '@/components/ui';
-import { ApproveForm, type PlOpt } from './shipping-forms';
+import { ApproveForm, RequestBuilder, type PlOpt } from './shipping-forms';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,7 +17,7 @@ export default async function ReleasePage() {
   const d = await withActor(user.id, async (db) => ({
     lots: await db.rows<PlOpt>(
       `select pl.id, pl.lot_no, i.code as item_code, i.name as item_name,
-              pl.qty_available, wo.batch_no, pl.status::text as status,
+              pl.qty_available, wo.batch_no, wo.id as wo_id, pl.status::text as status,
               pl.expiry_date, pl.manufactured_on,
               pl.release_approved_by, pl.release_approved_on::text as release_approved_on,
               coalesce((select sum(sh.qty)::int from shipment sh
@@ -33,6 +33,21 @@ export default async function ReleasePage() {
   const pending = d.lots.filter((l) => !l.release_approved_by);
   const approved = d.lots.filter((l) => l.release_approved_by);
 
+  /*
+   * 요청서 발행용 묶음. 배치에서 생산된 규격 중 미출고 잔여가 있는 것만
+   * 배치별로 모은다. 요청은 배치 안에서 고르는 것이므로 화면도 그 단위다.
+   */
+  const groups: { wo_id: string; batch_no: string; item_name: string; lots: PlOpt[] }[] = [];
+  for (const l of d.lots) {
+    if (l.qty_available <= 0) continue;
+    let g = groups.find((x) => x.wo_id === l.wo_id);
+    if (!g) {
+      g = { wo_id: l.wo_id, batch_no: l.batch_no, item_name: l.item_name, lots: [] };
+      groups.push(g);
+    }
+    g.lots.push(l);
+  }
+
   return (
     <PageShell
       section="출하"
@@ -41,7 +56,18 @@ export default async function ReleasePage() {
       nav={<SubNav items={SHIPPING_NAV} />}
     >
 
-      <Panel title="승인 대기" note="유효기한이 이른 것부터">
+      <Panel
+        title="요청서 발행"
+        note="배치에서 생산된 규격 중 미출고 잔여를 골라 발행합니다. 요청서 번호는 발행되는 순간 종이에 찍힙니다."
+      >
+        {groups.length === 0 ? (
+          <Empty>요청할 잔여가 있는 제품 로트가 없습니다.</Empty>
+        ) : (
+          <RequestBuilder groups={groups} />
+        )}
+      </Panel>
+
+      <Panel title="승인 기록" note="서면 요청서에 서명받은 내용을 옮겨 적습니다. 유효기한이 이른 것부터.">
         {pending.length === 0 ? (
           <Empty>승인을 기다리는 제품 로트가 없습니다.</Empty>
         ) : (
@@ -126,9 +152,14 @@ export default async function ReleasePage() {
                       * 인쇄가 화면 어디에도 보이지 않는 문제도 있었다.
                       */}
                     <td className="td text-right">
-                      <Link href={`/print/release/${l.id}`} className="btn-ghost h-8 px-3 text-xs">
-                        요청서
-                      </Link>
+                      {l.qty_available > 0 && (
+                        <Link
+                          href={`/print/release-request/${l.wo_id}?sel=${l.id}:${l.qty_available}`}
+                          className="btn-ghost h-8 px-3 text-xs"
+                        >
+                          요청서
+                        </Link>
+                      )}
                     </td>
                   </tr>
                 ))}

@@ -13,6 +13,7 @@ interface ShipRow {
   id: string; customer_name: string; qty: number; shipped_at: string;
   lot_no: string; item_code: string; item_name: string;
   batch_no: string; shipped_by_name: string;
+  release_request_no: string | null;
 }
 
 export default async function ShipPage() {
@@ -32,7 +33,7 @@ export default async function ShipPage() {
         where pl.release_approved_by is not null and pl.qty_available > 0
         order by pl.expiry_date, pl.lot_no`),
     shipments: await db.rows<ShipRow>(
-      `select sh.id, sh.customer_name, sh.qty, sh.shipped_at::text as shipped_at,
+      `select sh.release_request_no, sh.id, sh.customer_name, sh.qty, sh.shipped_at::text as shipped_at,
               pl.lot_no, i.code as item_code, i.name as item_name,
               wo.batch_no, u.full_name as shipped_by_name
          from shipment sh
@@ -121,6 +122,7 @@ export default async function ShipPage() {
                   <th className="th">제조번호</th>
                   <th className="th">형명</th>
                   <th className="th">배치</th>
+                  <th className="th">승인서 번호</th>
                   <th className="th text-right">수량</th>
                   <th className="th">기록자</th>
                 </tr>
@@ -133,6 +135,9 @@ export default async function ShipPage() {
                     <td className="td font-mono text-xs font-semibold">{s.lot_no}</td>
                     <td className="td text-sm">{s.item_name}</td>
                     <td className="td font-mono text-xs text-muted">{s.batch_no}</td>
+                    <td className="td font-mono text-xs">
+                      {s.release_request_no ?? <span className="text-faint">-</span>}
+                    </td>
                     <td className="td tnum text-right font-semibold">{s.qty}</td>
                     <td className="td text-xs text-muted">{s.shipped_by_name}</td>
                   </tr>
