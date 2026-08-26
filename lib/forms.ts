@@ -11,7 +11,7 @@ export const NUMBERING_TARGETS = [
 ] as const;
 
 export const RESET_CYCLES = [
-  { code: 'NEVER',   label: '없음',   note: '순번이 계속 이어진다' },
+  { code: 'NEVER',   label: '없음',   note: '순번이 계속 이어집니다' },
   { code: 'YEARLY',  label: '연 단위', note: '해가 바뀌면 1부터' },
   { code: 'MONTHLY', label: '월 단위', note: '달이 바뀌면 1부터' },
   { code: 'DAILY',   label: '일 단위', note: '날짜가 바뀌면 1부터' },
@@ -25,7 +25,7 @@ export const ITEM_TYPES = [
   { code: 'REAGENT', label: '시약',     note: '장입 장수 구간별로 소모' },
   { code: 'PROCESS', label: '공정 자재', note: '공정에서 쓰는 소모품' },
   { code: 'PACK',    label: '포장재',   note: '제품 개수에 비례' },
-  { code: 'FIN',     label: '완제품',   note: '형명. 규칙으로 생성한다' },
+  { code: 'FIN',     label: '완제품',   note: '형명. 모델명 규칙으로 생성' },
 ] as const;
 
 export const SUPPLIER_STATUS = [
@@ -35,8 +35,8 @@ export const SUPPLIER_STATUS = [
 ] as const;
 
 export const MOVEMENT_TYPES = [
-  { code: 'RETURN',         label: '반납',      sign: 1,  note: '원 로트로 복귀한다' },
-  { code: 'DISPOSAL_WIP',   label: '공정 폐기', sign: -1, note: '작업 지시를 지정해야 한다' },
+  { code: 'RETURN',         label: '반납',      sign: 1,  note: '원 로트로 되돌립니다.' },
+  { code: 'DISPOSAL_WIP',   label: '공정 폐기', sign: -1, note: '작업 지시를 지정해야 합니다.' },
   { code: 'DISPOSAL_STOCK', label: '재고 폐기', sign: -1, note: '기한 경과 · 파손 등' },
   { code: 'ADJUSTMENT',     label: '조정',      sign: 0,  note: '실사 차이' },
 ] as const;
