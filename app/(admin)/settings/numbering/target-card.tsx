@@ -4,7 +4,7 @@ import { useActionState, useState } from 'react';
 import { fmtDate, fmtDateTime, shortId } from '@/lib/fmt';
 import { RESET_CYCLES, type FormState } from '@/lib/forms';
 import { retireRule } from './actions';
-import RuleForm from './rule-form';
+import RuleForm, { type ItemOption } from './rule-form';
 
 export interface RuleRow {
   id: string;
@@ -18,27 +18,48 @@ export interface RuleRow {
   registered_at: Date;
   registered_by_name: string;
   sample: string;
+  item_code: string | null;
+  item_name: string | null;
 }
 
 const cycleLabel = (c: string) => RESET_CYCLES.find((r) => r.code === c)?.label ?? c;
 
 export default function TargetCard({
-  code, label, note, rules, today,
+  code, label, note, rules, items, today,
 }: {
   code: string;
   label: string;
   note: string;
   rules: RuleRow[];
+  items: ItemOption[];
   today: string;
 }) {
-  const [open, setOpen] = useState(false);
+  /*
+   * 두 길을 갈라 둔다.
+   *
+   *   replace  공통 규칙을 내리고 새로 등록한다. 한 트랜잭션에서 끝난다
+   *   item     품목별 규칙을 하나 더 얹는다. 내리는 것이 없다
+   *
+   * 하나로 두었더니 품목별 규칙을 얹으려고 연 폼이 교체 모드라, 등록하는 순간
+   * 공통 규칙이 함께 내려갔다. 품목별 규칙은 공통 규칙과 나란히 사는 것이지
+   * 대신하는 것이 아니다 (§4.10).
+   */
+  const [open, setOpen] = useState<'replace' | 'item' | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [retireState, retireAction, retiring] = useActionState<FormState, FormData>(
     retireRule, {},
   );
 
   const active = rules.find((r) => r.is_active && !r.item_id) ?? null;
-  const history = rules.filter((r) => r !== active);
+  /*
+   * 품목별 활성 규칙. 공통 규칙보다 우선한다 (§4.10).
+   *
+   * 공통 규칙 하나만 보여 주고 있었더니, 품목별 규칙이 등록되어 있어도 화면은
+   * 공통 규칙을 그대로 띄웠다. 실제 발행은 품목별 규칙을 쓰는데 화면은 다른
+   * 형식을 보여 주는 셈이다.
+   */
+  const perItem = rules.filter((r) => r.is_active && r.item_id);
+  const history = rules.filter((r) => r !== active && !perItem.includes(r));
 
   return (
     <section className="card overflow-hidden">
@@ -49,8 +70,13 @@ export default function TargetCard({
           <span className="chip bg-warn-bg text-warn">규칙 없음 · 채번 불가</span>
         )}
         <div className="ml-auto flex gap-2">
+          {!open && items.length > 0 && active && (
+            <button onClick={() => setOpen('item')} className="btn-ghost h-8 px-3 text-xs">
+              품목별 규칙
+            </button>
+          )}
           {!open && (
-            <button onClick={() => setOpen(true)} className="btn-ghost h-8 px-3 text-xs">
+            <button onClick={() => setOpen('replace')} className="btn-ghost h-8 px-3 text-xs">
               {active ? '규칙 교체' : '규칙 등록'}
             </button>
           )}
@@ -95,6 +121,33 @@ export default function TargetCard({
         </p>
       )}
 
+      {perItem.length > 0 && (
+        <div className="border-t border-line-soft">
+          <p className="bg-surface-low px-4 py-2 text-[0.6875rem] font-bold tracking-wide text-muted">
+            품목별 규칙 {perItem.length}건 · 공통 규칙보다 우선합니다
+          </p>
+          <ul className="divide-y divide-line-soft">
+            {perItem.map((r) => (
+              <li key={r.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2.5">
+                <span className="font-mono text-[0.8125rem] font-bold text-ink">
+                  {r.item_code}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-xs text-muted">{r.item_name}</span>
+                <code className="font-mono text-xs text-body">{r.pattern}</code>
+                <span className="font-mono text-xs tnum text-brand">{r.sample}</span>
+                <form action={retireAction}>
+                  <input type="hidden" name="id" value={r.id} />
+                  <button type="submit" disabled={retiring}
+                          className="btn-quiet h-7 px-2 text-xs">
+                    내리기
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {retireState.ok && retireState.message && (
         <p className="border-t border-line bg-ok-bg px-4 py-3 text-sm leading-relaxed text-ink">
           <span className="chip mr-2 bg-ok text-white">완료</span>
@@ -127,17 +180,30 @@ export default function TargetCard({
         </form>
       )}
 
-      {open && (
+      {open === 'replace' && (
         <RuleForm
           target={code}
           targetLabel={label}
           existing={
             active
-              ? { id: active.id, pattern: active.pattern, reset: active.reset, seq_width: active.seq_width }
+              ? { id: active.id, pattern: active.pattern, reset: active.reset,
+                  seq_width: active.seq_width, item_id: null }
               : null
           }
+          items={[]}
           today={today}
-          onDone={() => setOpen(false)}
+          onDone={() => setOpen(null)}
+        />
+      )}
+
+      {open === 'item' && (
+        <RuleForm
+          target={code}
+          targetLabel={label}
+          existing={null}
+          items={items.filter((i) => !perItem.some((r) => r.item_id === i.id))}
+          today={today}
+          onDone={() => setOpen(null)}
         />
       )}
 
@@ -166,7 +232,7 @@ export default function TargetCard({
                     <td className="td text-xs">{cycleLabel(r.reset)}</td>
                     <td className="td tnum text-xs">{r.seq_width}</td>
                     <td className="td font-mono text-xs text-faint">
-                      {r.item_id ? shortId(r.item_id) : '공통'}
+                      {r.item_code ?? (r.item_id ? shortId(r.item_id) : '공통')}
                     </td>
                     <td className="td tnum text-xs">{fmtDate(r.effective_from)}</td>
                     <td className="td text-xs text-muted">

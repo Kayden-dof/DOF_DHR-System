@@ -10,7 +10,10 @@ export interface ExistingRule {
   pattern: string;
   reset: string;
   seq_width: number;
+  item_id: string | null;
 }
+
+export interface ItemOption { id: string; code: string; name: string }
 
 const TOKENS = [
   { t: '{YYYY}', d: '연도 4자리' },
@@ -18,8 +21,8 @@ const TOKENS = [
   { t: '{MM}', d: '월' },
   { t: '{DD}', d: '일' },
   { t: '{SEQ:4}', d: '순번' },
-  { t: '{ITEM}', d: '품목 코드 (M1)' },
-  { t: '{MODEL}', d: '형명 뒤 8자리 (M1)' },
+  { t: '{ITEM}', d: '품목 코드' },
+  { t: '{MODEL}', d: '형명 뒤 8자리' },
 ];
 
 const cycleLabel = (c: string) => RESET_CYCLES.find((r) => r.code === c)?.label ?? c;
@@ -28,12 +31,18 @@ export default function RuleForm({
   target,
   targetLabel,
   existing,
+  items,
+  fixedItemId,
   today,
   onDone,
 }: {
   target: string;
   targetLabel: string;
   existing: ExistingRule | null;
+  /** 품목별 규칙을 만들 수 있는 대상이면 목록이 온다. 빈 배열이면 공통만 */
+  items: ItemOption[];
+  /** 교체일 때 그 규칙이 이미 매인 품목. 바꾸지 못한다 */
+  fixedItemId?: string | null;
   today: string;
   onDone: () => void;
 }) {
@@ -41,14 +50,17 @@ export default function RuleForm({
   const [pattern, setPattern] = useState(existing?.pattern ?? '');
   const [reset, setReset] = useState(existing?.reset ?? 'YEARLY');
   const [seqWidth, setSeqWidth] = useState(existing?.seq_width ?? 4);
+  const [itemId, setItemId] = useState(fixedItemId ?? existing?.item_id ?? '');
   const [preview, setPreview] = useState<Preview>({});
+
+  const itemCode = items.find((i) => i.id === itemId)?.code ?? null;
 
   useEffect(() => {
     const id = setTimeout(() => {
-      previewPattern(pattern, seqWidth).then(setPreview);
+      previewPattern(pattern, seqWidth, itemCode).then(setPreview);
     }, 250);
     return () => clearTimeout(id);
-  }, [pattern, seqWidth]);
+  }, [pattern, seqWidth, itemCode]);
 
   const noSeqToken = !!preview.first && preview.first === preview.second;
   const cycleChanged = !!existing && existing.reset !== reset;
@@ -83,6 +95,11 @@ export default function RuleForm({
             <code className="font-mono">{existing.pattern}</code>을 내리고 새 규칙을
             등록합니다. 한 번에 처리되므로 채번이 끊기는 순간은 없습니다.
           </>
+        ) : items.length > 0 ? (
+          <>
+            <b className="text-ink">품목별 규칙</b> - 고른 품목만 이 형식으로 채번됩니다.
+            공통 규칙은 그대로 두고 그 위에 얹습니다.
+          </>
         ) : (
           <>
             <b className="text-ink">{targetLabel}</b> 채번 규칙을 등록합니다.
@@ -106,6 +123,36 @@ export default function RuleForm({
             autoComplete="off"
           />
         </div>
+
+        {items.length > 0 && (
+          /*
+           * 품목별 규칙은 공통 규칙보다 우선한다 (§4.10). 품목을 고르면 그
+           * 품목만 이 형식으로 채번되고, 나머지는 공통 규칙을 계속 쓴다.
+           *
+           * 교체할 때는 고른 품목을 바꾸지 못한다. 바꾸면 교체가 아니라
+           * 다른 규칙을 새로 만드는 것이고, 내리려던 규칙은 그대로 살아 있게 된다.
+           */
+          <div className="sm:col-span-2">
+            <label className="label" htmlFor={`item-${target}`}>적용 품목</label>
+            <select
+              id={`item-${target}`}
+              name="item_id"
+              value={itemId}
+              onChange={(e) => setItemId(e.target.value)}
+              disabled={fixedItemId !== undefined && fixedItemId !== null}
+              required
+              className="input"
+            >
+              <option value="">품목을 고르십시오</option>
+              {items.map((i) => (
+                <option key={i.id} value={i.id}>{i.code} · {i.name}</option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs leading-relaxed text-faint">
+              품목을 고르면 그 품목만 이 형식으로 채번되고, 나머지는 공통 규칙을 씁니다.
+            </p>
+          </div>
+        )}
 
         <div>
           <label className="label" htmlFor={`reset-${target}`}>순번 초기화 주기</label>

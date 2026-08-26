@@ -21,7 +21,9 @@ export interface Preview {
 
 /** 형식 미리보기. 순번 1회차와 2회차를 함께 돌려준다. 둘이 같으면 패턴에
  *  순번 토큰이 없다는 뜻이고, 그 규칙은 같은 번호만 계속 뱉는다. */
-export async function previewPattern(pattern: string, seqWidth: number): Promise<Preview> {
+export async function previewPattern(
+  pattern: string, seqWidth: number, itemCode?: string | null,
+): Promise<Preview> {
   const user = await requireUser();
   if (!hasRole(user, 'SYS_ADMIN')) return { error: '권한이 없습니다' };
   if (!pattern.trim()) return {};
@@ -29,9 +31,9 @@ export async function previewPattern(pattern: string, seqWidth: number): Promise
   try {
     return await withActor(user.id, async (db) => {
       const row = await db.one<{ first: string; second: string }>(
-        `select preview_number($1, $2, 1) as first,
-                preview_number($1, $2, 2) as second`,
-        [pattern, seqWidth],
+        `select preview_number($1, $2, 1, $3) as first,
+                preview_number($1, $2, 2, $3) as second`,
+        [pattern, seqWidth, itemCode || null],
       );
       return { first: row?.first, second: row?.second };
     });
@@ -50,6 +52,9 @@ export async function saveRule(_prev: FormState, form: FormData): Promise<FormSt
   const seqWidth = Number(form.get('seq_width') ?? 4);
   const effectiveFrom = String(form.get('effective_from') ?? '');
   const replacing = String(form.get('replacing') ?? '').trim();
+  // 빈 문자열은 "공통 규칙"이다. 품목을 고르지 않은 것과 고를 수 없는 것을
+  // 같게 다룬다 - null 이 곧 공통이라는 뜻이다 (§4.10)
+  const itemId = String(form.get('item_id') ?? '').trim() || null;
 
   try {
     const issued = await withActor(user.id, async (db) => {
@@ -61,9 +66,9 @@ export async function saveRule(_prev: FormState, form: FormData): Promise<FormSt
       return db.one<{ id: string; pattern: string }>(
         `insert into numbering_rule
            (target, item_id, pattern, reset, seq_width, effective_from, registered_by)
-         values ($1::numbering_target, null, $2, $3::reset_cycle, $4, $5::date, $6)
+         values ($1::numbering_target, $7::uuid, $2, $3::reset_cycle, $4, $5::date, $6)
          returning id, pattern`,
-        [target, pattern, reset, seqWidth, effectiveFrom, user.id],
+        [target, pattern, reset, seqWidth, effectiveFrom, user.id, itemId],
       );
     });
 
