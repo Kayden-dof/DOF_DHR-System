@@ -128,7 +128,7 @@ export function dbMessage(e: unknown): string {
   const code = err?.code;
 
   if (code === 'P0001') {
-    // raise exception —— 사양이 정한 문장이다. 손대지 않는다.
+    // raise exception. 사양이 정한 문장이다. 손대지 않는다.
     return err.message ?? '규칙에 의해 거부되었습니다';
   }
   if (code === '42501') {

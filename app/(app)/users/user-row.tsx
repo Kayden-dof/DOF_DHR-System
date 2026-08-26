@@ -108,7 +108,7 @@ function RolePanel({ u, isMe }: { u: UserRow; isMe: boolean }) {
           <select name="role" className="input h-9 flex-1 text-xs" defaultValue={missing[0]}>
             {missing.map((r) => (
               <option key={r} value={r}>
-                {ROLE_LABEL[r]} — {ROLE_NOTE[r]}
+                {ROLE_LABEL[r]} - {ROLE_NOTE[r]}
               </option>
             ))}
           </select>
@@ -200,7 +200,7 @@ function FlagPanel({ u, isMe }: { u: UserRow; isMe: boolean }) {
         </form>
       </div>
       <p className="mt-2 text-xs leading-relaxed text-faint">
-        계정은 삭제하지 않습니다. 쓰지 않는 계정은 비활성화합니다 — 기록을 남긴 계정을
+        계정은 삭제하지 않습니다. 쓰지 않는 계정은 비활성화합니다 - 기록을 남긴 계정을
         지우면 그 기록의 작성자를 설명할 수 없습니다.
       </p>
       <Msg state={activeState} />

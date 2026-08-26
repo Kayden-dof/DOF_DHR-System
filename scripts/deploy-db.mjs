@@ -1,5 +1,5 @@
 // =============================================================================
-// deploy-db.mjs — 원격 DB(Supabase 등)에 M0 스키마를 올린다
+// deploy-db.mjs - 원격 DB(Supabase 등)에 M0 스키마를 올린다
 //
 //   node scripts/deploy-db.mjs
 //
@@ -24,7 +24,7 @@ import { pgSsl } from './pgssl.mjs';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 // .env.deploy 를 먼저 읽는다. 로컬 개발용 .env.local 은 scripts/dev.mjs 가
-// 매번 덮어쓰므로 원격 접속 정보는 따로 둔다 —— 섞이면 로컬 개발 중에 운영
+// 매번 덮어쓰므로 원격 접속 정보는 따로 둔다. 섞이면 로컬 개발 중에 운영
 // DB를 가리키는 사고가 난다.
 for (const f of ['.env.deploy', '.env.local']) {
   const envPath = path.join(ROOT, f);
@@ -88,7 +88,7 @@ const check = await client.query(`
 `);
 const c = check.rows[0];
 console.log(`\n  표 ${c.tables}/5 · app_role ${c.app_role ? '있음' : '없음'} · 함수 ${c.funcs}/6`);
-console.log(`  API 역할(anon 등) 권한 ${c.api_grants}건 ${c.api_grants === 0 ? '— 노출 없음' : '⚠ 남아 있음'}`);
+console.log(`  API 역할(anon 등) 권한 ${c.api_grants}건 ${c.api_grants === 0 ? '노출 없음' : '⚠ 남아 있음'}`);
 
 if (c.tables !== 5 || !c.app_role || c.funcs < 6) {
   console.error('\n스키마가 온전하지 않다. 위 오류를 확인할 것.');
@@ -134,7 +134,7 @@ if (c.users === 0) {
   console.log('   로그인 후 사용자 화면에서 즉시 변경할 것.');
   console.log('  ──────────────────────────────────────────');
 } else {
-  console.log(`  계정 ${c.users}건 — 초기 관리자 생성을 건너뛴다.`);
+  console.log(`  계정 ${c.users}건 - 초기 관리자 생성을 건너뛴다.`);
 }
 
 console.log('\n완료. 다음은 채번 규칙 등록이다 (현황 화면이 미등록 대상을 알려준다).');

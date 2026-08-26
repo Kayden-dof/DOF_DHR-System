@@ -70,7 +70,7 @@ export default async function UsersPage() {
         </dl>
         <p className="mt-3 text-xs leading-relaxed text-faint">
           개발 계정에는 품질책임자 역할을 부여할 수 없습니다. 반대로 품질책임자 역할을 가진
-          계정을 개발 계정으로 돌리는 것도 막혀 있습니다 — 둘 다 DB 계층에서 거부됩니다.
+          계정을 개발 계정으로 돌리는 것도 막혀 있습니다 - 둘 다 DB 계층에서 거부됩니다.
         </p>
       </section>
     </div>

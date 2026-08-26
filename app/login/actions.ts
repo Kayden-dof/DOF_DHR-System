@@ -32,7 +32,7 @@ const DB_FAILURE: Record<string, string> = {
 function dbFailureMessage(e: unknown): string {
   const code = (e as { code?: string }).code ?? 'UNKNOWN';
   const why = DB_FAILURE[code] ?? '데이터베이스 오류가 발생했습니다';
-  return `로그인을 처리할 수 없습니다 — ${why} (${code}). 관리자에게 문의하십시오.`;
+  return `로그인을 처리할 수 없습니다 - ${why} (${code}). 관리자에게 문의하십시오.`;
 }
 
 export async function login(_prev: LoginState, form: FormData): Promise<LoginState> {
@@ -67,7 +67,7 @@ export async function login(_prev: LoginState, form: FormData): Promise<LoginSta
     console.error('[login] 세션 생성 실패', e);
     const err = e as { message?: string };
     return {
-      error: `세션을 만들 수 없습니다 — ${(err.message ?? '').slice(0, 120)}`,
+      error: `세션을 만들 수 없습니다 - ${(err.message ?? '').slice(0, 120)}`,
     };
   }
 

@@ -41,7 +41,7 @@ const FIELD_LABEL: Record<string, string> = {
 
 function show(key: string, v: unknown): string {
   if (REDACTED.has(key)) return v == null ? '없음' : '●●●●●●';
-  if (v === null || v === undefined) return '—';
+  if (v === null || v === undefined) return '-';
   if (typeof v === 'boolean') return v ? '예' : '아니오';
   return String(v);
 }
@@ -71,7 +71,7 @@ export default function Entry({ e }: { e: AuditEntry }) {
         <td className="td font-mono text-xs">{e.table_name}</td>
         <td className="td"><ActionChip action={e.action} /></td>
         <td className="td font-mono text-xs text-faint">{shortId(e.record_id)}</td>
-        <td className="td">{e.actor_name ?? <span className="text-faint">—</span>}</td>
+        <td className="td">{e.actor_name ?? <span className="text-faint">-</span>}</td>
         <td className="td text-right">
           <button onClick={() => setOpen((v) => !v)} className="btn-ghost h-7 px-2 text-xs">
             {open ? '접기' : `변경 ${changes.length}`}

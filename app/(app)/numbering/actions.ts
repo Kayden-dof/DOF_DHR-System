@@ -8,7 +8,7 @@ import type { FormState } from '@/lib/forms';
 /* ---------------------------------------------------------------------------
    채번 규칙 관리 (§4.10 "관리 화면에서 정의하고")
 
-   여기서 번호를 조합하지 않는다. 미리보기조차 preview_number()를 경유한다 —
+   여기서 번호를 조합하지 않는다. 미리보기조차 preview_number()를 경유한다
    화면이 따로 치환하면 등록한 패턴과 실제 발행 번호가 어긋날 수 있고, 규칙은
    등록 후 수정이 불가능하므로 되돌릴 방법이 없다.
 --------------------------------------------------------------------------- */
@@ -19,7 +19,7 @@ export interface Preview {
   error?: string;
 }
 
-/** 형식 미리보기. 순번 1회차와 2회차를 함께 돌려준다 —— 둘이 같으면 패턴에
+/** 형식 미리보기. 순번 1회차와 2회차를 함께 돌려준다. 둘이 같으면 패턴에
  *  순번 토큰이 없다는 뜻이고, 그 규칙은 같은 번호만 계속 뱉는다. */
 export async function previewPattern(pattern: string, seqWidth: number): Promise<Preview> {
   const user = await requireUser();
@@ -72,7 +72,7 @@ export async function saveRule(_prev: FormState, form: FormData): Promise<FormSt
     return {
       ok: true,
       message: replacing
-        ? `규칙을 교체했습니다. 새 패턴 ${issued?.pattern} — 순번은 이어집니다.`
+        ? `규칙을 교체했습니다. 새 패턴 ${issued?.pattern} - 순번은 이어집니다.`
         : `규칙을 등록했습니다. 패턴 ${issued?.pattern}`,
     };
   } catch (e) {

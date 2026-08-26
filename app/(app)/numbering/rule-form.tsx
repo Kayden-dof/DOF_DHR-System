@@ -55,7 +55,7 @@ export default function RuleForm({
   const samePattern = !!existing && existing.pattern === pattern.trim();
 
   // 성공하면 폼을 접고 결과만 남긴다. 등록됐다는 확인이 화면에 없으면
-  // 같은 규칙을 두 번 넣게 된다 —— 그러면 활성 규칙 중복으로 거부되거나,
+  // 같은 규칙을 두 번 넣게 된다. 그러면 활성 규칙 중복으로 거부되거나,
   // 교체 경로에서는 이력만 지저분해진다.
   if (state.ok && state.message) {
     return (
@@ -79,7 +79,7 @@ export default function RuleForm({
       <p className="mb-3 text-xs leading-relaxed text-muted">
         {existing ? (
           <>
-            <b className="text-ink">규칙 교체</b> — 기존 규칙{' '}
+            <b className="text-ink">규칙 교체</b> - 기존 규칙{' '}
             <code className="font-mono">{existing.pattern}</code>을 내리고 새 규칙을
             등록합니다. 한 번에 처리되므로 채번이 끊기는 순간은 없습니다.
           </>
@@ -118,7 +118,7 @@ export default function RuleForm({
           >
             {RESET_CYCLES.map((c) => (
               <option key={c.code} value={c.code}>
-                {c.label} — {c.note}
+                {c.label} - {c.note}
               </option>
             ))}
           </select>
@@ -182,7 +182,7 @@ export default function RuleForm({
           <p className="text-sm text-faint">패턴을 입력하면 형식이 표시됩니다.</p>
         )}
         <p className="mt-2 text-xs text-faint">
-          순번 1·2회차의 형식입니다. 실제 다음 순번은 표시하지 않습니다 (§4.10 — 카운터는
+          순번 1·2회차의 형식입니다. 실제 다음 순번은 표시하지 않습니다 (§4.10 - 카운터는
           관리 화면에서도 노출하지 않습니다).
         </p>
       </div>
@@ -190,7 +190,7 @@ export default function RuleForm({
       {/* 경고 --------------------------------------------------------------- */}
       {noSeqToken && (
         <Alert tone="danger">
-          패턴에 순번 토큰이 없습니다. 1회차와 2회차가 같은 번호로 나옵니다 —
+          패턴에 순번 토큰이 없습니다. 1회차와 2회차가 같은 번호로 나옵니다
           첫 발행 이후 전부 중복이 됩니다. <code className="font-mono">{'{SEQ:4}'}</code>를
           넣으십시오.
         </Alert>

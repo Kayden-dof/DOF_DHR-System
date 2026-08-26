@@ -1,5 +1,5 @@
 // =============================================================================
-// 02_s03_audit.mjs — S03 삭제 금지 · 감사추적 시험
+// 02_s03_audit.mjs - S03 삭제 금지 · 감사추적 시험
 // 근거: CLAUDE.md §2 (S03), §5 S03, §8.1
 //       "우회 경로도 테스트한다. app_role로 delete 직접 실행 → 거부되어야 한다"
 // =============================================================================
@@ -118,7 +118,7 @@ export default [
     // 단독 TRUNCATE는 numbering_counter의 FK가 먼저 막는다 (0A000).
     await t.rejects(() => t.exec(`truncate numbering_rule`), { code: ['0A000', 'P0001'] });
 
-    // FK 방어가 통하지 않는 두 경로 —— CASCADE와 다중 표 지정 —— 에서
+    // FK 방어가 통하지 않는 두 경로(CASCADE, 다중 표 지정)에서
     // 차단 트리거가 실제로 도달하는지 확인한다. 여기서 뚫리면 표를 통째로
     // 비울 수 있다.
     await t.rejects(() => t.exec(`truncate numbering_rule cascade`),

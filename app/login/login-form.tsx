@@ -14,7 +14,7 @@ export default function LoginForm() {
   const [field, setField] = useState<Field>('code');
 
   // 입력 대상은 ref로 즉시 반영한다. 상태로만 두면 필드를 바꾼 직후 누른
-  // 숫자가 아직 갱신되지 않은 이전 필드로 들어간다 —— 터치스크린에서 실제로
+  // 숫자가 아직 갱신되지 않은 이전 필드로 들어간다. 터치스크린에서 실제로
   // 재현되고, PIN이 로그인 번호 칸에 찍힌다.
   const target = useRef<Field>('code');
 
@@ -108,7 +108,7 @@ function Slot({
     >
       <span className="block text-xs font-semibold text-muted">{label}</span>
       <span className="block h-7 text-xl tnum tracking-widest text-ink">
-        {display || <span className="text-faint">—</span>}
+        {display || <span className="text-faint">·</span>}
       </span>
     </button>
   );

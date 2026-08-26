@@ -75,7 +75,7 @@ export default function NewUserForm() {
 
       {!canLogin && (
         <p className="mt-3 rounded-md bg-canvas px-3 py-2 text-xs leading-relaxed text-muted">
-          로그인을 사용하지 않는 계정입니다. 품질책임자가 여기 해당합니다 — 시스템을 쓰지 않고
+          로그인을 사용하지 않는 계정입니다. 품질책임자가 여기 해당합니다 - 시스템을 쓰지 않고
           인쇄물에 이름만 나옵니다. 비밀번호는 저장하지 않습니다.
         </p>
       )}

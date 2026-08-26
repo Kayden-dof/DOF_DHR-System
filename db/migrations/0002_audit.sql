@@ -1,5 +1,5 @@
 -- =============================================================================
--- 0002_audit.sql  —  감사추적 · 삭제 차단 (S03)
+-- 0002_audit.sql  -  감사추적 · 삭제 차단 (S03)
 -- 근거: CLAUDE.md §4.9 (audit_log), §5 S03, §4.1 (current_user_id)
 -- 범위: M0
 -- =============================================================================
@@ -35,7 +35,7 @@ create index if not exists audit_log_table_name_record_id_idx
 -- -----------------------------------------------------------------------------
 -- 감사 트리거 (§5 S03)
 --
--- [사양과의 차이 1 — 식별자 컬럼]
+-- [사양과의 차이 1 - 식별자 컬럼]
 --   §5의 trg_audit()은 record_id를 to_jsonb(new)->>'id'로 고정한다. 그런데
 --   user_role은 기본키가 (user_id, role)이라 'id' 컬럼이 없다. 그대로 쓰면
 --   record_id가 null이 되어 NOT NULL 위반으로 user_role INSERT 자체가 막힌다.
@@ -47,13 +47,13 @@ create index if not exists audit_log_table_name_record_id_idx
 --     create trigger y_audit after insert or update or delete on y
 --       for each row execute function trg_audit('user_id');     -- 지정
 --
--- [사양과의 차이 2 — DELETE 대응]
+-- [사양과의 차이 2 - DELETE 대응]
 --   §5는 after insert or update만 상정한다. 삭제가 차단된 표에서는 그것으로
 --   충분하지만, app_user/user_role은 §5의 REVOKE DELETE 목록에 없다. 즉 역할
 --   회수는 정상 경로다. DELETE에도 붙일 수 있도록 old_value/new_value를
 --   연산별로 채운다. INSERT/UPDATE 동작은 사양과 동일하다.
 --
--- [사양과의 차이 3 — search_path]
+-- [사양과의 차이 3 - search_path]
 --   security definer 함수에 search_path를 고정한다. 고정하지 않으면 호출자가
 --   search_path를 조작해 audit_log나 참조 함수를 가로챌 수 있다.
 -- -----------------------------------------------------------------------------
@@ -103,7 +103,7 @@ end $fn$;
 -- 따로 막는다. 막지 않으면 DELETE를 전부 봉해도 표를 통째로 비울 수 있다.
 --
 -- 어느 표에 거는가는 §5의 REVOKE DELETE 목록을 따른다. app_user·user_role은
--- 그 목록에 없다 —— 역할 회수는 정상 작업이므로 차단하지 않고 감사만 남긴다.
+-- 그 목록에 없다. 역할 회수는 정상 작업이므로 차단하지 않고 감사만 남긴다.
 --
 -- 해제 함수·예외 플래그는 만들지 않는다 (§10).
 -- -----------------------------------------------------------------------------

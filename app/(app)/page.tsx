@@ -49,7 +49,7 @@ export default async function Dashboard() {
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-bold text-ink">현황</h1>
-        <p className="mt-1 text-sm text-muted">M0 범위 — 사용자 · 권한 · 감사추적 · 채번 규칙</p>
+        <p className="mt-1 text-sm text-muted">M0 범위 - 사용자 · 권한 · 감사추적 · 채번 규칙</p>
       </div>
 
       <section
@@ -74,7 +74,7 @@ export default async function Dashboard() {
                 <p className="mt-1 text-muted">
                   M1의 자재 로트 등록이 채번에 의존합니다. 규칙 없이 채번을 부르면 예외가
                   납니다. <b className="text-ink">M1이 끝나기 전에 실제 로트를 등록하지
-                  마십시오 — 계보는 소급이 안 됩니다.</b>
+                  마십시오 - 계보는 소급이 안 됩니다.</b>
                 </p>
                 {admin && (
                   <Link href="/numbering" className="btn-primary mt-3 h-9 px-3 text-xs">
@@ -195,7 +195,7 @@ export default async function Dashboard() {
                     <td className="td tnum text-muted">{fmtDateTime(r.acted_at)}</td>
                     <td className="td font-mono text-xs">{r.table_name}</td>
                     <td className="td"><ActionChip action={r.action} /></td>
-                    <td className="td">{r.actor_name ?? <span className="text-faint">—</span>}</td>
+                    <td className="td">{r.actor_name ?? <span className="text-faint">-</span>}</td>
                   </tr>
                 ))}
               </tbody>

@@ -17,15 +17,15 @@ const DATE = new Intl.DateTimeFormat('sv-SE', {
    조립할 필요가 없다. */
 
 export function fmtDateTime(v: Date | string | null | undefined): string {
-  if (!v) return '—';
+  if (!v) return '';
   return DATETIME.format(new Date(v));
 }
 
 export function fmtDate(v: Date | string | null | undefined): string {
-  if (!v) return '—';
+  if (!v) return '';
   return DATE.format(new Date(v));
 }
 
 export function shortId(v: string | null | undefined): string {
-  return v ? v.slice(0, 8) : '—';
+  return v ? v.slice(0, 8) : '';
 }

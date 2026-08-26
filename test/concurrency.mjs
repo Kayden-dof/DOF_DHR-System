@@ -1,5 +1,5 @@
 // =============================================================================
-// concurrency.mjs — 동시 채번 시험
+// concurrency.mjs - 동시 채번 시험
 // 근거: CLAUDE.md §8.1  "동시 세션 2개에서 각 50회 채번 → 중복 0건, 순번 연속"
 //       §9 M0 완료 판정 "동시 채번 중복 없음"
 //
@@ -67,7 +67,7 @@ const now = (await setup.query(
 const version = (await setup.query('select version()')).rows[0].version;
 
 say(RULE);
-say(' DOF DHR 지원 시스템 — M0 동시 채번 시험');
+say(' DOF DHR 지원 시스템 - M0 동시 채번 시험');
 say(' 근거      : CLAUDE.md §8.1 채번 시험, §9 M0 완료 판정');
 say(` 실행 일시 : ${now} (Asia/Seoul)`);
 say(` 대상 DB   : ${URL_.replace(/\/\/[^@]*@/, '//***@')}`);

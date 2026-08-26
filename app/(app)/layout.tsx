@@ -52,7 +52,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
       <footer className="mx-auto max-w-[1400px] px-5 pb-8 pt-2">
         <p className="text-xs leading-relaxed text-faint">
-          정본은 서명된 종이다. 이 시스템은 종이를 발행하고 입력된 기록을 집계한다 —
+          정본은 서명된 종이다. 이 시스템은 종이를 발행하고 입력된 기록을 집계한다
           판정하지 않고, 전자서명을 받지 않는다.
         </p>
       </footer>

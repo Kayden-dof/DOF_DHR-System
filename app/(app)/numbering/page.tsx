@@ -40,7 +40,7 @@ export default async function NumberingPage() {
         <p className="mt-1 max-w-3xl text-sm leading-relaxed text-muted">
           번호 형식은 코드에 박지 않고 여기서 정의합니다. 시스템은 이 정의를 해석해
           번호를 만듭니다 (§4.10). <b className="text-ink">등록한 규칙은 수정할 수 없고,
-          번호는 재사용하지 않습니다</b> — 지시서를 취소해도 그 번호는 소멸합니다.
+          번호는 재사용하지 않습니다</b> - 지시서를 취소해도 그 번호는 소멸합니다.
         </p>
       </div>
 
@@ -53,7 +53,7 @@ export default async function NumberingPage() {
           </li>
           <li>
             · 다만 <b className="text-ink">초기화 주기를 바꾸면 승계되지 않습니다.</b> 주기 키가
-            달라지기 때문입니다. 주기를 바꿀 때는 패턴도 함께 바꾸십시오 — 화면이 경고합니다.
+            달라지기 때문입니다. 주기를 바꿀 때는 패턴도 함께 바꾸십시오 - 화면이 경고합니다.
           </li>
           <li>
             · 실제 다음 순번은 어디에도 표시하지 않습니다. 순번을 되돌리면 번호가 중복되므로
