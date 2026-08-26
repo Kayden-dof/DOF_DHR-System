@@ -41,8 +41,42 @@ export default async function AuditPage({ searchParams }: { searchParams: Search
       [table, action, actor],
     ),
     entries: await db.rows<AuditEntry>(
+      /*
+       * 대상 칸에 uuid 앞 8자리를 찍고 있었다. 034ace74 가 무엇인지 사람은 알
+       * 수 없고, 감사추적은 사람이 읽으라고 있는 화면이다.
+       *
+       * 남겨 둔 값 안에 사람이 아는 번호가 이미 들어 있다. 로트번호 · 배치번호 ·
+       * 품목 코드 · 이름. 그것을 꺼내 보여 주고, 없을 때만 uuid 로 떨어진다.
+       * 변경 기록이면 바뀌기 전 값에도 같은 번호가 있으므로 양쪽을 본다.
+       */
       `select a.id::text as id, a.table_name, a.record_id::text as record_id, a.action,
-              a.acted_at, a.old_value, a.new_value, u.full_name as actor_name
+              a.acted_at, a.old_value, a.new_value, u.full_name as actor_name,
+              coalesce(
+                a.new_value->>'lot_no',      a.old_value->>'lot_no',
+                a.new_value->>'batch_no',    a.old_value->>'batch_no',
+                a.new_value->>'wo_no',       a.old_value->>'wo_no',
+                a.new_value->>'po_no',       a.old_value->>'po_no',
+                a.new_value->>'code',        a.old_value->>'code',
+                a.new_value->>'coa_no',      a.old_value->>'coa_no',
+                a.new_value->>'login_code',  a.old_value->>'login_code',
+                a.new_value->>'full_name',   a.old_value->>'full_name',
+                a.new_value->>'name',        a.old_value->>'name',
+                -- 제 번호가 없는 표(인쇄 · 잠금 · 공정 기록 · 자재 투입 · 재고
+                -- 증감)는 가리키는 쪽의 번호를 따라간다. 그게 사람이 아는 값이다
+                (select wo.batch_no from work_order wo
+                  where wo.id = coalesce(a.new_value->>'work_order_id',
+                                         a.old_value->>'work_order_id')::uuid),
+                (select pl.lot_no from product_lot pl
+                  where pl.id = coalesce(a.new_value->>'product_lot_id',
+                                         a.old_value->>'product_lot_id')::uuid),
+                (select ml.lot_no from material_lot ml
+                  where ml.id = coalesce(a.new_value->>'material_lot_id',
+                                         a.old_value->>'material_lot_id')::uuid),
+                (select wo.batch_no from process_record pr
+                   join work_order wo on wo.id = pr.work_order_id
+                  where pr.id = coalesce(a.new_value->>'process_record_id',
+                                         a.old_value->>'process_record_id')::uuid)
+              ) as label
          from audit_log a
          left join app_user u on u.id = a.actor_id
         where ($1::text is null or a.table_name = $1)
@@ -84,18 +118,34 @@ export default async function AuditPage({ searchParams }: { searchParams: Search
       nav={<SubNav items={SETTINGS_NAV} />}
     >
 
-      {/* 필터 --------------------------------------------------------------- */}
+      {/* ---------------------------------------------------------------------
+          거르개
+
+          표가 스물넷이라 조각으로 늘어놓으니 세 줄짜리 벽이 되고, 스물넷이 전부
+          같은 무게라 눈이 걸릴 데가 없었다. 표는 고르는 것이지 훑는 것이 아니므로
+          목록에서 고르게 한다. 자바스크립트 없이 폼 제출로 넘긴다.
+
+          작업과 수행자는 서넛뿐이라 조각 그대로 둔다. 지금 무엇으로 걸러 보고
+          있는지가 한눈에 보이는 편이 낫다.
+      --------------------------------------------------------------------- */}
       <div className="card flex flex-wrap items-center gap-2 p-3">
-        <Filters
-          label="표"
-          current={table}
-          all="전체"
-          base={(v) => qs({ table: v, page: 1 })}
-          options={data.tables.map((t) => ({
-            code: t.table_name,
-            label: tableLabel(t.table_name),
-          }))}
-        />
+        <form className="flex items-center gap-2">
+          {action && <input type="hidden" name="action" value={action} />}
+          {actor && <input type="hidden" name="actor" value={actor} />}
+          <label htmlFor="tbl" className="text-[0.6875rem] font-bold tracking-wide text-muted">
+            표
+          </label>
+          <select id="tbl" name="table" defaultValue={table ?? ''}
+                  className="input h-8 w-44 text-xs">
+            <option value="">전체</option>
+            {data.tables.map((t) => (
+              <option key={t.table_name} value={t.table_name}>
+                {tableLabel(t.table_name)}
+              </option>
+            ))}
+          </select>
+          <button className="btn-ghost h-8 px-3 text-xs">보기</button>
+        </form>
         <span className="h-5 w-px bg-line" />
         <Filters
           label="작업"

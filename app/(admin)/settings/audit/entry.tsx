@@ -14,6 +14,8 @@ export interface AuditEntry {
   actor_name: string | null;
   old_value: Record<string, unknown> | null;
   new_value: Record<string, unknown> | null;
+  /** 남겨 둔 값에서 꺼낸 사람이 아는 번호. 없으면 null */
+  label: string | null;
 }
 
 /* 해시·비밀 값은 화면에 올리지 않는다. 감사추적은 "무엇이 바뀌었는가"를 보여주는
@@ -73,11 +75,20 @@ export default function Entry({ e }: { e: AuditEntry }) {
           <span className="text-sm text-ink">{tableLabel(e.table_name)}</span>
         </td>
         <td className="td"><ActionChip action={e.action} /></td>
-        <td className="td font-mono text-xs text-faint">{shortId(e.record_id)}</td>
+        <td className="td whitespace-nowrap font-mono text-xs">
+          {e.label
+            ? <span className="text-ink">{e.label}</span>
+            : <span className="text-faint">{shortId(e.record_id)}</span>}
+        </td>
         <td className="td">{e.actor_name ?? <span className="text-faint">-</span>}</td>
         <td className="td text-right">
-          <button onClick={() => setOpen((v) => !v)} className="btn-ghost h-7 px-2 text-xs">
-            {open ? '접기' : `변경 ${changes.length}`}
+          {/*
+            * 스무 줄에 같은 단추가 스무 개 서 있었다. 평소에는 눌러 놓고 줄에
+            * 손이 갔을 때만 또렷해지게 둔다.
+            */}
+          <button onClick={() => setOpen((v) => !v)}
+                  className="btn-quiet h-7 px-2 text-xs">
+            {open ? '접기' : <>변경 <span className="tnum">{changes.length}</span></>}
           </button>
         </td>
       </tr>
