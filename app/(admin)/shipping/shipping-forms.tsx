@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useState } from 'react';
+import { Fragment, useActionState, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { fmtDate } from '@/lib/fmt';
@@ -364,57 +364,127 @@ export function ApproveForm({ lot, today }: { lot: PlOpt; today: string }) {
   );
 }
 
-export function ShipForm({ lot, today }: { lot: PlOpt; today: string }) {
-  const [state, action, pending] = useActionState<FormState, FormData>(ship, {});
-  const [open, setOpen] = useState(false);
 
-  if (!open) {
-    return (
-      <button onClick={() => setOpen(true)} className="btn-ghost h-8 px-3 text-xs"
-              disabled={lot.qty_available === 0}>
-        출고 기록
-      </button>
-    );
-  }
+/* ---------------------------------------------------------------------------
+   출고 가능 목록 · 행을 누르면 아래로 입력칸이 펼쳐진다
+
+   처음에는 행 끝 "출고 기록" 단추가 옆으로 좁은 폼을 열었다. 칸이 눌려서
+   읽기도 쓰기도 어려웠다 (사용자 지적). 행 전체를 누르게 하고, 입력은 그 행
+   바로 아래에 표 전체 폭으로 펼친다.
+
+   출하 승인서 번호는 필수다. DB 트리거가 같은 것을 막고 있고 (0026), 여기의
+   required 는 그 규칙을 먼저 안내하는 것뿐이다.
+--------------------------------------------------------------------------- */
+export function ShipList({ lots, today }: { lots: PlOpt[]; today: string }) {
+  const [openId, setOpenId] = useState<string | null>(null);
 
   return (
-    <form action={action} className="rounded-md border border-line bg-canvas p-3 text-left">
+    <div className="overflow-x-auto">
+      <table className="w-full">
+        <thead>
+          <tr>
+            <th className="th">제조번호</th>
+            <th className="th">형명</th>
+            <th className="th">배치</th>
+            <th className="th text-right">출하 가능</th>
+            <th className="th text-right">기출고</th>
+            <th className="th">유효기한</th>
+            <th className="th">승인</th>
+            <th className="th w-0" />
+          </tr>
+        </thead>
+        <tbody>
+          {lots.map((l) => {
+            const open = openId === l.id;
+            const days = Math.round(
+              (new Date(l.expiry_date).getTime() - Date.now()) / 864e5);
+            return (
+              <Fragment key={l.id}>
+                <tr
+                  onClick={() => setOpenId(open ? null : l.id)}
+                  aria-expanded={open}
+                  className={`cursor-pointer ${open ? 'bg-brand-soft/60' : ''}`}
+                >
+                  <td className="td font-mono text-xs font-semibold">{l.lot_no}</td>
+                  <td className="td">
+                    <div className="text-sm">{l.item_name}</div>
+                    <div className="font-mono text-xs text-faint">{l.item_code}</div>
+                  </td>
+                  <td className="td font-mono text-xs text-muted">{l.batch_no}</td>
+                  <td className="td tnum text-right font-semibold">{l.qty_available}</td>
+                  <td className="td tnum text-right text-muted">{l.shipped || ''}</td>
+                  <td className="td tnum text-xs">
+                    <span className={days <= 60 ? 'font-semibold text-warn' : ''}>
+                      {fmtDate(l.expiry_date)}
+                    </span>
+                    <span className="ml-1 text-faint">{days}일</span>
+                  </td>
+                  <td className="td text-xs">
+                    {l.release_approved_by}
+                    <div className="tnum text-faint">{fmtDate(l.release_approved_on)}</div>
+                  </td>
+                  <td className="td text-right">
+                    <span aria-hidden
+                          className={`inline-block text-faint transition-transform ${
+                            open ? 'rotate-90 text-brand' : ''}`}>
+                      &rsaquo;
+                    </span>
+                  </td>
+                </tr>
+                {open && (
+                  <tr>
+                    <td colSpan={8} className="border-b border-line bg-canvas p-0">
+                      <ShipRowForm lot={l} today={today} />
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ShipRowForm({ lot, today }: { lot: PlOpt; today: string }) {
+  const [state, action, pending] = useActionState<FormState, FormData>(ship, {});
+
+  return (
+    <form action={action} className="px-5 py-4">
       <input type="hidden" name="product_lot_id" value={lot.id} />
-      <div className="flex flex-wrap items-end gap-2">
-        {/*
-          * 서면 승인이 끝난 요청서의 번호를 옮겨 적는다. 이 번호로 출고가 어느
-          * 종이의 승인에 근거했는지 이어진다. 성적서 번호(coa_no)와 같은
-          * 방식의 고리다. 필수로 막지는 않는다 - 차단은 S01~S05 뿐이다.
-          */}
-        <div className="w-44">
-          <label className="label">출하 승인서 번호</label>
-          <input name="release_request_no" autoComplete="off"
+      <p className="text-sm font-semibold text-ink">
+        <span className="font-mono">{lot.lot_no}</span> 출고 기록
+      </p>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <div>
+          <label className="label">출하 승인서 번호 (필수)</label>
+          <input name="release_request_no" required autoComplete="off"
                  placeholder={`RR-${lot.batch_no}-01`}
-                 className="input h-9 font-mono text-xs" />
+                 className="input font-mono" />
         </div>
-        <div className="w-44">
+        <div>
           <label className="label">거래처</label>
-          <input name="customer_name" required autoComplete="off" className="input h-9 text-xs" />
+          <input name="customer_name" required autoComplete="off" className="input" />
         </div>
-        <div className="w-28">
-          <label className="label">수량</label>
+        <div>
+          <label className="label">수량 (최대 {lot.qty_available})</label>
           <input name="qty" type="number" min={1} max={lot.qty_available}
-                 defaultValue={lot.qty_available} required
-                 className="input h-9 tnum text-xs" />
+                 defaultValue={lot.qty_available} required className="input tnum" />
         </div>
-        <div className="w-36">
+        <div>
           <label className="label">출고일</label>
           <input name="shipped_at" type="date" defaultValue={today} required
-                 className="input h-9 tnum text-xs" />
+                 className="input tnum" />
         </div>
-        <button type="submit" disabled={pending} className="btn-primary h-9 px-3 text-xs">
-          기록
-        </button>
-        <button type="button" onClick={() => setOpen(false)}
-                className="btn-quiet h-9 px-2 text-xs">닫기</button>
+        <div className="flex items-end">
+          <button type="submit" disabled={pending} className="btn-primary w-full">
+            {pending ? '기록 중' : '출고 기록'}
+          </button>
+        </div>
       </div>
-      <p className="mt-2 text-xs text-muted">
-        출하 가능 수량 {lot.qty_available}개를 넘길 수 없습니다.
+      <p className="mt-2 text-xs leading-relaxed text-muted">
+        서면 승인이 끝난 요청서의 번호를 옮겨 적습니다. 번호 없이는 기록되지 않습니다.
       </p>
       <Msg state={state} />
     </form>

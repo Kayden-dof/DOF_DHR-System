@@ -5,7 +5,7 @@ import { SubNav } from '../../nav';
 import { SHIPPING_NAV } from '../../sections';
 import { fmtDate } from '@/lib/fmt';
 import { Panel, Empty, Tag } from '@/components/ui';
-import { ShipForm, type PlOpt } from '../shipping-forms';
+import { ShipList, type PlOpt } from '../shipping-forms';
 
 export const dynamic = 'force-dynamic';
 
@@ -59,53 +59,7 @@ export default async function ShipPage() {
             출고할 수 있는 제품 로트가 없습니다. 출하 승인을 먼저 기록하십시오.
           </Empty>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr>
-                  <th className="th">제조번호</th>
-                  <th className="th">형명</th>
-                  <th className="th">배치</th>
-                  <th className="th text-right">출하 가능</th>
-                  <th className="th text-right">기출고</th>
-                  <th className="th">유효기한</th>
-                  <th className="th">승인</th>
-                  <th className="th" />
-                </tr>
-              </thead>
-              <tbody>
-                {d.lots.map((l) => {
-                  const days = Math.round(
-                    (new Date(l.expiry_date).getTime() - Date.now()) / 864e5);
-                  return (
-                    <tr key={l.id}>
-                      <td className="td font-mono text-xs font-semibold">{l.lot_no}</td>
-                      <td className="td">
-                        <div className="text-sm">{l.item_name}</div>
-                        <div className="font-mono text-xs text-faint">{l.item_code}</div>
-                      </td>
-                      <td className="td font-mono text-xs text-muted">{l.batch_no}</td>
-                      <td className="td tnum text-right font-semibold">{l.qty_available}</td>
-                      <td className="td tnum text-right text-muted">{l.shipped || ''}</td>
-                      <td className="td tnum text-xs">
-                        <span className={days <= 60 ? 'font-semibold text-warn' : ''}>
-                          {fmtDate(l.expiry_date)}
-                        </span>
-                        <span className="ml-1 text-faint">{days}일</span>
-                      </td>
-                      <td className="td text-xs">
-                        {l.release_approved_by}
-                        <div className="tnum text-faint">{fmtDate(l.release_approved_on)}</div>
-                      </td>
-                      <td className="td">
-                        <ShipForm lot={l} today={d.today ?? ''} />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <ShipList lots={d.lots} today={d.today ?? ''} />
         )}
       </Panel>
 

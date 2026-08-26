@@ -304,9 +304,11 @@ say('제품 로트 3건에 서면 승인자 정품질 기록');
 const ship = lots[0];
 await as(mgrUser.id, () =>
   client.query(
-    `insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by)
-     values ($1,$2,$3,(timezone('Asia/Seoul', now()))::date,$4)`,
-    [ship.id, '서울대학교병원', 40, mgrUser.id]));
+    `insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by,
+                           release_request_no)
+     values ($1,$2,$3,(timezone('Asia/Seoul', now()))::date,$4,$5)`,
+    // 승인서 번호 없이는 출고가 기록되지 않는다 (0026). 시연 값은 1회차 형식
+    [ship.id, '서울대학교병원', 40, mgrUser.id, 'RR-' + wo.batch_no + '-01']));
 say(`출고 ${ship.lot_no} 40개 · 서울대학교병원`);
 
 /* --- 재고 증감 ------------------------------------------------------------ */

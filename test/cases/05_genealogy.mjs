@@ -414,8 +414,9 @@ export default [
       `select qty_available from product_lot where id=$1`, [b.lotA]));
 
     await t.rows(
-      `insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by)
-       values ($1,'거래처갑',10,current_date,$2)`, [b.lotA, m.admin]);
+      `insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by,
+                             release_request_no)
+       values ($1,'거래처갑',10,current_date,$2,'RR-TEST-01')`, [b.lotA, m.admin]);
 
     t.eq(Number(await t.val(`select qty_available from product_lot where id=$1`, [b.lotA])),
          before - 10, '출고 후 잔여');
@@ -429,8 +430,9 @@ export default [
     const m = await master(t);
     const b = await batch(t, m);
     await t.rejects(
-      () => t.rows(`insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by)
-                    values ($1,'거래처을',9999,current_date,$2)`, [b.lotA, m.admin]),
+      () => t.rows(`insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by,
+                                          release_request_no)
+                    values ($1,'거래처을',9999,current_date,$2,'RR-TEST-01')`, [b.lotA, m.admin]),
       { code: 'P0001', message: '출하 가능 수량' });
   },
 },
@@ -447,6 +449,25 @@ export default [
     t.eq(Number(r.qty_sample), 2, '샘플 수량');
     t.ok(Number(r.qty_available) <= Number(r.qty_produced) - Number(r.qty_sample),
       '출하 가능 수량은 생산 수량에서 샘플을 뺀 값을 넘지 않는다');
+  },
+},
+
+{
+  id: 'SH-06', expect: '예외',
+  name: '출하 승인서 번호 없이 출고를 기록할 수 없다',
+  async run(t) {
+    const m = await master(t);
+    const b = await batch(t, m);
+    // null 도, 빈칸도 안 된다. 서면 승인의 근거 없이 적힌 출고는 이을 방법이 없다
+    await t.rejects(
+      () => t.rows(`insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by)
+                    values ($1,'거래처병',1,current_date,$2)`, [b.lotA, m.admin]),
+      { code: 'P0001', message: '출하 승인서 번호' });
+    await t.rejects(
+      () => t.rows(`insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by,
+                                          release_request_no)
+                    values ($1,'거래처병',1,current_date,$2,'   ')`, [b.lotA, m.admin]),
+      { code: 'P0001', message: '출하 승인서 번호' });
   },
 },
 
