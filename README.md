@@ -138,6 +138,59 @@ npm run test:pg
 
 ---
 
+## 배포
+
+- **DB** — Supabase `pqtetzyaifhixaoesthp` (ap-northeast-2, PostgreSQL 17.6)
+- **앱** — Vercel `dof5/dof-dhr-system` → https://dof-dhr-system.vercel.app
+
+```bash
+npm run deploy:db      # 마이그레이션 + 온전성 확인 + 초기 관리자
+```
+
+`.env.deploy`(커밋 안 됨)의 `MIGRATION_DATABASE_URL`을 쓴다. 스키마 적용 후
+표·함수·`app_role`·API 노출 0건을 확인하고, **`set local role app_role`로 응용
+경로를 실제로 밟아 본 뒤** 계정이 없으면 초기 관리자를 만든다.
+
+Vercel 환경변수 두 개가 필요하다. **바꾼 뒤에는 재배포해야 반영된다.**
+
+| 이름 | 값 |
+|---|---|
+| `DATABASE_URL` | Transaction pooler(6543) URI. `.env.deploy`의 같은 이름 값과 동일하다 |
+| `SESSION_SECRET` | 32자 이상. 바뀌면 로그인된 세션이 전부 끊긴다 |
+
+### TLS
+
+Supabase pooler 인증서는 자체 CA(`Supabase Root 2021 CA`)로 서명돼 있어 Node
+기본 신뢰 저장소로는 검증되지 않는다. **검증을 끄지 않고** CA를 준다 —
+`lib/supabase-ca.ts`에 PEM을 박아 두었다.
+
+파일이 아니라 모듈인 이유: 서버리스 번들은 Next의 파일 추적에 잡힌 파일만
+싣는다. 런타임에 경로를 계산해 읽는 인증서는 함수에 딸려가지 않아 TLS가 조용히
+실패한다. 원본은 `db/supabase-ca.crt`이고 `npm run ca:sync`가 옮긴다.
+
+CA는 공개 CA로 검증되는 HTTPS 경로로 받아, DB 핸드셰이크가 제시한 루트와 SHA256
+지문이 일치함을 확인하고 저장했다.
+
+### 로컬 시험이 잡지 못하는 것 — 슈퍼유저 함정
+
+로컬 시험(PGlite · embedded-postgres)은 **슈퍼유저**로 돈다. 슈퍼유저는 권한
+검사를 통과하므로 역할 멤버십 문제가 드러나지 않는다. 실제로 62건을 전부 통과한
+뒤 Supabase에서만 이렇게 터졌다:
+
+```
+permission denied to set role "app_role"   (42501)
+```
+
+PostgreSQL 16부터 `CREATEROLE` 계정이 역할을 만들면 ADMIN 옵션만 자동으로 붙고
+SET 옵션은 붙지 않는다. Supabase의 `postgres`는 슈퍼유저가 아니라 여기 걸린다.
+`0001_app_role.sql`이 멤버십을 명시적으로 부여하고, `deploy-db.mjs`가 배포마다
+응용 경로를 그대로 밟아 확인한다.
+
+> **Vercel 플랜 주의.** 현재 팀이 Hobby 플랜이다. Hobby는 약관상 비상업적 용도
+> 전용이라 사내 GMP 시스템 운영에는 맞지 않는다. 실사용 전에 Pro 전환을 검토할 것.
+
+---
+
 ## 시험 결과
 
 **62건 전건 통과** — 기능 56건 + 동시성 6건. PostgreSQL 18.4, 2026-08-26.
