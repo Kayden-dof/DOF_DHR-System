@@ -1,10 +1,10 @@
 ================================================================================================
- DOF DHR 지원 시스템 — M0 적격성 시험 (OQ)
+ DOF DHR 지원 시스템 - M0 적격성 시험 (OQ)
  범위      : §4.1 사용자·권한 / §4.10 채번 / §5 S03 감사추적 / §8 시험 요건
- 실행 일시 : 2026-08-26 14:14:30 (Asia/Seoul)
+ 실행 일시 : 2026-08-26 15:52:13 (Asia/Seoul)
  대상 DB   : PGlite (메모리)
  엔진      : PostgreSQL 18.3 (PGlite 0.5.7)
- 마이그레이션: 0001_app_role.sql, 0002_audit.sql, 0003_users.sql, 0004_numbering.sql, 0005_grants.sql, 0006_supabase_hardening.sql
+ 마이그레이션: 0001_app_role.sql, 0002_audit.sql, 0003_users.sql, 0004_numbering.sql, 0005_grants.sql, 0006_supabase_hardening.sql, 0007_m1_item.sql, 0008_m1_supplier.sql, 0009_m1_dmr.sql, 0010_m1_material.sql, 0011_m1_work_order.sql, 0012_m2_product_lot.sql, 0013_m2_process.sql, 0014_m2_print_lock.sql, 0015_m3_stock.sql, 0016_m4_steril_shipment.sql, 0017_grants_audit.sql
 ================================================================================================
 
 [§4.1]  사용자 · 역할   (12건)
@@ -43,7 +43,7 @@
  S03-17  app_role의 정상 기록 작성과 감사 트리거 동작 (security definer)기대 통과         PASS
  S03-18  app_user · user_role TRUNCATE (감사 없이 비우는 경로)         기대 거부         PASS
 
-[§4.10] 채번 규칙   (26건)
+[§4.10] 채번 규칙   (27건)
 ------------------------------------------------------------------------------------------------
  N-01    규칙 미정의 상태에서 채번 시도                                기대 예외         PASS
  N-02    동일 규칙으로 100회 연속 채번                                 기대 중복 0건     PASS
@@ -64,7 +64,8 @@
  N-17    내린 규칙 재활성화 (사양 보강)                                기대 거부         PASS
  N-18    app_role의 next_number() 실행 (security definer 경유)         기대 통과         PASS
  N-19    seq_width 허용 범위 밖(11) 규칙 등록                          기대 거부         PASS
- N-20    품목 토큰은 item 표(M1) 도입 전에는 쓸 수 없다                기대 예외         PASS
+ N-20    품목 토큰이 품목 코드로 치환된다 (M1 이후)                    기대 확인         PASS
+ N-20b   품목 토큰이 있는데 품목을 지정하지 않으면 거부                기대 예외         PASS
  N-21    순번 승계는 같은 cycle_key 안에서만                           기대 주기별 격리  PASS
  N-22    공통 규칙(item_id null) 교체도 승계된다                       기대 순번 승계    PASS
  N-23    다른 품목의 카운터는 승계하지 않는다                          기대 품목별 격리  PASS
@@ -72,8 +73,65 @@
  N-25    형식 미리보기는 순번을 소비하지 않고 실제 발행과 일치한다     기대 확인         PASS
  N-26    numbering_counter는 감사 대상이 아니다 (설계 결정)            기대 확인         PASS
 
+[§8.1] S01 S02 S04 S05 · 구조 · 소요량   (28건)
+------------------------------------------------------------------------------------------------
+ S01-01  material_lot_id null로 material_issue INSERT                  기대 예외         PASS
+ S01-02  존재하지 않는 자재 로트로 불출                                기대 예외         PASS
+ S02-01  coa_no null로 material_lot INSERT                             기대 예외         PASS
+ S02-02  coa_no 공백 문자열로 우회 시도 (사양 보강)                    기대 예외         PASS
+ S04-01  잠긴 (지시서,일차,작업자)의 process_record UPDATE             기대 예외         PASS
+ S04-02  잠긴 묶음에 material_issue INSERT                             기대 예외         PASS
+ S04-03  다른 작업자의 같은 날 기록은 잠기지 않는다                    기대 통과         PASS
+ S04-04  잠금 해제 함수가 존재하지 않는다 (§10)                        기대 없음         PASS
+ S05-01  BOM 자재 미기록 상태로 complete_process                       기대 예외         PASS
+ S05-02  no_material_reason 입력 후 complete_process                   기대 통과         PASS
+ S05-03  자재를 기록하면 complete_process 통과                         기대 통과         PASS
+ S05-04  원재료는 자재 구성표에 없으므로 S05 대상이 아니다             기대 확인         PASS
+ ST-01   after_cutting=false 공정에 product_lot_id 지정                기대 예외         PASS
+ ST-02   after_cutting=true 공정에 product_lot_id 미지정               기대 예외         PASS
+ ST-03   sheet_count 31로 work_order INSERT                            기대 예외         PASS
+ ST-04   qty_available > qty_produced - qty_sample                     기대 예외         PASS
+ ST-05   issued_by_prod = issued_by_qa                                 기대 예외         PASS
+ ST-06   worker_id = rotation_worker_id                                기대 예외         PASS
+ ST-07   다른 배치의 제품 로트에 공정 기록 (사양 보강)                 기대 예외         PASS
+ ST-08   취소 사유 없이 작업지시 취소 (사양 보강)                      기대 예외         PASS
+ ST-09   장입 구간이 겹치는 자재 구성표 (사양 보강)                    기대 예외         PASS
+ RQ-01   시약 SHEET_TIER 구간 판정 (10/11/20/21/30장)                  기대 확인         PASS
+ RQ-02   타이백 5장 단위 6구간                                         기대 확인         PASS
+ RQ-03   포장재 PER_UNIT은 제품 개수에 비례                            기대 확인         PASS
+ RQ-04   구간 밖 장수는 값이 없다 (0장·31장)                           기대 확인         PASS
+ RQ-05   공정별 소요량 일괄 조회 (작업지시서 인쇄용)                   기대 확인         PASS
+ FI-01   완제품 형명을 규칙으로 생성한다                               기대 확인         PASS
+ FI-02   재생성해도 중복되지 않는다                                    기대 통과         PASS
+
+[§8.3] 계보 정확성 · 재고   (23건)
+------------------------------------------------------------------------------------------------
+ GN-01   제품 로트에서 배치를 거쳐 원재료 로트로 역추적                기대 확인         PASS
+ GN-02   원재료 로트에서 영향 제품 로트 전량 정추적                    기대 확인         PASS
+ GN-03   포장재 로트에서 영향 제품 로트 정추적 (재단 후 계보)          기대 확인         PASS
+ GN-04   재단 전 자재는 배치에 붙고 제품 로트가 비어 있다              기대 확인         PASS
+ GN-05   계보에 work_order_id가 중복 저장되지 않는다 (§10)             기대 확인         PASS
+ IV-01   불출하면 자재 잔여가 줄어든다                                 기대 확인         PASS
+ IV-02   잔여보다 많이 불출할 수 없다                                  기대 예외         PASS
+ IV-03   반납은 원 로트로 복귀한다 (§4.7)                              기대 확인         PASS
+ IV-04   유형과 부호가 어긋나면 거부 (사양 보강)                       기대 예외         PASS
+ IV-05   공정 폐기는 작업지시를 지정해야 한다                          기대 예외         PASS
+ IV-06   용액 제조는 원료 여러 종을 한 번에 차감한다 (§4.7)            기대 확인         PASS
+ IV-07   최소 재고선 알림은 발주중 수량을 포함한다 (§6)                기대 확인         PASS
+ IV-08   유효기한 경과 자재는 EXPIRED로 넘어간다 (§6)                  기대 확인         PASS
+ EX-01   제품 로트 유효기한은 생성 시점 값으로 고정된다                기대 확인         PASS
+ CO-01   제품 원가와 자재 지출이 분리 산출된다                         기대 확인         PASS
+ CO-02   제품 원가에 폐기분이 들어가지 않는다 (§10)                    기대 확인         PASS
+ SH-01   멸균 발송·회수가 제품 로트 상태를 따라간다                    기대 확인         PASS
+ SH-02   회수일이 발송일보다 빠를 수 없다                              기대 예외         PASS
+ SH-03   출고하면 출하 가능 수량이 줄어든다                            기대 확인         PASS
+ SH-04   출하 가능 수량보다 많이 출고할 수 없다                        기대 예외         PASS
+ SH-05   샘플 수량은 출하 가능 수량에서 빠져 있다 (§4.5)               기대 확인         PASS
+ AU-01   M1~M4 표가 모두 감사 대상이다                                 기대 확인         PASS
+ AU-02   app_role은 M1~M4 어느 표도 삭제할 수 없다                     기대 권한 거부    PASS
+
 ================================================================================================
- 합계 56건 · 통과 56 · 실패 0
+ 합계 108건 · 통과 108 · 실패 0
 ================================================================================================
 
  이 실행에 포함되지 않은 §8 항목

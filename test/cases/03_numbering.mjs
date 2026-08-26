@@ -3,7 +3,15 @@
 // 근거: CLAUDE.md §4.10, §8.1 채번 시험
 // =============================================================================
 
-async function newItem(t) { return t.val(`select gen_random_uuid()`); }
+// numbering_rule.item_id 에 FK가 붙었다(0007). 임의 UUID로는 규칙을 만들 수 없다.
+let itemSeq = 0;
+async function newItem(t) {
+  itemSeq += 1;
+  return t.val(
+    `insert into item (code, name, type, purchase_uom, usage_uom)
+     values ($1, $2, 'REAGENT', 'EA', 'EA') returning id`,
+    [`NT-${String(itemSeq).padStart(4, '0')}`, `채번시험품목${itemSeq}`]);
+}
 
 async function mkRule(t, { target, item = null, pattern, reset = 'YEARLY', width = 4 }) {
   return t.val(
@@ -325,13 +333,35 @@ export default [
 },
 
 {
-  id: 'N-20', expect: '예외',
-  name: '품목 토큰은 item 표(M1) 도입 전에는 쓸 수 없다',
+  id: 'N-20', expect: '확인',
+  name: '품목 토큰이 품목 코드로 치환된다 (M1 이후)',
   async run(t) {
     const item = await newItem(t);
-    await mkRule(t, { target: 'PRODUCT_LOT', item, pattern: 'P-{ITEM}-{SEQ:3}', reset: 'NEVER' });
-    await t.rejects(() => t.val(`select next_number('PRODUCT_LOT', $1)`, [item]),
-      { code: 'P0001', message: 'item 표(M1) 도입 이후' });
+    const code = await t.val(`select code from item where id = $1`, [item]);
+    await mkRule(t, { target: 'PRODUCT_LOT', item,
+                      pattern: 'P-{ITEM}-{SEQ:3}', reset: 'NEVER', width: 3 });
+    t.eq(await t.val(`select next_number('PRODUCT_LOT', $1)`, [item]),
+         `P-${code}-001`, '{ITEM} 치환');
+
+    // {MODEL}은 코드 뒤 8자리다. 형명 PD99990510 -> 99990510
+    const fin = await t.val(
+      `insert into item (code, name, type, purchase_uom, usage_uom)
+       values ('PD99990510','채번시험 형명','FIN','EA','EA') returning id`);
+    await mkRule(t, { target: 'STERIL_BATCH', item: fin,
+                      pattern: 'M-{MODEL}-{SEQ:3}', reset: 'NEVER', width: 3 });
+    t.eq(await t.val(`select next_number('STERIL_BATCH', $1)`, [fin]),
+         'M-99990510-001', '{MODEL} 치환');
+  },
+},
+
+{
+  id: 'N-20b', expect: '예외',
+  name: '품목 토큰이 있는데 품목을 지정하지 않으면 거부',
+  async run(t) {
+    await mkRule(t, { target: 'DEVIATION', pattern: 'X-{ITEM}-{SEQ:3}',
+                      reset: 'NEVER', width: 3 });
+    await t.rejects(() => t.val(`select next_number('DEVIATION')`),
+      { code: 'P0001', message: '품목이 지정되지 않았습니다' });
   },
 },
 

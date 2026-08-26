@@ -7,8 +7,13 @@
 const NIL = '00000000-0000-0000-0000-000000000000';
 
 // 시험용 채번 규칙. item_id를 난수로 줘 다른 시험의 규칙과 겹치지 않게 한다.
+let ruleSeq = 0;
 async function throwawayRule(t, target) {
-  const item = await t.val(`select gen_random_uuid()`);
+  ruleSeq += 1;
+  const item = await t.val(
+    `insert into item (code, name, type, purchase_uom, usage_uom)
+     values ($1, $2, 'REAGENT', 'EA', 'EA') returning id`,
+    [`S03T-${String(ruleSeq).padStart(3, '0')}`, `S03시험품목${ruleSeq}`]);
   return await t.val(
     `insert into numbering_rule (target, item_id, pattern, reset, effective_from, registered_by)
      values ($1, $2, 'TMP-{SEQ:3}', 'NEVER', current_date, $3) returning id`,
