@@ -19,6 +19,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { hashPin } from './pin.mjs';
+import { pgSsl } from './pgssl.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -44,11 +45,7 @@ if (!URL_) {
   process.exit(2);
 }
 
-const isLocal = /@(localhost|127\.0\.0\.1)/.test(URL_);
-const client = new pg.Client({
-  connectionString: URL_,
-  ssl: isLocal ? undefined : { rejectUnauthorized: process.env.PGSSL_NO_VERIFY !== '1' },
-});
+const client = new pg.Client({ connectionString: URL_, ssl: pgSsl(URL_, ROOT) });
 
 const mask = URL_.replace(/\/\/[^@]*@/, '//***@');
 console.log(`대상 : ${mask}`);

@@ -1,4 +1,5 @@
 import { Pool, type PoolClient } from 'pg';
+import { pgSsl } from './pgssl';
 
 /* ---------------------------------------------------------------------------
    DB 접근 계층
@@ -26,18 +27,14 @@ function pool(): Pool {
     if (!connectionString) {
       throw new Error('DATABASE_URL이 설정되지 않았습니다');
     }
-    const isLocal = /@(localhost|127\.0\.0\.1)/.test(connectionString);
-
     globalThis.__dhrPool = new Pool({
       connectionString,
       max: Number(process.env.PGPOOL_MAX ?? 4),
       idleTimeoutMillis: 10_000,
       connectionTimeoutMillis: 15_000,
-      // 원격은 인증서를 검증한다. 검증을 끄고 싶으면 PGSSL_NO_VERIFY=1을
-      // 명시적으로 세워야 한다 —— 조용히 꺼지지 않게 한다.
-      ssl: isLocal
-        ? undefined
-        : { rejectUnauthorized: process.env.PGSSL_NO_VERIFY !== '1' },
+      // 원격은 인증서를 검증한다. Supabase 자체 CA는 db/supabase-ca.crt로 준다.
+      // 검증을 끄려면 PGSSL_NO_VERIFY=1을 명시적으로 세워야 한다.
+      ssl: pgSsl(connectionString),
     });
   }
   return globalThis.__dhrPool;
