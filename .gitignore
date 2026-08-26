@@ -1,2 +1,7 @@
 node_modules/
 .pgdata/
+.pgdata-dev/
+.next/
+.env.local
+next-env.d.ts
+*.tsbuildinfo

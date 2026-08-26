@@ -56,3 +56,7 @@ grant execute on function next_number(numbering_target, uuid) to app_role;
 
 grant execute on function current_user_id()      to app_role;
 grant execute on function has_role(role_code)    to app_role;
+
+-- 규칙 관리 화면의 형식 미리보기. 카운터를 건드리지 않는 순수 치환이다.
+grant execute on function render_number(text, int, int, timestamp, text)  to app_role;
+grant execute on function preview_number(text, int, int, text)            to app_role;

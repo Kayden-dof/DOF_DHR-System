@@ -420,6 +420,28 @@ export default [
 
 {
   id: 'N-25', expect: '확인',
+  name: '형식 미리보기는 순번을 소비하지 않고 실제 발행과 일치한다',
+  async run(t) {
+    const item = await newItem(t);
+    const pat  = 'PV-{YYYY}{MM}{DD}-{SEQ:4}';
+    const rule = await mkRule(t, { target: 'BATCH', item, pattern: pat, reset: 'NEVER', width: 4 });
+
+    const previews = [];
+    for (let i = 0; i < 10; i++) {
+      previews.push(await t.val(`select preview_number($1, 4, 1)`, [pat]));
+    }
+    t.eq(new Set(previews).size, 1, '미리보기는 매번 같아야 한다');
+    t.eq(await t.val(`select count(*)::int from numbering_counter where rule_id = $1`, [rule]),
+         0, '미리보기 후 카운터 행 수');
+
+    // 미리보기가 실제 발행과 다르면 규칙 등록 화면이 거짓말을 하는 것이다.
+    const issued = await t.val(`select next_number('BATCH', $1)`, [item]);
+    t.eq(issued, previews[0], '미리보기 = 첫 발행 번호');
+  },
+},
+
+{
+  id: 'N-26', expect: '확인',
   name: 'numbering_counter는 감사 대상이 아니다 (설계 결정)',
   async run(t) {
     t.eq(await t.val(

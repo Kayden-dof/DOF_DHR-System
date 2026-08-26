@@ -96,6 +96,50 @@ create table if not exists numbering_counter (
 --   토큰표에는 "순번 n자리"로 적혀 있어 둘이 어긋날 수 있다. 규칙 등록 화면에서
 --   n과 seq_width를 같이 보여주거나 한쪽만 입력받을 것.
 -- -----------------------------------------------------------------------------
+-- -----------------------------------------------------------------------------
+-- 토큰 치환 (§4.10 치환 토큰표)
+--
+-- 발행(next_number)과 규칙 관리 화면의 형식 미리보기가 같은 코드를 쓰게 분리한다.
+-- §10 "채번 번호를 응용 계층에서 조합" 금지 —— 미리보기를 화면에서 문자열
+-- 조작으로 흉내내면 두 곳이 어긋나는 순간 등록된 패턴과 실제 번호가 달라진다.
+--
+-- 순수 함수라 immutable이다. 시각은 인자로 받는다.
+-- 품목 코드가 없으면 품목 토큰을 그대로 남긴다 —— 미리보기에서 "아직 안 풀린
+-- 자리"가 눈에 보여야 한다. 발행 경로의 엄격한 검사는 next_number가 한다.
+-- -----------------------------------------------------------------------------
+create or replace function render_number(
+  p_pattern   text,
+  p_seq_width int,
+  p_seq       int,
+  p_at        timestamp,
+  p_item_code text default null
+) returns text language sql immutable as $fn$
+  select regexp_replace(
+           replace(replace(replace(replace(replace(replace(
+             p_pattern,
+             '{YYYY}',  to_char(p_at, 'YYYY')),
+             '{YY}',    to_char(p_at, 'YY')),
+             '{MM}',    to_char(p_at, 'MM')),
+             '{DD}',    to_char(p_at, 'DD')),
+             '{ITEM}',  coalesce(p_item_code, '{ITEM}')),
+             '{MODEL}', coalesce(right(p_item_code, 8), '{MODEL}')),
+           '\{SEQ:(\d+)\}', lpad(p_seq::text, p_seq_width, '0'), 'g')
+$fn$;
+
+-- 규칙 관리 화면 전용. 카운터를 건드리지 않는다.
+-- 실제 다음 순번은 보여주지 않는다 —— §4.10 "관리 화면에서도 노출하지 않는다".
+-- 어디까지나 형식 확인용이라 표본 순번을 받는다.
+create or replace function preview_number(
+  p_pattern   text,
+  p_seq_width int,
+  p_seq       int  default 1,
+  p_item_code text default null
+) returns text language sql stable as $fn$
+  select render_number(p_pattern, p_seq_width, p_seq,
+                       timezone('Asia/Seoul', now()), p_item_code)
+$fn$;
+
+
 create or replace function next_number(p_target numbering_target, p_item uuid default null)
 returns text language plpgsql security definer
 set search_path = pg_catalog, public, pg_temp as $fn$
@@ -106,7 +150,6 @@ declare
   ck     text;
   v_base int;
   n      int;
-  out_no text;
 begin
   -- 품목별 규칙 우선, 없으면 공통 규칙
   select * into r from numbering_rule
@@ -147,13 +190,9 @@ begin
     do update set last_seq = numbering_counter.last_seq + 1
   returning last_seq into n;
 
-  out_no := r.pattern;
-  out_no := replace(out_no, '{YYYY}', to_char(v_now, 'YYYY'));
-  out_no := replace(out_no, '{YY}',   to_char(v_now, 'YY'));
-  out_no := replace(out_no, '{MM}',   to_char(v_now, 'MM'));
-  out_no := replace(out_no, '{DD}',   to_char(v_now, 'DD'));
-
-  if out_no like '%{ITEM}%' or out_no like '%{MODEL}%' then
+  -- 품목 토큰이 있는 패턴만 item을 조회한다. 미리보기와 달리 발행 경로는
+  -- 풀리지 않은 토큰을 그대로 내보내면 안 되므로 여기서 막는다.
+  if r.pattern like '%{ITEM}%' or r.pattern like '%{MODEL}%' then
     if to_regclass('public.item') is null then
       raise exception '품목 토큰은 item 표(M1) 도입 이후에 사용할 수 있습니다';
     end if;
@@ -164,13 +203,9 @@ begin
     if v_code is null then
       raise exception '품목을 찾을 수 없습니다 (%)', p_item;
     end if;
-    out_no := replace(out_no, '{ITEM}',  v_code);
-    out_no := replace(out_no, '{MODEL}', right(v_code, 8));
   end if;
 
-  out_no := regexp_replace(out_no, '\{SEQ:(\d+)\}',
-              lpad(n::text, r.seq_width, '0'), 'g');
-  return out_no;
+  return render_number(r.pattern, r.seq_width, n, v_now, v_code);
 end $fn$;
 
 
