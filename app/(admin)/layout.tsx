@@ -40,7 +40,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <div className="brand-rule" />
 
       <header className="sticky top-0 z-30 border-b border-line bg-surface/85 backdrop-blur-md">
-        <div className="mx-auto flex max-w-[1560px] items-center gap-5 px-5 py-2.5 lg:gap-7">
+        <div className="mx-auto flex max-w-[1400px] items-center gap-5 px-5 py-2.5 lg:gap-7">
           <Link href="/" className="flex shrink-0 items-center gap-2.5" aria-label="현황으로">
             <Wordmark className="h-[1.125rem] w-auto" />
             <span className="h-4 w-px bg-line-strong" aria-hidden />
@@ -84,9 +84,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-[1560px] flex-1 px-5 py-7">{children}</main>
+      <main className="mx-auto w-full max-w-[1400px] flex-1 px-5 py-7">{children}</main>
 
-      <footer className="mx-auto w-full max-w-[1560px] px-5 pb-10 pt-4">
+      <footer className="mx-auto w-full max-w-[1400px] px-5 pb-10 pt-4">
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
           <p className="max-w-2xl text-xs leading-relaxed text-faint">
             정본은 서명된 종이다. 이 시스템은 종이를 발행하고 입력된 기록을 집계한다.

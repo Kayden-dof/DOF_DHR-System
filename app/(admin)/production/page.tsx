@@ -127,7 +127,7 @@ export default async function ProductionPage({ searchParams }: { searchParams: S
                   <th className="th text-right">일차</th>
                   <th className="th">상태</th>
                   <th className="th">발행</th>
-                  <th className="th" />
+                  <th className="th sticky right-0 w-0 shadow-[-8px_0_8px_-8px_rgb(31_29_36/.12)]" />
                 </tr>
               </thead>
               <tbody>
@@ -135,7 +135,7 @@ export default async function ProductionPage({ searchParams }: { searchParams: S
                   <tr key={w.id}>
                     <td className="td font-mono text-xs font-semibold">{w.batch_no}</td>
                     <td className="td font-mono text-xs text-muted">{w.wo_no}</td>
-                    <td className="td">
+                    <td className="td whitespace-nowrap">
                       <div className="text-sm">{w.item_name}</div>
                       <div className="font-mono text-xs text-faint">
                         {w.item_code} · {w.dmr_revision}
@@ -155,11 +155,11 @@ export default async function ProductionPage({ searchParams }: { searchParams: S
                         {WO_STATUS_LABEL[w.status] ?? w.status}
                       </Tag>
                     </td>
-                    <td className="td text-xs text-muted">
+                    <td className="td whitespace-nowrap text-xs text-muted">
                       <div className="tnum">{fmtDate(w.issued_at)}</div>
                       <div className="text-faint">{w.prod_name} · {w.qa_name}</div>
                     </td>
-                    <td className="td text-right">
+                    <td className="td sticky right-0 bg-surface text-right shadow-[-8px_0_8px_-8px_rgb(31_29_36/.12)]">
                       <Link href={`/production/${w.id}`} className="btn-ghost h-8 px-3 text-xs">
                         열기
                       </Link>

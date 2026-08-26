@@ -78,7 +78,7 @@ export function Panel({
       {(title || action) && (
         <header className="section-head">
           <div className="min-w-0">
-            {title && <h3 className="text-[0.8125rem] font-bold text-ink">{title}</h3>}
+            {title && <h3 className="text-[0.875rem] font-bold tracking-tight text-ink">{title}</h3>}
             {note && <p className="mt-0.5 text-xs leading-relaxed text-muted">{note}</p>}
           </div>
           {action && <div className="ml-auto shrink-0">{action}</div>}
@@ -96,7 +96,7 @@ export function TableWrap({ children }: { children: React.ReactNode }) {
 
 export function Empty({ children, hint }: { children: React.ReactNode; hint?: React.ReactNode }) {
   return (
-    <div className="px-4 py-12 text-center">
+    <div className="px-4 py-10 text-center">
       <p className="text-sm text-faint">{children}</p>
       {hint && <p className="mt-1.5 text-xs text-faint/80">{hint}</p>}
     </div>

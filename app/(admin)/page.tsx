@@ -180,7 +180,14 @@ export default async function Dashboard() {
       )}
 
       {attention.length > 0 && (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <div
+          // auto-fit 이라 한 건만 있어도 그 하나가 줄을 채운다. 고정 5열이면
+          // 외톨이 카드가 한쪽에 붙어 화면이 비어 보인다.
+          className="grid gap-3"
+          // 트랙 상한을 둔다. 한 건뿐일 때 숫자 하나가 화면을 가로지르면
+          // 채워진 것이 아니라 비어 보인다.
+          style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(12rem, 17rem))' }}
+        >
           {attention.map((a) => (
             <Link key={a.label} href={a.href} className="card-raised relative overflow-hidden p-4">
               <span aria-hidden className={`absolute inset-y-0 left-0 w-[3px] ${TONE_EDGE[a.tone]}`} />
@@ -198,9 +205,9 @@ export default async function Dashboard() {
         </div>
       )}
 
-      <div className="grid gap-5 lg:grid-cols-3">
+      <div className={`grid gap-5 ${d.expiring.length > 0 ? 'lg:grid-cols-3' : ''}`}>
         <Panel
-          className="lg:col-span-2"
+          className={d.expiring.length > 0 ? 'lg:col-span-2' : ''}
           title="진행 중인 배치"
           note="발행 · 진행 중 · 재단 완료"
           action={
@@ -225,15 +232,17 @@ export default async function Dashboard() {
                     <th className="th text-right">일차</th>
                     <th className="th text-right">로트</th>
                     <th className="th">상태</th>
-                    <th className="th" />
+                    <th className="th w-0" />
                   </tr>
                 </thead>
                 <tbody>
                   {d.batches.map((b) => (
                     <tr key={b.id}>
                       <td className="td font-mono text-xs font-bold text-ink">{b.batch_no}</td>
-                      <td className="td">{b.item_name}</td>
-                      <td className="td text-xs text-muted">{b.last_op ?? '착수 전'}</td>
+                      <td className="td whitespace-nowrap">{b.item_name}</td>
+                      <td className="td whitespace-nowrap text-xs text-muted">
+                        {b.last_op ?? '착수 전'}
+                      </td>
                       <td className="td tnum text-right">{b.sheet_count}</td>
                       <td className="td tnum text-right text-muted">{b.day_count || ''}</td>
                       <td className="td tnum text-right text-muted">{b.lot_count || ''}</td>
@@ -253,10 +262,13 @@ export default async function Dashboard() {
           )}
         </Panel>
 
+        {/*
+          * 임박한 자재가 없으면 이 패널 자체를 내지 않는다. "없습니다"가 적힌
+          * 빈 상자는 자리만 차지하고, 아무것도 없는 것이 정상이다 (§10).
+          */}
+        {d.expiring.length > 0 && (
         <Panel title="유효기한 임박 자재" note="30일 이내">
-          {d.expiring.length === 0 ? (
-            <Empty>없습니다.</Empty>
-          ) : (
+          {(
             <ul className="divide-y divide-line-soft">
               {d.expiring.map((e) => (
                 <li key={e.id} className="flex items-center gap-3 px-4 py-2.5">
@@ -275,6 +287,7 @@ export default async function Dashboard() {
             </ul>
           )}
         </Panel>
+        )}
       </div>
 
       <div className="grid gap-5 lg:grid-cols-3">
