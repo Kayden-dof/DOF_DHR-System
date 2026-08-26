@@ -1,4 +1,3 @@
-import Link from 'next/link';
 
 /* ---------------------------------------------------------------------------
    표
@@ -93,16 +92,8 @@ export function ActionTh() {
   return <th className="th sticky right-0 w-0 shadow-[-10px_0_10px_-10px_rgb(31_29_36/.14)]" />;
 }
 
-/** 행 전체가 링크인 목록. 마지막 칸의 작은 단추를 겨냥하게 만들지 않는다. */
-export function RowLink({ href, children }: { href: string; children: React.ReactNode }) {
-  return (
-    <tr className="group">
-      {children}
-      <ActionTd>
-        <Link href={href} className="btn-quiet h-7 opacity-60 transition-opacity group-hover:opacity-100">
-          열기
-        </Link>
-      </ActionTd>
-    </tr>
-  );
-}
+/*
+ * 행 전체가 링크인 목록. 구현은 클라이언트 조각이라 따로 두고 여기서 다시
+ * 내보낸다. 표 부품은 이 파일 하나에서 가져다 쓰는 것이 규칙이다.
+ */
+export { RowLink } from './row-link';
