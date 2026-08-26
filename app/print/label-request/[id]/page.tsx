@@ -1,0 +1,149 @@
+import { notFound } from 'next/navigation';
+import { requireUser } from '@/lib/session';
+import { withActor } from '@/lib/db';
+import { fmtDate } from '@/lib/fmt';
+import { logPrint } from '@/lib/print';
+import PrintFrame, { SignRow } from '@/components/print-frame';
+
+export const dynamic = 'force-dynamic';
+
+/* ---------------------------------------------------------------------------
+   라벨요청서 (§7)
+   재단 후 · 배치 단위
+   제품명, 제조번호, 모델명, 규격, 수량 (WS-07 작업 5번)
+--------------------------------------------------------------------------- */
+
+interface Head { batch_no: string; wo_no: string; item_name: string; thickness_band: string | null }
+interface LotRow {
+  lot_no: string; item_code: string; item_name: string;
+  qty_produced: number; qty_sample: number; qty_available: number;
+  manufactured_on: string; expiry_date: string;
+}
+
+/** 형명 PD 05 05 05 10 을 사람이 읽는 규격으로 되돌린다. */
+function spec(code: string): string {
+  const m = code.match(/^PD(\d{2})(\d{2})(\d{2})(\d{2})$/);
+  if (!m) return '';
+  const mm = (s: string) => (Number(s) / 10).toFixed(1);
+  return `${mm(m[1])} x ${mm(m[2])} cm · 두께 ${mm(m[3])}~${mm(m[4])} mm`;
+}
+
+export default async function LabelRequestSheet({ params }: { params: Promise<{ id: string }> }) {
+  const user = await requireUser();
+  const { id } = await params;
+
+  const d = await withActor(user.id, async (db) => {
+    const head = await db.one<Head>(
+      `select wo.batch_no, wo.wo_no, i.name as item_name, ml.thickness_band
+         from work_order wo
+         join device_master dm on dm.id = wo.device_master_id
+         join item i on i.id = dm.item_id
+         join material_lot ml on ml.id = wo.material_lot_id
+        where wo.id = $1`, [id]);
+    if (!head) return null;
+    return {
+      head,
+      lots: await db.rows<LotRow>(
+        `select pl.lot_no, i.code as item_code, i.name as item_name,
+                pl.qty_produced, pl.qty_sample, pl.qty_available,
+                pl.manufactured_on, pl.expiry_date
+           from product_lot pl join item i on i.id = pl.item_id
+          where pl.work_order_id = $1 order by i.code`, [id]),
+    };
+  });
+
+  if (!d || d.lots.length === 0) notFound();
+  const { head, lots } = d;
+
+  const meta = await logPrint({
+    actorId: user.id, actorName: user.full_name, kind: 'LABEL_REQUEST',
+    workOrderId: id, payload: { head, lots },
+  });
+
+  return (
+    <PrintFrame
+      meta={meta}
+      title="라벨요청서"
+      subtitle={<>배치 {head.batch_no}</>}
+      back={`/production/${id}`}
+    >
+      <table className="print-table">
+        <tbody>
+          <tr>
+            <th className="w-[15%]">배치번호</th>
+            <td className="w-[35%] font-mono font-bold">{head.batch_no}</td>
+            <th className="w-[15%]">지시서번호</th>
+            <td className="w-[35%] font-mono">{head.wo_no}</td>
+          </tr>
+          <tr>
+            <th>제품명</th>
+            <td>{head.item_name}</td>
+            <th>두께 구간</th>
+            <td>{head.thickness_band ?? ''}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2 className="mt-5 text-sm font-bold text-black">요청 내역</h2>
+      <table className="print-table mt-1.5">
+        <thead>
+          <tr>
+            <th className="w-[18%]">제조번호</th>
+            <th className="w-[18%]">모델명</th>
+            <th className="w-[26%]">규격</th>
+            <th className="w-[10%] text-right">생산</th>
+            <th className="w-[10%] text-right">샘플</th>
+            <th className="w-[18%] text-right">라벨 수량</th>
+          </tr>
+        </thead>
+        <tbody>
+          {lots.map((l) => (
+            <tr key={l.lot_no}>
+              <td className="font-mono font-bold">{l.lot_no}</td>
+              <td className="font-mono">{l.item_code}</td>
+              <td>{spec(l.item_code)}</td>
+              <td className="text-right tnum">{l.qty_produced}</td>
+              <td className="text-right tnum">{l.qty_sample || ''}</td>
+              <td className="text-right tnum font-bold">{l.qty_produced}</td>
+            </tr>
+          ))}
+          <tr>
+            <th colSpan={5} className="text-right">합계</th>
+            <td className="text-right tnum font-bold">
+              {lots.reduce((s, l) => s + l.qty_produced, 0)}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2 className="mt-5 text-sm font-bold text-black">라벨 표기 내용</h2>
+      <table className="print-table mt-1.5">
+        <thead>
+          <tr>
+            <th className="w-[18%]">제조번호</th>
+            <th className="w-[34%]">제품명 / 모델명</th>
+            <th className="w-[24%]">제조일</th>
+            <th className="w-[24%]">유효기한</th>
+          </tr>
+        </thead>
+        <tbody>
+          {lots.map((l) => (
+            <tr key={l.lot_no}>
+              <td className="font-mono font-bold">{l.lot_no}</td>
+              <td>{l.item_name}<div className="font-mono text-[9px]">{l.item_code}</div></td>
+              <td className="tnum">{fmtDate(l.manufactured_on)}</td>
+              <td className="tnum">{fmtDate(l.expiry_date)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <p className="mt-2 text-[10px] leading-relaxed text-black">
+        유효기한은 제조번호를 부여한 시점의 사용기간으로 확정된 값입니다. 이후 사용기간이
+        바뀌어도 이 로트에는 소급되지 않습니다.
+      </p>
+
+      <SignRow roles={['요청자', '확인자']} />
+    </PrintFrame>
+  );
+}

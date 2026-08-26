@@ -1,0 +1,111 @@
+'use client';
+
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
+
+export interface PrintMeta {
+  kind: string;
+  kindLabel: string;
+  seq: number;
+  dataHash: string;
+  printedAt: string;
+  printedBy: string;
+  pages: number;
+}
+
+/* ---------------------------------------------------------------------------
+   인쇄물 틀
+
+   머리글과 꼬리글은 모든 양식이 같다 (§7).
+   화면에서만 보이는 조작 막대는 인쇄에서 사라진다.
+--------------------------------------------------------------------------- */
+export default function PrintFrame({
+  meta, title, subtitle, back, children,
+}: {
+  meta: PrintMeta;
+  title: string;
+  subtitle?: React.ReactNode;
+  back?: string;
+  children: React.ReactNode;
+}) {
+  const [ready, setReady] = useState(false);
+  useEffect(() => setReady(true), []);
+
+  return (
+    <>
+      <div className="no-print mx-auto mb-4 flex max-w-[210mm] flex-wrap items-center gap-2 px-2">
+        {back && (
+          <Link href={back} className="btn-ghost h-9 px-3 text-xs">돌아가기</Link>
+        )}
+        <span className="text-xs text-muted">
+          인쇄 회차 <b className="tnum text-ink">{meta.seq}</b>
+          {meta.seq > 1 && <span className="ml-1 text-warn">재발행</span>}
+        </span>
+        <button onClick={() => window.print()} disabled={!ready}
+                className="btn-primary ml-auto h-9 px-4 text-xs">
+          인쇄
+        </button>
+      </div>
+
+      <div className="sheet">
+        <header className="mb-4 border-b-2 border-black pb-2">
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="text-[10px] font-bold tracking-widest text-black">DOF</div>
+              <h1 className="text-lg font-bold text-black">{title}</h1>
+              {subtitle && <div className="mt-0.5 text-xs text-black">{subtitle}</div>}
+            </div>
+            <table className="text-[10px] text-black">
+              <tbody>
+                <tr>
+                  <td className="pr-2 text-right">인쇄 일시</td>
+                  <td className="tnum font-semibold">{meta.printedAt}</td>
+                </tr>
+                <tr>
+                  <td className="pr-2 text-right">인쇄자</td>
+                  <td className="font-semibold">{meta.printedBy}</td>
+                </tr>
+                <tr>
+                  <td className="pr-2 text-right">인쇄 회차</td>
+                  <td className="tnum font-semibold">{meta.seq}</td>
+                </tr>
+                <tr>
+                  <td className="pr-2 text-right">자료 식별자</td>
+                  <td className="font-mono">{meta.dataHash.slice(0, 12)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </header>
+
+        {children}
+
+        <footer className="mt-6 border-t border-black pt-1.5 text-[9px] text-black">
+          <div className="flex justify-between">
+            <span>
+              {meta.kindLabel} · 자료 식별자 {meta.dataHash.slice(0, 12)} · 회차 {meta.seq}
+            </span>
+            <span className="tnum">1 / {meta.pages}</span>
+          </div>
+          <div className="mt-0.5">
+            이 인쇄물은 서명 후 정본이 됩니다. 시스템은 판정하지 않으며 전자서명을 받지 않습니다.
+          </div>
+        </footer>
+      </div>
+    </>
+  );
+}
+
+/* 서명란. 순환자는 서명하지 않는다 (§7). */
+export function SignRow({ roles }: { roles: string[] }) {
+  return (
+    <table className="print-table mt-5">
+      <thead>
+        <tr>{roles.map((r) => <th key={r} className="w-1/4 text-center">{r}</th>)}</tr>
+      </thead>
+      <tbody>
+        <tr>{roles.map((r) => <td key={r} className="sign-box" />)}</tr>
+      </tbody>
+    </table>
+  );
+}
