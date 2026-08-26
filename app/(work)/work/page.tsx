@@ -14,6 +14,7 @@ interface BatchTile {
   issued_at: Date;
   my_records: number; my_open: number; my_locked_days: number;
   total_records: number; lot_count: number; last_day: number | null;
+  last_day_open: boolean;
 }
 
 /* ---------------------------------------------------------------------------
@@ -42,7 +43,17 @@ export default async function WorkHome() {
               (select count(*)::int from product_lot pl
                 where pl.work_order_id = wo.id) as lot_count,
               (select max(pr.day_no) from process_record pr
-                where pr.work_order_id = wo.id) as last_day
+                where pr.work_order_id = wo.id) as last_day,
+              /*
+               * 마지막 일차가 아직 열려 있는가. 누군가의 그 날 묶음이 잠기지
+               * 않았으면 이어서 기록하는 날이고, 전부 잠겼으면 다음 날이 새로
+               * 시작된다. 타일이 "몇 일차를 할 차례인지"를 이걸로 말한다.
+               */
+              exists (select 1 from process_record pr
+                where pr.work_order_id = wo.id
+                  and pr.day_no = (select max(day_no) from process_record
+                                    where work_order_id = wo.id)
+                  and not is_locked(wo.id, pr.day_no, pr.worker_id)) as last_day_open
          from work_order wo
          join device_master dm on dm.id = wo.device_master_id
          join item i on i.id = dm.item_id
@@ -83,18 +94,33 @@ export default async function WorkHome() {
                 b.my_open > 0 ? 'bg-warn' : b.status === 'IN_PROCESS' ? 'bg-brand' : 'bg-line-strong'
               }`} />
 
-              <div className="flex items-start gap-3 px-5 pb-3 pt-4">
+              {/*
+                * 현장에서 이 타일을 보는 이유는 하나다. "이 배치, 몇 일차를 할
+                * 차례인가." 그 답을 타일에서 가장 큰 글자로 둔다. 마지막 일차가
+                * 아직 잠기지 않았으면 그 날을 이어서, 전부 잠겼으면 다음 날을
+                * 새로 시작한다.
+                */}
+              <div className="flex items-stretch gap-4 px-5 pb-3 pt-4">
                 <div className="min-w-0 flex-1">
                   <div className="font-mono text-xl font-bold tracking-tight text-ink">
                     {b.batch_no}
                   </div>
                   <div className="mt-0.5 text-base text-body">{b.item_name}</div>
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    <Tag tone={b.status === 'IN_PROCESS' ? 'brand' : 'info'}>
+                      {WO_STATUS_LABEL[b.status] ?? b.status}
+                    </Tag>
+                    {b.my_open > 0 && <Tag tone="warn">마감 전 {b.my_open}</Tag>}
+                  </div>
                 </div>
-                <div className="flex shrink-0 flex-col items-end gap-1">
-                  <Tag tone={b.status === 'IN_PROCESS' ? 'brand' : 'info'}>
-                    {WO_STATUS_LABEL[b.status] ?? b.status}
-                  </Tag>
-                  {b.my_open > 0 && <Tag tone="warn">마감 전 {b.my_open}</Tag>}
+                <div className="flex shrink-0 flex-col items-center justify-center rounded-lg bg-brand-tint px-4 py-2">
+                  <span className="text-[2rem] font-bold leading-none tnum text-brand-deep">
+                    {b.last_day === null ? 1 : b.last_day_open ? b.last_day : b.last_day + 1}
+                    <span className="ml-0.5 text-base font-bold">일차</span>
+                  </span>
+                  <span className="mt-1 text-xs font-semibold text-brand">
+                    {b.last_day !== null && b.last_day_open ? '이어서 기록' : '새로 시작'}
+                  </span>
                 </div>
               </div>
 

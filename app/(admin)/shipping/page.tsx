@@ -5,6 +5,7 @@ import { SubNav } from '../nav';
 import { SHIPPING_NAV } from '../sections';
 import { fmtDate } from '@/lib/fmt';
 import { PL_STATUS_LABEL } from '@/lib/forms';
+import Link from 'next/link';
 import { Panel, Empty, Tag } from '@/components/ui';
 import { ApproveForm, type PlOpt } from './shipping-forms';
 
@@ -101,6 +102,7 @@ export default async function ReleasePage() {
                   <th className="th">유효기한</th>
                   <th className="th">품질책임자</th>
                   <th className="th">승인일</th>
+                  <th className="th" />
                 </tr>
               </thead>
               <tbody>
@@ -114,6 +116,19 @@ export default async function ReleasePage() {
                     <td className="td text-sm">{l.release_approved_by}</td>
                     <td className="td tnum text-xs text-muted">
                       {fmtDate(l.release_approved_on)}
+                    </td>
+                    {/*
+                      * 승인이 끝난 뒤에도 요청서는 다시 뽑을 일이 있다 - 편철에
+                      * 끼우거나 서면 원본을 분실했을 때다. 2회차부터는 종이에
+                      * 재발행 표시가 찍히므로 원본과 섞이지 않는다.
+                      *
+                      * 시연 자료가 전부 승인 완료 상태라, 이 링크가 없으면 요청서
+                      * 인쇄가 화면 어디에도 보이지 않는 문제도 있었다.
+                      */}
+                    <td className="td text-right">
+                      <Link href={`/print/release/${l.id}`} className="btn-ghost h-8 px-3 text-xs">
+                        요청서
+                      </Link>
                     </td>
                   </tr>
                 ))}
