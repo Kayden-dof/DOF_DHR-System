@@ -4,7 +4,9 @@ import { withActor } from '@/lib/db';
 import { fmtDate, fmtDateTime } from '@/lib/fmt';
 import { WO_STATUS_LABEL } from '@/lib/forms';
 import Denied from '@/components/denied';
-import { PageHead, Panel, Empty, Tag } from '@/components/ui';
+import { Panel, Empty, Tag } from '@/components/ui';
+import { PageShell, FilterBar } from '@/components/shell';
+import { Table, Th, Td, IdCell, TwoLine, ActionTh, RowLink } from '@/components/table';
 import IssueForm, {
   type DmOpt, type RawLotOpt, type UserOpt, type FinOpt,
 } from './issue-form';
@@ -86,100 +88,83 @@ export default async function ProductionPage({ searchParams }: { searchParams: S
   const total = d.counts.reduce((s, c) => s + c.n, 0);
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4 border-b border-line pb-4">
-        <div className="min-w-0">
-          <h1 className="text-[1.375rem] font-bold text-ink">생산</h1>
-          <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-muted">
-            배치 하나는 원재료 로트 하나를 가공하는 단위입니다. 번호는 재사용하지 않습니다.
-            공정 기록 입력은 현장 화면에서 합니다.
-          </p>
-        </div>
-        <IssueForm masters={d.masters} rawLots={d.rawLots} finished={d.finished}
-                   users={d.users} today={d.today ?? ''} />
-      </div>
-
-      <div className="inline-flex flex-wrap items-center gap-1 rounded-lg border border-line bg-surface-sub p-1">
-        <Link href="/production"
-              className={`rounded-[0.3125rem] px-3 py-1.5 text-xs font-bold transition-all ${
-                !status ? 'bg-surface text-brand shadow-[0_1px_2px_rgb(31_29_36/.06)]'
-                        : 'text-muted hover:text-ink'}`}>
-          전체 <span className="tnum">{total}</span>
-        </Link>
-        {Object.entries(WO_STATUS_LABEL).map(([code, label]) => (
-          <Link key={code} href={`/production?status=${code}`}
-                className={`rounded-[0.3125rem] px-3 py-1.5 text-xs font-bold transition-all ${
-                  status === code ? 'bg-surface text-brand shadow-[0_1px_2px_rgb(31_29_36/.06)]'
-                                  : 'text-muted hover:text-ink'}`}>
-            {label} <span className="tnum">{byStatus.get(code) ?? 0}</span>
-          </Link>
-        ))}
-      </div>
-
+    <PageShell
+      section="생산"
+      title="작업 지시"
+      lede={<>
+        배치 하나는 원재료 로트 하나를 가공하는 단위입니다. 번호는 재사용하지 않습니다.
+        공정 기록 입력은 현장 화면에서 합니다.
+      </>}
+      action={<IssueForm masters={d.masters} rawLots={d.rawLots} finished={d.finished}
+                         users={d.users} today={d.today ?? ''} />}
+      nav={
+        <FilterBar
+          items={[
+            { href: '/production', label: '전체', count: total, on: !status },
+            ...Object.entries(WO_STATUS_LABEL).map(([code, label]) => ({
+              href: `/production?status=${code}`,
+              label,
+              count: byStatus.get(code) ?? 0,
+              on: status === code,
+            })),
+          ]}
+        />
+      }
+    >
       <Panel>
         {d.orders.length === 0 ? (
-          <Empty>해당하는 작업 지시가 없습니다.</Empty>
+          <Empty hint="위의 작업 지시 발행에서 시작합니다.">
+            {status ? '이 상태의 작업 지시가 없습니다.' : '발행된 작업 지시가 없습니다.'}
+          </Empty>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr>
-                  <th className="th">배치 · 지시서</th>
-                  <th className="th">형명 · 개정</th>
-                  <th className="th">원재료 로트</th>
-                  <th className="th text-right">장입</th>
-                  <th className="th text-right">로트</th>
-                  <th className="th text-right">일차</th>
-                  <th className="th">상태</th>
-                  <th className="th">발행</th>
-                  <th className="th sticky right-0 w-0 shadow-[-8px_0_8px_-8px_rgb(31_29_36/.12)]" />
-                </tr>
-              </thead>
-              <tbody>
-                {d.orders.map((w) => (
-                  <tr key={w.id}>
-                    {/* 배치번호와 지시서번호는 늘 같이 읽는다. 한 칸에 묶어
-                        열을 하나 줄이면 표가 화면 안에 들어온다 */}
-                    <td className="td whitespace-nowrap">
-                      <div className="font-mono text-xs font-bold text-ink">{w.batch_no}</div>
-                      <div className="font-mono text-xs text-faint">{w.wo_no}</div>
-                    </td>
-                    <td className="td whitespace-nowrap">
-                      <div className="text-sm">{w.item_name}</div>
-                      <div className="font-mono text-xs text-faint">
-                        {w.item_code} · {w.dmr_revision}
-                      </div>
-                    </td>
-                    <td className="td font-mono text-xs">
-                      {w.raw_lot_no}
-                      {w.thickness_band && (
-                        <span className="ml-1.5 text-faint">{w.thickness_band}</span>
-                      )}
-                    </td>
-                    <td className="td tnum text-right">{w.sheet_count}장</td>
-                    <td className="td tnum text-right text-muted">{w.lot_count || ''}</td>
-                    <td className="td tnum text-right text-muted">{w.day_count || ''}</td>
-                    <td className="td">
-                      <Tag tone={TONE[w.status] ?? 'quiet'}>
-                        {WO_STATUS_LABEL[w.status] ?? w.status}
-                      </Tag>
-                    </td>
-                    <td className="td whitespace-nowrap text-xs text-muted">
-                      <div className="tnum">{fmtDate(w.issued_at)}</div>
-                      <div className="text-faint">{w.prod_name} · {w.qa_name}</div>
-                    </td>
-                    <td className="td sticky right-0 bg-surface text-right shadow-[-8px_0_8px_-8px_rgb(31_29_36/.12)]">
-                      <Link href={`/production/${w.id}`} className="btn-ghost h-8 px-3 text-xs">
-                        열기
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Table>
+            <thead>
+              <tr>
+                <Th>배치 · 지시서</Th>
+                <Th>형명 · 개정</Th>
+                <Th>원재료 로트</Th>
+                <Th right>장입</Th>
+                <Th right>로트</Th>
+                <Th right>일차</Th>
+                <Th>상태</Th>
+                <Th>발행</Th>
+                <ActionTh />
+              </tr>
+            </thead>
+            <tbody>
+              {d.orders.map((w) => (
+                <RowLink key={w.id} href={`/production/${w.id}`}>
+                  <IdCell
+                    id={w.batch_no}
+                    sub={w.wo_no}
+                    tone={w.status === 'IN_PROCESS' ? 'brand'
+                      : w.status === 'CANCELLED' ? 'danger' : undefined}
+                  />
+                  <TwoLine top={w.item_name} bottom={`${w.item_code} · ${w.dmr_revision}`} />
+                  <Td mono nowrap>
+                    {w.raw_lot_no}
+                    {w.thickness_band && (
+                      <span className="ml-1.5 text-faint">{w.thickness_band}</span>
+                    )}
+                  </Td>
+                  <Td right>{w.sheet_count}장</Td>
+                  <Td right className="text-muted">{w.lot_count || ''}</Td>
+                  <Td right className="text-muted">{w.day_count || ''}</Td>
+                  <Td>
+                    <Tag tone={TONE[w.status] ?? 'quiet'}>
+                      {WO_STATUS_LABEL[w.status] ?? w.status}
+                    </Tag>
+                  </Td>
+                  <Td nowrap className="text-xs text-muted">
+                    <div className="tnum">{fmtDate(w.issued_at)}</div>
+                    <div className="text-faint">{w.prod_name} · {w.qa_name}</div>
+                  </Td>
+                </RowLink>
+              ))}
+            </tbody>
+          </Table>
         )}
       </Panel>
-    </div>
+    </PageShell>
   );
 }

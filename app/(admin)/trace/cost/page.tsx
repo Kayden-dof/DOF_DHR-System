@@ -4,6 +4,7 @@ import { withActor } from '@/lib/db';
 import { fmtDate } from '@/lib/fmt';
 import Denied from '@/components/denied';
 import { PageHead, Panel, Empty } from '@/components/ui';
+import { PageShell } from '@/components/shell';
 import { SubNav } from '../../nav';
 
 export const dynamic = 'force-dynamic';
@@ -64,15 +65,11 @@ export default async function CostPage() {
   for (const s of d.spend) spendByMonth.set(s.month, [...(spendByMonth.get(s.month) ?? []), s]);
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4 border-b border-line pb-4">
-        <div className="min-w-0">
-          <h1 className="text-[1.375rem] font-bold text-ink">조회</h1>
-          <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-muted">
-            로트번호 하나로 위아래를 모두 따라갑니다.
-          </p>
-        </div>
-
+    <PageShell
+      section="조회"
+      title="원가"
+      lede="제품 원가는 실제로 들어간 자재의 매입가입니다. 자재 지출은 기간에 사들인 금액입니다. 두 값은 성격이 달라 합치지 않습니다."
+      nav={
         <SubNav
           items={[
             { href: '/trace', label: '계보 추적' },
@@ -80,7 +77,8 @@ export default async function CostPage() {
             { href: '/trace/cost', label: '원가' },
           ]}
         />
-      </div>
+      }
+    >
 
       <PageHead
         title="원가"
@@ -246,6 +244,6 @@ export default async function CostPage() {
           </li>
         </ul>
       </section>
-    </div>
+    </PageShell>
   );
 }

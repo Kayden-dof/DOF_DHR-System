@@ -1,0 +1,159 @@
+import Link from 'next/link';
+
+/* ---------------------------------------------------------------------------
+   화면 골격
+
+   화면마다 제목 블록을 손으로 짜면 여백과 글자 크기가 조금씩 어긋나고, 무엇보다
+   "이 화면에서 할 일이 무엇인가"가 화면마다 다른 자리에 놓인다.
+
+   틀을 하나로 고정한다.
+
+     구역 이름 · 제목 · 한 줄 설명 · 주 동작        머리
+     숫자 몇 개                                     띠   (있을 때만)
+     하위 메뉴                                      줄   (있을 때만)
+     내용                                           본문
+
+   주 동작은 화면당 하나다. 두 개가 나란히 있으면 둘 다 주 동작이 아니게 된다.
+--------------------------------------------------------------------------- */
+
+export function PageShell({
+  section, title, lede, action, nav, stats, children,
+}: {
+  /** 구역 이름. 상단 메뉴와 같은 말을 쓴다 */
+  section?: string;
+  title: string;
+  lede?: React.ReactNode;
+  /** 이 화면에서 할 일. 하나만 둔다 */
+  action?: React.ReactNode;
+  /** 하위 메뉴 */
+  nav?: React.ReactNode;
+  /** 숫자 띠 */
+  stats?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-6">
+      <header className="space-y-5">
+        <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
+          <div className="min-w-0 max-w-3xl">
+            {section && <p className="crumb">{section}</p>}
+            <h1 className={`text-[1.625rem] font-bold leading-tight text-ink ${section ? 'mt-2' : ''}`}>
+              {title}
+            </h1>
+            {lede && (
+              <p className="mt-2 text-[0.9375rem] leading-relaxed text-muted">{lede}</p>
+            )}
+          </div>
+          {action && <div className="flex shrink-0 items-center gap-2 pt-1">{action}</div>}
+        </div>
+
+        {stats}
+        {nav}
+      </header>
+
+      {children}
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   숫자 띠
+
+   화면 맨 위에서 "지금 상태"를 한 줄로 말한다. 눌러서 갈 곳이 있으면 링크가 된다.
+   0은 흐리게 둔다. 0을 강조하면 아무 일도 없는 것이 일처럼 보인다.
+--------------------------------------------------------------------------- */
+
+export interface StatItem {
+  label: string;
+  value: number | string;
+  unit?: string;
+  href?: string;
+  /** 눈에 띄어야 하는 값 */
+  tone?: 'warn' | 'danger' | 'info' | 'brand';
+}
+
+const EDGE: Record<string, string> = {
+  warn: 'bg-warn', danger: 'bg-danger', info: 'bg-info', brand: 'bg-brand',
+};
+const TEXT: Record<string, string> = {
+  warn: 'text-warn', danger: 'text-danger', info: 'text-info', brand: 'text-brand',
+};
+
+export function StatStrip({ items }: { items: StatItem[] }) {
+  if (items.length === 0) return null;
+
+  return (
+    <dl className="grid gap-px overflow-hidden rounded-xl border border-line bg-line"
+        style={{ gridTemplateColumns: `repeat(auto-fit, minmax(9.5rem, 1fr))` }}>
+      {items.map((s) => {
+        const zero = s.value === 0 || s.value === '0';
+        const body = (
+          <>
+            <dt className="text-[0.6875rem] font-bold tracking-wide text-muted">{s.label}</dt>
+            <dd className="mt-1.5 flex items-baseline gap-1">
+              <span className={`text-[1.5rem] font-bold leading-none tnum ${
+                zero ? 'text-faint' : s.tone ? TEXT[s.tone] : 'text-ink'
+              }`}>
+                {s.value}
+              </span>
+              {s.unit && <span className="text-xs text-muted">{s.unit}</span>}
+            </dd>
+          </>
+        );
+
+        const cls = 'relative bg-surface px-4 py-3.5 transition-colors';
+        const edge = s.tone && !zero
+          ? <span aria-hidden className={`absolute inset-y-0 left-0 w-[3px] ${EDGE[s.tone]}`} />
+          : null;
+
+        return s.href ? (
+          <Link key={s.label} href={s.href} className={`${cls} hover:bg-surface-sub`}>
+            {edge}{body}
+          </Link>
+        ) : (
+          <div key={s.label} className={cls}>{edge}{body}</div>
+        );
+      })}
+    </dl>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   거르개 줄
+
+   목록 위에 놓이는 조각들. 지금 무엇으로 걸러 보고 있는지가 한눈에 보여야 한다.
+--------------------------------------------------------------------------- */
+
+export function FilterBar({
+  items, extra,
+}: {
+  items: { href: string; label: string; count?: number; on: boolean }[];
+  extra?: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <nav className="inline-flex flex-wrap items-center gap-1 rounded-lg border border-line bg-surface-sub p-1">
+        {items.map((it) => (
+          <Link
+            key={it.href}
+            href={it.href}
+            aria-current={it.on ? 'page' : undefined}
+            className={`rounded-[0.3125rem] px-3 py-1.5 text-xs font-bold transition-all ${
+              it.on
+                ? 'bg-surface text-brand shadow-[0_1px_2px_rgb(31_29_36/.06)]'
+                : 'text-muted hover:text-ink'
+            }`}
+          >
+            {it.label}
+            {it.count !== undefined && (
+              <span className={`ml-1.5 tnum ${it.on ? 'text-brand' : 'text-faint'}`}>
+                {it.count}
+              </span>
+            )}
+          </Link>
+        ))}
+      </nav>
+      {extra}
+    </div>
+  );
+}

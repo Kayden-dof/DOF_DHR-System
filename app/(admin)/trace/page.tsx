@@ -4,6 +4,7 @@ import { withActor } from '@/lib/db';
 import { fmtDate, fmtDateTime } from '@/lib/fmt';
 import Denied from '@/components/denied';
 import { PageHead, Panel, Empty, Tag, Field } from '@/components/ui';
+import { PageShell } from '@/components/shell';
 import { SubNav } from '../nav';
 
 export const dynamic = 'force-dynamic';
@@ -61,15 +62,11 @@ export default async function TracePage({ searchParams }: { searchParams: Search
     : { hits: [] as Hit[] };
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4 border-b border-line pb-4">
-        <div className="min-w-0">
-          <h1 className="text-[1.375rem] font-bold text-ink">조회</h1>
-          <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-muted">
-            로트번호 하나로 위아래를 모두 따라갑니다.
-          </p>
-        </div>
-
+    <PageShell
+      section="조회"
+      title="계보 추적"
+      lede="제조번호 · 자재 로트번호 · 배치번호 · 성적서 번호 중 아무거나 넣으십시오."
+      nav={
         <SubNav
           items={[
             { href: '/trace', label: '계보 추적' },
@@ -77,7 +74,8 @@ export default async function TracePage({ searchParams }: { searchParams: Search
             { href: '/trace/cost', label: '원가' },
           ]}
         />
-      </div>
+      }
+    >
 
       <PageHead
         title="계보 추적"
@@ -137,6 +135,6 @@ export default async function TracePage({ searchParams }: { searchParams: Search
           </ul>
         </section>
       )}
-    </div>
+    </PageShell>
   );
 }

@@ -74,6 +74,8 @@
   --color-canvas-deep: #E9E5E6;
   --color-surface:     #FFFFFF;
   --color-surface-sub: #FAFAF9;
+  /* 카드 안에서 한 단계 더 눌러야 할 때. 요약 띠 · 표 머리 · 접힌 칸 */
+  --color-surface-low: #F4F2F6;
   --color-line:        #E4E0E6;
   --color-line-soft:   #EFECF0;
   --color-line-strong: #D4D1CD;
@@ -139,8 +141,12 @@
 
   /* 그림자. 원본 슬라이드는 전부 헤어라인이고 그림자가 없다.
      화면에서만, 떠 있어야 하는 것에만 준다. */
-  --sh-1: 0 1px 2px rgb(26 26 31 / .06);
-  --sh-2: 0 1px 3px rgb(26 26 31 / .08), 0 1px 2px rgb(26 26 31 / .04);
+  /*
+   * 원본 슬라이드는 전부 헤어라인이고 그림자가 없다. 화면에서만, 그리고 정말로
+   * 떠 있어야 하는 것에만 준다. 카드가 전부 떠 있으면 아무것도 떠 있지 않다.
+   */
+  --sh-1: 0 1px 2px rgb(26 26 31 / .05);
+  --sh-2: 0 1px 3px rgb(26 26 31 / .07), 0 6px 16px -8px rgb(26 26 31 / .10);
   --sh-3: 0 12px 32px rgb(26 26 31 / .11), 0 2px 6px rgb(26 26 31 / .05);
 
   --ring: 0 0 0 3px rgb(110 79 162 / .28);
@@ -160,9 +166,23 @@ body {
   overscroll-behavior-y: none;
 }
 
-/* 제목은 자간을 좁혀야 무게가 잡힌다. 한글은 라틴보다 조금 더 좁혀도 된다 */
+/*
+ * 글자 크기 계단. 이 여덟 개만 쓴다.
+ *
+ *   11  꼬리표 · 구역 이름          .crumb .chip
+ *   12  표 머리 · 딸린 값
+ *   13  단추 · 조밀한 목록
+ *   15  본문 · 표 내용
+ *   17  카드 제목
+ *   20  구역 제목
+ *   26  화면 제목
+ *   34  숫자를 크게 세울 때
+ *
+ * 사이 값을 새로 만들지 않는다. 하나 늘 때마다 위계가 하나 흐려진다.
+ */
 h1, h2, h3 { letter-spacing: -0.025em; font-weight: 700; }
-h1 { line-height: 1.25; }
+h1 { line-height: 1.22; }
+h2 { line-height: 1.3; }
 
 /* 표시용 서체. 큰 글자 하나에만 */
 .display {
@@ -215,19 +235,24 @@ h1 { line-height: 1.25; }
      그림자를 아껴 쓴다. 인쇄물이 정본인 시스템이라 화면도 종이에 가깝게 둔다.
      위계는 테두리와 배경 톤으로 만들고, 그림자는 떠 있어야 하는 것에만 준다.
   --------------------------------------------------------------------------- */
+  /*
+   * 카드는 평평하다. 테두리 하나로 면을 가른다.
+   * 그림자는 진짜로 떠 있는 것(card-raised)에만 준다.
+   */
   .card {
     background: var(--color-surface);
     border: 1px solid var(--color-line);
-    border-radius: var(--r-xl);
-    box-shadow: var(--sh-1);
+    border-radius: var(--r-lg);
   }
+  /* 카드 안의 표는 카드 모서리에 맞춰 잘린다 */
+  .card { overflow: hidden; }
 
   /* 구역 머리 바로 아래 오는 표는 위쪽 테두리를 겹치지 않게 한다 */
   .card > .overflow-x-auto > table > thead .th { border-top: none; }
   .card-raised {
     background: var(--color-surface);
     border: 1px solid var(--color-line);
-    border-radius: var(--r-xl);
+    border-radius: var(--r-lg);
     box-shadow: var(--sh-2);
     transition: box-shadow 160ms var(--ease), border-color 160ms var(--ease);
   }
@@ -382,16 +407,17 @@ h1 { line-height: 1.25; }
     font-size: 0.6875rem;
     line-height: 1rem;
     font-weight: 700;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.05em;
     color: var(--color-muted);
-    padding: 0.6875rem 1rem;
+    padding: 0.625rem 1rem;
     border-bottom: 1px solid var(--color-line);
     white-space: nowrap;
-    background: var(--color-surface-sub);
+    background: var(--color-surface-low);
   }
   .td {
-    padding: 0.8125rem 1rem;
+    padding: 0.75rem 1rem;
     font-size: 0.875rem;
+    line-height: 1.45;
     color: var(--color-body);
     border-bottom: 1px solid var(--color-line-soft);
     vertical-align: middle;
@@ -404,7 +430,7 @@ h1 { line-height: 1.25; }
 
   /* 표가 가로로 넘칠 때 오른쪽에 고정되는 칸. 배경이 없으면 글자가 겹쳐 보인다 */
   .td.sticky, .th.sticky { background: var(--color-surface); }
-  .th.sticky { background: var(--color-surface-sub); }
+  .th.sticky { background: var(--color-surface-low); }
   tbody tr { transition: background-color 120ms ease; }
   tbody tr:hover .td { background: var(--color-surface-sub); }
   tbody tr:hover .td.sticky { background: var(--color-surface-sub); }

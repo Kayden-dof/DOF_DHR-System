@@ -4,6 +4,7 @@ import { withActor } from '@/lib/db';
 import { fmtDateTime } from '@/lib/fmt';
 import { KIND_LABEL } from '@/lib/print';
 import { Panel, Empty, Tag, Field } from '@/components/ui';
+import { PageShell } from '@/components/shell';
 import { SubNav } from '../../nav';
 
 export const dynamic = 'force-dynamic';
@@ -49,15 +50,11 @@ export default async function VerifyPage({
     : [];
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4 border-b border-line pb-4">
-        <div className="min-w-0">
-          <h1 className="text-[1.375rem] font-bold text-ink">조회</h1>
-          <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-muted">
-            로트번호 하나로 위아래를 모두 따라갑니다.
-          </p>
-        </div>
-
+    <PageShell
+      section="조회"
+      title="인쇄물 조회"
+      lede="종이 아래쪽에 찍힌 자료 식별자 12자리를 넣으십시오. 바코드를 읽어도 같은 값이 들어갑니다."
+      nav={
         <SubNav
           items={[
             { href: '/trace', label: '계보 추적' },
@@ -65,17 +62,8 @@ export default async function VerifyPage({
             { href: '/trace/cost', label: '원가' },
           ]}
         />
-      </div>
-
-      <div>
-        <h2 className="text-[0.9375rem] font-bold text-ink">인쇄물 조회</h2>
-        <p className="mt-1 max-w-3xl text-sm leading-relaxed text-muted">
-          종이 아래쪽에 찍힌 <b className="text-ink">자료 식별자</b> 12자리를 넣으십시오.
-          바코드를 읽어도 같은 값이 들어갑니다. 그 종이가 언제 어떤 자료로 뽑혔는지,
-          뒤에 다시 뽑은 회차가 있는지 알려 줍니다.
-        </p>
-      </div>
-
+      }
+    >
       <form className="card flex gap-2 p-3">
         <input
           name="q"
@@ -190,6 +178,6 @@ export default async function VerifyPage({
           </li>
         </ul>
       </section>
-    </div>
+    </PageShell>
   );
 }
