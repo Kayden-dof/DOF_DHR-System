@@ -36,7 +36,7 @@ export default async function NumberingPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold text-ink">채번 규칙</h1>
+        <h1 className="text-base font-bold text-ink">채번 규칙</h1>
         <p className="mt-1 max-w-3xl text-sm leading-relaxed text-muted">
           번호 형식은 코드에 박지 않고 여기서 정의합니다. 시스템은 이 정의를 해석해
           번호를 만듭니다 (§4.10). <b className="text-ink">등록한 규칙은 수정할 수 없고,

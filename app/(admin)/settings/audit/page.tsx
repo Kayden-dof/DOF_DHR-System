@@ -75,13 +75,13 @@ export default async function AuditPage({ searchParams }: { searchParams: Search
       }
     }
     const s = p.toString();
-    return s ? `/audit?${s}` : '/audit';
+    return s ? `/settings/audit?${s}` : '/settings/audit';
   };
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold text-ink">감사추적</h1>
+        <h1 className="text-base font-bold text-ink">감사추적</h1>
         <p className="mt-1 max-w-3xl text-sm leading-relaxed text-muted">
           기록은 삭제되지 않습니다 (S03). 등록 · 변경 · 역할 회수가 모두 이전 값과 함께 남으며,
           이 기록 자체도 수정하거나 지울 수 없습니다.

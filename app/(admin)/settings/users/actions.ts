@@ -43,7 +43,7 @@ export async function createUser(_prev: FormState, form: FormData): Promise<Form
       ),
     );
 
-    revalidatePath('/users');
+    revalidatePath('/settings/users');
     revalidatePath('/');
     return {
       ok: true,
@@ -67,7 +67,7 @@ export async function setPin(_prev: FormState, form: FormData): Promise<FormStat
     await withActor(me.id, (db) =>
       db.rows(`update app_user set pin_hash = $2 where id = $1`, [id, pinHash]),
     );
-    revalidatePath('/users');
+    revalidatePath('/settings/users');
     return { ok: true, message: '비밀번호를 변경했습니다.' };
   } catch (e) {
     return { error: dbMessage(e) };
@@ -87,7 +87,7 @@ export async function setActive(_prev: FormState, form: FormData): Promise<FormS
     await withActor(me.id, (db) =>
       db.rows(`update app_user set is_active = $2 where id = $1`, [id, next]),
     );
-    revalidatePath('/users');
+    revalidatePath('/settings/users');
     revalidatePath('/');
     return { ok: true, message: next ? '계정을 활성화했습니다.' : '계정을 비활성화했습니다.' };
   } catch (e) {
@@ -106,7 +106,7 @@ export async function setDeveloper(_prev: FormState, form: FormData): Promise<Fo
     await withActor(me.id, (db) =>
       db.rows(`update app_user set is_developer = $2 where id = $1`, [id, next]),
     );
-    revalidatePath('/users');
+    revalidatePath('/settings/users');
     revalidatePath('/');
     return {
       ok: true,
@@ -130,7 +130,7 @@ export async function grantRole(_prev: FormState, form: FormData): Promise<FormS
         [id, role],
       ),
     );
-    revalidatePath('/users');
+    revalidatePath('/settings/users');
     revalidatePath('/');
     return { ok: true, message: '역할을 부여했습니다.' };
   } catch (e) {
@@ -157,7 +157,7 @@ export async function revokeRole(_prev: FormState, form: FormData): Promise<Form
       );
     });
 
-    revalidatePath('/users');
+    revalidatePath('/settings/users');
     revalidatePath('/');
     return {
       ok: true,

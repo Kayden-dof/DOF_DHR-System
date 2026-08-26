@@ -29,7 +29,7 @@ export default async function UsersPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-ink">사용자 · 역할</h1>
+          <h1 className="text-base font-bold text-ink">사용자 · 역할</h1>
           <p className="mt-1 max-w-3xl text-sm leading-relaxed text-muted">
             계정은 삭제하지 않고 비활성화합니다. 역할 부여와 회수는 모두 감사추적에 남습니다.
           </p>

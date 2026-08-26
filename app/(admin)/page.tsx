@@ -77,7 +77,7 @@ export default async function Dashboard() {
                   마십시오 - 계보는 소급이 안 됩니다.</b>
                 </p>
                 {admin && (
-                  <Link href="/numbering" className="btn-primary mt-3 h-9 px-3 text-xs">
+                  <Link href="/settings/numbering" className="btn-primary mt-3 h-9 px-3 text-xs">
                     채번 규칙 등록하기
                   </Link>
                 )}
@@ -94,7 +94,7 @@ export default async function Dashboard() {
           <header className="flex items-center justify-between border-b border-line px-4 py-3">
             <h2 className="text-sm font-bold text-ink">채번 대상별 규칙</h2>
             {admin && (
-              <Link href="/numbering" className="text-xs font-semibold text-brand hover:underline">
+              <Link href="/settings/numbering" className="text-xs font-semibold text-brand hover:underline">
                 관리 →
               </Link>
             )}
@@ -137,7 +137,7 @@ export default async function Dashboard() {
           <header className="flex items-center justify-between border-b border-line px-4 py-3">
             <h2 className="text-sm font-bold text-ink">계정</h2>
             {admin && (
-              <Link href="/users" className="text-xs font-semibold text-brand hover:underline">
+              <Link href="/settings/users" className="text-xs font-semibold text-brand hover:underline">
                 관리 →
               </Link>
             )}
@@ -171,7 +171,7 @@ export default async function Dashboard() {
             </span>
           </h2>
           {hasRole(user, 'SYS_ADMIN', 'PROD_MGR') && (
-            <Link href="/audit" className="text-xs font-semibold text-brand hover:underline">
+            <Link href="/settings/audit" className="text-xs font-semibold text-brand hover:underline">
               전체 보기 →
             </Link>
           )}

@@ -67,7 +67,7 @@ export async function saveRule(_prev: FormState, form: FormData): Promise<FormSt
       );
     });
 
-    revalidatePath('/numbering');
+    revalidatePath('/settings/numbering');
     revalidatePath('/');
     return {
       ok: true,
@@ -89,7 +89,7 @@ export async function retireRule(_prev: FormState, form: FormData): Promise<Form
     await withActor(user.id, (db) =>
       db.rows(`update numbering_rule set is_active = false where id = $1`, [id]),
     );
-    revalidatePath('/numbering');
+    revalidatePath('/settings/numbering');
     revalidatePath('/');
     return {
       ok: true,

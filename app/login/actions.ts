@@ -4,6 +4,8 @@ import { redirect } from 'next/navigation';
 import { withActor } from '@/lib/db';
 import { verifyPin } from '@/lib/auth';
 import { startSession } from '@/lib/session';
+import { withActor as _w } from '@/lib/db';
+import { homePath, type RoleCode } from '@/lib/roles';
 
 export interface LoginState { error?: string }
 
@@ -12,6 +14,7 @@ interface UserRow {
   pin_hash: string | null;
   is_active: boolean;
   can_login: boolean;
+  roles: RoleCode[] | null;
 }
 
 /* 로그인 화면은 공개 URL이다. 원본 오류 문구를 그대로 올리면 접속 계정명이나
@@ -45,7 +48,12 @@ export async function login(_prev: LoginState, form: FormData): Promise<LoginSta
   try {
     row = await withActor(null, (db) =>
       db.one<UserRow>(
-        `select id, pin_hash, is_active, can_login from app_user where login_code = $1`,
+        `select u.id, u.pin_hash, u.is_active, u.can_login,
+                array_remove(array_agg(r.role::text order by r.role), null)::text[] as roles
+           from app_user u
+           left join user_role r on r.user_id = u.id
+          where u.login_code = $1
+          group by u.id`,
         [code],
       ),
     );
@@ -71,5 +79,7 @@ export async function login(_prev: LoginState, form: FormData): Promise<LoginSta
     };
   }
 
-  redirect('/');            // redirect는 예외를 던진다. try 안에 넣지 말 것.
+  // 관리자면 관리 화면, 작업자면 현장 화면으로 간다.
+  // redirect는 예외를 던진다. try 안에 넣지 말 것.
+  redirect(homePath(row.roles ?? []));
 }
