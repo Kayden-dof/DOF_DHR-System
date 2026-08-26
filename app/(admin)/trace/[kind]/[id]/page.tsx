@@ -5,6 +5,9 @@ import { withActor } from '@/lib/db';
 import { fmtDate, fmtDateTime } from '@/lib/fmt';
 import Denied from '@/components/denied';
 import { Panel, Empty, Tag, Field } from '@/components/ui';
+import { PageShell } from '@/components/shell';
+import { SubNav } from '../../../nav';
+import { TRACE_NAV } from '../../../sections';
 
 export const dynamic = 'force-dynamic';
 
@@ -93,17 +96,12 @@ async function MaterialView({ userId, id }: { userId: string; id: string }) {
 
   /* ---- 자재 로트 기준 (정추적) ------------------------------------------ */
   return (
-      <div className="space-y-5">
-        <Link href="/trace" className="text-xs font-semibold text-muted hover:text-ink">
-          조회로
-        </Link>
-        <div>
-          <h1 className="flex items-center gap-2 text-xl font-bold text-ink">
-            <span className="font-mono">{lot.lot_no}</span>
-            <Tag tone="info">자재 로트</Tag>
-          </h1>
-          <p className="mt-1 text-sm text-muted">{lot.item_name} · {lot.item_code}</p>
-        </div>
+      <PageShell
+        section="조회"
+        title={lot.lot_no}
+        lede={<>{lot.item_name} · {lot.item_code}</>}
+        nav={<SubNav items={TRACE_NAV} />}
+      >
 
         <Panel title="입고 정보">
           <div className="grid gap-x-6 gap-y-3 px-4 py-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -189,7 +187,7 @@ async function MaterialView({ userId, id }: { userId: string; id: string }) {
             </div>
           )}
         </Panel>
-      </div>
+      </PageShell>
   );
 }
 
@@ -224,6 +222,9 @@ async function BatchView({ userId, kind, id }: {
     return {
       wo,
       focusLot: kind === 'product' ? id : null,
+      focusLotNo: kind === 'product'
+        ? await db.val<string>(`select lot_no from product_lot where id = $1`, [id])
+        : null,
       lots: await db.rows<ProductLotRow>(
         `select pl.id, pl.lot_no, i.code as item_code, i.name as item_name,
                 pl.qty_produced, pl.qty_sample, pl.qty_available,
@@ -243,20 +244,27 @@ async function BatchView({ userId, kind, id }: {
   });
 
   if (!d) notFound();
-  const { wo, lots, genealogy, focusLot } = d;
+  const { wo, lots, genealogy, focusLot, focusLotNo } = d;
   const pre = genealogy.filter((g) => !g.after_cutting);
   const post = genealogy.filter((g) => g.after_cutting);
 
+  /*
+   * 제조번호로 들어왔는데 화면 제목이 배치번호였다. 찾은 번호는 P2608-0001 인데
+   * 화면은 B2608-0001 이라고 말하니, 잘못 눌렀나 싶어 되돌아가게 된다.
+   *
+   * 찾아 온 번호를 제목에 둔다. 계보는 배치를 거쳐야 원재료까지 닿으므로 아래
+   * 내용은 그대로 배치 전체를 보여 주고, 그 사실을 설명에 적는다.
+   */
   return (
-    <div className="space-y-5">
-      <Link href="/trace" className="text-xs font-semibold text-muted hover:text-ink">조회로</Link>
-      <div>
-        <h1 className="flex items-center gap-2 text-xl font-bold text-ink">
-          <span className="font-mono">{wo.batch_no}</span>
-          <Tag tone="quiet">배치</Tag>
-        </h1>
-        <p className="mt-1 text-sm text-muted">{wo.item_name} · {wo.dmr_revision}</p>
-      </div>
+    <PageShell
+      section="조회"
+      title={focusLotNo ?? wo.batch_no}
+      lede={focusLotNo
+        ? <>배치 <b className="font-mono text-ink">{wo.batch_no}</b> 에서 나왔습니다.
+            계보는 배치를 거쳐 원재료까지 닿습니다.</>
+        : <>{wo.item_name} · {wo.dmr_revision}</>}
+      nav={<SubNav items={TRACE_NAV} />}
+    >
 
       <Panel title="원재료" note="배치당 하나. 계보의 시작점입니다">
         <div className="grid gap-x-6 gap-y-3 px-4 py-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -326,7 +334,7 @@ async function BatchView({ userId, kind, id }: {
           <GenTable rows={post} lots={lots} />
         )}
       </Panel>
-    </div>
+    </PageShell>
   );
 }
 
