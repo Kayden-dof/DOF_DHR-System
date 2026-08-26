@@ -110,7 +110,8 @@ function LockScreen({
       else if (e.key === 'Backspace') { e.preventDefault(); keysRef.current.press('back'); }
       else if (e.key === 'Escape') { e.preventDefault(); keysRef.current.press('clear'); }
       else if (e.key === 'Enter') {
-        if (t && t.tagName === 'BUTTON') return;
+        // 번호판을 마우스로 누른 뒤의 Enter 도 잠금 해제여야 한다. 단추 기본
+        // 동작(마지막 숫자 재입력)을 끊는다. 로그아웃 단추는 Space 로 눌린다.
         e.preventDefault();
         void keysRef.current.submit();
       }

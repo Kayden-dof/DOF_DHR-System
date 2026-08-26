@@ -120,23 +120,30 @@ export default function LoginForm({ owners }: { owners: string[] }) {
         e.preventDefault();
         pressRef.current('clear');
       } else if (e.key === 'Enter') {
-        // 단추에 초점이 있으면 그 단추의 몫이다. 번호판 키를 엔터로 누르는
-        // 것까지 여기서 가로채면 키보드 사용자의 기본 동작이 죽는다.
-        if (t && t.tagName === 'BUTTON') return;
+        /*
+         * Enter 는 초점이 어디에 있든 "다음 칸 또는 로그인"이다.
+         *
+         * 번호판을 마우스로 누르면 초점이 그 숫자 단추에 남는다. 단추의 기본
+         * 동작에 맡기면 Enter 가 마지막 숫자를 한 번 더 누르고, 실제로 웹에서
+         * 비밀번호를 다 치고 Enter 를 쳤더니 사번 칸이 다시 열리는 일이 있었다.
+         * 그래서 기본 동작을 끊고 우리 규칙 하나로 통일한다.
+         * 단추를 키보드로만 다루는 경우에는 Space 가 기본 동작으로 남아 있다.
+         */
         e.preventDefault();
-        if (codeRef.current.length > 0 && pinRef.current.length === 0) {
-          // 사번만 찼으면 "다음 칸"이다
+        if (codeRef.current.length === 0) {
+          select('code');
+        } else if (pinRef.current.length === 0) {
           target.current = 'pin';
           setField('pin');
           redraw();
-        } else if (codeRef.current.length > 0 && pinRef.current.length > 0) {
+        } else if (!pending) {
           formRef.current?.requestSubmit();
         }
       }
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [field]);
+  }, [field, pending]);
 
   const code = codeRef.current;
   const pin = pinRef.current;
