@@ -49,6 +49,18 @@ const admin = await val(`select id from app_user order by login_code limit 1`);
 if (!admin) { console.error('계정이 없다. npm run dev 로 초기 관리자를 먼저 만들 것.'); process.exit(1); }
 await c.query(`select set_config('app.user_id', $1, false)`, [admin]);
 
+/*
+ * 시연 계정. 비밀번호는 전부 같은 값으로 둔다.
+ *
+ * 계정마다 다른 값을 두었더니 화면을 옮겨 다니며 확인할 때 어느 계정이 어느
+ * 번호였는지 매번 되짚어야 했다. 시연 자료는 언제든 다시 만드는 것이므로
+ * 여기서 값을 가릴 이유가 없다.
+ *
+ * 운영 계정은 다르다. 실제 사람이 쓰는 계정은 각자 다른 값이어야 하고,
+ * 그 값을 여기에 적지 않는다.
+ */
+const DEMO_PIN = '123456';
+
 // --- 사용자 -------------------------------------------------------------------
 const user = async (code, name, roles, pin) => {
   let id = await val(`select id from app_user where login_code = $1`, [code]);
@@ -73,15 +85,15 @@ await c.query(
   `update app_user set login_code = '000000', full_name = '개발 계정',
           is_developer = true, pin_hash = $2
     where id = $1`,
-  [admin, await hashPin('000000')]);
+  [admin, await hashPin(DEMO_PIN)]);
 await c.query(
   `insert into user_role (user_id, role) values ($1,'SYS_ADMIN')
    on conflict do nothing`, [admin]);
 
 // 사번 6자리. 실제 사번 체계로 바꿔 넣으면 된다.
-const qa = await user('100200', '박품질', ['PROD_MGR'], '246810');
-const w1 = await user('200100', '김작업', ['WORKER'], '111111');
-const w2 = await user('200200', '이작업', ['WORKER'], '222222');
+await user('100200', '박생산관리', ['PROD_MGR'], DEMO_PIN);
+await user('200100', '김작업', ['WORKER'], DEMO_PIN);
+await user('200200', '이작업', ['WORKER'], DEMO_PIN);
 await user('900100', '정품질책임', ['QP'], null);   // QP는 로그인하지 않는다
 console.log('사용자 4명');
 
@@ -276,10 +288,10 @@ await c.query(
 
 console.log('\n완료. 로그인 계정');
 
-console.log('  000000 개발 계정 (시스템관리자)   000000');
-console.log('  100200 박품질 (생산관리자)        246810');
-console.log('  200100 김작업 (작업자)            111111');
-console.log('  200200 이작업 (작업자)            222222');
-console.log('  900100 정품질책임 (품질책임자)    로그인하지 않는다');
+console.log(`  000000  개발 계정   시스템관리자   ${DEMO_PIN}`);
+console.log(`  100200  박생산관리  생산관리자     ${DEMO_PIN}`);
+console.log(`  200100  김작업      작업자         ${DEMO_PIN}`);
+console.log(`  200200  이작업      작업자         ${DEMO_PIN}`);
+console.log('  900100  정품질책임  품질책임자     로그인하지 않는다');
 
 await c.end();
