@@ -401,8 +401,13 @@ h1 { line-height: 1.25; }
   /* 번호는 줄바꿈하지 않는다. 로트번호가 두 줄로 갈리면 눈으로 대조를 못 한다.
      자리가 모자라면 표가 가로로 넘어가게 두고, 감싼 상자가 스크롤을 받는다. */
   .td .font-mono, .td.font-mono, .td .tnum, .td.tnum { white-space: nowrap; }
+
+  /* 표가 가로로 넘칠 때 오른쪽에 고정되는 칸. 배경이 없으면 글자가 겹쳐 보인다 */
+  .td.sticky, .th.sticky { background: var(--color-surface); }
+  .th.sticky { background: var(--color-surface-sub); }
   tbody tr { transition: background-color 120ms ease; }
   tbody tr:hover .td { background: var(--color-surface-sub); }
+  tbody tr:hover .td.sticky { background: var(--color-surface-sub); }
 
   .chip {
     display: inline-flex;
