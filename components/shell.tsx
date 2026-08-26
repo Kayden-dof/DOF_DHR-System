@@ -35,16 +35,35 @@ export function PageShell({
     <div className="space-y-6">
       <header className="space-y-5">
         <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
-          <div className="min-w-0 max-w-3xl">
+          {/*
+            * 제목 칸에 max-w 를 주면 설명이 길 때 칸이 그 너비까지 벌어져 주
+            * 동작이 아래 줄로 밀린다. 밀린 단추는 왼쪽에 붙어서 설명문에 딸린
+            * 것처럼 보였다. 칸은 남는 만큼 줄어들게 두고, 글줄 길이는 설명문
+            * 자체에서 잡는다.
+            */}
+          <div className="min-w-0 flex-1">
             {section && <p className="crumb">{section}</p>}
             <h1 className={`text-[1.625rem] font-bold leading-tight text-ink ${section ? 'mt-2' : ''}`}>
               {title}
             </h1>
             {lede && (
-              <p className="mt-2 text-[0.9375rem] leading-relaxed text-muted">{lede}</p>
+              <p className="mt-2 max-w-2xl text-[0.9375rem] leading-relaxed text-muted">{lede}</p>
             )}
           </div>
-          {action && <div className="flex shrink-0 items-center gap-2 pt-1">{action}</div>}
+          {/*
+            * 주 동작 자리에 놓이는 것이 단추 하나일 때도 있고, 눌러서 그 자리에
+            * 펼쳐지는 입력 폼일 때도 있다. 폼이 펼쳐지면 칸 하나에 눌려 절반
+            * 폭으로 접혔다 - 입고 등록처럼 열 개 넘는 칸이 들어가는 폼이 화면
+            * 왼쪽 절반에 끼어 있었다.
+            *
+            * 폼이 들어오면 그 줄을 통째로 내준다. 단추일 때는 지금처럼 제목
+            * 오른쪽에 붙는다.
+            */}
+          {action && (
+            <div className="flex shrink-0 items-center gap-2 pt-1 has-[form]:block has-[form]:w-full">
+              {action}
+            </div>
+          )}
         </div>
 
         {stats}

@@ -45,10 +45,6 @@ export default function ReceiveForm({ items, suppliers, orders, today }: {
   return (
     <form action={action} className="card p-4">
       <h3 className="text-sm font-bold text-ink">자재 입고</h3>
-      <p className="mt-1 text-xs leading-relaxed text-muted">
-        로트번호는 채번 규칙이 만듭니다. 성적서 번호는 반드시 입력해야 저장됩니다 (S02).
-      </p>
-
       <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="lg:col-span-2">
           <label className="label">품목</label>
