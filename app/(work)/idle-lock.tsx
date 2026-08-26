@@ -1,0 +1,182 @@
+'use client';
+
+import { useEffect, useReducer, useRef, useState } from 'react';
+import { unlock, type LoginState } from './lock-action';
+import { logout } from './actions';
+
+const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'clear', '0', 'back'];
+
+/* ---------------------------------------------------------------------------
+   자리 비움 잠금
+
+   현장 패드는 한 대를 여러 사람이 번갈아 쓴다. 앞사람이 로그아웃을 잊으면 다음
+   사람의 작업이 앞사람 이름으로 기록된다. 기록은 지울 수 없어 정정 기록으로만
+   바로잡을 수 있고, 이미 인쇄된 묶음은 고칠 방법이 없다.
+
+   로그아웃이 아니라 잠금이다. 세션은 8시간 그대로 두고 화면만 덮는다.
+   비밀번호를 다시 누르면 하던 자리로 돌아오고 쓰던 입력도 그대로 남는다.
+   공정을 끝내고 손을 씻고 오면 처음부터 다시 쳐야 하는 일이 없어야 한다.
+
+   본인 확인이므로 사번은 묻지 않는다. 다른 사람이라면 로그아웃하고 자기
+   계정으로 들어와야 한다. 그 길도 같이 열어 둔다.
+--------------------------------------------------------------------------- */
+
+export default function IdleLock({
+  minutes, name, initial,
+}: { minutes: number; name: string; initial: string }) {
+  const [locked, setLocked] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastActive = useRef(Date.now());
+
+  const ms = minutes * 60_000;
+
+  useEffect(() => {
+    if (locked) return;
+
+    /*
+     * 남은 시간을 마지막 조작 시각에서 계산한다.
+     *
+     * 타이머만 다시 걸면 화면이 잠들었다 깨어날 때마다 시간이 새로 시작된다.
+     * 패드를 덮어 두고 자리를 비운 경우가 정확히 그 상황이라, 그렇게 두면
+     * 가장 잠겨야 할 때 잠기지 않는다. 브라우저도 배경에서는 타이머를 늦춘다.
+     */
+    const tick = () => {
+      const left = ms - (Date.now() - lastActive.current);
+      if (left <= 0) { setLocked(true); return; }
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = setTimeout(tick, Math.min(left, 30_000));
+    };
+
+    const touch = () => { lastActive.current = Date.now(); };
+
+    // 손이 닿는 모든 것을 센다. passive 로 붙여 스크롤을 늦추지 않는다.
+    const evs = ['pointerdown', 'keydown', 'wheel', 'touchstart'] as const;
+    for (const e of evs) window.addEventListener(e, touch, { passive: true });
+    document.addEventListener('visibilitychange', tick);
+
+    tick();
+
+    return () => {
+      for (const e of evs) window.removeEventListener(e, touch);
+      document.removeEventListener('visibilitychange', tick);
+      if (timer.current) clearTimeout(timer.current);
+    };
+  }, [locked, ms]);
+
+  if (!locked) return null;
+  return (
+    <LockScreen
+      name={name}
+      initial={initial}
+      onOpen={() => { lastActive.current = Date.now(); setLocked(false); }}
+    />
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+function LockScreen({
+  name, initial, onOpen,
+}: { name: string; initial: string; onOpen: () => void }) {
+  const pin = useRef('');
+  const [, redraw] = useReducer((n: number) => n + 1, 0);
+  const [state, setState] = useState<LoginState>({});
+  const [busy, setBusy] = useState(false);
+
+  function press(k: string) {
+    if (busy) return;
+    if (k === 'clear') { pin.current = ''; setState({}); redraw(); return; }
+    pin.current = k === 'back'
+      ? pin.current.slice(0, -1)
+      : pin.current.length >= 12 ? pin.current : pin.current + k;
+    setState({});
+    redraw();
+  }
+
+  async function submit() {
+    if (busy || !pin.current) return;
+    setBusy(true);
+    const r = await unlock(pin.current);
+    setBusy(false);
+    if (r.error) {
+      pin.current = '';
+      setState(r);
+      redraw();
+      return;
+    }
+    pin.current = '';
+    onOpen();
+  }
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="자리 비움 잠금"
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-indigo-deep/95 p-5 backdrop-blur-sm"
+    >
+      <div className="w-full max-w-[22rem] py-6">
+        <div className="text-center">
+          <span
+            aria-hidden
+            className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-white/15 text-xl font-bold text-white"
+          >
+            {initial}
+          </span>
+          <h2 className="mt-4 text-xl font-bold text-white">{name} 님</h2>
+          <p className="mt-1.5 text-sm text-on-dark-mute">
+            자리를 비운 사이 화면을 잠갔습니다. 비밀번호를 누르면 하던 자리로 돌아갑니다.
+          </p>
+        </div>
+
+        <div className="card-raised mt-6 p-4">
+          <div className="flex h-[3.25rem] items-center justify-center rounded-md border border-line-strong bg-surface">
+            <span className="text-2xl font-semibold tnum tracking-[0.3em] text-ink">
+              {'•'.repeat(pin.current.length) || (
+                <span className="text-faint">&middot;</span>
+              )}
+            </span>
+          </div>
+
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            {KEYS.map((k) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => press(k)}
+                aria-label={k === 'clear' ? '전체 지움' : k === 'back' ? '한 자 지움' : k}
+                className={k === 'clear' || k === 'back' ? 'padkey padkey-alt' : 'padkey'}
+              >
+                {k === 'clear' ? '전체지움' : k === 'back' ? '⌫' : k}
+              </button>
+            ))}
+          </div>
+
+          {state.error && (
+            <p role="alert"
+               className="rise mt-3 rounded-md border border-danger-line bg-danger-bg px-3.5 py-2.5 text-sm leading-relaxed text-danger">
+              {state.error}
+            </p>
+          )}
+
+          <button
+            type="button"
+            onClick={submit}
+            disabled={busy || !pin.current}
+            className="btn-primary mt-3 h-[3.25rem] w-full text-base"
+          >
+            {busy ? '확인 중' : '잠금 해제'}
+          </button>
+        </div>
+
+        {/* 다른 사람이면 자기 계정으로 들어가야 한다 */}
+        <form action={logout} className="mt-5 text-center">
+          <button type="submit"
+                  className="rounded px-2 py-1 text-xs font-semibold text-on-dark-mute transition-colors hover:text-white">
+            다른 사람이 쓰려면 로그아웃
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}

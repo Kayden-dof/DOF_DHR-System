@@ -4,6 +4,7 @@ import { requireUser } from '@/lib/session';
 import { isAdmin, isWorker } from '@/lib/roles';
 import { WordmarkOnDark } from '@/components/logo';
 import { logout } from './actions';
+import IdleLock from './idle-lock';
 
 /* ---------------------------------------------------------------------------
    현장 화면
@@ -77,6 +78,13 @@ export default async function WorkLayout({ children }: { children: React.ReactNo
       </header>
 
       <main className="mx-auto w-full max-w-[1400px] flex-1 px-5 py-6">{children}</main>
+
+      {/*
+        * 자리 비움 잠금. 로그아웃이 아니라 화면만 덮는다. 세션은 8시간 그대로다.
+        * 시간은 공정 대기 시간을 보고 정해야 한다. 초임계 가공처럼 오래 도는
+        * 공정이 있으면 더 길어야 한다.
+        */}
+      <IdleLock minutes={20} name={user.full_name} initial={user.full_name.slice(0, 1)} />
 
       <footer className="mx-auto w-full max-w-[1400px] px-5 pb-8">
         <p className="border-t border-white/12 pt-4 text-xs leading-relaxed text-on-dark-mute">
