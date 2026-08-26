@@ -75,9 +75,12 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                 exists (select 1 from day_lock dl
                          where dl.work_order_id = pr.work_order_id
                            and dl.day_no = pr.day_no and dl.worker_id = pr.worker_id) as locked,
-                (select count(*)::int from record_print rp
-                  where rp.kind = 'DAY_RECORD' and rp.work_order_id = pr.work_order_id
-                    and rp.day_no = pr.day_no and rp.worker_id = pr.worker_id) as printed
+                /* 인쇄 횟수가 아니라 마지막에 뽑은 장수. 편철 매수와 같은 값이다 */
+                coalesce((
+                  select rp.pages from record_print rp
+                   where rp.kind = 'DAY_RECORD' and rp.work_order_id = pr.work_order_id
+                     and rp.day_no = pr.day_no and rp.worker_id = pr.worker_id
+                   order by rp.seq desc limit 1), 0) as printed
            from process_record pr join app_user u on u.id = pr.worker_id
           where pr.work_order_id = $1
           group by pr.work_order_id, pr.day_no, pr.worker_id, u.full_name
@@ -118,6 +121,15 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
     d.finished.filter((f) => used.has(f.code)).map((f) => f.id));
   const active = wo.status !== 'CANCELLED' && wo.status !== 'DONE';
 
+  // 편철 전에 남은 것. 사실만 세고 판정하지 않는다 (§10).
+  const unprinted = d.days.filter((r) => r.printed === 0).length;
+  const remaining = [
+    active && '배치 미종료',
+    unprinted > 0 && `기록서 미발행 ${unprinted}건`,
+    d.lots.length === 0 && wo.status !== 'CANCELLED' && '재단 전',
+  ].filter(Boolean) as string[];
+  const totalPages = d.days.reduce((a, r) => a + r.printed, 0);
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -135,17 +147,14 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
             {wo.item_name} · {wo.item_code} · {wo.dmr_revision}
           </p>
         </div>
+        {/*
+          * 인쇄물은 각자 시점이 있다. 한 줄에 나란히 두면 아무 때나 뽑아도 되는
+          * 것처럼 읽힌다. 여기에는 착수 전 문서만 두고, 라벨요청서는 재단 칸에,
+          * 편철 표지는 배치를 닫는 칸에 둔다.
+          */}
         <div className="flex flex-wrap items-center gap-2">
-          <Link href={`/print/work-order/${wo.id}`} className="btn-ghost h-9 px-3 text-xs">
+          <Link href={`/print/work-order/${wo.id}`} className="btn-ghost">
             작업 지시서 인쇄
-          </Link>
-          {d.lots.length > 0 && (
-            <Link href={`/print/label-request/${wo.id}`} className="btn-ghost h-9 px-3 text-xs">
-              라벨요청서
-            </Link>
-          )}
-          <Link href={`/print/cover/${wo.id}`} className="btn-ghost h-9 px-3 text-xs">
-            편철 표지
           </Link>
           {active && <FinishForm id={wo.id} />}
         </div>
@@ -230,6 +239,12 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
       <Panel
         title="제품 로트 (재단 분할)"
         note="재단에서 형명별로 나누고 제조번호를 부여한다"
+        action={d.lots.length > 0 ? (
+          // 라벨요청서는 재단 뒤에 뽑는다 (§7). 재단 결과가 그대로 요청 내용이다.
+          <Link href={`/print/label-request/${wo.id}`} className="btn-ghost h-8">
+            라벨요청서
+          </Link>
+        ) : null}
       >
         {d.lots.length === 0 ? (
           <Empty>아직 재단하지 않았습니다.</Empty>
@@ -412,11 +427,47 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
         </Panel>
       )}
 
-      {active && (
-        <div className="flex justify-end">
-          <CancelForm id={wo.id} />
+      {/* ---------------------------------------------------------------
+          배치를 닫는 칸
+
+          편철 표지는 배치가 끝난 뒤에 뽑는다 (§7 "로트 종료"). 표지에 적히는
+          매수와 목록이 기록이 쌓일수록 바뀌기 때문이다. 그래서 다른 인쇄물과
+          같은 줄에 두지 않고 여기, 배치를 닫는 자리에 둔다.
+
+          아직 안 끝났어도 막지는 않는다 (§2 차단은 다섯 개뿐이다). 대신 무엇이
+          남았는지 적어 두고, 그렇게 뽑은 종이에도 같은 문장이 인쇄된다.
+      --------------------------------------------------------------- */}
+      <Panel title="배치 종료와 편철" note="편철 표지는 배치가 끝난 뒤에 뽑습니다">
+        <div className="flex flex-wrap items-start justify-between gap-4 p-4">
+          <div className="min-w-0 space-y-1.5">
+            {remaining.length > 0 ? (
+              <>
+                <p className="text-sm text-ink">
+                  아직 남은 것이 있습니다: <b>{remaining.join(' · ')}</b>
+                </p>
+                <p className="text-xs leading-relaxed text-muted">
+                  지금 뽑아도 되지만 매수와 목록이 확정값이 아닙니다.
+                  그 종이에도 미완료 표시가 함께 인쇄됩니다.
+                </p>
+              </>
+            ) : (
+              <p className="text-sm leading-relaxed text-muted">
+                기록서 <b className="tnum text-ink">{totalPages}</b>장 ·
+                제품 로트 <b className="tnum text-ink">{d.lots.length}</b>건.
+                표지를 뽑아 종이 묶음 맨 위에 얹고 매수를 세어 맞춰 보십시오.
+              </p>
+            )}
+          </div>
+
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <Link href={`/print/cover/${wo.id}`}
+                  className={remaining.length === 0 ? 'btn-primary' : 'btn-ghost'}>
+              편철 표지
+            </Link>
+            {active && <CancelForm id={wo.id} />}
+          </div>
         </div>
-      )}
+      </Panel>
     </div>
   );
 }

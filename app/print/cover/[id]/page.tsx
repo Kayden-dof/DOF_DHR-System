@@ -30,7 +30,10 @@ interface LotRow {
   qty_produced: number; qty_sample: number; qty_available: number;
   manufactured_on: string; expiry_date: string; status: string;
 }
-interface DayRow { day_no: number; worker_name: string; work_date: string; records: number; prints: number }
+interface DayRow {
+  day_no: number; worker_name: string; work_date: string;
+  records: number; prints: number; issues: number;
+}
 
 export default async function CoverSheet({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
@@ -74,9 +77,21 @@ export default async function CoverSheet({ params }: { params: Promise<{ id: str
       days: await db.rows<DayRow>(
         `select pr.day_no, u.full_name as worker_name,
                 min(pr.work_date)::text as work_date, count(*)::int as records,
+                /*
+                 * 인쇄 "횟수"가 아니라 실제 장수를 센다. 제조기록서는 생산 규격
+                 * 기록지까지 두 장이 되기도 한다. 표지의 매수와 실제 종이가
+                 * 어긋나면 이 표지가 존재하는 이유가 사라진다.
+                 *
+                 * 재발행분은 세지 않는다. 마지막에 뽑은 것만 편철에 들어간다.
+                 */
+                coalesce((
+                  select rp.pages from record_print rp
+                   where rp.kind='DAY_RECORD' and rp.work_order_id = pr.work_order_id
+                     and rp.day_no = pr.day_no and rp.worker_id = pr.worker_id
+                   order by rp.seq desc limit 1), 0) as prints,
                 (select count(*)::int from record_print rp
                   where rp.kind='DAY_RECORD' and rp.work_order_id = pr.work_order_id
-                    and rp.day_no = pr.day_no and rp.worker_id = pr.worker_id) as prints
+                    and rp.day_no = pr.day_no and rp.worker_id = pr.worker_id) as issues
            from process_record pr join app_user u on u.id = pr.worker_id
           where pr.work_order_id = $1
           group by pr.work_order_id, pr.day_no, pr.worker_id, u.full_name
@@ -86,6 +101,14 @@ export default async function CoverSheet({ params }: { params: Promise<{ id: str
 
   if (!d) notFound();
   const { head, materials, lots, days } = d;
+
+  // 아직 남아 있는 것. 사실만 적고 판정하지 않는다 (§10).
+  const openDays = days.filter((r) => r.prints === 0).length;
+  const open = [
+    head.status !== 'DONE' && head.status !== 'CANCELLED' && '배치 미종료',
+    openDays > 0 && `기록서 미발행 ${openDays}건`,
+    lots.length === 0 && '재단 전',
+  ].filter(Boolean) as string[];
 
   const meta = await logPrint({
     actorId: user.id, actorName: user.full_name, kind: 'COVER',
@@ -132,6 +155,19 @@ export default async function CoverSheet({ params }: { params: Promise<{ id: str
           </tr>
         </tbody>
       </table>
+
+      {/*
+        * 편철 표지는 배치가 끝난 뒤에 뽑는다 (§7 "로트 종료"). 표지에 적히는
+        * 값이 기록이 쌓일수록 바뀌기 때문이다. 일찍 뽑는 것을 막지는 않지만
+        * (§2 차단은 다섯 개뿐이다), 그 종이에는 아직 끝나지 않았다고 적어 둔다.
+        * 나중에 이 종이만 보고 완결된 묶음으로 오해하지 않게 한다.
+        */}
+      {open.length > 0 && (
+        <p className="mt-3 border-2 border-black p-2 text-xs font-bold text-black">
+          이 배치는 아직 끝나지 않았습니다 ({open.join(' · ')}).
+          편철은 배치가 끝난 뒤에 합니다. 지금 이 표지의 매수와 목록은 확정값이 아닙니다.
+        </p>
+      )}
 
       {head.cancelled_reason && (
         <p className="mt-3 border border-black p-2 text-xs font-bold text-black">
@@ -220,11 +256,16 @@ export default async function CoverSheet({ params }: { params: Promise<{ id: str
               <td className="tnum">{fmtDate(r.work_date)}</td>
               <td>{r.worker_name}</td>
               <td className="text-right tnum">{r.records}</td>
-              <td className="text-right tnum">{r.prints}</td>
+              <td className="text-right tnum">
+                {r.prints || '미발행'}
+                {r.issues > 1 && (
+                  <span className="ml-1 text-[9px]">재발행 {r.issues - 1}</span>
+                )}
+              </td>
             </tr>
           ))}
           <tr>
-            <th colSpan={4} className="text-right">기록서 총 매수</th>
+            <th colSpan={4} className="text-right">기록서 총 매수 (이 장 제외)</th>
             <td className="text-right tnum font-bold">
               {days.reduce((s, r) => s + r.prints, 0)}
             </td>

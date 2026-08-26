@@ -48,13 +48,14 @@ export async function logPrint(a: LogArgs): Promise<PrintMeta> {
   const row = await withActor(a.actorId, (db) =>
     a.lockDay
       ? db.one<{ seq: number; printed_at: Date }>(
-          `select seq, printed_at from print_day_record($1,$2,$3,$4)`,
-          [a.workOrderId, a.dayNo, a.workerId, hash])
+          `select seq, printed_at from print_day_record($1,$2,$3,$4,$5)`,
+          [a.workOrderId, a.dayNo, a.workerId, hash, a.pages ?? 1])
       : db.one<{ seq: number; printed_at: Date }>(
           `select seq, printed_at from record_print_log(
-             $1::print_kind, $2, $3, $4, $5, $6, $7)`,
+             $1::print_kind, $2, $3, $4, $5, $6, $7, $8)`,
           [a.kind, hash, a.workOrderId ?? null, a.productLotId ?? null,
-           a.dayNo ?? null, a.workerId ?? null, a.materialLotId ?? null]),
+           a.dayNo ?? null, a.workerId ?? null, a.materialLotId ?? null,
+           a.pages ?? 1]),
   );
 
   return {
