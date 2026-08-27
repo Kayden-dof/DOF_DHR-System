@@ -4,6 +4,7 @@ import { requireUser } from '@/lib/session';
 import { isAdmin, isWorker } from '@/lib/roles';
 import { WordmarkOnDark } from '@/components/logo';
 import Watermark, { stamp } from '@/components/watermark';
+import BackFab from '@/components/back-fab';
 import { logout } from './actions';
 import IdleLock from './idle-lock';
 
@@ -96,6 +97,12 @@ export default async function WorkLayout({ children }: { children: React.ReactNo
 
       {/* 감사 04. 현장 패드는 여러 사람이 번갈아 쓴다. 바탕이 어두우니 밝게 깐다 */}
       <Watermark text={stamp(user.full_name, user.login_code)} tone="light" />
+
+      {/*
+        * 홈 화면에서 전체 화면으로 띄우면 브라우저 뒤로가기가 없다.
+        * 첫 화면에서는 스스로 숨는다 (components/back-fab.tsx).
+        */}
+      <BackFab />
     </div>
   );
 }

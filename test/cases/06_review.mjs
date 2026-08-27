@@ -388,23 +388,29 @@ export default [
     const m = await master(t);
     await t.setActor(m.admin);
 
-    // 기존 구간을 치우고 세 구간을 새로 깐다
-    await t.rows(`update sample_plan set max_qty = 0 where device_master_id = $1`, [m.dm]);
+    /*
+     * 표준서를 따로 세운다. 공용 표준서에 구간을 덮어쓰면 이 시험이 다른
+     * 시험의 자료를 바꾸고, 이 시스템에는 삭제가 없어 되돌릴 수도 없다.
+     */
+    const item = await t.val(
+      `insert into item (code,name,type,purchase_uom,usage_uom)
+       values ('ZZ-SP-TIER','시료 구간 시험','FIN','EA','EA') returning id`);
+    const dm = await t.val(
+      `insert into device_master (item_id,revision,status,effective_from)
+       values ($1,'Rev.01','ACTIVE',current_date) returning id`, [item]);
+
     for (const [lo, hi, n] of [[1, 50, 3], [51, 150, 5], [151, null, 8]]) {
       await t.rows(
         `insert into sample_plan (device_master_id, min_qty, max_qty, sample_qty, registered_by)
-         values ($1,$2,$3,$4,$5)
-         on conflict (device_master_id, min_qty)
-           do update set max_qty = excluded.max_qty, sample_qty = excluded.sample_qty`,
-        [m.dm, lo, hi, n, m.admin]);
+         values ($1,$2,$3,$4,$5)`, [dm, lo, hi, n, m.admin]);
     }
 
-    t.eq(await t.val(`select required_sample($1,$2)`, [m.dm, 1]),   3, '1개');
-    t.eq(await t.val(`select required_sample($1,$2)`, [m.dm, 50]),  3, '50개');
-    t.eq(await t.val(`select required_sample($1,$2)`, [m.dm, 51]),  5, '51개');
-    t.eq(await t.val(`select required_sample($1,$2)`, [m.dm, 150]), 5, '150개');
-    t.eq(await t.val(`select required_sample($1,$2)`, [m.dm, 151]), 8, '151개');
-    t.eq(await t.val(`select required_sample($1,$2)`, [m.dm, 900]), 8, '상한 없는 구간');
+    t.eq(await t.val(`select required_sample($1,$2)`, [dm, 1]),   3, '1개');
+    t.eq(await t.val(`select required_sample($1,$2)`, [dm, 50]),  3, '50개');
+    t.eq(await t.val(`select required_sample($1,$2)`, [dm, 51]),  5, '51개');
+    t.eq(await t.val(`select required_sample($1,$2)`, [dm, 150]), 5, '150개');
+    t.eq(await t.val(`select required_sample($1,$2)`, [dm, 151]), 8, '151개');
+    t.eq(await t.val(`select required_sample($1,$2)`, [dm, 900]), 8, '상한 없는 구간');
   },
 },
 
@@ -417,7 +423,7 @@ export default [
 
     const item = await t.val(
       `insert into item (code,name,type,purchase_uom,usage_uom)
-       values ('ZZ-SP-TEST','시험 제품','FIN','EA','EA') returning id`);
+       values ('ZZ-SP-NONE','구간 없는 제품','FIN','EA','EA') returning id`);
     const dm = await t.val(
       `insert into device_master (item_id,revision,status,effective_from)
        values ($1,'Rev.01','ACTIVE',current_date) returning id`, [item]);

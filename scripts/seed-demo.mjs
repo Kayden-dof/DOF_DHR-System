@@ -175,25 +175,31 @@ if (!dm) {
     `insert into device_master (item_id, revision, status, effective_from, verified_by, verified_at)
      values ($1,'Rev.02','ACTIVE',current_date,$2,now()) returning id`, [fin, admin]);
 
+  /*
+   * 마지막 칸은 보통 몇 일차에 하는 공정인가다. 참고값이라 실제 기록 일차를
+   * 제약하지 않는다. 아래 배분은 흐름을 보이기 위한 예시이며, 실제 값은
+   * 생산관리자가 제품 등록 화면에서 넣는다.
+   */
   const OPS = [
-    [1,  'WS-DX2401-01', 'NaCl 처리·세척', false],
-    [2,  'WS-DX2401-02', '초임계 가공',     false],
-    [3,  'WS-DX2401-03', '알칼리 처리',     false],
-    [4,  'WS-DX2401-04', 'H₂O₂ 처리',       false],
-    [5,  'WS-DX2401-05', '세척',            false],
-    [6,  'WS-DX2401-06', '동결건조',        false],
-    [7,  'PI-DX2401-01', '1차 반제품 검사', false],
-    [8,  'WS-DX2401-07', '재단',            false],
-    [9,  'WS-DX2401-08', '포장(1·2차)',     true ],
-    [10, 'PI-DX2401-02', '2차 반제품 검사', true ],
-    [11, 'WS-DX2401-09', '멸균(외부 위탁)', true ],
-    [12, 'FI-DX2401-01', '완제품 검사',     true ],
+    [1,  'WS-DX2401-01', 'NaCl 처리·세척', false, 1],
+    [2,  'WS-DX2401-02', '초임계 가공',     false, 1],
+    [3,  'WS-DX2401-03', '알칼리 처리',     false, 2],
+    [4,  'WS-DX2401-04', 'H₂O₂ 처리',       false, 2],
+    [5,  'WS-DX2401-05', '세척',            false, 2],
+    [6,  'WS-DX2401-06', '동결건조',        false, 3],
+    [7,  'PI-DX2401-01', '1차 반제품 검사', false, 4],
+    [8,  'WS-DX2401-07', '재단',            false, 4],
+    [9,  'WS-DX2401-08', '포장(1·2차)',     true , 5],
+    [10, 'PI-DX2401-02', '2차 반제품 검사', true , 5],
+    [11, 'WS-DX2401-09', '멸균(외부 위탁)', true , 6],
+    [12, 'FI-DX2401-01', '완제품 검사',     true , 7],
   ];
   const ops = {};
-  for (const [seq, code, name, ac] of OPS) {
+  for (const [seq, code, name, ac, day] of OPS) {
     ops[code] = await val(
-      `insert into dmr_operation (device_master_id, seq, code, name, after_cutting)
-       values ($1,$2,$3,$4,$5) returning id`, [dm, seq, code, name, ac]);
+      `insert into dmr_operation
+         (device_master_id, seq, code, name, after_cutting, typical_day)
+       values ($1,$2,$3,$4,$5,$6) returning id`, [dm, seq, code, name, ac, day]);
   }
 
   const TIER3 = [[1,10,1],[11,20,2],[21,30,3]];                       // 시약 10장 단위

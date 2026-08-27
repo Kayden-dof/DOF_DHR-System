@@ -30,6 +30,7 @@ interface Wo {
 interface PlanRow { item_code: string; item_name: string; planned_qty: number | null }
 interface OpRow {
   seq: number; code: string; name: string; after_cutting: boolean;
+  typical_day: number | null;
   materials: { item_code: string; item_name: string; usage_uom: string;
                basis: string; required: string | null }[];
   /** 공정에 걸린 설비. 소요량 표의 설비 열에 만료일과 함께 찍힌다 */
@@ -76,7 +77,7 @@ export default async function WorkOrderSheet({ params }: { params: Promise<{ id:
       today: await db.val<string>(
         `select to_char(timezone('Asia/Seoul', now()), 'YYYY-MM-DD')`),
       ops: await db.rows<OpRow>(
-        `select o.seq, o.code, o.name, o.after_cutting,
+        `select o.seq, o.code, o.name, o.after_cutting, o.typical_day,
                 coalesce((
                   select json_agg(json_build_object(
                     'item_code', r.item_code, 'item_name', r.item_name,
@@ -223,10 +224,11 @@ export default async function WorkOrderSheet({ params }: { params: Promise<{ id:
         <thead>
           <tr>
             <th className="w-[6%] text-center">순번</th>
-            <th className="w-[15%]">공정 코드</th>
-            <th className="w-[19%]">공정명</th>
-            <th className="w-[26%]">자재</th>
-            <th className="w-[12%] text-right">소요량</th>
+            <th className="w-[7%] text-center">일차</th>
+            <th className="w-[14%]">공정 코드</th>
+            <th className="w-[17%]">공정명</th>
+            <th className="w-[23%]">자재</th>
+            <th className="w-[11%] text-right">소요량</th>
             <th className="w-[22%]">설비 · 밸리데이션 만료</th>
           </tr>
         </thead>
@@ -260,6 +262,7 @@ export default async function WorkOrderSheet({ params }: { params: Promise<{ id:
             return o.materials.length === 0 ? (
               <tr key={o.seq}>
                 <td className="text-center tnum">{o.seq}</td>
+                <td className="text-center tnum">{o.typical_day ?? ''}</td>
                 <td className="font-mono">{o.code}</td>
                 <td>{o.name}{o.after_cutting ? ' (재단 이후)' : ''}</td>
                 <td className="text-center">-</td>
@@ -272,6 +275,7 @@ export default async function WorkOrderSheet({ params }: { params: Promise<{ id:
                   {i === 0 && (
                     <>
                       <td rowSpan={rows} className="text-center tnum">{o.seq}</td>
+                      <td rowSpan={rows} className="text-center tnum">{o.typical_day ?? ''}</td>
                       <td rowSpan={rows} className="font-mono">{o.code}</td>
                       <td rowSpan={rows}>
                         {o.name}{o.after_cutting ? ' (재단 이후)' : ''}
@@ -293,6 +297,8 @@ export default async function WorkOrderSheet({ params }: { params: Promise<{ id:
       </table>
 
       <p className="mt-2 text-[10px] leading-relaxed text-black">
+        일차는 보통 며칠째에 하는 공정인지를 적은 참고값입니다. 실제 작업 일차는
+        현장이 정하며 이 표가 그것을 제약하지 않습니다.
         실제로 투입한 자재의 로트번호와 수량은 제조기록서에 기록되므로 이 표에
         따로 표시하지 않습니다.
         시약과 포장재의 로트번호는 이 지시서에 인쇄하지 않습니다. 착수 전에 확정되지 않으며,

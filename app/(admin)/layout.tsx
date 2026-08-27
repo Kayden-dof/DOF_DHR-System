@@ -4,6 +4,7 @@ import { requireUser, hasRole, ROLE_LABEL } from '@/lib/session';
 import { isAdmin, isWorker } from '@/lib/roles';
 import { Wordmark } from '@/components/logo';
 import Watermark, { stamp } from '@/components/watermark';
+import BackFab from '@/components/back-fab';
 import { logout } from './actions';
 import Nav, { type NavItem } from './nav';
 
@@ -118,6 +119,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
       {/* 감사 04. 캡처를 막지는 못하고, 찍히면 누가 언제 봤는지가 함께 남는다 */}
       <Watermark text={stamp(user.full_name, user.login_code)} />
+
+      {/*
+        * 홈 화면에서 전체 화면으로 띄우면 브라우저 뒤로가기가 없다.
+        * 첫 화면에서는 스스로 숨는다 (components/back-fab.tsx).
+        */}
+      <BackFab />
     </div>
   );
 }

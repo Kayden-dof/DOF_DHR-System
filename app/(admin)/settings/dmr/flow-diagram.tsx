@@ -80,6 +80,12 @@ export default function FlowDiagram({
                       {op.name}
                     </span>
                     <code className="font-mono text-[0.6875rem] text-faint">{op.code}</code>
+                    {/* 보통 몇 일차. 흐름을 보며 며칠짜리인지 가늠하게 한다 */}
+                    {op.typical_day !== null && (
+                      <span className="tnum text-[0.6875rem] text-muted">
+                        보통 {op.typical_day}일차
+                      </span>
+                    )}
                   </div>
 
                   <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[0.6875rem]">

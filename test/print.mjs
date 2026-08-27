@@ -43,6 +43,9 @@ const wo = await one(
   `select wo.id, wo.wo_no, wo.batch_no, wo.sheet_count, wo.dmr_revision,
           i.code as item_code, i.name as item_name,
           dm.product_code, dm.product_name,
+          (select array_agg(o.typical_day order by o.seq)
+             from dmr_operation o
+            where o.device_master_id = dm.id and o.typical_day is not null) as typical_days,
           ml.lot_no as raw_lot_no, ml.thickness_band, ml.coa_no,
           s.name as supplier_name, ml.supplier_lot_no,
           up.full_name as prod_name, uq.full_name as qa_name
@@ -272,6 +275,10 @@ await sheet('④ 편철 표지', `/print/cover/${wo.id}`, [
   { label: '원재료 로트번호', value: wo.raw_lot_no },
   { label: '성적서 번호',     value: wo.coa_no },
   { label: '장입 장수',       value: String(wo.sheet_count) },
+  // 공정이 보통 몇 일차인지. 참고값이지만 종이에 나와야 계획을 세운다
+  ...(wo.typical_days ?? []).map((d, i) => ({
+    label: `공정 ${i + 1} 보통 일차`, value: String(d),
+  })),
   ...lots.map((l) => ({ label: `제품 로트 ${l.item_code}`, value: l.lot_no })),
   // 일차는 칸 하나에 숫자로 적힌다. 대조는 그 줄의 작업자와 작업일로 한다
   ...(day ? [

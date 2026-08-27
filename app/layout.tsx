@@ -32,7 +32,23 @@ export const metadata: Metadata = {
   },
   description: '제조기록 지원 시스템. 정본은 서명된 종이다.',
   applicationName: 'DOF DHR',
-  icons: { icon: FAVICON },
+  /*
+   * 파비콘은 SVG 로 두고 (어떤 배율에서도 깨지지 않는다), 홈 화면 아이콘만
+   * PNG 로 낸다. iOS 는 SVG 를 홈 화면에 걸지 못한다.
+   */
+  icons: {
+    icon: FAVICON,
+    apple: '/icons/apple-touch-icon.png',
+  },
+  /*
+   * 패드에서 홈 화면에 걸었을 때 브라우저 껍데기 없이 뜨게 한다. iOS 는
+   * manifest 의 display 를 보지 않고 이 두 값을 본다.
+   */
+  appleWebApp: {
+    capable: true,
+    title: 'DOF DHR',
+    statusBarStyle: 'black-translucent',
+  },
   robots: { index: false, follow: false },
 };
 

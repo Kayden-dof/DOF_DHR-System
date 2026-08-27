@@ -15,6 +15,7 @@ function todayStr(): string {
 
 export interface Op {
   id: string; seq: number; code: string; name: string; after_cutting: boolean;
+  typical_day: number | null;
   bom: { item_id: string; item_code: string; item_name: string; usage_uom: string;
          basis: string; required: string | null }[];
   /** 이 공정에 걸린 설비. 비어 있으면 화면에 칸이 나오지 않는다 */
@@ -307,6 +308,11 @@ function OpTile({
 
       <div className="pl-7 text-xs text-muted">
         {o.code}
+        {/*
+          * 보통 몇 일차에 하는 공정인가. 오늘 어디까지 하는지 가늠하라고 적는
+          * 참고값이다. 다른 일차에 기록해도 막지 않는다.
+          */}
+        {o.typical_day !== null && ` · 보통 ${o.typical_day}일차`}
         {o.after_cutting && ' · 제품 로트별'}
         {o.bom.length > 0 && ` · 자재 ${o.bom.length}종`}
       </div>

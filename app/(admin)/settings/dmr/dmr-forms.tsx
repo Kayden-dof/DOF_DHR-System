@@ -6,11 +6,13 @@ import { Msg, Tag } from '@/components/ui';
 import {
   createDeviceMaster, verifyDeviceMaster, addOperation, addBom, addTier, setExpectedUnits, setProductCode,
   addOperationsBulk, copyDmr, createProduct, addSampleTier, setSampleBasis,
+  setTypicalDay,
 } from './actions';
 import { linkOperation } from '../../equipment/actions';
 
 export interface OperationRow {
   id: string; seq: number; code: string; name: string; after_cutting: boolean;
+  typical_day: number | null;
   bom: BomRow[];
 }
 export interface BomRow {
@@ -236,10 +238,15 @@ export function AddOperationForm({ dm, nextSeq }: { dm: string; nextSeq: number 
   return (
     <form action={action} className="border-t border-line bg-canvas p-4">
       <input type="hidden" name="device_master_id" value={dm} />
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
         <div>
           <label className="label">순번</label>
           <input name="seq" type="number" min="1" defaultValue={nextSeq} required className="input tnum" />
+        </div>
+        <div>
+          <label className="label">보통 일차</label>
+          <input name="typical_day" type="number" min="1" placeholder="비워도 됨"
+                 className="input tnum" />
         </div>
         <div>
           <label className="label">공정 코드</label>
@@ -258,6 +265,7 @@ export function AddOperationForm({ dm, nextSeq }: { dm: string; nextSeq: number 
       <p className="mt-2 text-xs leading-relaxed text-muted">
         재단 이후 공정은 기록이 <b className="text-ink">제품 로트</b>에 붙고, 그 이전은
         <b className="text-ink"> 배치</b>에 붙습니다. 재단(WS-07) 자체는 이전 공정입니다.
+        보통 일차는 참고값이며 실제 기록 일차를 제약하지 않습니다.
       </p>
       <Msg state={state} />
       <div className="mt-3">
@@ -371,6 +379,10 @@ export function OperationCard({ dm, op, items, editable, equipment = [] }: {
         <Tag tone={op.after_cutting ? 'brand' : 'quiet'}>
           {op.after_cutting ? '재단 이후' : '재단 이전'}
         </Tag>
+        {/* 참고값이라 조용히 둔다. 적히지 않았으면 아무것도 나오지 않는다 */}
+        {op.typical_day !== null && (
+          <span className="tnum text-xs text-faint">보통 {op.typical_day}일차</span>
+        )}
         <span className="ml-auto text-xs text-muted">
           자재 {op.bom.length}종
           {equipment.some((e) => e.linked) &&
@@ -381,6 +393,18 @@ export function OperationCard({ dm, op, items, editable, equipment = [] }: {
 
       {open && (
         <div className="bg-canvas/50">
+          {/*
+            * 보통 몇 일차. 실제 일차는 현장이 정하므로 여기 값은 계획을 돕는
+            * 참고값이고, 어긋나도 검토 지원에 올리지 않는다.
+            */}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line-soft px-4 py-3">
+            <span className="label mb-0">보통 일차</span>
+            <TypicalDayForm id={op.id} dm={dm} value={op.typical_day} />
+            <span className="text-xs leading-relaxed text-faint">
+              공정 목록과 작업 지시서에 함께 나옵니다. 실제 기록 일차를 막지 않습니다.
+            </span>
+          </div>
+
           {/*
             * 이 공정에서 쓰는 설비. 칩을 누르면 걸리고 다시 누르면 내려간다.
             * 내려도 지워지지 않는다 (§10) - 현장 타일에서 빠질 뿐이다.
@@ -489,6 +513,31 @@ export function ExpectedUnitsForm({ id, value }: { id: string; value: number | n
         실제 수량은 재단에서 정해집니다. 발행을 제약하지 않습니다.
       </span>
       <Msg state={state} className="w-full" />
+    </form>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   보통 몇 일차
+
+   공정을 늘어놓는 자리마다 작게 함께 나온다. 실제 일차를 제약하지 않는
+   참고값이라 폼도 작게 둔다.
+--------------------------------------------------------------------------- */
+export function TypicalDayForm({ id, dm, value }: {
+  id: string; dm: string; value: number | null;
+}) {
+  const [state, action, pending] = useActionState<FormState, FormData>(setTypicalDay, {});
+  return (
+    <form action={action} className="inline-flex items-center gap-1.5">
+      <input type="hidden" name="id" value={id} />
+      <input type="hidden" name="device_master_id" value={dm} />
+      <input name="typical_day" type="number" min="1" defaultValue={value ?? ''}
+             placeholder="일차" aria-label="보통 일차"
+             className="input h-8 w-16 tnum text-xs" />
+      <button type="submit" disabled={pending} className="btn-quiet h-8 px-2 text-xs">
+        저장
+      </button>
+      {state.error && <span className="text-xs text-danger">{state.error}</span>}
     </form>
   );
 }
@@ -718,18 +767,20 @@ export function OperationSetForm({
         required
         rows={10}
         spellCheck={false}
-        defaultValue={`WS-DX2402-01 | NaCl 처리·세척
-WS-DX2402-02 | 초임계 가공
-PI-DX2402-01 | 1차 반제품 검사
-WS-DX2402-07 | 재단
-WS-DX2402-08 | 포장(1·2차) | 재단이후
-FI-DX2402-01 | 완제품 검사 | 재단이후`}
+        defaultValue={`WS-DX2402-01 | NaCl 처리·세척 |      | 1
+WS-DX2402-02 | 초임계 가공     |      | 1
+PI-DX2402-01 | 1차 반제품 검사 |      | 2
+WS-DX2402-07 | 재단           |      | 3
+WS-DX2402-08 | 포장(1·2차)     | 재단이후 | 3
+FI-DX2402-01 | 완제품 검사     | 재단이후 | 4`}
         className="input mt-3 h-auto font-mono text-xs leading-relaxed"
       />
       <p className="mt-2 text-xs leading-relaxed text-muted">
-        재단 이후 공정은 기록이 <b className="text-ink">제품 로트</b>에 붙고, 그 이전은
-        <b className="text-ink"> 배치</b>에 붙습니다. 재단 자체는 이전 공정입니다.
-        한 줄이라도 어긋나면 아무것도 넣지 않습니다.
+        칸은 <b className="text-ink">공정 코드 | 공정명 | 재단이후 | 보통 일차</b> 순입니다.
+        뒤 두 칸은 비워도 됩니다. 재단 이후 공정은 기록이
+        <b className="text-ink"> 제품 로트</b>에 붙고 그 이전은
+        <b className="text-ink"> 배치</b>에 붙으며, 재단 자체는 이전 공정입니다.
+        보통 일차는 참고값입니다. 한 줄이라도 어긋나면 아무것도 넣지 않습니다.
       </p>
       <Msg state={bulkState} />
       <div className="mt-3 flex gap-2">

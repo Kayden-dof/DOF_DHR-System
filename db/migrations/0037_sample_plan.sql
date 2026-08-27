@@ -90,5 +90,10 @@ grant execute on function required_sample(uuid, int) to app_role;
 grant select, insert, update on sample_plan to app_role;
 revoke delete on sample_plan from app_role;
 
+/*
+ * 개발 부팅 때 이 사슬이 처음부터 다시 흐른다. create trigger 는 두 번째부터
+ * 넘어지므로 먼저 내리고 건다. 결과는 늘 마지막에 건 것 하나다.
+ */
+drop trigger if exists sample_plan_audit on sample_plan;
 create trigger sample_plan_audit after insert or update
   on sample_plan for each row execute function trg_audit();

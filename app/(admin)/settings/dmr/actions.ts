@@ -120,6 +120,32 @@ export async function setExpectedUnits(_p: FormState, form: FormData): Promise<F
 }
 
 /**
+ * 공정이 보통 몇 일차에 오는가.
+ *
+ * 참고값이다. 실제 일차는 현장이 정하고 이 값이 그것을 제약하지 않는다.
+ * 비우면 아무 데도 나오지 않는다 - 모르면 적지 않는 것이 맞다.
+ */
+export async function setTypicalDay(_p: FormState, form: FormData): Promise<FormState> {
+  try {
+    const me = await admin();
+    const raw = String(form.get('typical_day') ?? '').trim();
+    const day = raw === '' ? null : Number(raw);
+    if (day !== null && (!Number.isInteger(day) || day < 1)) {
+      return { error: '일차는 1 이상의 정수이거나 비워 둡니다' };
+    }
+    const dm = String(form.get('device_master_id') ?? '');
+    await withActor(me.id, (db) =>
+      db.rows(`update dmr_operation set typical_day = $2 where id = $1`,
+        [String(form.get('id') ?? ''), day]));
+    path(dm);
+    revalidatePath('/work');
+    return { ok: true, message: day === null ? '일차를 비웠습니다.' : `보통 ${day}일차로 저장했습니다.` };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
+/**
  * 완제품검사 시료 채취 기준.
  *
  * 생산 수량 구간별 시료 수와 그 근거를 받는다. 구간도 수량도 검사기준서가
@@ -231,11 +257,12 @@ export async function addOperation(_p: FormState, form: FormData): Promise<FormS
     const code = String(form.get('code') ?? '').trim();
     await withActor(me.id, (db) =>
       db.rows(
-        `insert into dmr_operation (device_master_id, seq, code, name, after_cutting)
-         values ($1,$2,$3,$4,$5)`,
+        `insert into dmr_operation (device_master_id, seq, code, name, after_cutting, typical_day)
+         values ($1,$2,$3,$4,$5,$6)`,
         [dm, Number(form.get('seq') ?? 0), code,
          String(form.get('name') ?? '').trim(),
-         form.get('after_cutting') === 'on']));
+         form.get('after_cutting') === 'on',
+         Number(form.get('typical_day') ?? 0) || null]));
     path(dm);
     return { ok: true, message: `${code} 공정을 추가했습니다.` };
   } catch (e) {
@@ -252,10 +279,11 @@ export async function addOperation(_p: FormState, form: FormData): Promise<FormS
  *
  * 한 줄에 공정 하나. 구분자는 | 또는 탭이다.
  *   WS-DX2402-01 | NaCl 처리·세척
- *   WS-DX2402-08 | 포장(1·2차) | 재단이후
+ *   WS-DX2402-08 | 포장(1·2차) | 재단이후 | 3
  *
  * 순번은 적힌 차례를 그대로 쓴다. 사람이 흐름을 적는 순서가 곧 공정 순서다.
  * 세 번째 칸에 "재단이후"(또는 after)가 있으면 재단 이후 공정이 된다.
+ * 네 번째 칸은 보통 몇 일차에 하는 공정인지다. 참고값이라 비워도 된다.
  *
  * 한 줄이라도 어긋나면 아무것도 넣지 않는다. 절반만 들어간 공정 흐름은
  * 고치는 것보다 다시 넣는 편이 빠르고, 이 시스템에는 삭제가 없다.
@@ -266,7 +294,9 @@ export async function addOperationsBulk(_p: FormState, form: FormData): Promise<
     const dm = String(form.get('device_master_id') ?? '');
     const raw = String(form.get('flow') ?? '');
 
-    const rows: { seq: number; code: string; name: string; after: boolean }[] = [];
+    const rows: {
+      seq: number; code: string; name: string; after: boolean; day: number | null;
+    }[] = [];
     const bad: string[] = [];
     let seq = Number(form.get('start_seq') ?? 1) || 1;
 
@@ -277,9 +307,12 @@ export async function addOperationsBulk(_p: FormState, form: FormData): Promise<
       const cell = t.split(new RegExp("\\s*[\\|\\t]\\s*")).map((x) => x.trim());
       if (cell.length < 2 || !cell[0] || !cell[1]) { bad.push(t); continue; }
       const flag = (cell[2] ?? '').replace(/\s/g, '').toLowerCase();
+      // 네 번째 칸은 보통 일차. 숫자가 아니면 없는 것으로 둔다
+      const day = Number((cell[3] ?? '').trim());
       rows.push({
         seq: seq++, code: cell[0], name: cell[1],
         after: flag === '재단이후' || flag === 'after' || flag === 'y',
+        day: Number.isInteger(day) && day > 0 ? day : null,
       });
     }
 
@@ -293,8 +326,10 @@ export async function addOperationsBulk(_p: FormState, form: FormData): Promise<
     await withActor(me.id, async (db) => {
       for (const r of rows) {
         await db.rows(
-          `insert into dmr_operation (device_master_id, seq, code, name, after_cutting)
-           values ($1,$2,$3,$4,$5)`, [dm, r.seq, r.code, r.name, r.after]);
+          `insert into dmr_operation
+             (device_master_id, seq, code, name, after_cutting, typical_day)
+           values ($1,$2,$3,$4,$5,$6)`,
+          [dm, r.seq, r.code, r.name, r.after, r.day]);
       }
     });
 
