@@ -6,13 +6,17 @@ import { useActionState, useState } from 'react';
 import { PL_STATUS_LABEL, type FormState } from '@/lib/forms';
 import { Msg, Caution } from '@/components/ui';
 import { Dialog, useDialog } from '@/components/dialog';
-import { cutLot, setLotStatus, cancelWorkOrder, finishWorkOrder, retrievePrint } from '../actions';
+import {
+  cutLot, setLotStatus, cancelWorkOrder, finishWorkOrder, retrievePrint,
+  recordNonconformity,
+} from '../actions';
 
 export interface LotRow {
   id: string; lot_no: string; item_code: string; item_name: string;
   qty_produced: number; qty_sample: number; qty_available: number;
   manufactured_on: string; expiry_date: string; status: string;
   location: string | null; shelf_months: number | null; shipped: number;
+  rework: number; concession: number; scrap: number;
 }
 export interface FinOpt { id: string; code: string; name: string }
 
@@ -296,6 +300,126 @@ export function RetrieveForm({ id, woId, label }: { id: string; woId: string; la
           <Msg state={state} />
           <button type="submit" disabled={pending} className="btn-danger w-full">
             {pending ? '기록하는 중' : '회수로 기록한다'}
+          </button>
+        </form>
+      </Dialog>
+    </>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   제품 부적합 기록
+
+   한 개체는 셋 중 하나로만 끝난다. 그래서 결말을 먼저 고르게 한다 - 수량을
+   먼저 적게 하면 그 수가 무엇의 수인지가 흐려진다.
+
+     재작업  다시 해서 제품이 된 수량
+     특채    부적합인 채로 내보낸 수량. 서면 승인자가 필요하다
+     불량    끝내 제품이 되지 못한 수량. 출하 가능 수량이 그만큼 준다
+
+   시스템은 무엇이 부적합인지 정하지 않는다. 서면으로 정해진 결과를 적을 뿐이다.
+--------------------------------------------------------------------------- */
+const NC_OUTCOMES = [
+  { code: 'REWORK',     label: '재작업', note: '다시 해서 제품이 됨' },
+  { code: 'CONCESSION', label: '특채',   note: '부적합인 채로 내보냄' },
+  { code: 'SCRAP',      label: '불량',   note: '끝내 제품이 안 됨' },
+] as const;
+
+const NC_REASONS = [
+  '외관 불량', '치수 이탈', '포장 손상', '라벨 오류', '멸균 부적합', '기타',
+];
+
+export function NonconformityForm({ lot, woId, today }: {
+  lot: LotRow; woId: string; today: string;
+}) {
+  const [state, action, pending] = useActionState<FormState, FormData>(
+    recordNonconformity, {});
+  const { open, setOpen } = useDialog(state);
+  const [outcome, setOutcome] = useState<'REWORK' | 'CONCESSION' | 'SCRAP'>('SCRAP');
+
+  return (
+    <>
+      <button onClick={() => setOpen(true)} className="btn-quiet h-8 px-2 text-xs">
+        부적합
+      </button>
+      <Dialog open={open} onClose={() => setOpen(false)} wide
+              title="제품 부적합 기록"
+              note={<><span className="font-mono">{lot.lot_no}</span> · {lot.item_code} ·
+                {' '}출하 가능 <span className="tnum">{lot.qty_available}</span>개</>}>
+        <form action={action} className="space-y-4">
+          <input type="hidden" name="product_lot_id" value={lot.id} />
+          <input type="hidden" name="work_order_id" value={woId} />
+          <input type="hidden" name="outcome" value={outcome} />
+
+          <div>
+            <span className="label">결말</span>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {NC_OUTCOMES.map((o) => (
+                <button key={o.code} type="button" onClick={() => setOutcome(o.code)}
+                        data-on={outcome === o.code}
+                        className="tile items-center py-2.5 text-center">
+                  <span className="text-sm font-bold">{o.label}</span>
+                  <span className="text-xs text-muted">{o.note}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div>
+              <label className="label">수량</label>
+              <input name="qty" type="number" min={1}
+                     max={outcome === 'SCRAP' ? lot.qty_available : undefined}
+                     required className="input tnum" />
+            </div>
+            <div>
+              <label className="label">사유</label>
+              <select name="reason_code" required className="input">
+                <option value="">선택하십시오</option>
+                {NC_REASONS.map((r) => <option key={r}>{r}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label">발견일</label>
+              <input name="found_at" type="date" defaultValue={today} className="input tnum" />
+            </div>
+          </div>
+
+          <div>
+            <label className="label">상세 (선택)</label>
+            <input name="reason_detail" autoComplete="off" className="input" />
+          </div>
+
+          {/* 특채는 서면 승인 사항이다. 승인자 없이는 기록되지 않는다 */}
+          {outcome === 'CONCESSION' && (
+            <div className="grid gap-3 rounded-md border border-warn/30 bg-warn-bg p-3 sm:grid-cols-2">
+              <div>
+                <label className="label">서면 승인자 (필수)</label>
+                <input name="approved_by" required autoComplete="off"
+                       placeholder="품질책임자 이름" className="input" />
+              </div>
+              <div>
+                <label className="label">승인일 (필수)</label>
+                <input name="approved_on" type="date" required defaultValue={today}
+                       className="input tnum" />
+              </div>
+              <p className="text-xs leading-relaxed text-ink sm:col-span-2">
+                특채는 부적합인 채로 내보내는 결정입니다. 서면 승인서가 있어야 하고,
+                승인자 이름이 그대로 기록됩니다.
+              </p>
+            </div>
+          )}
+
+          <p className="text-xs leading-relaxed text-muted">
+            {outcome === 'SCRAP'
+              ? '불량으로 적은 수량만큼 이 제조번호의 출하 가능 수량이 줄어듭니다. 되돌릴 수 없습니다.'
+              : '재작업과 특채는 제품으로 나가므로 출하 가능 수량이 줄지 않습니다.'}
+            {' '}무엇이 부적합인지는 서면으로 정하고, 시스템은 그 결과를 적습니다.
+          </p>
+
+          <Msg state={state} />
+          <button type="submit" disabled={pending} className="btn-primary w-full">
+            {pending ? '기록하는 중' : '기록한다'}
           </button>
         </form>
       </Dialog>

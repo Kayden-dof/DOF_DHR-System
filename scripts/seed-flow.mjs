@@ -319,6 +319,34 @@ await as(mgrUser.id, () =>
      ship.qty_sample + 1, ship.qty_sample + 40]));
 say(`출고 ${ship.lot_no} 40개 (${ship.qty_sample + 1}~${ship.qty_sample + 40}번) · 서울대학교병원`);
 
+/* --- 제품 부적합 ---------------------------------------------------------- */
+
+console.log('\n[품질] 부적합과 결말');
+
+/*
+ * 한 개체는 셋 중 하나로만 끝난다 (0045). 발생 = 재작업 + 특채 + 불량이고,
+ * 재작업이나 특채로 살아난 만큼 불량은 줄어든다.
+ *
+ * 불량으로 적은 만큼만 출하 가능 수량이 준다.
+ */
+for (const [lot, qty, outcome, reason] of [
+  [lots[0], 3, 'REWORK',     '포장 손상'],
+  [lots[0], 1, 'SCRAP',      '외관 불량'],
+  [lots[1], 2, 'CONCESSION', '치수 이탈'],
+]) {
+  await as(mgrUser.id, () =>
+    client.query(
+      `insert into product_nonconformity
+         (product_lot_id, qty, outcome, reason_code, registered_by,
+          approved_by, approved_on)
+       values ($1,$2,$3::nc_outcome,$4,$5,$6,$7)`,
+      [lot.id, qty, outcome, reason, mgrUser.id,
+       outcome === 'CONCESSION' ? '정품질' : null,
+       outcome === 'CONCESSION' ? new Date().toISOString().slice(0, 10) : null]));
+  say(`${lot.lot_no} ${reason} ${qty}개 → ${
+    outcome === 'REWORK' ? '재작업' : outcome === 'CONCESSION' ? '특채' : '불량'}`);
+}
+
 /* --- 재고 증감 ------------------------------------------------------------ */
 
 console.log('\n[재고] 반납·폐기·용액 제조');

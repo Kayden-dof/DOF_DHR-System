@@ -189,3 +189,62 @@ export async function retrievePrint(_p: FormState, form: FormData): Promise<Form
     return { error: dbMessage(e) };
   }
 }
+
+/* ---------------------------------------------------------------------------
+   제품 부적합 기록
+
+   무엇이 부적합인지, 재작업으로 살릴지 특채로 낼지 폐기할지는 사람이 서면으로
+   정한다. 여기 적히는 것은 그 결정의 결과다 (§1).
+
+   한 개체는 셋 중 하나로만 끝난다. 그래서 재작업 · 특채 · 불량을 더하면 발생
+   수량이 되고, 살아난 만큼 불량은 저절로 줄어든다. 빼기를 손으로 하지 않는다.
+
+   폐기로 끝난 수량만큼 그 로트의 출하 가능 수량이 준다. 그 셈은 DB 가 한다
+   (trg_nc_reduce).
+--------------------------------------------------------------------------- */
+export async function recordNonconformity(
+  _p: FormState, form: FormData,
+): Promise<FormState> {
+  try {
+    const me = await mgr();
+    const woId = String(form.get('work_order_id') ?? '');
+    const outcome = String(form.get('outcome') ?? '');
+    const qty = Number(form.get('qty') ?? 0);
+    const reason = String(form.get('reason_code') ?? '').trim();
+
+    if (!['REWORK', 'CONCESSION', 'SCRAP'].includes(outcome)) {
+      return { error: '결말을 고르십시오' };
+    }
+    if (!Number.isInteger(qty) || qty < 1) {
+      return { error: '수량은 1 이상의 정수입니다' };
+    }
+    if (!reason) return { error: '사유를 고르십시오' };
+
+    const approver = String(form.get('approved_by') ?? '').trim();
+    const approvedOn = String(form.get('approved_on') ?? '').trim();
+    if (outcome === 'CONCESSION' && (!approver || !approvedOn)) {
+      return { error: '특채는 서면 승인자와 승인일이 있어야 기록됩니다' };
+    }
+
+    await withActor(me.id, (db) =>
+      db.rows(
+        `insert into product_nonconformity
+           (product_lot_id, qty, outcome, reason_code, reason_detail,
+            approved_by, approved_on, found_at, registered_by)
+         values ($1,$2,$3::nc_outcome,$4,$5,$6,$7::date,
+                 coalesce($8::date, (timezone('Asia/Seoul', now()))::date), $9)`,
+        [String(form.get('product_lot_id') ?? ''), qty, outcome, reason,
+         String(form.get('reason_detail') ?? '').trim() || null,
+         outcome === 'CONCESSION' ? approver : null,
+         outcome === 'CONCESSION' ? approvedOn : null,
+         String(form.get('found_at') ?? '') || null,
+         me.id]));
+
+    bump(woId);
+    const label = outcome === 'REWORK' ? '재작업'
+      : outcome === 'CONCESSION' ? '특채' : '불량';
+    return { ok: true, message: `${label} ${qty}개를 기록했습니다.` };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}

@@ -22,13 +22,17 @@ export const metadata = { title: '경영 현황' };
    그 밖의 것은 두지 않는다. 화면에 자리가 남는다고 채우면 정작 봐야 할 넷이
    묻힌다.
 
-   ── "불량률" 이 없는 이유 ─────────────────────────────────────────────────
-   이 시스템에는 불량이라는 기록이 없다. 재작업 수량과 공정 중 폐기가 있을
-   뿐이고, 그 둘을 합쳐 하나의 비율로 만들면 무엇을 불량으로 볼지 시스템이
-   정하는 것이 된다. 그건 판정이고 이 시스템이 하지 않는 일이다 (§1).
+   ── 불량률의 정의 ─────────────────────────────────────────────────────────
+   품질이 정한 정의를 그대로 쓴다 (사용자).
 
-   그래서 센 것을 그대로 내보내고 무엇을 센 것인지 함께 적는다. 정의가 정해지면
-   그때 식을 넣는다.
+     발생 수량 = 재작업 + 특채 + 불량
+     불량      = 재작업을 했는데도 제품이 되지 못한 수량
+     불량률    = 불량 ÷ 생산 수량
+     재작업률  = 재작업 ÷ 생산 수량
+     특채      = 부적합인 채로 내보낸 수량. 비율로 섞지 않고 개수로 따라간다
+
+   시스템이 무엇을 불량으로 볼지 정하지 않는다. 사람이 서면으로 정한 결과가
+   product_nonconformity 에 적히고, 여기서는 그것을 세기만 한다 (§1).
 --------------------------------------------------------------------------- */
 
 interface DayRow {
@@ -39,6 +43,11 @@ interface DayRow {
 interface MonthRow {
   month: string; lots: number; produced: number; sampled: number;
   shipped: number; rework: number;
+}
+interface QualRow {
+  month: string; produced: number;
+  rework: number; concession: number; scrap: number; found: number;
+  scrap_pct: string | null; rework_pct: string | null;
 }
 interface SpendRow { month: string; amount: string }
 interface Unit {
@@ -71,7 +80,20 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
     spend: await db.rows<SpendRow>(
       `select month::text as month, sum(amount)::text as amount
          from v_material_spend group by month order by month desc limit 6`),
-    /* 되돌린 것. 자재 단위라 제품 개수와 섞지 않고 따로 센다 */
+    /*
+     * 달별 품질. 불량률의 정의는 품질이 정했다 (사용자).
+     *
+     *   발생 = 재작업 + 특채 + 불량
+     *   불량 = 재작업해도 제품이 안 된 수량
+     *   불량률 = 불량 ÷ 생산 · 재작업률 = 재작업 ÷ 생산
+     *
+     * 비율은 뷰에서 한 번만 낸다. 두 곳에서 나누면 반올림이 갈린다.
+     */
+    qual: await db.rows<QualRow>(
+      `select month::text as month, produced, rework, concession, scrap, found,
+              scrap_pct::text as scrap_pct, rework_pct::text as rework_pct
+         from v_quality_monthly order by month desc limit 6`),
+    /* 자재 폐기. 자재 단위라 제품 개수와 섞지 않고 따로 센다 */
     scrap: await db.rows<{ month: string; qty: string }>(
       `select date_trunc('month', sm.registered_at)::date::text as month,
               sum(abs(sm.qty))::text as qty
@@ -88,6 +110,7 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
   const todayRows = d.days.filter((r) => r.made_on === d.today);
   const todayQty = todayRows.reduce((a, r) => a + r.produced, 0);
   const curSpend = d.spend.find((s) => s.month.slice(0, 7) === thisMonth);
+  const curQ = d.qual.find((q) => q.month.slice(0, 7) === thisMonth);
   const curScrap = d.scrap.find((s) => s.month.slice(0, 7) === thisMonth);
 
   const won = (v?: string | null) =>
@@ -98,8 +121,12 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
     { label: '오늘 제조번호', value: todayRows.reduce((a, r) => a + r.lots, 0), unit: '건' },
     { label: '이번 달 생산', value: cur?.produced ?? 0, unit: '개' },
     { label: '이번 달 출고', value: cur?.shipped ?? 0, unit: '개' },
-    { label: '이번 달 재작업', value: cur?.rework ?? 0, unit: '개',
-      tone: (cur?.rework ?? 0) > 0 ? 'warn' : undefined },
+    { label: '이번 달 불량률', value: curQ?.scrap_pct ? `${Number(curQ.scrap_pct)}%` : '0%',
+      tone: Number(curQ?.scrap_pct ?? 0) > 0 ? 'danger' : undefined },
+    { label: '이번 달 재작업률', value: curQ?.rework_pct ? `${Number(curQ.rework_pct)}%` : '0%',
+      tone: Number(curQ?.rework_pct ?? 0) > 0 ? 'warn' : undefined },
+    { label: '이번 달 특채', value: curQ?.concession ?? 0, unit: '개',
+      tone: (curQ?.concession ?? 0) > 0 ? 'warn' : undefined },
   ];
 
   return (
@@ -216,30 +243,35 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
                 <th className="th text-right">생산</th>
                 <th className="th text-right">출고</th>
                 <th className="th text-right">재작업</th>
-                <th className="th text-right">공정 중 폐기</th>
+                <th className="th text-right">특채</th>
+                <th className="th text-right">불량</th>
+                <th className="th text-right">불량률</th>
                 <th className="th text-right">자재 지출</th>
               </tr>
             </thead>
             <tbody>
               {d.months.map((m) => {
                 const sp = d.spend.find((s) => s.month === m.month);
-                const sc = d.scrap.find((s) => s.month === m.month);
+                const q = d.qual.find((x) => x.month === m.month);
                 return (
                   <tr key={m.month}>
                     <td className="td tnum">{m.month.slice(0, 7)}</td>
                     <td className="td tnum text-right text-muted">{m.lots}</td>
                     <td className="td tnum text-right font-bold">{m.produced}</td>
                     <td className="td tnum text-right">{m.shipped}</td>
-                    <td className="td tnum text-right">{m.rework || ''}</td>
-                    <td className="td tnum text-right text-muted">
-                      {sc ? Number(sc.qty).toLocaleString('ko-KR') : ''}
+                    <td className="td tnum text-right">{q?.rework || ''}</td>
+                    <td className="td tnum text-right">{q?.concession || ''}</td>
+                    <td className="td tnum text-right">{q?.scrap || ''}</td>
+                    <td className={`td tnum text-right ${
+                      Number(q?.scrap_pct ?? 0) > 0 ? 'font-bold text-danger' : 'text-faint'}`}>
+                      {q?.scrap_pct ? `${Number(q.scrap_pct)}%` : '0%'}
                     </td>
                     <td className="td tnum text-right">{won(sp?.amount)}</td>
                   </tr>
                 );
               })}
               {d.months.length === 0 && (
-                <tr><td colSpan={7} className="td text-center text-xs text-faint">기록이 없습니다.</td></tr>
+                <tr><td colSpan={9} className="td text-center text-xs text-faint">기록이 없습니다.</td></tr>
               )}
             </tbody>
           </table>
@@ -257,11 +289,15 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
             </div>
             <div className="flex gap-2">
               <dt className="w-24 shrink-0 font-semibold text-ink">재작업</dt>
-              <dd className="text-muted">포장 공정에서 다시 포장한 제품 개수입니다.</dd>
+              <dd className="text-muted">다시 해서 제품이 된 수량입니다. 재작업률은 생산 수량으로 나눕니다.</dd>
             </div>
             <div className="flex gap-2">
-              <dt className="w-24 shrink-0 font-semibold text-ink">공정 중 폐기</dt>
-              <dd className="text-muted">배치에 걸린 자재 폐기량입니다. 자재 단위라 제품 개수와 더하지 않습니다.</dd>
+              <dt className="w-24 shrink-0 font-semibold text-ink">특채</dt>
+              <dd className="text-muted">부적합인 채로 서면 승인을 받아 내보낸 수량입니다. 비율로 섞지 않고 개수로 따로 봅니다.</dd>
+            </div>
+            <div className="flex gap-2">
+              <dt className="w-24 shrink-0 font-semibold text-ink">불량</dt>
+              <dd className="text-muted">재작업을 했는데도 제품이 되지 못한 수량입니다. 불량률은 생산 수량으로 나눕니다.</dd>
             </div>
             <div className="flex gap-2">
               <dt className="w-24 shrink-0 font-semibold text-ink">자재 지출</dt>
@@ -269,9 +305,9 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
             </div>
           </dl>
           <p className="mt-2.5 text-xs leading-relaxed text-faint">
-            불량률은 표시하지 않습니다. 무엇을 불량으로 셀지는 품질이 정하는 일이고,
-            시스템이 임의로 합쳐 비율을 만들면 그 숫자가 판정처럼 읽힙니다.
-            정의가 정해지면 그 식을 여기에 넣습니다.
+            발생 수량은 재작업 · 특채 · 불량의 합입니다. 한 개체는 셋 중 하나로만
+            끝나므로 재작업이나 특채로 살아난 만큼 불량은 줄어듭니다.
+            시스템이 무엇을 불량으로 볼지 정하지 않습니다. 서면으로 정해진 결과를 셀 뿐입니다.
           </p>
         </div>
       </Panel>

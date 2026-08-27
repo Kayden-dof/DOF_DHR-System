@@ -9,6 +9,7 @@ import Denied from '@/components/denied';
 import { Panel, Empty, Tag, Field, Caution } from '@/components/ui';
 import {
   CutForm, LotStatusForm, CancelForm, FinishForm, RetrieveForm, DayPrintLink,
+  NonconformityForm,
   type LotRow, type FinOpt,
 } from './batch-forms';
 
@@ -91,12 +92,14 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
       lots: await db.rows<LotRow>(
         `select pl.id, pl.lot_no, i.code as item_code, i.name as item_name,
                 pl.qty_produced, pl.qty_sample, pl.qty_available,
+                q.rework, q.concession, q.scrap,
                 pl.manufactured_on, pl.expiry_date, pl.status::text as status, pl.location,
                 h.months as shelf_months,
                 coalesce((select sum(sh.qty)::int from shipment sh
                            where sh.product_lot_id = pl.id), 0) as shipped
            from product_lot pl
            join item i on i.id = pl.item_id
+           join v_lot_quality q on q.product_lot_id = pl.id
            left join shelf_life_history h on h.id = pl.shelf_life_ref
           where pl.work_order_id = $1 order by i.code`, [id]),
       days: await db.rows<DayRow>(
@@ -369,6 +372,8 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                       {l.location && <div className="text-xs text-faint">{l.location}</div>}
                     </td>
                     <td className="td text-right">
+                      {/* 부적합은 기록이지 판정이 아니다. 서면 결과를 적는다 */}
+                      <NonconformityForm lot={l} woId={wo.id} today={d.today ?? ''} />
                       <LotStatusForm lot={l} woId={wo.id} />
                     </td>
                   </tr>

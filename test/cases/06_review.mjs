@@ -786,4 +786,90 @@ export default [
   },
 },
 
+
+{
+  id: 'NC-01', expect: '확인',
+  name: '발생 = 재작업 + 특채 + 불량. 살아난 만큼 불량이 줄어든다',
+  async run(t) {
+    const m = await master(t);
+    const rawLot = await newMaterialLot(t, m, m.raw, { thickness_band: '0510', qty: 50 });
+    const wo = await newWorkOrder(t, m, { rawLot, sheets: 20 });
+    await t.setActor(m.admin);
+    const lot = await t.val(
+      `select cut_product_lot($1,$2,$3,$4,current_date)`, [wo.id, m.fin, 100, 2]);
+
+    const nc = (qty, outcome, extra = '') => t.rows(
+      `insert into product_nonconformity
+         (product_lot_id, qty, outcome, reason_code, registered_by ${extra ? ', approved_by, approved_on' : ''})
+       values ($1,$2,$3::nc_outcome,'외관 불량',$4 ${extra ? ", '정품질', current_date" : ''})`,
+      [lot, qty, outcome, m.admin]);
+
+    await nc(6, 'REWORK');
+    await nc(3, 'CONCESSION', 'y');
+    await nc(2, 'SCRAP');
+
+    const q = (await t.rows(
+      `select rework, concession, scrap from v_lot_quality where product_lot_id = $1`, [lot]))[0];
+    t.eq(Number(q.rework), 6, '재작업');
+    t.eq(Number(q.concession), 3, '특채');
+    t.eq(Number(q.scrap), 2, '불량');
+
+    // 불량만 출하 가능 수량을 깎는다. 재작업과 특채는 제품으로 나간다
+    t.eq(Number(await t.val(
+      `select qty_available from product_lot where id = $1`, [lot])), 96, '출하 가능');
+    await t.setActor(null);
+  },
+},
+
+{
+  id: 'NC-02', expect: '예외',
+  name: '특채는 서면 승인자 없이 기록되지 않는다',
+  async run(t) {
+    const m = await master(t);
+    const rawLot = await newMaterialLot(t, m, m.raw, { thickness_band: '0510', qty: 50 });
+    const wo = await newWorkOrder(t, m, { rawLot, sheets: 20 });
+    await t.setActor(m.admin);
+    const lot = await t.val(
+      `select cut_product_lot($1,$2,$3,$4,current_date)`, [wo.id, m.fin, 40, 2]);
+
+    await t.rejects(
+      () => t.rows(
+        `insert into product_nonconformity
+           (product_lot_id, qty, outcome, reason_code, registered_by)
+         values ($1,5,'CONCESSION','외관 불량',$2)`, [lot, m.admin]),
+      { code: '23514' });
+    await t.setActor(null);
+  },
+},
+
+{
+  id: 'NC-03', expect: '예외',
+  name: '있는 수량보다 많이 불량으로 적을 수 없다',
+  async run(t) {
+    const m = await master(t);
+    const rawLot = await newMaterialLot(t, m, m.raw, { thickness_band: '0510', qty: 50 });
+    const wo = await newWorkOrder(t, m, { rawLot, sheets: 20 });
+    await t.setActor(m.admin);
+    const lot = await t.val(
+      `select cut_product_lot($1,$2,$3,$4,current_date)`, [wo.id, m.fin, 10, 2]);
+
+    await t.rejects(
+      () => t.rows(
+        `insert into product_nonconformity
+           (product_lot_id, qty, outcome, reason_code, registered_by)
+         values ($1,20,'SCRAP','외관 불량',$2)`, [lot, m.admin]),
+      { code: 'P0001', message: '많이 폐기할 수 없습니다' });
+    await t.setActor(null);
+  },
+},
+
+{
+  id: 'NC-04', expect: '권한 거부',
+  name: '부적합 기록도 지워지지 않는다',
+  async run(t) {
+    await t.asRole('app_role', () =>
+      t.rejects(() => t.rows(`delete from product_nonconformity`), { code: '42501' }));
+  },
+},
+
 ];
