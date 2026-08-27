@@ -88,7 +88,10 @@ end $$;
    현장 화면이 타일로 그릴 목록이다. 내려간 설비는 빼되, 이미 기록에 적힌
    코드는 건드리지 않는다 - 그 기록은 그때 그 설비로 작업한 사실이다.
 --------------------------------------------------------------------------- */
-create or replace function operation_equipment_list(p_op uuid)
+-- 0027 이 만료일 열을 더해 반환형을 바꾼다. or replace 는 반환형을 못 바꾸므로
+-- 확장된 DB 재적용을 위해 떨궜다 만든다. 최종 모양은 0027 이 정한다.
+drop function if exists operation_equipment_list(uuid);
+create function operation_equipment_list(p_op uuid)
 returns table (code text, name text, note text)
 language sql stable as $$
   select e.code, e.name, e.note

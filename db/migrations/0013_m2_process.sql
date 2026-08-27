@@ -116,7 +116,11 @@ create trigger material_issue_consume after insert
 -- -----------------------------------------------------------------------------
 -- 계보 조회 (§4.6)
 -- -----------------------------------------------------------------------------
-create or replace view v_lot_genealogy as
+-- 이 뷰는 0029 가 열을 덧붙여 다시 정의한다. create or replace 는 열을 줄이지
+-- 못하므로, 확장된 DB 에 이 파일이 재적용될 때를 위해 떨궜다 다시 만든다.
+-- 사슬은 항상 순서대로 전부 돌므로 최종 모양은 늘 0029 가 정한다.
+drop view if exists v_lot_genealogy;
+create view v_lot_genealogy as
 select pr.work_order_id, pr.product_lot_id, wo.batch_no,
        ml.id as material_lot_id, ml.lot_no as material_lot_no,
        i.code as item_code, i.name as item_name, i.type as item_type,

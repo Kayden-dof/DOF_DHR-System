@@ -63,7 +63,9 @@ grant execute on function retrieve_print(uuid, text) to app_role;
    것이고, 다르면 자료가 바뀐 뒤에 뽑은 것이다. 종이 위조를 막지는 못한다 -
    그건 종이의 몫이다. 다만 손에 든 종이가 시스템의 무엇과 짝인지는 말해 준다.
 --------------------------------------------------------------------------- */
-create or replace view v_print_lookup as
+-- 0028 이 설비 열을 덧붙여 다시 정의한다. 위 0013 과 같은 이유로 떨궜다 만든다.
+drop view if exists v_print_lookup;
+create view v_print_lookup as
 select rp.id,
        rp.kind::text                       as kind,
        -- 대소문자를 섞어 저장한 자료가 있을 수 있다. 조회는 늘 소문자로 맞춘다.

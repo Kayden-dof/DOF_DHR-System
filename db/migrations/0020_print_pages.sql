@@ -32,6 +32,9 @@ end $$;
 -- "is not unique" 로 터진다. 옛 것을 먼저 지운다.
 drop function if exists print_day_record(uuid, int, uuid, text);
 drop function if exists record_print_log(print_kind, text, uuid, uuid, int, uuid, uuid);
+-- 0027 의 9인자 판이 이미 있는 DB 에 재적용될 때 두 판이 남으면 8인자 호출이
+-- 낡은 쪽에 붙는다. 지우고 시작한다. 최종 모양은 0027 이 정한다.
+drop function if exists record_print_log(print_kind, text, uuid, uuid, int, uuid, uuid, int, uuid);
 
 create or replace function record_print_log(
   p_kind          print_kind,
