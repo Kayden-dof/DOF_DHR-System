@@ -4,7 +4,7 @@ import { fmtDate, fmtDateTime } from '@/lib/fmt';
 import { Panel, Empty, Tag, Field } from '@/components/ui';
 import {
   NewDeviceMaster, VerifyForm, AddOperationForm, OperationCard, ExpectedUnitsForm,
-  ProductCodeForm,
+  ProductCodeForm, OperationSetForm,
   type OperationRow, type ItemOption,
 } from './dmr-forms';
 
@@ -169,8 +169,22 @@ export async function DmrWorkbench({
                 title="공정 순서"
                 note="재단 이후 공정은 기록이 제품 로트에 붙습니다"
               >
+                {/*
+                  * 공정이 없으면 흐름부터 넣는다. 하나씩 폼으로 열두 번 누르는
+                  * 대신 흐름을 한 번에 적거나 다른 표준서에서 가져온다.
+                  * 새 제품을 처음 등록하는 사람이 빠뜨리지 않게 하는 자리다.
+                  */}
                 {d.operations.length === 0 ? (
-                  <Empty>등록된 공정이 없습니다.</Empty>
+                  <OperationSetForm
+                    dm={dm.id}
+                    sources={d.masters
+                      .filter((m) => m.id !== dm.id && m.op_count > 0)
+                      .map((m) => ({
+                        id: m.id,
+                        label: `${m.product_code ?? m.item_code} ${m.revision}`,
+                        op_count: m.op_count,
+                      }))}
+                  />
                 ) : (
                   <div>
                     {d.operations.map((op) => (

@@ -221,6 +221,44 @@ export default [
 },
 
 {
+  id: 'DM-01', expect: '확인',
+  name: '제품표준서 구조를 통째로 복사한다 (공정 · 자재 · 구간 · 설비)',
+  async run(t) {
+    const m = await master(t);
+    await t.setActor(m.admin);
+
+    const item = await t.val(
+      `insert into item (code,name,type,purchase_uom,usage_uom)
+       values ('ZZ-COPY-TEST','시험 신제품','FIN','EA','EA') returning id`);
+    const dst = await t.val(
+      `insert into device_master (item_id,revision,status,effective_from)
+       values ($1,'Rev.01','ACTIVE',current_date) returning id`, [item]);
+
+    const before = Number(await t.val(
+      `select count(*)::int from dmr_operation where device_master_id = $1`, [m.dm]));
+    t.ok(before > 0, '원본에 공정이 있다');
+
+    const n = Number(await t.val(`select copy_dmr_structure($1,$2)`, [m.dm, dst]));
+    t.eq(n, before, '복사된 공정 수');
+
+    t.eq(Number(await t.val(
+      `select count(*)::int from dmr_bom b join dmr_operation o on o.id = b.operation_id
+        where o.device_master_id = $1`, [dst])),
+      Number(await t.val(
+      `select count(*)::int from dmr_bom b join dmr_operation o on o.id = b.operation_id
+        where o.device_master_id = $1`, [m.dm])), '자재 구성표도 함께');
+
+    // 대조 확인은 오지 않는다. 복사가 확인을 대신하면 안 된다
+    t.eq(await t.val(`select verified_at from device_master where id = $1`, [dst]),
+         null, '대조 확인 미복사');
+
+    // 이미 공정이 있으면 거부한다. 덮어쓰면 무엇이 지워졌는지 알 수 없다
+    await t.rejects(() => t.rows(`select copy_dmr_structure($1,$2)`, [m.dm, dst]),
+      { code: 'P0001', message: '이미 공정이 있습니다' });
+  },
+},
+
+{
   id: 'RV-06', expect: '확인',
   name: '판정 문구를 쓰지 않는다',
   async run(t) {

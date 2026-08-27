@@ -5,6 +5,7 @@ import type { FormState } from '@/lib/forms';
 import { Msg, Tag } from '@/components/ui';
 import {
   createDeviceMaster, verifyDeviceMaster, addOperation, addBom, addTier, setExpectedUnits, setProductCode,
+  addOperationsBulk, copyDmr,
 } from './actions';
 import { linkOperation } from '../../equipment/actions';
 
@@ -399,6 +400,121 @@ export function ProductCodeForm({
         그 아래의 규격이며, 비우면 형명이 대신 나옵니다.
       </span>
       <Msg state={state} className="w-full" />
+    </form>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   공정 흐름 세트 넣기
+
+   새 제품을 처음부터 등록할 때 쓴다. 공정을 하나씩 폼으로 넣으면 열두 번을
+   눌러야 하고, 그러다 순번이나 재단 이후 여부를 빠뜨린다.
+
+   두 길을 둔다.
+     흐름 적기   한 줄에 공정 하나. 엑셀에서 붙여 넣어도 된다
+     복사        이미 만들어 둔 표준서의 구조를 통째로 가져온다
+--------------------------------------------------------------------------- */
+export function OperationSetForm({
+  dm, sources,
+}: {
+  dm: string;
+  /** 복사해 올 수 있는 다른 표준서 */
+  sources: { id: string; label: string; op_count: number }[];
+}) {
+  const [mode, setMode] = useState<'flow' | 'copy' | null>(null);
+  const [bulkState, bulkAction, bulkPending] =
+    useActionState<FormState, FormData>(addOperationsBulk, {});
+  const [copyState, copyAction, copyPending] =
+    useActionState<FormState, FormData>(copyDmr, {});
+
+  if (mode === null) {
+    return (
+      <div className="border-t border-line bg-canvas px-4 py-3">
+        <p className="text-sm font-semibold text-ink">공정이 없습니다. 흐름부터 넣으십시오.</p>
+        <p className="mt-1 text-xs leading-relaxed text-muted">
+          공정 흐름을 한 번에 적거나, 이미 만들어 둔 제품표준서에서 가져옵니다.
+          가져오면 자재 구성표와 설비 연결까지 함께 옵니다.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button onClick={() => setMode('flow')} className="btn-primary h-9 px-4 text-xs">
+            공정 흐름 적기
+          </button>
+          {sources.length > 0 && (
+            <button onClick={() => setMode('copy')} className="btn-ghost h-9 px-4 text-xs">
+              다른 표준서에서 가져오기
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (mode === 'copy') {
+    return (
+      <form action={copyAction} className="border-t border-line bg-canvas px-4 py-3">
+        <input type="hidden" name="device_master_id" value={dm} />
+        <p className="text-sm font-semibold text-ink">다른 제품표준서에서 가져오기</p>
+        <p className="mt-1 text-xs leading-relaxed text-muted">
+          공정 · 자재 구성표 · 장입 구간 · 설비 연결이 함께 옵니다.
+          <b className="text-ink"> 대조 확인은 오지 않습니다</b> - 가져온 표준서는
+          서면과 다시 대조해야 합니다.
+        </p>
+        <div className="mt-3 flex flex-wrap items-end gap-2">
+          <div className="w-72">
+            <label className="label">가져올 표준서</label>
+            <select name="source_id" required className="input h-9 text-xs">
+              <option value="">고르십시오</option>
+              {sources.map((x) => (
+                <option key={x.id} value={x.id}>{x.label} · 공정 {x.op_count}</option>
+              ))}
+            </select>
+          </div>
+          <button type="submit" disabled={copyPending} className="btn-primary h-9 px-4 text-xs">
+            {copyPending ? '가져오는 중' : '가져오기'}
+          </button>
+          <button type="button" onClick={() => setMode(null)}
+                  className="btn-ghost h-9 px-3 text-xs">그만두기</button>
+        </div>
+        <Msg state={copyState} />
+      </form>
+    );
+  }
+
+  return (
+    <form action={bulkAction} className="border-t border-line bg-canvas px-4 py-3">
+      <input type="hidden" name="device_master_id" value={dm} />
+      <p className="text-sm font-semibold text-ink">공정 흐름 적기</p>
+      <p className="mt-1 text-xs leading-relaxed text-muted">
+        한 줄에 공정 하나입니다. <code className="font-mono">공정코드 | 공정명</code> 이고,
+        재단 이후 공정이면 뒤에 <code className="font-mono">| 재단이후</code> 를 붙입니다.
+        적은 차례가 곧 공정 순서입니다. 엑셀에서 붙여 넣어도 됩니다.
+      </p>
+      <textarea
+        name="flow"
+        required
+        rows={10}
+        spellCheck={false}
+        defaultValue={`WS-DX2402-01 | NaCl 처리·세척
+WS-DX2402-02 | 초임계 가공
+PI-DX2402-01 | 1차 반제품 검사
+WS-DX2402-07 | 재단
+WS-DX2402-08 | 포장(1·2차) | 재단이후
+FI-DX2402-01 | 완제품 검사 | 재단이후`}
+        className="input mt-3 h-auto font-mono text-xs leading-relaxed"
+      />
+      <p className="mt-2 text-xs leading-relaxed text-muted">
+        재단 이후 공정은 기록이 <b className="text-ink">제품 로트</b>에 붙고, 그 이전은
+        <b className="text-ink"> 배치</b>에 붙습니다. 재단 자체는 이전 공정입니다.
+        한 줄이라도 어긋나면 아무것도 넣지 않습니다.
+      </p>
+      <Msg state={bulkState} />
+      <div className="mt-3 flex gap-2">
+        <button type="submit" disabled={bulkPending} className="btn-primary h-9 px-4 text-xs">
+          {bulkPending ? '넣는 중' : '공정 넣기'}
+        </button>
+        <button type="button" onClick={() => setMode(null)}
+                className="btn-ghost h-9 px-3 text-xs">그만두기</button>
+      </div>
     </form>
   );
 }
