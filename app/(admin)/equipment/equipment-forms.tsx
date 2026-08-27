@@ -3,6 +3,7 @@
 import { useActionState, useState } from 'react';
 import type { FormState } from '@/lib/forms';
 import { Msg, Tag } from '@/components/ui';
+import { Dialog, useDialog } from '@/components/dialog';
 import Link from 'next/link';
 import { fmtDate } from '@/lib/fmt';
 import { saveEquipment, linkOperation, saveValidation } from './actions';
@@ -266,26 +267,26 @@ export function EquipCard({ e, ops }: { e: EquipRow; ops: OpOption[] }) {
 --------------------------------------------------------------------------- */
 function ValidationPanel({ e }: { e: EquipRow }) {
   const [state, action, pending] = useActionState<FormState, FormData>(saveValidation, {});
-  const [open, setOpen] = useState(false);
+  const { open, setOpen } = useDialog(state);
 
   return (
     <div className="border-t border-line-soft">
       <div className="flex items-center gap-3 px-4 py-2.5">
         <p className="label mb-0">밸리데이션</p>
-        {!open && (
-          <button onClick={() => setOpen(true)} className="btn-ghost h-8 px-3 text-xs">
-            등록
-          </button>
-        )}
-        {e.history.length === 0 && !open && (
+        <button onClick={() => setOpen(true)} className="btn-ghost h-8 px-3 text-xs">
+          등록
+        </button>
+        {e.history.length === 0 && (
           <span className="text-xs text-faint">등록된 이력이 없습니다.</span>
         )}
       </div>
 
-      {open && (
-        <form action={action} className="border-t border-line-soft bg-canvas px-4 py-3">
+      <Dialog open={open} onClose={() => setOpen(false)} wide
+              title="밸리데이션 등록"
+              note={<><span className="font-mono">{e.code}</span> · {e.name}</>}>
+        <form action={action}>
           <input type="hidden" name="equipment_id" value={e.id} />
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label className="label">수행일</label>
               <input name="performed_on" type="date" required className="input tnum" />
@@ -305,17 +306,15 @@ function ValidationPanel({ e }: { e: EquipRow }) {
             </div>
           </div>
           <Msg state={state} />
-          <div className="mt-3 flex gap-2">
-            <button type="submit" disabled={pending} className="btn-primary h-9 px-4 text-xs">
-              {pending ? '등록 중' : '등록'}
-            </button>
-            <button type="button" onClick={() => setOpen(false)}
-                    className="btn-ghost h-9 px-3 text-xs">
-              닫기
-            </button>
-          </div>
+          <p className="mt-2 text-xs leading-relaxed text-muted">
+            이력은 지워지지 않습니다. 잘못 입력했으면 바른 값을 다시 등록하고,
+            최신 만료일이 상태가 됩니다.
+          </p>
+          <button type="submit" disabled={pending} className="btn-primary mt-3 w-full">
+            {pending ? '등록하는 중' : '등록'}
+          </button>
         </form>
-      )}
+      </Dialog>
 
       {e.history.length > 0 && (
         <ul className="divide-y divide-line-soft border-t border-line-soft">

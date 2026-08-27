@@ -4,6 +4,7 @@ import { useActionState, useState } from 'react';
 import { fmtDate } from '@/lib/fmt';
 import { SUPPLIER_STATUS, type FormState } from '@/lib/forms';
 import { Msg, Tag } from '@/components/ui';
+import { Dialog, useDialog } from '@/components/dialog';
 import { saveSupplier, savePrice, saveShelfLife } from './actions';
 
 export interface SupplierRow {
@@ -99,8 +100,8 @@ export function NewSupplierForm() {
 }
 
 export function SupplierRowView({ s }: { s: SupplierRow }) {
-  const [open, setOpen] = useState(false);
   const [state, action, pending] = useActionState<FormState, FormData>(saveSupplier, {});
+  const { open, setOpen } = useDialog(state);
   const st = statusOf(s.status);
   const expired = s.approved_until && new Date(s.approved_until) < new Date();
 
@@ -120,25 +121,25 @@ export function SupplierRowView({ s }: { s: SupplierRow }) {
         </td>
         <td className="td tnum text-right text-muted">{s.lot_count || ''}</td>
         <td className="td text-right">
-          <button onClick={() => setOpen((v) => !v)} className="btn-quiet h-8 px-2 text-xs">
-            {open ? '닫기' : '수정'}
+          <button onClick={() => setOpen(true)} className="btn-quiet h-8 px-2 text-xs">
+            수정
           </button>
         </td>
       </tr>
-      {open && (
-        <tr>
-          <td colSpan={7} className="border-b border-line bg-canvas p-4">
-            <form action={action}>
-              <input type="hidden" name="id" value={s.id} />
-              <Fields s={s} />
-              <Msg state={state} />
-              <div className="mt-3">
-                <button type="submit" disabled={pending} className="btn-primary">저장</button>
-              </div>
-            </form>
-          </td>
-        </tr>
-      )}
+      <Dialog open={open} onClose={() => setOpen(false)} wide
+              title="공급자 수정"
+              note={<><span className="font-mono">{s.code}</span> · {s.name}</>}>
+        <form action={action}>
+          <input type="hidden" name="id" value={s.id} />
+          <Fields s={s} />
+          <Msg state={state} />
+          <div className="mt-3">
+            <button type="submit" disabled={pending} className="btn-primary w-full">
+              {pending ? '저장하는 중' : '저장'}
+            </button>
+          </div>
+        </form>
+      </Dialog>
     </>
   );
 }

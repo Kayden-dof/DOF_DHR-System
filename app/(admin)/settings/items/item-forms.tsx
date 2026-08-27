@@ -4,6 +4,7 @@ import { useActionState, useState } from 'react';
 import type { FormState } from '@/lib/forms';
 import { ITEM_TYPES } from '@/lib/forms';
 import { Msg, Tag } from '@/components/ui';
+import { Dialog, useDialog } from '@/components/dialog';
 import { createItem, updateItem, generateFinished, type GenResult } from './actions';
 
 export interface ItemRow {
@@ -106,8 +107,8 @@ export function NewItemForm({ materialOnly = false }: { materialOnly?: boolean }
 /* -------------------------------------------------------------------------- */
 
 export function ItemRowView({ it }: { it: ItemRow }) {
-  const [open, setOpen] = useState(false);
   const [state, action, pending] = useActionState<FormState, FormData>(updateItem, {});
+  const { open, setOpen } = useDialog(state);
 
   return (
     <>
@@ -123,16 +124,20 @@ export function ItemRowView({ it }: { it: ItemRow }) {
         <td className="td tnum text-right">{it.min_stock ? Number(it.min_stock) : ''}</td>
         <td className="td tnum text-right text-muted">{it.lot_count || ''}</td>
         <td className="td text-right">
-          <button onClick={() => setOpen((v) => !v)} className="btn-quiet h-8 px-2 text-xs">
-            {open ? '닫기' : '수정'}
+          <button onClick={() => setOpen(true)} className="btn-quiet h-8 px-2 text-xs">
+            수정
           </button>
         </td>
       </tr>
 
-      {open && (
-        <tr>
-          <td colSpan={7} className="border-b border-line bg-canvas p-4">
-            <form action={action} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      {/*
+        * 팝업으로 띄운다. 표 안에서 줄을 벌리면 뒤의 목록이 통째로 밀려
+        * 내려가고, 고친 뒤에도 열린 채로 남아 한 번 더 누르기 쉽다.
+        */}
+      <Dialog open={open} onClose={() => setOpen(false)} wide
+              title="품목 수정"
+              note={<><span className="font-mono">{it.code}</span> · {it.name}</>}>
+            <form action={action} className="grid gap-3 sm:grid-cols-2">
               <input type="hidden" name="id" value={it.id} />
               <div className="lg:col-span-2">
                 <label className="label">품목명</label>
@@ -160,22 +165,20 @@ export function ItemRowView({ it }: { it: ItemRow }) {
                 사용
               </label>
 
-              <div className="flex items-end gap-2 lg:col-span-2">
+              <div className="flex items-end gap-2 sm:col-span-2">
                 <button type="submit" disabled={pending} className="btn-primary">저장</button>
               </div>
 
               {it.min_stock_auto && (
-                <p className="rounded-md bg-surface px-3 py-2 text-xs leading-relaxed text-muted lg:col-span-5">
+                <p className="rounded-md bg-surface px-3 py-2 text-xs leading-relaxed text-muted sm:col-span-2">
                   <b className="text-ink">자동 산출값 {Number(it.min_stock_auto)}</b>
                   {it.min_stock_basis ? ` · ${it.min_stock_basis}` : ''}
                   <br />제안일 뿐이며 최소 재고선을 덮어쓰지 않습니다. 쓰려면 위 항목에 직접 입력하십시오.
                 </p>
               )}
-              <div className="lg:col-span-5"><Msg state={state} /></div>
+              <div className="sm:col-span-2"><Msg state={state} /></div>
             </form>
-          </td>
-        </tr>
-      )}
+      </Dialog>
     </>
   );
 }

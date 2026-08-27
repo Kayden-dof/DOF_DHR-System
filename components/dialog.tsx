@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { FormState } from '@/lib/forms';
 
 /* ---------------------------------------------------------------------------
@@ -42,7 +43,21 @@ export function Dialog({
   /** 숫자판처럼 넓은 것이 들어갈 때 */
   wide?: boolean;
 }) {
-  /* 뒤로 가기나 Esc 로도 닫힌다. 팝업에 갇히는 화면을 만들지 않는다 */
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
+  /*
+   * 팝업이 떠 있는 동안 뒤 화면이 따라 구르지 않게 한다. 현장에서 손가락으로
+   * 밀면 팝업 대신 뒤가 움직여 어디를 보고 있는지 잃는다.
+   */
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [open]);
+
+  /* Esc 로도 닫힌다. 팝업에 갇히는 화면을 만들지 않는다 */
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -50,28 +65,46 @@ export function Dialog({
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
-  if (!open) return null;
+  /*
+   * 본문 밖(body)에 그린다.
+   *
+   * 처음에는 부른 자리에 그대로 그렸는데, 인쇄 이력의 회수 단추가 표의 sticky
+   * 칸 안에 있어서 팝업이 머리글 아래로 깔렸다 (사용자 확인). 표 · sticky ·
+   * overflow 안에서 부르면 어디서 어떻게 가려질지 부르는 쪽이 알 수 없다.
+   * body 로 옮기면 부르는 자리와 무관하게 늘 맨 위에 뜬다.
+   *
+   * 서버에서는 document 가 없으므로 붙은 뒤에만 그린다.
+   */
+  if (!open || !mounted) return null;
 
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
       aria-label={title}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-ink/55 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[60] overflow-y-auto bg-ink/55 backdrop-blur-sm"
     >
-      <div className={`card-raised my-4 w-full ${wide ? 'max-w-2xl' : 'max-w-lg'}`}>
-        <header className="section-head">
-          <div className="min-w-0">
-            <h3 className="text-base font-bold text-ink">{title}</h3>
-            {note && <p className="mt-0.5 text-sm leading-relaxed text-muted">{note}</p>}
-          </div>
-          <button type="button" onClick={onClose} className="btn-ghost ml-auto shrink-0">
-            닫기
-          </button>
-        </header>
-        <div className="max-h-[75vh] overflow-y-auto p-4">{children}</div>
+      {/*
+        * 짧으면 화면 가운데, 길면 위에서부터 흐른다. items-center 만 주면 긴
+        * 팝업의 위쪽이 화면 밖으로 잘려 닫기 단추에 닿지 못한다.
+        */}
+      <div className="flex min-h-full items-center justify-center p-4"
+           onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+        <div className={`card-raised w-full ${wide ? 'max-w-2xl' : 'max-w-lg'}`}>
+          <header className="section-head">
+            <div className="min-w-0">
+              <h3 className="text-base font-bold text-ink">{title}</h3>
+              {note && <p className="mt-0.5 text-sm leading-relaxed text-muted">{note}</p>}
+            </div>
+            <button type="button" onClick={onClose} className="btn-ghost ml-auto shrink-0">
+              닫기
+            </button>
+          </header>
+          <div className="p-4">{children}</div>
+        </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
