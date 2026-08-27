@@ -338,11 +338,16 @@ for (const [lot, qty, outcome, reason] of [
     client.query(
       `insert into product_nonconformity
          (product_lot_id, qty, outcome, reason_code, registered_by,
-          approved_by, approved_on)
-       values ($1,$2,$3::nc_outcome,$4,$5,$6,$7)`,
+          approved_by, approved_on, concession_doc_no)
+       values ($1,$2,$3::nc_outcome,$4,$5,$6,$7,$8)`,
+      /*
+       * 특채는 품질팀 기록지의 문서 코드가 있어야 특채로 잡힌다 (0046).
+       * 코드가 없으면 행 자체가 들어가지 않는다.
+       */
       [lot.id, qty, outcome, reason, mgrUser.id,
        outcome === 'CONCESSION' ? '정품질' : null,
-       outcome === 'CONCESSION' ? new Date().toISOString().slice(0, 10) : null]));
+       outcome === 'CONCESSION' ? new Date().toISOString().slice(0, 10) : null,
+       outcome === 'CONCESSION' ? 'QC-CON-2026-004' : null]));
   say(`${lot.lot_no} ${reason} ${qty}개 → ${
     outcome === 'REWORK' ? '재작업' : outcome === 'CONCESSION' ? '특채' : '불량'}`);
 }

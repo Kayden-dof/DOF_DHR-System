@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import StatDetail from './stat-detail';
 
 /* ---------------------------------------------------------------------------
    화면 골격
@@ -89,6 +90,13 @@ export interface StatItem {
   href?: string;
   /** 눈에 띄어야 하는 값 */
   tone?: 'warn' | 'danger' | 'info' | 'brand';
+  /*
+   * 숫자 뒤의 내역. 가리키면 뜬다.
+   *
+   * 숫자만 세워 두면 "204개"가 무엇의 204개인지 알 수 없다. 그렇다고 띠에 다
+   * 적으면 띠가 표가 된다. 평소에는 숫자만, 가리키면 내역 (사용자 지적).
+   */
+  detail?: React.ReactNode;
 }
 
 const EDGE: Record<string, string> = {
@@ -135,12 +143,18 @@ export function StatStrip({ items }: { items: StatItem[] }) {
           ? <span aria-hidden className={`absolute inset-y-0 left-0 w-[3px] ${EDGE[s.tone]}`} />
           : null;
 
+        const tip = s.detail
+          ? <StatDetail title={s.label}>{s.detail}</StatDetail>
+          : null;
+
         return s.href ? (
           <Link key={s.label} href={s.href} className={`${cls} hover:bg-surface-sub`}>
-            {edge}{body}
+            {edge}{body}{tip}
           </Link>
         ) : (
-          <div key={s.label} className={cls}>{edge}{body}</div>
+          <div key={s.label} className={`${cls} ${s.detail ? 'hover:bg-surface-sub' : ''}`}>
+            {edge}{body}{tip}
+          </div>
         );
       })}
     </dl>

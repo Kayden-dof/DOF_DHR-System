@@ -800,8 +800,10 @@ export default [
 
     const nc = (qty, outcome, extra = '') => t.rows(
       `insert into product_nonconformity
-         (product_lot_id, qty, outcome, reason_code, registered_by ${extra ? ', approved_by, approved_on' : ''})
-       values ($1,$2,$3::nc_outcome,'외관 불량',$4 ${extra ? ", '정품질', current_date" : ''})`,
+         (product_lot_id, qty, outcome, reason_code, registered_by
+          ${extra ? ', approved_by, approved_on, concession_doc_no' : ''})
+       values ($1,$2,$3::nc_outcome,'외관 불량',$4
+          ${extra ? ", '정품질', current_date, 'QC-CON-1'" : ''})`,
       [lot, qty, outcome, m.admin]);
 
     await nc(6, 'REWORK');
@@ -823,7 +825,7 @@ export default [
 
 {
   id: 'NC-02', expect: '예외',
-  name: '특채는 서면 승인자 없이 기록되지 않는다',
+  name: '특채는 기록지 문서 코드와 승인자 없이 기록되지 않는다',
   async run(t) {
     const m = await master(t);
     const rawLot = await newMaterialLot(t, m, m.raw, { thickness_band: '0510', qty: 50 });
@@ -832,11 +834,29 @@ export default [
     const lot = await t.val(
       `select cut_product_lot($1,$2,$3,$4,current_date)`, [wo.id, m.fin, 40, 2]);
 
+    // 승인자도 문서 코드도 없다
     await t.rejects(
       () => t.rows(
         `insert into product_nonconformity
            (product_lot_id, qty, outcome, reason_code, registered_by)
          values ($1,5,'CONCESSION','외관 불량',$2)`, [lot, m.admin]),
+      { code: '23514' });
+
+    // 승인자는 있는데 특채 기록지 문서 코드가 없다. 그래도 특채가 아니다
+    await t.rejects(
+      () => t.rows(
+        `insert into product_nonconformity
+           (product_lot_id, qty, outcome, reason_code, registered_by,
+            approved_by, approved_on)
+         values ($1,5,'CONCESSION','외관 불량',$2,'정품질',current_date)`, [lot, m.admin]),
+      { code: '23514' });
+
+    // 특채가 아닌 줄에 문서 코드를 붙이지 않는다
+    await t.rejects(
+      () => t.rows(
+        `insert into product_nonconformity
+           (product_lot_id, qty, outcome, reason_code, registered_by, concession_doc_no)
+         values ($1,5,'SCRAP','외관 불량',$2,'QC-CON-9')`, [lot, m.admin]),
       { code: '23514' });
     await t.setActor(null);
   },

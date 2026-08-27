@@ -393,6 +393,16 @@ export function NonconformityForm({ lot, woId, today }: {
           {/* 특채는 서면 승인 사항이다. 승인자 없이는 기록되지 않는다 */}
           {outcome === 'CONCESSION' && (
             <div className="grid gap-3 rounded-md border border-warn/30 bg-warn-bg p-3 sm:grid-cols-2">
+              {/*
+                * 특채 기록지 문서 코드. 이 값이 없으면 특채로 잡지 않는다.
+                * 정본은 품질팀이 발행한 기록지이고 여기 적는 것은 그 종이를
+                * 가리키는 표지다. 성적서 번호와 같은 자리다 (§2 S02).
+                */}
+              <div className="sm:col-span-2">
+                <label className="label">특채 기록지 문서 코드 (필수)</label>
+                <input name="concession_doc_no" required autoComplete="off"
+                       placeholder="예: QC-CON-2026-004" className="input font-mono" />
+              </div>
               <div>
                 <label className="label">서면 승인자 (필수)</label>
                 <input name="approved_by" required autoComplete="off"
@@ -404,8 +414,9 @@ export function NonconformityForm({ lot, woId, today }: {
                        className="input tnum" />
               </div>
               <p className="text-xs leading-relaxed text-ink sm:col-span-2">
-                특채는 부적합인 채로 내보내는 결정입니다. 서면 승인서가 있어야 하고,
-                승인자 이름이 그대로 기록됩니다.
+                특채는 부적합인 채로 내보내는 결정입니다. 품질팀에서 특채 기록지를 받고
+                그 문서 코드를 적어야 특채로 잡힙니다. 코드 없이는 기록되지 않습니다.
+                이 기록지는 배치 묶음에 함께 철합니다.
               </p>
             </div>
           )}

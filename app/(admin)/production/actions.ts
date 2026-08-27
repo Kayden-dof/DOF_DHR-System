@@ -222,8 +222,16 @@ export async function recordNonconformity(
 
     const approver = String(form.get('approved_by') ?? '').trim();
     const approvedOn = String(form.get('approved_on') ?? '').trim();
-    if (outcome === 'CONCESSION' && (!approver || !approvedOn)) {
-      return { error: '특채는 서면 승인자와 승인일이 있어야 기록됩니다' };
+    /*
+     * 특채 기록지 문서 코드. 이 값이 없으면 특채로 잡지 않는다 (사용자 기준).
+     *
+     * 정본은 품질팀이 발행한 특채 기록지이고 시스템에 적히는 것은 그 종이를
+     * 가리키는 표지다. 이름만으로는 누가 정했는지는 알아도 어느 종이인지는
+     * 모른다. 심사에서 묻는 것은 늘 그 종이다.
+     */
+    const docNo = String(form.get('concession_doc_no') ?? '').trim();
+    if (outcome === 'CONCESSION' && (!approver || !approvedOn || !docNo)) {
+      return { error: '특채는 기록지 문서 코드와 서면 승인자 · 승인일이 있어야 기록됩니다' };
     }
 
     await withActor(me.id, (db) =>

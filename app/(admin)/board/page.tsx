@@ -100,6 +100,42 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
          from stock_movement sm
         where sm.type = 'DISPOSAL_WIP'
         group by 1 order by 1 desc limit 6`),
+    /*
+     * 아래 넷은 요약 띠의 내역이다. 툴팁은 설명이 아니라 내역이어야 한다
+     * (사용자 지적) - 숫자를 눌러 확인할 수 있는 것이 내역이고, 설명은 화면
+     * 아래 정의 칸이 맡는다.
+     */
+    todayLots: await db.rows<{ lot_no: string; item_code: string; produced: number }>(
+      `select pl.lot_no, i.code as item_code, pl.qty_produced as produced
+         from product_lot pl join item i on i.id = pl.item_id
+        where pl.manufactured_on = (timezone('Asia/Seoul', now()))::date
+        order by i.code`),
+    monthShip: await db.rows<{ customer_name: string; lot_no: string; qty: number }>(
+      `select sh.customer_name, pl.lot_no, sh.qty
+         from shipment sh join product_lot pl on pl.id = sh.product_lot_id
+        where date_trunc('month', sh.shipped_at)
+              = date_trunc('month', (timezone('Asia/Seoul', now()))::date)
+        order by sh.shipped_at desc, pl.lot_no`),
+    monthNc: await db.rows<{
+      lot_no: string; outcome: string; qty: number;
+      reason_code: string; concession_doc_no: string | null;
+    }>(
+      `select pl.lot_no, n.outcome::text as outcome, n.qty, n.reason_code,
+              n.concession_doc_no
+         from product_nonconformity n
+         join product_lot pl on pl.id = n.product_lot_id
+        where date_trunc('month', pl.manufactured_on)
+              = date_trunc('month', (timezone('Asia/Seoul', now()))::date)
+        order by pl.lot_no, n.outcome`),
+    monthSpendItems: await db.rows<{ code: string; name: string; won: string }>(
+      /*
+       * 별칭을 amount 로 두면 order by 가 원래 열이 아니라 그 별칭(text)을
+       * 집어 문자열로 정렬한다. 84,000 이 416,000 보다 앞에 선다.
+       * 별칭을 달리해 숫자 열로 정렬한다.
+       */
+      `select code, name, amount::text as won from v_material_spend
+        where month = date_trunc('month', (timezone('Asia/Seoul', now()))::date)
+        order by amount desc limit 8`),
     unit: sn
       ? await db.rows<Unit>(`select * from find_unit($1)`, [sn])
       : [],
@@ -116,17 +152,93 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
   const won = (v?: string | null) =>
     v ? `${Math.round(Number(v)).toLocaleString('ko-KR')}원` : '0원';
 
+  /*
+   * 요약 띠의 툴팁은 전부 내역이다.
+   *
+   * 어떤 칸은 내역이고 어떤 칸은 설명이면 보는 사람이 매번 무엇이 나올지
+   * 짐작해야 한다 (사용자 지적). 설명은 화면 아래 정의 칸이 맡고, 여기서는
+   * 그 숫자를 이루는 줄만 편다. 없으면 "없습니다" 한 줄이다.
+   */
+  const rows = (
+    items: { left: React.ReactNode; sub?: React.ReactNode; right: React.ReactNode }[],
+    empty = '없습니다.',
+  ) =>
+    items.length === 0 ? <span className="text-muted">{empty}</span> : (
+      <ul className="space-y-1">
+        {items.map((r, i) => (
+          <li key={i} className="flex items-baseline justify-between gap-3">
+            <span className="min-w-0">
+              {r.left}
+              {r.sub && <span className="ml-1.5 text-xs text-muted">{r.sub}</span>}
+            </span>
+            <span className="shrink-0 tnum font-semibold">{r.right}</span>
+          </li>
+        ))}
+      </ul>
+    );
+
+  const mono = (v: string) => <span className="font-mono text-xs">{v}</span>;
+
+  const monthRows = d.days.filter((r) => r.made_on.slice(0, 7) === thisMonth);
+  const monthByItem = [...monthRows.reduce((m2, r) => {
+    const c = m2.get(r.item_code);
+    m2.set(r.item_code, c ? { ...c, produced: c.produced + r.produced } : r);
+    return m2;
+  }, new Map<string, DayRow>()).values()].sort((a, b) => b.produced - a.produced);
+
+  const NC_LABEL: Record<string, string> = {
+    REWORK: '재작업', CONCESSION: '특채', SCRAP: '불량',
+  };
+  const nc = (kind: string) => d.monthNc.filter((n) => n.outcome === kind);
+
   const stats: StatItem[] = [
-    { label: '오늘 생산', value: todayQty, unit: '개' },
-    { label: '오늘 제조번호', value: todayRows.reduce((a, r) => a + r.lots, 0), unit: '건' },
-    { label: '이번 달 생산', value: cur?.produced ?? 0, unit: '개' },
-    { label: '이번 달 출고', value: cur?.shipped ?? 0, unit: '개' },
+    { label: '오늘 생산', value: todayQty, unit: '개',
+      detail: rows(todayRows.map((r) => ({
+        left: mono(r.item_code), sub: r.item_name, right: `${r.produced}개`,
+      })), '오늘 재단한 제품이 없습니다.') },
+
+    { label: '오늘 제조번호', value: todayRows.reduce((a, r) => a + r.lots, 0), unit: '건',
+      detail: rows(d.todayLots.map((l) => ({
+        left: <b className="font-mono">{l.lot_no}</b>, sub: l.item_code,
+        right: `${l.produced}개`,
+      })), '오늘 붙은 제조번호가 없습니다.') },
+
+    { label: '이번 달 생산', value: cur?.produced ?? 0, unit: '개',
+      detail: rows(monthByItem.map((r) => ({
+        left: mono(r.item_code), sub: r.item_name, right: `${r.produced}개`,
+      })), '이번 달 재단한 제품이 없습니다.') },
+
+    { label: '이번 달 출고', value: cur?.shipped ?? 0, unit: '개',
+      detail: rows(d.monthShip.map((r) => ({
+        left: r.customer_name, sub: r.lot_no, right: `${r.qty}개`,
+      })), '이번 달 나간 것이 없습니다.') },
+
     { label: '이번 달 불량률', value: curQ?.scrap_pct ? `${Number(curQ.scrap_pct)}%` : '0%',
-      tone: Number(curQ?.scrap_pct ?? 0) > 0 ? 'danger' : undefined },
+      tone: Number(curQ?.scrap_pct ?? 0) > 0 ? 'danger' : undefined,
+      detail: rows(nc('SCRAP').map((n) => ({
+        left: <b className="font-mono">{n.lot_no}</b>, sub: n.reason_code,
+        right: `${n.qty}개`,
+      })), '이번 달 불량이 없습니다.') },
+
     { label: '이번 달 재작업률', value: curQ?.rework_pct ? `${Number(curQ.rework_pct)}%` : '0%',
-      tone: Number(curQ?.rework_pct ?? 0) > 0 ? 'warn' : undefined },
+      tone: Number(curQ?.rework_pct ?? 0) > 0 ? 'warn' : undefined,
+      detail: rows(nc('REWORK').map((n) => ({
+        left: <b className="font-mono">{n.lot_no}</b>, sub: n.reason_code,
+        right: `${n.qty}개`,
+      })), '이번 달 재작업이 없습니다.') },
+
     { label: '이번 달 특채', value: curQ?.concession ?? 0, unit: '개',
-      tone: (curQ?.concession ?? 0) > 0 ? 'warn' : undefined },
+      tone: (curQ?.concession ?? 0) > 0 ? 'warn' : undefined,
+      detail: rows(nc('CONCESSION').map((n) => ({
+        left: <b className="font-mono">{n.concession_doc_no ?? ''}</b>,
+        sub: `${n.lot_no} · ${n.reason_code}`,
+        right: `${n.qty}개`,
+      })), '이번 달 특채가 없습니다.') },
+
+    { label: '이번 달 자재 지출', value: won(curSpend?.amount),
+      detail: rows(d.monthSpendItems.map((r) => ({
+        left: mono(r.code), sub: r.name, right: won(r.won),
+      })), '이번 달 입고가 없습니다.') },
   ];
 
   return (

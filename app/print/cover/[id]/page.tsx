@@ -105,6 +105,10 @@ export default async function CoverSheet({ params }: { params: Promise<{ id: str
        * 사본)의 번호다. 목록은 사실이고, 실제로 철했는지는 사람이 확인란에
        * 표시한다.
        */
+      /* 특채가 있으면 그 기록지도 이 묶음에 철한다 */
+      concessions: await db.rows<{ concession_doc_no: string; qty: number }>(
+        `select concession_doc_no, qty from v_batch_concession
+          where work_order_id = $1 order by concession_doc_no`, [id]),
       prints: await db.rows<{ kind: string; latest: number; count: number }>(
         `select kind::text as kind, max(seq)::int as latest, count(*)::int as count
            from record_print
@@ -125,7 +129,7 @@ export default async function CoverSheet({ params }: { params: Promise<{ id: str
   });
 
   if (!d) notFound();
-  const { head, materials, lots, days, prints, requests, certs } = d;
+  const { head, materials, lots, days, prints, requests, certs, concessions } = d;
 
   // 아직 남아 있는 것. 사실만 적고 판정하지 않는다 (§10).
   const openDays = days.filter((r) => r.prints === 0).length;
@@ -374,6 +378,20 @@ export default async function CoverSheet({ params }: { params: Promise<{ id: str
                       {certs.map((c) => c.cert_no).join(' · ')}
                     </span>,
                 pages: certs.length ? String(certs.length) : '-' },
+              /*
+                * 특채 기록지. 품질팀이 발행한 종이이고 시스템은 그 문서 코드만
+                * 안다. 특채가 없으면 이 줄 자체가 나오지 않는다 - 없는 서류를
+                * 목록에 세워 두면 찾다가 시간을 버린다.
+                */
+              ...(concessions.length > 0 ? [{
+                name: '특채 기록지 (품질팀 발행)',
+                fact: (
+                  <span className="font-mono">
+                    {concessions.map((c) => `${c.concession_doc_no} (${c.qty}개)`).join(' · ')}
+                  </span>
+                ),
+                pages: String(concessions.length),
+              }] : []),
               { name: '원재료 성적서 사본',
                 fact: <span className="font-mono">{head.coa_no}</span>,
                 pages: '1' },
