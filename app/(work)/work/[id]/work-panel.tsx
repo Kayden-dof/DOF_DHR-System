@@ -18,7 +18,7 @@ export interface Op {
   bom: { item_id: string; item_code: string; item_name: string; usage_uom: string;
          basis: string; required: string | null }[];
   /** 이 공정에 걸린 설비. 비어 있으면 화면에 칸이 나오지 않는다 */
-  equipment: { code: string; name: string; valid_until: string | null }[];
+  equipment: { id: string; code: string; name: string; valid_until: string | null }[];
 }
 export interface Rec {
   id: string; operation_id: string; day_no: number; attempt: number;
@@ -387,8 +387,9 @@ function StartCard({ woId, day, op, people, productLots, attempt, done }: {
    * 설비를 하나만 걸어 둔 공정이면 눌러야 할 것이 하나뿐이라 미리 골라 둔다.
    * 장갑 낀 손으로 답이 정해진 타일을 한 번 더 누르게 만들 이유가 없다.
    */
+  // 대장을 가리키는 참조를 보낸다. 코드는 DB 가 그 시점 대장에서 떠 온다
   const [equip, setEquip] = useState(
-    op.equipment.length === 1 ? op.equipment[0].code : '');
+    op.equipment.length === 1 ? op.equipment[0].id : '');
 
   return (
     <form action={action} className="space-y-4 p-4">
@@ -398,7 +399,7 @@ function StartCard({ woId, day, op, people, productLots, attempt, done }: {
       <input type="hidden" name="attempt" value={attempt} />
       <input type="hidden" name="rotation_worker_id" value={rotation} />
       <input type="hidden" name="product_lot_id" value={lot} />
-      <input type="hidden" name="equipment_id" value={equip} />
+      <input type="hidden" name="equipment_ref" value={equip} />
 
       {done && (
         <p className="rounded-md bg-warn-bg px-3 py-2.5 text-sm leading-relaxed text-ink">
@@ -449,8 +450,8 @@ function StartCard({ woId, day, op, people, productLots, attempt, done }: {
               const gone = !q.valid_until || q.valid_until < todayStr();
               return (
                 <button key={q.code} type="button"
-                        onClick={() => setEquip((v) => (v === q.code ? '' : q.code))}
-                        data-on={equip === q.code} className="tile">
+                        onClick={() => setEquip((v) => (v === q.id ? '' : q.id))}
+                        data-on={equip === q.id} className="tile">
                   <span className="flex items-center gap-2 font-mono text-base font-bold">
                     {q.code}
                     {gone && (

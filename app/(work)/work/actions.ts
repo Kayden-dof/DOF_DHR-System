@@ -37,12 +37,14 @@ export async function startRecord(_p: FormState, form: FormData): Promise<FormSt
     await withActor(me.id, (db) =>
       db.rows(
         `insert into process_record (work_order_id, product_lot_id, operation_id, attempt,
-           day_no, work_date, worker_id, rotation_worker_id, equipment_id, started_at)
-         values ($1,$2,$3,$4,$5, (timezone('Asia/Seoul', now()))::date, $6,$7,$8, now())`,
+           day_no, work_date, worker_id, rotation_worker_id, equipment_ref, started_at)
+         values ($1,$2,$3,$4,$5, (timezone('Asia/Seoul', now()))::date, $6,$7,$8::uuid, now())`,
         [wo, lot || null, String(form.get('operation_id') ?? ''),
          Number(form.get('attempt') ?? 1), Number(form.get('day_no') ?? 1),
          me.id, rotation || null,
-         String(form.get('equipment_id') ?? '').trim() || null]));
+         // 설비 대장을 가리키는 참조. 종이에 찍힐 코드는 DB 가 그 시점의
+         // 대장에서 떠 온다 (0032). 응용이 두 값을 각각 넣으면 언젠가 어긋난다
+         String(form.get('equipment_ref') ?? '').trim() || null]));
 
     bump(wo);
     return { ok: true, message: '공정을 시작했습니다.' };

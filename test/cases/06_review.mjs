@@ -181,8 +181,8 @@ export default [
 },
 
 {
-  id: 'EQ-01', expect: '예외',
-  name: '이미 사용된 설비의 코드는 바꿀 수 없다',
+  id: 'EQ-01', expect: '확인',
+  name: '설비 코드를 바꿔도 지난 기록은 그때 코드를 그대로 유지한다',
   async run(t) {
     const m = await master(t);
     const rawLot = await newMaterialLot(t, m, m.raw, { thickness_band: '0510', qty: 50 });
@@ -192,20 +192,31 @@ export default [
     const eq = await t.val(
       `insert into equipment (code, name) values ('EQ-T1','시험 설비') returning id`);
 
-    // 아직 안 쓰였으면 오타 정정이 된다
-    await t.rows(`update equipment set code = 'EQ-T2' where id = $1`, [eq]);
-    t.eq(await t.val(`select code from equipment where id = $1`, [eq]), 'EQ-T2', '미사용 시 변경');
-
-    // 기록에 적히고 나면 막힌다. 기록은 되돌릴 수 없다
+    // 응용은 참조만 넣는다. 종이에 찍힐 코드는 DB 가 그 시점 대장에서 떠 온다
     const { pr } = await goodOp(t, m, wo);
-    await t.rows(`update process_record set equipment_id = 'EQ-T2' where id = $1`, [pr]);
-    await t.rejects(
-      () => t.rows(`update equipment set code = 'EQ-T3' where id = $1`, [eq]),
-      { code: 'P0001', message: '이미 사용된 설비' });
+    await t.rows(`update process_record set equipment_ref = $2 where id = $1`, [pr, eq]);
+    // 갱신 경로에는 스냅숏 트리거가 없으므로 새 기록으로 확인한다
+    const pr2 = await t.val(
+      `insert into process_record (work_order_id, operation_id, day_no, work_date,
+         worker_id, equipment_ref, started_at, ended_at)
+       values ($1,$2,9,current_date,$3,$4,
+               current_date + interval '8 hours', current_date + interval '9 hours')
+       returning id`, [wo.id, m.ops['WS-DX2401-04'], m.worker, eq]);
+    t.eq(await t.val(`select equipment_id from process_record where id = $1`, [pr2]),
+         'EQ-T1', '스냅숏 자동 기입');
 
-    // 이름 · 비고 · 활성 여부는 그대로 고칠 수 있다
-    await t.rows(`update equipment set name = '이름만 변경' where id = $1`, [eq]);
-    t.eq(await t.val(`select name from equipment where id = $1`, [eq]), '이름만 변경', '이름 변경');
+    // 대장 코드를 바꾼다. 참조가 신원을 들고 있으므로 막히지 않는다
+    await t.rows(`update equipment set code = 'EQ-T9' where id = $1`, [eq]);
+
+    // 지난 기록의 스냅숏은 그대로다. 종이에 찍힌 값과 어긋나지 않는다
+    t.eq(await t.val(`select equipment_id from process_record where id = $1`, [pr2]),
+         'EQ-T1', '코드 변경 후에도 스냅숏 불변');
+
+    // 그런데도 설비로는 계속 이어진다. 사용 기록이 끊기지 않는다.
+    // 위에서 참조를 붙인 기록이 둘이다 (pr · pr2)
+    t.eq(Number(await t.val(
+      `select count(*)::int from v_process_equipment where equipment_id = $1`, [eq])),
+      2, '참조로 이어지는 기록');
   },
 },
 

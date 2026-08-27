@@ -74,7 +74,9 @@ export default async function EquipmentLogSheet({
            join work_order wo on wo.id = pr.work_order_id
            join dmr_operation o on o.id = pr.operation_id
            join app_user u on u.id = pr.worker_id
-          where pr.equipment_id = (select code from equipment where id = $1)
+          -- 참조를 먼저 보고 없으면 그때 찍힌 코드로 떨어진다 (v_process_equipment)
+          where exists (select 1 from v_process_equipment ve
+                         where ve.process_record_id = pr.id and ve.equipment_id = $1)
           order by pr.work_date desc, pr.started_at desc
           limit 200`, [id]),
     };

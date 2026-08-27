@@ -39,8 +39,8 @@ export default async function EquipmentPage() {
                   from operation_equipment oe
                   join dmr_operation o on o.id = oe.operation_id
                  where oe.equipment_id = e.id and oe.is_active), '[]'::json) as ops,
-              (select count(*)::int from process_record pr
-                where pr.equipment_id = e.code) as used,
+              (select count(*)::int from v_process_equipment ve
+                where ve.equipment_id = e.id) as used,
               coalesce((
                 select json_agg(json_build_object(
                   'performed_on', ev.performed_on, 'valid_until', ev.valid_until,
