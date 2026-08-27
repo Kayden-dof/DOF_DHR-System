@@ -101,6 +101,27 @@ const issues = day ? await rows(
     where pr.work_order_id = $1 and pr.day_no = $2 and pr.worker_id = $3
     order by o.seq`, [day.work_order_id, day.day_no, day.worker_id]) : [];
 
+/* 공정별 설비. 지시서에 밸리데이션 만료일과 함께 인쇄된다 */
+const equipLines = await rows(
+  `select e.code, e.name,
+          (select max(valid_until)::text from equipment_validation ev
+            where ev.equipment_id = e.id) as valid_until
+     from dmr_operation o
+     join operation_equipment oe on oe.operation_id = o.id and oe.is_active
+     join equipment e on e.id = oe.equipment_id and e.is_active
+    where o.device_master_id = (select device_master_id from work_order where id = $1)
+    order by o.seq, e.code`, [wo.id]);
+
+const eqLog = await one(
+  `select e.id, e.code, e.name,
+          (select report_no from equipment_validation ev
+            where ev.equipment_id = e.id
+            order by valid_until desc limit 1) as report_no,
+          (select count(*)::int from process_record pr where pr.equipment_id = e.code) as used
+     from equipment e
+    where exists (select 1 from process_record pr where pr.equipment_id = e.code)
+    order by e.code limit 1`);
+
 /* 착수 전에 정해지지 않는 값. 작업 지시서에 나오면 안 된다 (§7) */
 const reagentLots = await rows(
   `select distinct ml.lot_no
@@ -170,6 +191,11 @@ await sheet('① 작업 지시서', `/print/work-order/${wo.id}`, [
   { label: '생산 발행자',       value: wo.prod_name },
   { label: '품질 발행자',       value: wo.qa_name },
   { label: '필요 용기 수',      value: '필요 용기 수' },
+  // 공정별 설비. 발행 시점의 밸리데이션 만료일이 함께 찍힌다
+  ...equipLines.slice(0, 3).flatMap((q) => [
+    { label: `설비 ${q.code}`,        value: q.code },
+    { label: `설비 만료 ${q.code}`,   value: q.valid_until },
+  ]),
   // §7 "시약·포장재 로트번호는 들어가지 않는다". 착수 전에 정해지지 않는다
   ...reagentLots.map((r) => (
     { label: '시약 로트 미기재', value: r.lot_no, absent: true })),
@@ -271,6 +297,22 @@ if (lots.length > 0) {
     { label: '요청 합계', value: String(pick.reduce((a, l) => a + l.req, 0)) },
     { label: '품질책임자란', value: '품질책임자' },
   ]);
+}
+
+/* --- 7. 설비 사용 기록 ------------------------------------------------------ */
+
+if (eqLog) {
+  await sheet('⑦ 설비 사용 기록', `/print/equipment-log/${eqLog.id}`, [
+    ...common('설비 사용 기록'),
+    { label: '관리번호',        value: eqLog.code },
+    { label: '설비명',          value: eqLog.name },
+    { label: '밸리데이션 보고서', value: eqLog.report_no },
+    { label: '사용 배치',       value: wo.batch_no },
+    { label: '당시 밸리데이션 열', value: '당시 밸리데이션' },
+  ]);
+} else {
+  say('');
+  say('⑦ 설비 사용 기록   건너뜀 - 설비가 적힌 기록이 없습니다');
 }
 
 /* --- 보고서 ---------------------------------------------------------------- */

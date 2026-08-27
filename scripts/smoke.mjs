@@ -26,6 +26,7 @@ const ids = {
   mat: (await rows(`select id from material_lot order by lot_no limit 1`))[0]?.id,
   day: (await rows(
     `select work_order_id, day_no, worker_id from process_record order by day_no limit 1`))[0],
+  eq: (await rows(`select id from equipment order by code limit 1`))[0]?.id,
 };
 const userIds = Object.fromEntries(
   (await rows(`select login_code, id from app_user`)).map((u) => [u.login_code, u.id]));
@@ -38,12 +39,13 @@ const ADMIN = [
   '/material/movement', '/shipping', '/shipping/steril', '/shipping/ship',
   '/trace', '/trace/verify', '/trace/cost',
   '/settings', '/settings/numbering', '/settings/items', '/settings/suppliers',
-  '/settings/dmr', '/settings/equipment', '/settings/users', '/settings/audit',
+  '/settings/dmr', '/equipment', '/settings/users', '/settings/audit',
   ids.wo && `/production/${ids.wo}`,
   ids.wo && `/print/work-order/${ids.wo}`,
   ids.wo && `/print/label-request/${ids.wo}`,
   ids.wo && `/print/cover/${ids.wo}`,
   ids.mat && `/print/label/${ids.mat}`,
+  ids.eq && `/print/equipment-log/${ids.eq}`,
   ids.lot && ids.wo && `/print/release-request/${ids.wo}?sel=${ids.lot}:1`,
   ids.lot && `/trace/product/${ids.lot}`,
   ids.wo && `/trace/batch/${ids.wo}`,

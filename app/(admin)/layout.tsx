@@ -29,6 +29,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { href: '/', label: '현황' },
     { href: '/production', label: '생산' },
     { href: '/material', label: '자재' },
+    { href: '/equipment', label: '설비' },
     { href: '/shipping', label: '출하' },
     { href: '/trace', label: '조회' },
     ...(hasRole(user, 'SYS_ADMIN') ? [{ href: '/settings', label: '설정' }] : []),

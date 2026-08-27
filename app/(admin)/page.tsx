@@ -25,6 +25,7 @@ interface Counts {
   wo_open: number; wo_issued: number;
   lots_packed: number; lots_await_release: number; lots_shippable: number;
   reorder: number; expiring: number; expired: number;
+  eq_due: number; eq_gone: number;
   open_records: number; unprinted_days: number;
 }
 
@@ -49,6 +50,14 @@ export default async function Dashboard() {
           where status = 'AVAILABLE' and expiry_date is not null
             and expiry_date < (timezone('Asia/Seoul', now()))::date + 30)   as expiring,
         (select count(*)::int from material_lot where status = 'EXPIRED')   as expired,
+        (select count(*)::int from v_equipment_status
+          where is_active
+            and (valid_until is null
+                 or valid_until < (timezone('Asia/Seoul', now()))::date + 30)) as eq_due,
+        (select count(*)::int from v_equipment_status
+          where is_active
+            and (valid_until is null
+                 or valid_until < (timezone('Asia/Seoul', now()))::date))      as eq_gone,
         (select count(*)::int from process_record where ended_at is null)   as open_records,
         (select count(*)::int from (
            select pr.work_order_id, pr.day_no, pr.worker_id
@@ -167,6 +176,8 @@ export default async function Dashboard() {
       tone: c.expired > 0 ? 'danger' : c.expiring > 0 ? 'warn' : undefined },
     { label: '최소 재고선 아래', value: c.reorder, unit: '종', href: '/material/orders',
       tone: c.reorder > 0 ? 'warn' : undefined },
+    { label: '설비 밸리데이션', value: c.eq_due, unit: '대', href: '/equipment',
+      tone: c.eq_gone > 0 ? 'danger' : c.eq_due > 0 ? 'warn' : undefined },
   ];
 
   const hour = Number(new Intl.DateTimeFormat('en-US', {

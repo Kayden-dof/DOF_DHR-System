@@ -27,6 +27,10 @@ interface Wo {
   prod_name: string; qa_name: string; device_master_id: string;
 }
 interface PlanRow { item_code: string; item_name: string; planned_qty: number | null }
+interface EquipLine {
+  op_name: string; code: string; name: string; valid_until: string | null;
+}
+
 interface OpRow {
   seq: number; code: string; name: string; after_cutting: boolean;
   materials: { item_code: string; item_name: string; usage_uom: string;
@@ -69,6 +73,25 @@ export default async function WorkOrderSheet({ params }: { params: Promise<{ id:
     return {
       wo,
       plan,
+      /*
+       * 공정별 설비와 밸리데이션 만료일. 발행 시점의 사실이 종이에 남는다.
+       * 기한이 지난 것이 있으면 착수 전에 이 종이에서 보인다 (사용자 지시 -
+       * 작업 들어가서 작업자가 알기 전에). 발행을 막지는 않는다 (§2).
+       */
+      equipment: await db.rows<EquipLine>(
+        `select o.name as op_name, e.code, e.name,
+                v.valid_until::text as valid_until
+           from dmr_operation o
+           join operation_equipment oe on oe.operation_id = o.id and oe.is_active
+           join equipment e on e.id = oe.equipment_id and e.is_active
+           left join lateral (
+             select max(valid_until) as valid_until
+               from equipment_validation where equipment_id = e.id
+           ) v on true
+          where o.device_master_id = $1
+          order by o.seq, e.code`, [wo.device_master_id]),
+      today: await db.val<string>(
+        `select to_char(timezone('Asia/Seoul', now()), 'YYYY-MM-DD')`),
       ops: await db.rows<OpRow>(
         `select o.seq, o.code, o.name, o.after_cutting,
                 coalesce((
@@ -84,7 +107,7 @@ export default async function WorkOrderSheet({ params }: { params: Promise<{ id:
   });
 
   if (!d) notFound();
-  const { wo, ops, plan } = d;
+  const { wo, ops, plan, equipment, today } = d;
 
   // 필요 용기 수: 장입 구간 기준 자재의 소요량 합. 시약이 통 단위로 나가므로
   // 그 합이 곧 현장에서 꺼내야 할 용기 수다.
@@ -183,6 +206,39 @@ export default async function WorkOrderSheet({ params }: { params: Promise<{ id:
             수량은 재단 시 기록되어 생산 규격 기록지에 인쇄되므로 이 표에 손으로
             적지 않습니다. 예정과 실제가 달라도 시스템이 고치지 않습니다.
           </p>
+        </>
+      )}
+
+      {equipment.length > 0 && (
+        <>
+          <h2 className="mt-5 text-sm font-bold text-black">공정별 설비</h2>
+          <table className="print-table mt-1.5">
+            <thead>
+              <tr>
+                <th className="w-[30%]">공정</th>
+                <th className="w-[15%]">관리번호</th>
+                <th className="w-[30%]">설비명</th>
+                <th className="w-[25%]">밸리데이션 만료</th>
+              </tr>
+            </thead>
+            <tbody>
+              {equipment.map((q, i) => {
+                const gone = !q.valid_until || (today != null && q.valid_until < today);
+                return (
+                  <tr key={i}>
+                    <td>{q.op_name}</td>
+                    <td className="font-mono font-bold">{q.code}</td>
+                    <td>{q.name}</td>
+                    <td className={gone ? 'font-bold' : 'tnum'}>
+                      {q.valid_until
+                        ? <>{fmtDate(q.valid_until)}{gone && ' · 기한 경과'}</>
+                        : '밸리데이션 기록 없음'}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </>
       )}
 

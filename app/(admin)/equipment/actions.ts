@@ -42,8 +42,38 @@ export async function saveEquipment(_p: FormState, form: FormData): Promise<Form
       }
     });
 
-    revalidatePath('/settings/equipment');
+    revalidatePath('/equipment');
     return { ok: true, message: id ? '설비를 고쳤습니다.' : '설비를 등록했습니다.' };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
+/**
+ * 밸리데이션 이력 등록.
+ *
+ * 서면 보고서가 근거다. 보고서 번호 없이는 등록되지 않는다 - 사용기간 이력이
+ * 안정성 시험 보고서 번호를 요구하는 것과 같은 방식이다 (§4.2).
+ * 이력은 고치거나 지우지 않는다. 잘못 넣었으면 바른 값을 다시 등록한다.
+ */
+export async function saveValidation(_p: FormState, form: FormData): Promise<FormState> {
+  try {
+    const me = await admin();
+    const performedOn = String(form.get('performed_on') ?? '');
+    const validUntil = String(form.get('valid_until') ?? '');
+    const reportNo = txt(form.get('report_no'));
+    if (!reportNo) return { error: '밸리데이션 보고서 번호를 입력하십시오' };
+
+    await withActor(me.id, (db) =>
+      db.rows(
+        `insert into equipment_validation
+           (equipment_id, performed_on, valid_until, report_no, note, registered_by)
+         values ($1,$2::date,$3::date,$4,$5,$6)`,
+        [String(form.get('equipment_id') ?? ''), performedOn, validUntil,
+         reportNo, txt(form.get('note')), me.id]));
+
+    revalidatePath('/equipment');
+    return { ok: true, message: `밸리데이션을 등록했습니다. 만료 ${validUntil}` };
   } catch (e) {
     return { error: dbMessage(e) };
   }
@@ -70,7 +100,7 @@ export async function linkOperation(_p: FormState, form: FormData): Promise<Form
          on conflict (operation_id, equipment_id)
            do update set is_active = excluded.is_active`, [op, eq, on]));
 
-    revalidatePath('/settings/equipment');
+    revalidatePath('/equipment');
     return { ok: true, message: on ? '공정에 걸었습니다.' : '공정에서 뗐습니다.' };
   } catch (e) {
     return { error: dbMessage(e) };

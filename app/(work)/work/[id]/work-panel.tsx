@@ -8,12 +8,17 @@ import { Msg, Tag } from '@/components/ui';
 import NumPad, { PresetPicker } from '@/components/num-pad';
 import { startRecord, issueMaterial, endRecord, closeDay } from '../actions';
 
+/** KST 오늘. 만료 비교는 날짜 문자열끼리 한다 */
+function todayStr(): string {
+  return new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Seoul' }).format(new Date());
+}
+
 export interface Op {
   id: string; seq: number; code: string; name: string; after_cutting: boolean;
   bom: { item_id: string; item_code: string; item_name: string; usage_uom: string;
          basis: string; required: string | null }[];
   /** 이 공정에 걸린 설비. 비어 있으면 화면에 칸이 나오지 않는다 */
-  equipment: { code: string; name: string }[];
+  equipment: { code: string; name: string; valid_until: string | null }[];
 }
 export interface Rec {
   id: string; operation_id: string; day_no: number; attempt: number;
@@ -434,14 +439,34 @@ function StartCard({ woId, day, op, people, productLots, attempt, done }: {
         <div>
           <span className="label">설비</span>
           <div className="grid gap-2 sm:grid-cols-2">
-            {op.equipment.map((q) => (
-              <button key={q.code} type="button"
-                      onClick={() => setEquip((v) => (v === q.code ? '' : q.code))}
-                      data-on={equip === q.code} className="tile">
-                <span className="font-mono text-base font-bold">{q.code}</span>
-                <span className="text-xs text-muted">{q.name}</span>
-              </button>
-            ))}
+            {/*
+              * 밸리데이션 기한이 지난 설비는 타일에 그 사실이 붙는다. 골라도
+              * 기록은 진행된다 - 차단은 S01~S05 뿐이고, 검토 지원이 사용일
+              * 기준으로 다시 짚는다 (§8.5). 현장에서 판단을 요구하지 않고
+              * 사실을 보여 준다.
+              */}
+            {op.equipment.map((q) => {
+              const gone = !q.valid_until || q.valid_until < todayStr();
+              return (
+                <button key={q.code} type="button"
+                        onClick={() => setEquip((v) => (v === q.code ? '' : q.code))}
+                        data-on={equip === q.code} className="tile">
+                  <span className="flex items-center gap-2 font-mono text-base font-bold">
+                    {q.code}
+                    {gone && (
+                      <span className="chip bg-danger-bg text-danger">
+                        {q.valid_until ? '밸리데이션 기한 경과' : '밸리데이션 기록 없음'}
+                      </span>
+                    )}
+                  </span>
+                  <span className="text-xs text-muted">
+                    {q.name}
+                    {q.valid_until && !gone && <> · 밸리데이션 만료 {q.valid_until}</>}
+                    {q.valid_until && gone && <> · 만료 {q.valid_until}</>}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
       )}

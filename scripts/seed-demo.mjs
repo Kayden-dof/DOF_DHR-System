@@ -248,6 +248,24 @@ if (!dm) {
     }
   }
   console.log('설비 6 · 공정 연결 7');
+
+  /*
+   * 밸리데이션 이력. 서면 보고서 번호가 근거다.
+   * 전부 유효하게 둔다 - 시연 자료가 처음부터 검토 지원에 걸리면 그 표시가
+   * 소음이 된다. 기한 경과 화면은 지난 날짜로 하나 등록해 보이면 된다.
+   */
+  let vi = 0;
+  for (const code of Object.keys(eq)) {
+    vi += 1;
+    await c.query(
+      `insert into equipment_validation
+         (equipment_id, performed_on, valid_until, report_no, registered_by)
+       select $1, date '2026-07-01', date '2027-06-30', $2, $3
+        where not exists (select 1 from equipment_validation
+                           where equipment_id = $1 and report_no = $2)`,
+      [eq[code], `VAL-2026-${String(vi).padStart(3, '0')}`, admin]);
+  }
+  console.log('밸리데이션 이력 6');
 }
 
 // --- 자재 입고 ----------------------------------------------------------------

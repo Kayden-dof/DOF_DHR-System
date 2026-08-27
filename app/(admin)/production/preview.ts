@@ -36,8 +36,31 @@ export async function previewIssue(
 
   try {
     return await withActor(user.id, async (db) => ({
+      /*
+       * 자재 경고에 설비 경고를 잇는다. 이 배치의 공정에 걸린 설비 중
+       * 오늘 기준 밸리데이션이 없거나 지난 것을 발행 전에 미리 알린다
+       * (사용자 지시 - 작업 들어가서 작업자가 알기 전에). 표시만 하고
+       * 발행을 막지 않는다 (§2).
+       */
       warnings: await db.rows<{ kind: string; detail: string }>(
-        `select kind, detail from work_order_warnings($1, $2)`, [materialLotId, sheets]),
+        `select kind, detail from work_order_warnings($1, $2)
+         union all
+         select '설비'::text,
+                format('%s %s (%s): %s', e.code, e.name, o.name,
+                  case when v.valid_until is null then '밸리데이션 기록 없음'
+                       else '밸리데이션 기한 경과 (만료 ' || to_char(v.valid_until, 'YYYY-MM-DD') || ')'
+                  end)
+           from dmr_operation o
+           join operation_equipment oe on oe.operation_id = o.id and oe.is_active
+           join equipment e on e.id = oe.equipment_id and e.is_active
+           left join lateral (
+             select max(valid_until) as valid_until
+               from equipment_validation where equipment_id = e.id
+           ) v on true
+          where o.device_master_id = $3
+            and (v.valid_until is null
+                 or v.valid_until < (timezone('Asia/Seoul', now()))::date)`,
+        [materialLotId, sheets, deviceMasterId]),
       requirements: await db.rows<RequirementRow>(
         `select o.code as operation_code, o.name as operation_name,
                 r.item_code, r.item_name, r.usage_uom, r.basis::text as basis, r.required

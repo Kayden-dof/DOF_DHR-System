@@ -3,12 +3,19 @@
 import { useActionState, useState } from 'react';
 import type { FormState } from '@/lib/forms';
 import { Msg, Tag } from '@/components/ui';
-import { saveEquipment, linkOperation } from './actions';
+import Link from 'next/link';
+import { fmtDate } from '@/lib/fmt';
+import { saveEquipment, linkOperation, saveValidation } from './actions';
 
 export interface EquipRow {
   id: string; code: string; name: string; note: string | null; is_active: boolean;
   ops: { operation_id: string; code: string; name: string }[];
   used: number;
+  /** 최신 밸리데이션. 없으면 전부 null */
+  performed_on: string | null; valid_until: string | null; report_no: string | null;
+  days_left: number | null;
+  history: { performed_on: string; valid_until: string; report_no: string;
+             note: string | null; registered_by_name: string }[];
 }
 
 export interface OpOption { id: string; code: string; name: string; seq: number }
@@ -90,8 +97,24 @@ export function EquipCard({ e, ops }: { e: EquipRow; ops: OpOption[] }) {
           {!e.is_active && <Tag tone="quiet">내림</Tag>}
           {e.note && <span className="text-xs text-faint">{e.note}</span>}
         </div>
-        <div className="ml-auto flex shrink-0 items-center gap-2">
+        <div className="ml-auto flex shrink-0 items-center gap-2.5">
+          {/*
+            * 밸리데이션 상태. 이 카드에서 가장 먼저 보여야 하는 값이다.
+            * 판정 문구가 아니라 날짜와 남은 일수라는 사실만 적는다.
+            */}
+          {e.valid_until === null ? (
+            <Tag tone="danger">밸리데이션 기록 없음</Tag>
+          ) : e.days_left !== null && e.days_left < 0 ? (
+            <Tag tone="danger">기한 경과 {fmtDate(e.valid_until)}</Tag>
+          ) : e.days_left !== null && e.days_left <= 30 ? (
+            <Tag tone="warn">만료 {e.days_left}일 전</Tag>
+          ) : (
+            <span className="tnum text-xs text-muted">만료 {fmtDate(e.valid_until)}</span>
+          )}
           <span className="tnum text-xs text-muted">기록 {e.used}건</span>
+          <Link href={`/print/equipment-log/${e.id}`} className="btn-ghost h-8 px-3 text-xs">
+            사용 기록
+          </Link>
           {!edit && (
             <button onClick={() => setEdit(true)} className="btn-quiet h-8 px-2 text-xs">고치기</button>
           )}
@@ -137,7 +160,9 @@ export function EquipCard({ e, ops }: { e: EquipRow; ops: OpOption[] }) {
         * 현장 화면은 여기 걸린 것만 타일로 보여 준다. 전부 늘어놓으면 장갑 낀
         * 손이 긴 목록에서 하나를 찾아야 한다.
         */}
-      <div className="px-4 py-3">
+      <ValidationPanel e={e} />
+
+      <div className="border-t border-line-soft px-4 py-3">
         <p className="label mb-2">쓰는 공정</p>
         <div className="flex flex-wrap gap-1.5">
           {ops.map((o) => {
@@ -161,5 +186,83 @@ export function EquipCard({ e, ops }: { e: EquipRow; ops: OpOption[] }) {
         )}
       </div>
     </section>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   밸리데이션 등록과 이력
+
+   서면 보고서가 근거다. 여기에는 번호와 날짜만 옮겨 적는다. 이력은 고치지
+   않는다 - 잘못 넣었으면 바른 값을 다시 등록하고, 최신 만료일이 상태가 된다.
+--------------------------------------------------------------------------- */
+function ValidationPanel({ e }: { e: EquipRow }) {
+  const [state, action, pending] = useActionState<FormState, FormData>(saveValidation, {});
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="border-t border-line-soft">
+      <div className="flex items-center gap-3 px-4 py-2.5">
+        <p className="label mb-0">밸리데이션</p>
+        {!open && (
+          <button onClick={() => setOpen(true)} className="btn-ghost h-8 px-3 text-xs">
+            등록
+          </button>
+        )}
+        {e.history.length === 0 && !open && (
+          <span className="text-xs text-faint">등록된 이력이 없습니다.</span>
+        )}
+      </div>
+
+      {open && (
+        <form action={action} className="border-t border-line-soft bg-canvas px-4 py-3">
+          <input type="hidden" name="equipment_id" value={e.id} />
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <label className="label">수행일</label>
+              <input name="performed_on" type="date" required className="input tnum" />
+            </div>
+            <div>
+              <label className="label">만료일</label>
+              <input name="valid_until" type="date" required className="input tnum" />
+            </div>
+            <div>
+              <label className="label">보고서 번호 (필수)</label>
+              <input name="report_no" required autoComplete="off"
+                     placeholder="VAL-2026-001" className="input font-mono" />
+            </div>
+            <div>
+              <label className="label">비고</label>
+              <input name="note" autoComplete="off" className="input" />
+            </div>
+          </div>
+          <Msg state={state} />
+          <div className="mt-3 flex gap-2">
+            <button type="submit" disabled={pending} className="btn-primary h-9 px-4 text-xs">
+              {pending ? '등록 중' : '등록'}
+            </button>
+            <button type="button" onClick={() => setOpen(false)}
+                    className="btn-ghost h-9 px-3 text-xs">
+              닫기
+            </button>
+          </div>
+        </form>
+      )}
+
+      {e.history.length > 0 && (
+        <ul className="divide-y divide-line-soft border-t border-line-soft">
+          {e.history.map((h, i) => (
+            <li key={i} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 text-xs">
+              <span className="tnum text-body">수행 {fmtDate(h.performed_on)}</span>
+              <span className={`tnum font-semibold ${i === 0 ? 'text-ink' : 'text-muted'}`}>
+                만료 {fmtDate(h.valid_until)}
+              </span>
+              <span className="font-mono text-body">{h.report_no}</span>
+              {h.note && <span className="text-muted">{h.note}</span>}
+              <span className="ml-auto text-faint">{h.registered_by_name}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }

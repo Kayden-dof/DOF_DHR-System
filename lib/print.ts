@@ -21,6 +21,7 @@ export const KIND_LABEL: Record<string, string> = {
   LABEL: '자재 라벨',
   LABEL_REQUEST: '라벨요청서',
   RELEASE_REQUEST: '출하 승인 요청서',
+  EQUIPMENT_LOG: '설비 사용 기록',
 };
 
 export function dataHash(payload: unknown): string {
@@ -37,6 +38,7 @@ interface LogArgs {
   dayNo?: number | null;
   workerId?: string | null;
   materialLotId?: string | null;
+  equipmentId?: string | null;
   pages?: number;
   /** 제조기록서는 인쇄와 동시에 그 묶음이 잠긴다 (S04). */
   lockDay?: boolean;
@@ -52,10 +54,10 @@ export async function logPrint(a: LogArgs): Promise<PrintMeta> {
           [a.workOrderId, a.dayNo, a.workerId, hash, a.pages ?? 1])
       : db.one<{ seq: number; printed_at: Date }>(
           `select seq, printed_at from record_print_log(
-             $1::print_kind, $2, $3, $4, $5, $6, $7, $8)`,
+             $1::print_kind, $2, $3, $4, $5, $6, $7, $8, $9)`,
           [a.kind, hash, a.workOrderId ?? null, a.productLotId ?? null,
            a.dayNo ?? null, a.workerId ?? null, a.materialLotId ?? null,
-           a.pages ?? 1]),
+           a.pages ?? 1, a.equipmentId ?? null]),
   );
 
   return {

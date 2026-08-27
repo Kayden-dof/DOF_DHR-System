@@ -139,6 +139,48 @@ export default [
 },
 
 {
+  id: 'RV-07', expect: '확인',
+  name: '설비 사용일에 유효한 밸리데이션이 없으면 잡는다',
+  async run(t) {
+    const m = await master(t);
+    const rawLot = await newMaterialLot(t, m, m.raw, { thickness_band: '0510', qty: 50 });
+    const wo = await newWorkOrder(t, m, { rawLot, sheets: 20 });
+    await t.setActor(m.admin);
+
+    const eq = await t.val(
+      `insert into equipment (code, name) values ('TV-01','시험 설비') returning id`);
+
+    // 사용일을 덮지 못하는 이력 하나 (작년에 만료)
+    await t.rows(
+      `insert into equipment_validation
+         (equipment_id, performed_on, valid_until, report_no, registered_by)
+       values ($1, current_date - 400, current_date - 30, 'VAL-OLD', $2)`,
+      [eq, m.admin]);
+
+    const { pr } = await goodOp(t, m, wo);
+    await t.rows(`update process_record set equipment_id = 'TV-01' where id = $1`, [pr]);
+
+    const rows = await flags(t, wo);
+    const hit = rows.find((r) => r.kind === '기한 경과');
+    if (!hit) throw new Error(`설비 기한 경과를 잡지 못했다 (${rows.map((r) => r.kind).join(',')})`);
+    if (!hit.detail.includes('TV-01') || !hit.detail.includes('유효한 밸리데이션 없음')) {
+      throw new Error(`사실을 그대로 적어야 한다: ${hit.detail}`);
+    }
+
+    // 사용일을 덮는 이력을 등록하면 사라진다. 잡지 말아야 할 것을 잡지 않는다
+    await t.rows(
+      `insert into equipment_validation
+         (equipment_id, performed_on, valid_until, report_no, registered_by)
+       values ($1, current_date - 10, current_date + 355, 'VAL-NEW', $2)`,
+      [eq, m.admin]);
+    const after = await flags(t, wo);
+    if (after.some((r) => r.kind === '기한 경과')) {
+      throw new Error('유효한 이력이 있는데도 계속 잡는다');
+    }
+  },
+},
+
+{
   id: 'RV-06', expect: '확인',
   name: '판정 문구를 쓰지 않는다',
   async run(t) {
