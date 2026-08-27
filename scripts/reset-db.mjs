@@ -4,6 +4,7 @@
      node scripts/reset-db.mjs                        로컬 · 계획만 보여 준다
      node scripts/reset-db.mjs --erase --demo         로컬 비우고 시연 자료
      node scripts/reset-db.mjs --prod --erase         운영 비우고 빈 상태로
+     node scripts/reset-db.mjs --prod --erase --base  운영 비우고 기준정보만 (배치 없음)
      node scripts/reset-db.mjs --prod --erase --demo  운영 비우고 시연 자료
 
    --erase 대신 환경변수 RESET_DB=ERASE 도 같은 뜻이다. 플래그를 둔 이유는
@@ -38,6 +39,7 @@ import { pgSsl } from './pgssl.mjs';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PROD = process.argv.includes('--prod');
 const DEMO = process.argv.includes('--demo');
+const BASE = process.argv.includes('--base');
 const ERASE = process.env.RESET_DB === 'ERASE' || process.argv.includes('--erase');
 
 // 대상 결정. 운영은 .env.deploy 의 소유자 접속(5432)만 쓴다
@@ -75,7 +77,7 @@ console.table([counts]);
 
 if (!ERASE) {
   console.log('계획만 보여 주었습니다. 실제로 비우려면 --erase 를 붙이십시오:');
-  console.log(`  node scripts/reset-db.mjs${PROD ? ' --prod' : ''} --erase${DEMO ? ' --demo' : ''}`);
+  console.log(`  node scripts/reset-db.mjs${PROD ? ' --prod' : ''} --erase${DEMO ? ' --demo' : BASE ? ' --base' : ''}`);
   await client.end();
   process.exit(0);
 }
@@ -96,11 +98,15 @@ const run = (label, args, extraEnv = {}) => {
 };
 
 run('마이그레이션', [path.join(ROOT, 'scripts', 'deploy-db.mjs')]);
+if (DEMO || BASE) {
+  run('기준정보', [path.join(ROOT, 'scripts', 'seed-demo.mjs')], { SEED_DEMO_FORCE: '1' });
+}
 if (DEMO) {
-  run('시연 기준정보', [path.join(ROOT, 'scripts', 'seed-demo.mjs')], { SEED_DEMO_FORCE: '1' });
   run('시연 전 공정', [path.join(ROOT, 'scripts', 'seed-flow.mjs')]);
 }
 
 console.log(`\n완료. ${DEMO
   ? '시연 자료가 다시 들어갔습니다 (계정 000000 등 · 비밀번호는 seed-demo.mjs 참조).'
-  : '빈 상태입니다. 위에 한 번 찍힌 초기 관리자 비밀번호를 지금 적어 두십시오.'}`);
+  : BASE
+    ? '기준정보만 있는 깨끗한 상태입니다 (배치 0건). 계정은 000000 등 시연 계정입니다.'
+    : '빈 상태입니다. 위에 한 번 찍힌 초기 관리자 비밀번호를 지금 적어 두십시오.'}`);
