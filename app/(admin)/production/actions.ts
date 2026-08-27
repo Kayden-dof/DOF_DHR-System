@@ -43,35 +43,31 @@ export async function issueWorkOrder(_p: FormState, form: FormData): Promise<For
       const woNo = await db.val<string>(`select next_number('WORK_ORDER')`);
       const batchNo = await db.val<string>(`select next_number('BATCH')`);
 
+      /*
+       * 예정 생산 수량. 형명이 아니라 개수만 받는다.
+       *
+       * 형명은 재단에서 정해지므로 (§3 ①) 착수 전 종이에 적지 않는다. 개수는
+       * 포장재 소요량(PER_UNIT)의 셈에 필요해 남긴다. 비워 두면 지시서에
+       * "재단 후 확정" 으로 인쇄되고 그것도 정상이다.
+       */
+      const rawUnits = String(form.get('planned_units') ?? '').trim();
+      const units = rawUnits === '' ? null : Number(rawUnits);
+      if (units !== null && (!Number.isInteger(units) || units < 1)) {
+        throw new Error('예정 생산 수량은 1 이상의 정수이거나 비워 둡니다');
+      }
+
       const row = await db.one<{ id: string }>(
         `insert into work_order (wo_no, batch_no, device_master_id, dmr_revision,
-           material_lot_id, sheet_count, issued_by_prod, issued_by_qa)
-         values ($1,$2,$3,$4,$5,$6,$7,$8) returning id`,
+           material_lot_id, sheet_count, issued_by_prod, issued_by_qa, planned_units)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9) returning id`,
         [woNo, batchNo, dmId, dm.revision,
          String(form.get('material_lot_id') ?? ''),
          Number(form.get('sheet_count') ?? 0),
          String(form.get('issued_by_prod') ?? ''),
-         String(form.get('issued_by_qa') ?? '')]);
+         String(form.get('issued_by_qa') ?? ''),
+         units]);
 
-      /*
-       * 예정 형명. 한 배치에서 여러 규격이 나온다.
-       * 실제는 재단에서 정해지고 이 값과 달라도 시스템이 고치지 않는다 (§7).
-       */
-      let seq = 0;
-      let planned = 0;
-      for (const [k, v] of form.entries()) {
-        const m = k.match(/^plan_(.+)$/);
-        if (!m) continue;
-        const qty = Number(v);
-        if (!Number.isFinite(qty) || qty <= 0) continue;
-        seq += 1;
-        planned += qty;
-        await db.rows(
-          `insert into work_order_plan (work_order_id, item_id, planned_qty, seq)
-           values ($1,$2,$3,$4)`, [row!.id, m[1], qty, seq]);
-      }
-
-      return { id: row!.id, woNo, batchNo, specs: seq, planned };
+      return { id: row!.id, woNo, batchNo, planned: units };
     });
 
     bump(out.id);
@@ -79,9 +75,7 @@ export async function issueWorkOrder(_p: FormState, form: FormData): Promise<For
       ok: true,
       message:
         `지시서 ${out.woNo} · 배치 ${out.batchNo}를 발행했습니다. ` +
-        (out.specs > 0
-          ? `예정 형명 ${out.specs}종 · 합계 ${out.planned}개. `
-          : '') +
+        (out.planned ? `예정 ${out.planned}개. ` : '') +
         '작업 지시서를 인쇄해 현장에 내리십시오.',
     };
   } catch (e) {

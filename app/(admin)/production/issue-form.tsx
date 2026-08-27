@@ -46,18 +46,9 @@ export default function IssueForm({ masters, rawLots, finished, users, today }: 
    * 어디까지나 예정이다. 실제 형명과 수량은 재단에서 정해지고, 달라도 시스템이
    * 고치지 않는다 (§7). 두 값이 나란히 남는다.
    */
-  const [plan, setPlan] = useState<Record<string, string>>({});
-  const [find, setFind] = useState('');
-  const planned = Object.entries(plan).filter(([, q]) => Number(q) > 0);
-  const plannedUnits = planned.reduce((a, [, q]) => a + Number(q), 0);
-
-  const needle = find.trim().toLowerCase().replace(/\s+/g, '');
-  const shown = finished.filter((f) => {
-    if (Number(plan[f.id] ?? 0) > 0) return true;
-    if (!needle) return true;
-    const hay = `${f.code}${f.name}`.toLowerCase().replace(/\s+/g, '');
-    return hay.includes(needle);
-  });
+  /* 예정 생산 수량. 형명이 아니라 개수만 받는다 (§3 ① 형명은 재단에서 정해진다) */
+  const [units, setUnits] = useState('');
+  const plannedUnits = Number(units) || 0;
 
   const ready = masters.filter((m) => m.verified_at);
   const dmSel = ready.find((m) => m.id === dm) ?? ready[0];
@@ -136,83 +127,37 @@ export default function IssueForm({ masters, rawLots, finished, users, today }: 
                  className="input tnum" />
         </div>
         <div className="sm:col-span-2">
+          {/*
+            * 예정 생산 수량. 형명이 아니라 개수만 받는다.
+            *
+            * 형명은 재단에서 정해진다 (§3 ①). 착수 전에 발행하는 종이에 형명을
+            * 적으면 작업자가 재료가 허락하는 대로 자르는 대신 그 수에 맞추려
+            * 하게 된다 (사용자 지적).
+            *
+            * 개수는 필요하다. 포장재가 제품 1개당 기준이라 (PER_UNIT) 이 값이
+            * 없으면 지시서에 소요량이 서지 않는다. 비워 두면 "재단 후 확정"
+            * 으로 인쇄되고 그것도 정상이다.
+            */}
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <label className="label mb-0">예정 형명 (여러 개 선택할 수 있습니다)</label>
+            <label className="label mb-0">예정 생산 수량</label>
             <span className="text-xs text-muted">
-              {planned.length > 0
-                ? <>형명 <b className="tnum text-ink">{planned.length}</b>종 ·
-                    합계 <b className="tnum text-ink">{plannedUnits}</b>개</>
-                : '선택하지 않으면 지시서에 형명이 인쇄되지 않습니다'}
+              포장재 소요량 계산에 씁니다. 비워 두면 재단 후 확정으로 인쇄됩니다.
             </span>
           </div>
-
-          {/*
-            * 완제품이 62종이라 스크롤로 찾을 수 없다. 모델명과 규격 양쪽으로
-            * 걸러 준다. 이미 수량을 넣은 것은 걸러도 늘 위에 남긴다 - 안 그러면
-            * 검색어를 바꾸는 순간 방금 넣은 값이 화면에서 사라져 지워진 줄 안다.
-            */}
-          <div className="mt-1.5 flex flex-wrap items-center gap-2">
-            <input
-              value={find}
-              onChange={(e) => setFind(e.target.value)}
-              placeholder="모델명 또는 규격으로 찾기 (0505, 1.0x1.5, 2.0~2.5 …)"
-              autoComplete="off"
-              className="input h-9 flex-1 text-xs"
-            />
-            {find && (
-              <button type="button" onClick={() => setFind('')}
-                      className="btn-quiet h-9 px-3 text-xs">
-                지움
-              </button>
-            )}
-            {planned.length > 0 && (
-              <button type="button" onClick={() => setPlan({})}
-                      className="btn-quiet h-9 px-3 text-xs">
-                고른 것 비우기
-              </button>
-            )}
-          </div>
-
-          <div className="mt-2 max-h-64 overflow-y-auto rounded-lg border border-line">
-            <table className="w-full">
-              <thead>
-                <tr>
-                  <th className="th">모델명</th>
-                  <th className="th">규격</th>
-                  <th className="th w-32 text-right">예정 수량</th>
-                </tr>
-              </thead>
-              <tbody>
-                {shown.length === 0 ? (
-                  <tr>
-                    <td colSpan={3} className="td text-center text-xs text-faint">
-                      찾는 형명이 없습니다.
-                    </td>
-                  </tr>
-                ) : shown.map((f) => {
-                  const on = Number(plan[f.id] ?? 0) > 0;
-                  return (
-                    <tr key={f.id} className={on ? 'bg-brand-soft' : undefined}>
-                      <td className="td font-mono text-xs">{f.code}</td>
-                      <td className="td text-xs">{f.name}</td>
-                      <td className="td text-right">
-                        <input
-                          type="number" min={1} inputMode="numeric"
-                          value={plan[f.id] ?? ''}
-                          onChange={(e) => setPlan((p) => ({ ...p, [f.id]: e.target.value }))}
-                          className="input h-8 w-24 tnum text-right text-xs"
-                        />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          {planned.map(([id, q]) => (
-            <input key={id} type="hidden" name={`plan_${id}`} value={q} />
-          ))}
+          <input
+            name="planned_units"
+            type="number"
+            min={1}
+            inputMode="numeric"
+            value={units}
+            onChange={(e) => setUnits(e.target.value)}
+            placeholder="예: 204"
+            className="input mt-1.5 w-44 tnum"
+          />
+          <p className="mt-1.5 text-xs leading-relaxed text-muted">
+            어떤 형명이 몇 개 나올지는 재단에서 정해집니다. 지시서에는 개수만
+            나가고, 형명별 수량은 재단 기록에 남습니다.
+          </p>
         </div>
 
         <div>

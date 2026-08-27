@@ -35,6 +35,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 interface Wo {
   id: string; wo_no: string; batch_no: string; status: string; sheet_count: number;
   dmr_revision: string; issued_at: Date; cancelled_reason: string | null;
+  planned_units: number | null;
   item_id: string; item_code: string; item_name: string;
   raw_lot_id: string; raw_lot_no: string; thickness_band: string | null;
   supplier_name: string; coa_no: string; coa_date: string;
@@ -69,6 +70,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
   const d = await withActor(user.id, async (db) => {
     const wo = await db.one<Wo>(
       `select wo.id, wo.wo_no, wo.batch_no, wo.status::text as status, wo.sheet_count,
+              wo.planned_units,
               wo.dmr_revision, wo.issued_at, wo.cancelled_reason, wo.device_master_id,
               i.id as item_id, i.code as item_code, i.name as item_name,
               ml.id as raw_lot_id, ml.lot_no as raw_lot_no, ml.thickness_band,
@@ -128,10 +130,6 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
            left join product_lot pl on pl.id = pr.product_lot_id
           where pr.work_order_id = $1
           order by pr.day_no, o.seq, pr.attempt`, [id]),
-      plan: await db.rows<{ item_id: string; item_code: string; item_name: string; planned_qty: number | null }>(
-        `select p.item_id, i.code as item_code, i.name as item_name, p.planned_qty
-           from work_order_plan p join item i on i.id = p.item_id
-          where p.work_order_id = $1 order by p.seq, i.code`, [id]),
       finished: await db.rows<FinOpt>(
         `select id, code, name from item where type = 'FIN' and is_active order by code`),
       today: await db.val<string>(`select to_char(timezone('Asia/Seoul', now()),'YYYY-MM-DD')`),
@@ -282,43 +280,36 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
         </div>
       </Panel>
 
-      {d.plan.length > 0 && (
-        <Panel
-          title="예정 형명"
-          note="발행 시점의 계획입니다. 실제 수량은 재단에서 정해집니다."
-        >
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr>
-                  <th className="th">모델명</th>
-                  <th className="th">규격</th>
-                  <th className="th text-right">예정</th>
-                  <th className="th text-right">재단 실적</th>
-                  <th className="th text-right">차이</th>
-                </tr>
-              </thead>
-              <tbody>
-                {d.plan.map((r) => {
-                  const made = d.lots
-                    .filter((l) => l.item_code === r.item_code)
-                    .reduce((a, l) => a + l.qty_produced, 0);
-                  const diff = made - (r.planned_qty ?? 0);
-                  return (
-                    <tr key={r.item_id}>
-                      <td className="td font-mono text-xs">{r.item_code}</td>
-                      <td className="td text-sm">{r.item_name}</td>
-                      <td className="td tnum text-right text-muted">{r.planned_qty ?? ''}</td>
-                      <td className="td tnum text-right font-semibold">{made || ''}</td>
-                      {/* 차이는 사실만 적는다. 많고 적음을 판정하지 않는다 (§10) */}
-                      <td className={`td tnum text-right ${diff === 0 ? 'text-faint' : 'text-ink'}`}>
-                        {made === 0 ? '' : diff > 0 ? `+${diff}` : diff}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+      {/*
+        * 예정과 실제. 형명이 아니라 개수로 견준다.
+        *
+        * 형명은 재단에서 정해지므로 (§3 ①) 발행 시점 계획에 형명이 없다.
+        * 개수는 포장재 소요량 셈에 필요해 받아 두었고, 여기서 실제와 나란히
+        * 놓는다. 차이는 사실만 적는다 - 많고 적음을 판정하지 않는다 (§10).
+        */}
+      {wo.planned_units !== null && (
+        <Panel title="예정과 실제" note="발행 시점의 계획입니다. 형명과 실제 수량은 재단에서 정해집니다.">
+          <div className="grid gap-x-6 gap-y-3 px-4 py-3 sm:grid-cols-3">
+            <Field label="예정 생산 수량">
+              <span className="tnum">{wo.planned_units}개</span>
+            </Field>
+            <Field label="재단 실적">
+              <span className="tnum font-semibold">
+                {d.lots.reduce((a, l) => a + l.qty_produced, 0)}개
+              </span>
+            </Field>
+            <Field label="차이">
+              {d.lots.length === 0 ? (
+                <span className="text-faint">재단 전</span>
+              ) : (() => {
+                const diff = d.lots.reduce((a, l) => a + l.qty_produced, 0) - wo.planned_units!;
+                return (
+                  <span className={`tnum ${diff === 0 ? 'text-faint' : 'text-ink'}`}>
+                    {diff > 0 ? `+${diff}` : diff}
+                  </span>
+                );
+              })()}
+            </Field>
           </div>
         </Panel>
       )}

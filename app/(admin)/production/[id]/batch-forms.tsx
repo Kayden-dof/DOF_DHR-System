@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useActionState, useState } from 'react';
 import { PL_STATUS_LABEL, type FormState } from '@/lib/forms';
 import { Msg, Caution } from '@/components/ui';
+import { Dialog, useDialog } from '@/components/dialog';
 import { cutLot, setLotStatus, cancelWorkOrder, finishWorkOrder, retrievePrint } from '../actions';
 
 export interface LotRow {
@@ -124,36 +125,39 @@ export function CutForm({ woId, options, today, used, band }: {
 
 export function LotStatusForm({ lot, woId }: { lot: LotRow; woId: string }) {
   const [state, action, pending] = useActionState<FormState, FormData>(setLotStatus, {});
-  const [open, setOpen] = useState(false);
-
-  if (!open) {
-    return (
-      <button onClick={() => setOpen(true)} className="btn-quiet h-8 px-2 text-xs">수정</button>
-    );
-  }
+  const { open, setOpen } = useDialog(state);
 
   return (
-    <form action={action} className="flex flex-wrap items-end gap-2">
-      <input type="hidden" name="id" value={lot.id} />
-      <input type="hidden" name="work_order_id" value={woId} />
-      <div className="w-36">
-        <label className="label">상태</label>
-        <select name="status" defaultValue={lot.status} className="input h-9 text-xs">
-          {Object.entries(PL_STATUS_LABEL).map(([c, l]) => (
-            <option key={c} value={c}>{l}</option>
-          ))}
-        </select>
-      </div>
-      <div className="w-32">
-        <label className="label">보관 위치</label>
-        <input name="location" defaultValue={lot.location ?? ''} className="input h-9 text-xs" />
-      </div>
-      <button type="submit" disabled={pending} className="btn-ghost h-9 px-3 text-xs">저장</button>
-      <button type="button" onClick={() => setOpen(false)} className="btn-quiet h-9 px-2 text-xs">
-        닫기
-      </button>
-      <div className="w-full"><Msg state={state} /></div>
-    </form>
+    <>
+      <button onClick={() => setOpen(true)} className="btn-quiet h-8 px-2 text-xs">수정</button>
+      <Dialog
+        open={open}
+        onClose={() => setOpen(false)}
+        title="제품 로트 수정"
+        note={<><span className="font-mono">{lot.lot_no}</span> · {lot.item_code}</>}
+      >
+        <form action={action} className="space-y-3">
+          <input type="hidden" name="id" value={lot.id} />
+          <input type="hidden" name="work_order_id" value={woId} />
+          <div>
+            <label className="label">상태</label>
+            <select name="status" defaultValue={lot.status} className="input">
+              {Object.entries(PL_STATUS_LABEL).map(([c, l]) => (
+                <option key={c} value={c}>{l}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="label">보관 위치</label>
+            <input name="location" defaultValue={lot.location ?? ''} className="input" />
+          </div>
+          <Msg state={state} />
+          <button type="submit" disabled={pending} className="btn-primary w-full">
+            {pending ? '저장하는 중' : '저장'}
+          </button>
+        </form>
+      </Dialog>
+    </>
   );
 }
 
@@ -260,35 +264,41 @@ export function DayPrintLink({
 --------------------------------------------------------------------------- */
 export function RetrieveForm({ id, woId, label }: { id: string; woId: string; label: string }) {
   const [state, action, pending] = useActionState<FormState, FormData>(retrievePrint, {});
-  const [open, setOpen] = useState(false);
+  const { open, setOpen } = useDialog(state);
 
-  if (!open) {
-    return (
+  return (
+    <>
       <button onClick={() => setOpen(true)} className="btn-quiet h-8">
         회수 기록
       </button>
-    );
-  }
-
-  return (
-    <form action={action} className="flex flex-wrap items-center justify-end gap-2">
-      <input type="hidden" name="print_id" value={id} />
-      <input type="hidden" name="work_order_id" value={woId} />
-      <span className="font-mono text-xs text-muted">{label}</span>
-      <select name="reason" required className="input h-8 w-44 text-xs">
-        <option value="">사유 선택</option>
-        <option>재발행으로 앞 종이 회수</option>
-        <option>오출력 회수</option>
-        <option>파손 · 오염으로 회수</option>
-        <option>기타 회수</option>
-      </select>
-      <button type="submit" disabled={pending} className="btn-danger h-8">
-        {pending ? '기록 중' : '회수'}
-      </button>
-      <button type="button" onClick={() => setOpen(false)} className="btn-quiet h-8">
-        그만
-      </button>
-      <Msg state={state} />
-    </form>
+      <Dialog
+        open={open}
+        onClose={() => setOpen(false)}
+        title="인쇄물 회수"
+        note={<span className="font-mono">{label}</span>}
+      >
+        <form action={action} className="space-y-3">
+          <input type="hidden" name="print_id" value={id} />
+          <input type="hidden" name="work_order_id" value={woId} />
+          <div>
+            <label className="label">회수 사유</label>
+            <select name="reason" required className="input">
+              <option value="">선택하십시오</option>
+              <option>재발행으로 앞 종이 회수</option>
+              <option>오출력 회수</option>
+              <option>파손 · 오염으로 회수</option>
+              <option>기타 회수</option>
+            </select>
+          </div>
+          <p className="text-xs leading-relaxed text-muted">
+            회수는 되돌릴 수 없습니다. 이미 회수로 기록된 인쇄물은 다시 기록되지 않습니다.
+          </p>
+          <Msg state={state} />
+          <button type="submit" disabled={pending} className="btn-danger w-full">
+            {pending ? '기록하는 중' : '회수로 기록한다'}
+          </button>
+        </form>
+      </Dialog>
+    </>
   );
 }

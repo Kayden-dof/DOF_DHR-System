@@ -181,3 +181,59 @@ export async function cutAtField(_p: FormState, form: FormData): Promise<FormSta
     return { error: dbMessage(e) };
   }
 }
+
+/* ---------------------------------------------------------------------------
+   자재 투입 정정 · 반납
+
+   잘못 적은 투입을 종이에서 고치듯 고친다. 지우지 않는다 (§1). 원래 값은
+   감사추적에 남고, 정정 사유는 기록지에 함께 찍힌다.
+
+   누가 고칠 수 있는지와 언제까지 고칠 수 있는지는 DB 가 본다. 적은 사람만
+   고칠 수 있고 (amend_material_issue), 인쇄해서 잠긴 뒤에는 못 고친다 (S04).
+   응용 계층에서만 막은 건 검증이 아니다.
+--------------------------------------------------------------------------- */
+export async function amendIssue(_p: FormState, form: FormData): Promise<FormState> {
+  try {
+    const me = await worker();
+    const wo = String(form.get('work_order_id') ?? '');
+    const qty = Number(form.get('qty') ?? 0);
+    const reason = String(form.get('reason') ?? '').trim();
+
+    if (!Number.isFinite(qty) || qty <= 0) {
+      return { error: '수량은 0보다 커야 합니다' };
+    }
+    if (!reason) return { error: '정정 사유를 입력해야 합니다' };
+
+    await withActor(me.id, (db) =>
+      db.rows(`select amend_material_issue($1,$2,$3)`,
+        [String(form.get('id') ?? ''), qty, reason]));
+
+    bump(wo);
+    return { ok: true, message: `투입 수량을 ${qty}(으)로 정정했습니다. 원래 값은 기록에 남습니다.` };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
+export async function returnIssue(_p: FormState, form: FormData): Promise<FormState> {
+  try {
+    const me = await worker();
+    const wo = String(form.get('work_order_id') ?? '');
+    const qty = Number(form.get('qty') ?? 0);
+    const reason = String(form.get('reason') ?? '').trim();
+
+    if (!Number.isFinite(qty) || qty <= 0) {
+      return { error: '반납 수량은 0보다 커야 합니다' };
+    }
+    if (!reason) return { error: '반납 사유를 입력해야 합니다' };
+
+    await withActor(me.id, (db) =>
+      db.rows(`select return_material_issue($1,$2,$3)`,
+        [String(form.get('id') ?? ''), qty, reason]));
+
+    bump(wo);
+    return { ok: true, message: `${qty}을(를) 원 로트로 반납했습니다. 투입 기록은 그대로 남습니다.` };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}

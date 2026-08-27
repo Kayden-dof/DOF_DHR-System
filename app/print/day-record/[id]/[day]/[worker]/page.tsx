@@ -38,7 +38,7 @@ interface RecRow {
   equipment_id: string | null; rework_qty: number | null; no_material_reason: string | null;
   rotation_name: string | null;
   issues: { item_code: string; item_name: string; lot_no: string;
-            qty: string; usage_uom: string }[];
+            qty: string; usage_uom: string; amend_reason: string | null }[];
   // 위탁 멸균으로 나간 수량. 자재가 아니라 제품이라 투입 자재 칸에 들어가지 않는다.
   steril: { batch_no: string; qty: number; vendor_name: string;
             shipped_at: string | null; cert_no: string | null }[];
@@ -86,7 +86,8 @@ export default async function DayRecordSheet({ params }: {
                 coalesce((
                   select json_agg(json_build_object(
                     'item_code', i.code, 'item_name', i.name, 'lot_no', ml.lot_no,
-                    'qty', mi.qty, 'usage_uom', i.usage_uom) order by i.code)
+                    'qty', mi.qty, 'usage_uom', i.usage_uom,
+                    'amend_reason', mi.amend_reason) order by i.code)
                     from material_issue mi
                     join material_lot ml on ml.id = mi.material_lot_id
                     join item i on i.id = ml.item_id
@@ -365,10 +366,17 @@ export default async function DayRecordSheet({ params }: {
               <td className="tnum">{r.started_at ? fmtDateTime(r.started_at).slice(11) : ''}</td>
               <td className="tnum">{r.ended_at ? fmtDateTime(r.ended_at).slice(11) : ''}</td>
               <td>
+                {/*
+                  * 정정한 줄에는 그 사실을 함께 적는다. 종이에서 잘못 적은 줄을
+                  * 한 줄 긋고 사유를 적는 것과 같다. 원래 값은 감사추적에 있다.
+                  */}
                 {r.issues.map((x, j) => (
                   <div key={j}>
                     {x.item_name} · <span className="font-mono">{x.lot_no}</span> ·{' '}
                     <span className="tnum">{Number(x.qty)} {x.usage_uom}</span>
+                    {x.amend_reason && (
+                      <div className="text-[9px]">정정 · {x.amend_reason}</div>
+                    )}
                   </div>
                 ))}
                 {r.steril.map((v, j) => (

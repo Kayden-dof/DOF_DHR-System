@@ -10,46 +10,55 @@
    유출이 생겼을 때 출처를 좁힐 수 있고, 무엇보다 찍는 사람이 그 사실을 안다.
    억제 효과는 여기서 나온다.
 
-   읽기를 방해하면 안 된다. 4~7% 로 깔아 두면 눈으로는 종이 결처럼 지나가고
-   8비트 그림에는 남는다. 조작을 가로채지 않도록 pointer-events 를 끄고,
+   읽기를 방해하면 안 된다. 눈으로는 종이 결처럼 지나가되, 찍힌 그림에서는
+   읽을 수 있어야 한다. 조작을 가로채지 않도록 pointer-events 를 끄고,
    인쇄물에는 나오지 않게 감춘다 - 정본은 종이고 거기엔 서명이 들어간다.
 
-   DOM 노드를 만들지 않고 배경 그림 한 장을 깐다. 표가 큰 화면에서 반복
-   요소를 수백 개 만들면 스크롤이 무거워진다.
+   DOM 노드를 만들지 않고 배경 그림을 깐다. 표가 큰 화면에서 반복 요소를
+   수백 개 만들면 스크롤이 무거워진다.
+
+   ── 한 가지 색으로는 안 된다 ──────────────────────────────────────────────
+   처음에는 바탕 밝기에 따라 검정 또는 흰색 하나를 골라 깔았다. 그런데 현장
+   화면은 어두운 남보라 바탕 위에 흰 카드가 얹힌 구조다. 흰 글자를 고르면
+   바탕에서는 보이고 카드 위에서는 사라진다. 화면의 대부분이 카드이므로
+   결국 찍힌 그림에 아무것도 안 남았다 (사용자 확인).
+
+   그래서 검정과 흰색을 겹쳐 깐다. 흰 면에서는 검정 쪽이, 어두운 면에서는
+   흰 쪽이 드러난다. 서로 지우지 않는다 - 각자 반대 바탕에서만 보이기
+   때문이다. 블렌드 모드를 쓰지 않으므로 어느 브라우저에서나 같게 나온다.
 --------------------------------------------------------------------------- */
 
 /* 타일이 촘촘하면 빈 면에서 무늬가 눈에 걸린다. 넓게 벌려 드문드문 지나가게 둔다 */
 const W = 420;
 const H = 230;
 
-/**
- * @param text  깔아 둘 문구. 계정과 시각
- * @param tone  바탕이 밝으면 dark, 어두우면 light
+/*
+ * 보이되 거슬리지 않는 선. 너무 옅으면 찍는 사람이 알아채지 못해 억제가 되지
+ * 않고, 너무 짙으면 로트번호를 읽는 데 걸린다.
  */
-export default function Watermark({
-  text, tone = 'dark',
-}: { text: string; tone?: 'dark' | 'light' }) {
-  const fill = tone === 'dark' ? '#1F1F23' : '#FFFFFF';
-  /*
-   * 어두운 면에서는 흰 글자가 훨씬 크게 뜬다. 같은 값을 주면 현장 화면에서만
-   * 무늬가 읽혀 버린다. 밝은 면보다 낮게 잡는다.
-   */
-  const alpha = tone === 'dark' ? 0.038 : 0.042;
+const ALPHA = 0.055;
 
-  const tile =
+function tile(fill: string, text: string) {
+  const svg =
     `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" ` +
     `viewBox="0 0 ${W} ${H}">` +
-    `<text x="${W / 2}" y="${H / 2}" fill="${fill}" fill-opacity="${alpha}" ` +
+    `<text x="${W / 2}" y="${H / 2}" fill="${fill}" fill-opacity="${ALPHA}" ` +
     `font-family="Pretendard Variable, Malgun Gothic, sans-serif" font-size="13" ` +
     `font-weight="600" letter-spacing="0.06em" text-anchor="middle" ` +
     `transform="rotate(-24 ${W / 2} ${H / 2})">${esc(text)}</text>` +
     `</svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
 
+/**
+ * @param text 깔아 둘 문구. 계정과 시각
+ */
+export default function Watermark({ text }: { text: string }) {
   return (
     <div
       aria-hidden
       className="watermark"
-      style={{ backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(tile)}")` }}
+      style={{ backgroundImage: `${tile('#1F1F23', text)}, ${tile('#FFFFFF', text)}` }}
     />
   );
 }

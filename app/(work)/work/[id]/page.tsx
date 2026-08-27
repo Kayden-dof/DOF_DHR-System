@@ -81,8 +81,15 @@ export default async function WorkBatchPage({ params }: { params: Promise<{ id: 
                 u.full_name as worker_name,
                 coalesce((
                   select json_agg(json_build_object(
+                    'id', mi.id,
                     'item_id', i.id, 'item_code', i.code, 'item_name', i.name,
-                    'lot_no', ml.lot_no, 'qty', mi.qty, 'usage_uom', i.usage_uom)
+                    'lot_no', ml.lot_no, 'qty', mi.qty, 'usage_uom', i.usage_uom,
+                    'amend_reason', mi.amend_reason,
+                    /* 이 배치에서 이 로트로 돌아간 양. 정정 사실을 줄 옆에 적는다 */
+                    'returned', (select sum(sm.qty) from stock_movement sm
+                                  where sm.type = 'RETURN'
+                                    and sm.material_lot_id = mi.material_lot_id
+                                    and sm.work_order_id = pr.work_order_id))
                     order by mi.issued_at)
                     from material_issue mi
                     join material_lot ml on ml.id = mi.material_lot_id

@@ -1,12 +1,16 @@
 'use client';
 
-import { useActionState, useMemo, useState } from 'react';
+import { useActionState, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import type { FormState } from '@/lib/forms';
 import { fmtDateTime } from '@/lib/fmt';
 import { Msg, Tag } from '@/components/ui';
 import NumPad, { PresetPicker } from '@/components/num-pad';
-import { startRecord, issueMaterial, endRecord, closeDay, cutAtField } from '../actions';
+import { Dialog } from '@/components/dialog';
+import {
+  startRecord, issueMaterial, endRecord, closeDay, cutAtField,
+  amendIssue, returnIssue,
+} from '../actions';
 
 /** KST 오늘. 만료 비교는 날짜 문자열끼리 한다 */
 function todayStr(): string {
@@ -27,8 +31,9 @@ export interface Rec {
   started_at: Date | null; ended_at: Date | null;
   equipment_id: string | null; rework_qty: number | null; no_material_reason: string | null;
   worker_id: string; worker_name: string;
-  issues: { item_id: string; item_code: string; item_name: string;
-            lot_no: string; qty: string; usage_uom: string }[];
+  issues: { id: string; item_id: string; item_code: string; item_name: string;
+            lot_no: string; qty: string; usage_uom: string;
+            amend_reason: string | null; returned: string | null }[];
 }
 export interface LotOpt {
   id: string; lot_no: string; item_id: string; item_code: string; item_name: string;
@@ -41,6 +46,25 @@ export interface PlOpt {
 }
 export interface FinOpt { id: string; code: string; name: string }
 export interface SampleTier { min_qty: number; max_qty: number | null; sample_qty: number }
+
+/*
+ * 정정 · 반납 사유. 현장에는 키보드가 없다 (사용자 지적). 자유 입력 대신
+ * 실제로 일어나는 일을 미리 적어 두고 고르게 한다. 목록에 없는 일이 자주
+ * 생기면 그때 목록을 늘린다 - 자유 입력으로 돌아가지 않는다.
+ */
+const AMEND_REASONS = [
+  '계량값을 잘못 읽음',
+  '단위를 잘못 봄',
+  '다른 공정 몫을 함께 적음',
+  '기입 중 잘못 눌림',
+];
+
+const RETURN_REASONS = [
+  '중복 기입',
+  '다른 로트로 잘못 적음',
+  '실제로 넣지 않음',
+  '필요량보다 많이 꺼냄',
+];
 
 const REASONS = [
   '해당 공정 미실시',
@@ -381,26 +405,31 @@ function OperationCard({
 
       {rec && rec.issues.length > 0 && (
         <div className="border-t border-line">
-          <table className="w-full">
-            <thead>
-              <tr>
-                <th className="th">투입 자재</th>
-                <th className="th">로트번호</th>
-                <th className="th text-right">수량</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rec.issues.map((x, i) => (
-                <tr key={i}>
-                  <td className="td">{x.item_name}</td>
-                  <td className="td font-mono text-sm">{x.lot_no}</td>
-                  <td className="td tnum text-right font-semibold">
-                    {Number(x.qty)} {x.usage_uom}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          {/*
+            * 투입한 줄. 잘못 적었으면 눌러서 고친다 (§1 지우지는 않는다).
+            * 인쇄해서 잠긴 뒤에는 열리지 않는다 - 그때는 다음 일차에 정정
+            * 기록으로 남긴다.
+            */}
+          {rec.issues.map((x) => (
+            <IssueRow key={x.id} woId={woId} x={x} locked={locked} />
+          ))}
+
+          {/*
+            * 반납은 로트로 돌아간다. 어느 줄에서 돌아왔는지는 자료에 없으므로
+            * 줄마다 붙이지 않고 로트별로 한 번만 적는다. 같은 로트를 두 줄에
+            * 넣었을 때 줄마다 "반납 2통" 이 뜨면 4통이 돌아간 것처럼 읽힌다.
+            */}
+          {[...new Map(
+            rec.issues
+              .filter((x) => x.returned && Number(x.returned) > 0)
+              .map((x) => [x.lot_no, x]),
+          ).values()].map((x) => (
+            <p key={x.lot_no}
+               className="border-t border-line-soft bg-warn-bg px-4 py-2 text-xs leading-relaxed text-ink">
+              <b className="font-mono">{x.lot_no}</b> 반납{' '}
+              <b className="tnum">{Number(x.returned)}</b> {x.usage_uom} · 이 배치에서 원 로트로 되돌림
+            </p>
+          ))}
         </div>
       )}
     </section>
@@ -935,6 +964,118 @@ function CutPanel({ woId, finished, lots, sampleTiers, sampleBasis, band }: {
           </button>
         </form>
       )}
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   투입한 자재 한 줄
+
+   평소에는 그냥 읽는 줄이다. 잘못 적었을 때만 눌러서 편다.
+
+   ── 왜 지우지 않는가 ──────────────────────────────────────────────────────
+   이 시스템에는 삭제가 없다 (§1). 종이가 정본이고, 종이에서는 잘못 적은 줄을
+   지우지 않고 한 줄 긋고 정정자와 사유를 적는다. 여기서도 같다 - 원래 값은
+   감사추적에 남고 정정 사유는 기록지에 함께 찍힌다.
+
+   두 가지 길을 준다. 무엇이 잘못됐는지가 다르기 때문이다.
+
+     수량이 틀림      그 줄의 수량을 고친다. 재고가 차액만큼 움직인다
+     넣지 말았어야 함 원 로트로 반납한다. 줄은 남고 재고가 돌아온다
+
+   수량을 0 으로 만들어 없앤 셈 치지 않는다. 0 인 투입 줄은 "안 넣었다"와
+   "넣었다가 물렀다"를 구분하지 못한다.
+--------------------------------------------------------------------------- */
+function IssueRow({ woId, x, locked }: {
+  woId: string;
+  x: Rec['issues'][number];
+  locked: boolean;
+}) {
+  const [mode, setMode] = useState<null | 'amend' | 'return'>(null);
+  const [aState, aAction, aPending] = useActionState<FormState, FormData>(amendIssue, {});
+  const [rState, rAction, rPending] = useActionState<FormState, FormData>(returnIssue, {});
+
+  /* 고쳐지면 스스로 닫힌다. 열린 채로 두면 한 번 더 눌러 두 번 움직인다 */
+  const done = aState.ok || rState.ok;
+  useEffect(() => { if (done) setMode(null); }, [done]);
+
+  return (
+    <div className="border-b border-line-soft last:border-0">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3">
+        <span className="min-w-0 flex-1 text-sm font-semibold text-ink">{x.item_name}</span>
+        <span className="font-mono text-sm text-muted">{x.lot_no}</span>
+        <span className="tnum text-base font-bold text-ink">
+          {Number(x.qty)} {x.usage_uom}
+        </span>
+        {!locked && (
+          <button type="button" onClick={() => setMode(mode ? null : 'amend')}
+                  className="btn-quiet h-9 px-3 text-xs">
+            {mode ? '닫기' : '정정'}
+          </button>
+        )}
+      </div>
+
+      {/* 이미 고친 줄이면 그 사실을 적는다. 기록지에도 같이 나간다 */}
+      {x.amend_reason && (
+        <p className="px-4 pb-2 text-xs leading-relaxed text-warn">
+          정정함 · {x.amend_reason}
+        </p>
+      )}
+
+      <Dialog
+        open={!!mode}
+        onClose={() => setMode(null)}
+        wide
+        title="투입 정정"
+        note={<>{x.item_name} · <span className="font-mono">{x.lot_no}</span> ·{' '}
+          <span className="tnum">지금 {Number(x.qty)} {x.usage_uom}</span></>}
+      >
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => setMode('amend')} data-on={mode === 'amend'}
+                  className="tile w-auto flex-1 items-center py-3 text-center">
+            <span className="text-base font-bold">수량을 잘못 적음</span>
+            <span className="text-xs text-muted">수량을 고칩니다</span>
+          </button>
+          <button type="button" onClick={() => setMode('return')} data-on={mode === 'return'}
+                  className="tile w-auto flex-1 items-center py-3 text-center">
+            <span className="text-base font-bold">넣지 말았어야 함</span>
+            <span className="text-xs text-muted">원 로트로 반납합니다</span>
+          </button>
+        </div>
+
+        {/* 숫자는 숫자판으로, 사유는 목록에서 고른다. 현장에는 키보드가 없다 */}
+        {mode === 'return' ? (
+          <form action={rAction} className="mt-4 space-y-4">
+            <input type="hidden" name="id" value={x.id} />
+            <input type="hidden" name="work_order_id" value={woId} />
+            <NumPad name="qty" label="반납 수량" unit={x.usage_uom}
+                    initial={String(Number(x.qty))} max={Number(x.qty)} />
+            <PresetPicker name="reason" label="반납 사유"
+                          presets={RETURN_REASONS} allowNone={false} />
+            <p className="text-sm leading-relaxed text-muted">
+              투입 기록은 그대로 남고 반납이 따로 적힙니다. 개봉해서 되돌릴 수
+              없는 자재는 반납이 아니라 폐기로 처리해야 합니다.
+            </p>
+            <Msg state={rState} />
+            <button type="submit" disabled={rPending} className="btn-primary w-full">
+              {rPending ? '반납하는 중' : '반납한다'}
+            </button>
+          </form>
+        ) : (
+          <form action={aAction} className="mt-4 space-y-4">
+            <input type="hidden" name="id" value={x.id} />
+            <input type="hidden" name="work_order_id" value={woId} />
+            <NumPad name="qty" label="맞는 수량" unit={x.usage_uom}
+                    initial={String(Number(x.qty))} />
+            <PresetPicker name="reason" label="정정 사유"
+                          presets={AMEND_REASONS} allowNone={false} />
+            <Msg state={aState} />
+            <button type="submit" disabled={aPending} className="btn-primary w-full">
+              {aPending ? '정정하는 중' : '정정한다'}
+            </button>
+          </form>
+        )}
+      </Dialog>
     </div>
   );
 }

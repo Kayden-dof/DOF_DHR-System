@@ -96,7 +96,7 @@ export default async function WorkLayout({ children }: { children: React.ReactNo
       </footer>
 
       {/* 감사 04. 현장 패드는 여러 사람이 번갈아 쓴다. 바탕이 어두우니 밝게 깐다 */}
-      <Watermark text={stamp(user.full_name, user.login_code)} tone="light" />
+      <Watermark text={stamp(user.full_name, user.login_code)} />
 
       {/*
         * 홈 화면에서 전체 화면으로 띄우면 브라우저 뒤로가기가 없다.

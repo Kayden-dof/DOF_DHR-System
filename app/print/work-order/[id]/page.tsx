@@ -21,13 +21,13 @@ export const dynamic = 'force-dynamic';
 
 interface Wo {
   wo_no: string; batch_no: string; sheet_count: number; dmr_revision: string;
+  planned_units: number | null;
   product_code: string | null; product_name: string | null;
   issued_at: Date; item_code: string; item_name: string;
   raw_lot_no: string; thickness_band: string | null; raw_item_code: string;
   supplier_name: string; supplier_lot_no: string; coa_no: string; coa_date: string;
   prod_name: string; qa_name: string; device_master_id: string;
 }
-interface PlanRow { item_code: string; item_name: string; planned_qty: number | null }
 interface OpRow {
   seq: number; code: string; name: string; after_cutting: boolean;
   typical_day: number | null;
@@ -60,6 +60,7 @@ export default async function WorkOrderSheet({ params }: { params: Promise<{ id:
   const d = await withActor(user.id, async (db) => {
     const wo = await db.one<Wo>(
       `select wo.wo_no, wo.batch_no, wo.sheet_count, wo.dmr_revision, wo.issued_at,
+              wo.planned_units,
               wo.device_master_id, i.code as item_code, i.name as item_name,
               dm.product_code, dm.product_name,
               ml.lot_no as raw_lot_no, ml.thickness_band, ri.code as raw_item_code,
@@ -77,19 +78,13 @@ export default async function WorkOrderSheet({ params }: { params: Promise<{ id:
     if (!wo) return null;
 
     /*
-     * 예정 형명. 한 배치에서 여러 규격이 나온다. 포장재처럼 제품 개수에
-     * 비례하는 자재는 이 합이 있어야 소요량을 미리 계산할 수 있다.
+     * 예정 생산 개수. 포장재처럼 제품 개수에 비례하는 자재는 이 값이 있어야
+     * 소요량을 미리 계산할 수 있다. 형명은 재단에서 정해지므로 적지 않는다.
      */
-    const plan = await db.rows<PlanRow>(
-      `select i.code as item_code, i.name as item_name, p.planned_qty
-         from work_order_plan p join item i on i.id = p.item_id
-        where p.work_order_id = $1
-        order by p.seq, i.code`, [id]);
-    const units = plan.reduce((a, r) => a + (r.planned_qty ?? 0), 0);
+    const units = wo.planned_units ?? 0;
 
     return {
       wo,
-      plan,
       today: await db.val<string>(
         `select to_char(timezone('Asia/Seoul', now()), 'YYYY-MM-DD')`),
       ops: await db.rows<OpRow>(
@@ -122,7 +117,9 @@ export default async function WorkOrderSheet({ params }: { params: Promise<{ id:
   });
 
   if (!d) notFound();
-  const { wo, ops, plan, today } = d;
+  const { wo, ops, today } = d;
+  /* 예정 제품 개수. 0 이면 아직 정해지지 않은 것이지 0 개가 아니다 */
+  const units = wo.planned_units ?? 0;
 
   // 필요 용기 수: 장입 구간 기준 자재의 소요량 합. 시약이 통 단위로 나가므로
   // 그 합이 곧 현장에서 꺼내야 할 용기 수다.
@@ -190,44 +187,22 @@ export default async function WorkOrderSheet({ params }: { params: Promise<{ id:
         </tbody>
       </table>
 
-      {plan.length > 0 && (
-        <>
-          {/*
-            * 예정 형명. 규격은 재단에서 확정되지만, 어떤 규격을 몇 개 낼
-            * 계획인지는 착수 전에 정해 두고 현장에 같이 내린다.
-            * 실제와 달라도 시스템이 고치지 않는다 (§7).
-            */}
-          <h2 className="mt-5 text-sm font-bold text-black">예정 형명</h2>
-          <table className="print-table mt-1.5">
-            <thead>
-              <tr>
-                <th className="w-[24%]">모델명</th>
-                <th className="w-[56%]">규격</th>
-                <th className="w-[20%] text-right">예정 수량</th>
-              </tr>
-            </thead>
-            <tbody>
-              {plan.map((r) => (
-                <tr key={r.item_code}>
-                  <td className="font-mono font-bold">{r.item_code}</td>
-                  <td>{r.item_name}</td>
-                  <td className="text-right tnum">{r.planned_qty ?? ''}</td>
-                </tr>
-              ))}
-              <tr>
-                <th colSpan={2} className="text-right">합계</th>
-                <td className="text-right tnum font-bold">
-                  {plan.reduce((a, r) => a + (r.planned_qty ?? 0), 0)}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          <p className="mt-1.5 text-[10px] leading-relaxed text-black">
-            규격은 재단 공정에서 확정됩니다. 위 수량은 예정입니다. 실제 규격과
-            수량은 재단 시 기록되어 생산 규격 기록지에 인쇄되므로 이 표에 손으로
-            적지 않습니다. 예정과 실제가 달라도 시스템이 보정하지 않습니다.
-          </p>
-        </>
+      {/*
+        * 예정 생산 수량.
+        *
+        * 형명은 적지 않는다. 재단에서 정해지므로 (§3 ①) 착수 전 종이에 형명을
+        * 적으면 작업자가 재료가 허락하는 대로 자르는 대신 그 수에 맞추려 하게
+        * 된다 (사용자 지적).
+        *
+        * 개수는 적는다. 포장재가 제품 1개당 기준이라 이 값이 없으면 위 표의
+        * 소요량이 서지 않는다. 어디까지나 예정이고 실제는 재단에서 정해진다.
+        */}
+      {units > 0 && (
+        <p className="mt-2 text-[10px] leading-relaxed text-black">
+          위 표의 제품 개수 기준 자재는 <b>예정 생산 {units}개</b>로 계산했습니다.
+          어떤 형명이 몇 개 나올지는 재단에서 정해지며, 실제와 달라도 시스템이
+          보정하지 않습니다.
+        </p>
       )}
 
       {/*
@@ -298,7 +273,13 @@ export default async function WorkOrderSheet({ params }: { params: Promise<{ id:
                   )}
                   <td>{m.item_name} ({m.item_code})</td>
                   <td className="text-right tnum">
-                    {m.required === null
+                    {/*
+                      * 제품 개수 기준 자재는 예정 수량이 있어야 셈이 선다.
+                      * 예정을 안 적고 발행하면 units 가 0 이라 "0 EA" 가 찍혔는데,
+                      * 그건 "포장재를 쓰지 말라"는 말로 읽힌다. 모르는 것과 0 은
+                      * 다르므로 모를 때는 모른다고 적는다.
+                      */}
+                    {m.required === null || (m.basis === 'PER_UNIT' && units === 0)
                       ? (m.basis === 'PER_UNIT' ? '재단 후 확정' : '구간 없음')
                       : `${Number(m.required)} ${m.usage_uom}`}
                   </td>

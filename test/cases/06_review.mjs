@@ -442,4 +442,129 @@ export default [
   },
 },
 
+
+{
+  id: 'AM-01', expect: '확인',
+  name: '투입 수량을 정정하면 재고가 차액만큼 돌아온다',
+  async run(t) {
+    const m = await master(t);
+    const rawLot = await newMaterialLot(t, m, m.raw, { thickness_band: '0510', qty: 50 });
+    const wo = await newWorkOrder(t, m, { rawLot, sheets: 20 });
+    const lot = await newMaterialLot(t, m, m.reagent, { qty: 10 });
+
+    await t.setActor(m.worker);
+    const pr = await t.val(
+      `insert into process_record (work_order_id, operation_id, day_no, work_date,
+         worker_id, started_at)
+       values ($1,$2,1,current_date,$3,now()) returning id`,
+      [wo.id, m.ops['WS-DX2401-03'], m.worker]);
+    const mi = await t.val(
+      `insert into material_issue (process_record_id, material_lot_id, qty, issued_by)
+       values ($1,$2,4,$3) returning id`, [pr, lot, m.worker]);
+
+    t.eq(Number(await t.val(
+      `select qty_available from material_lot where id = $1`, [lot])), 6, '불출 뒤 잔여');
+
+    await t.rows(`select amend_material_issue($1,$2,$3)`, [mi, 1.5, '계량값을 잘못 읽음']);
+
+    t.eq(Number(await t.val(
+      `select qty_available from material_lot where id = $1`, [lot])), 8.5, '정정 뒤 잔여');
+    t.eq(Number(await t.val(`select qty from material_issue where id = $1`, [mi])), 1.5, '투입 수량');
+    t.eq(await t.val(`select amend_reason from material_issue where id = $1`, [mi]),
+         '계량값을 잘못 읽음', '정정 사유');
+
+    // 원래 값이 감사추적에 남는다. 지우지 않고 덧적는다 (§1)
+    t.ok(Number(await t.val(
+      `select count(*)::int from audit_log
+        where table_name = 'material_issue' and record_id = $1 and action = 'UPDATE'`, [mi])) > 0,
+      '변경 이력');
+    await t.setActor(null);
+  },
+},
+
+{
+  id: 'AM-02', expect: '예외',
+  name: '남이 적은 투입은 정정할 수 없다',
+  async run(t) {
+    const m = await master(t);
+    const rawLot = await newMaterialLot(t, m, m.raw, { thickness_band: '0510', qty: 50 });
+    const wo = await newWorkOrder(t, m, { rawLot, sheets: 20 });
+    const lot = await newMaterialLot(t, m, m.reagent, { qty: 10 });
+
+    const pr = await t.val(
+      `insert into process_record (work_order_id, operation_id, day_no, work_date,
+         worker_id, started_at)
+       values ($1,$2,1,current_date,$3,now()) returning id`,
+      [wo.id, m.ops['WS-DX2401-03'], m.worker]);
+    const mi = await t.val(
+      `insert into material_issue (process_record_id, material_lot_id, qty, issued_by)
+       values ($1,$2,4,$3) returning id`, [pr, lot, m.worker]);
+
+    const other = await t.newUser();
+    await t.setActor(other);
+    await t.rejects(
+      () => t.rows(`select amend_material_issue($1,$2,$3)`, [mi, 1, '계량값을 잘못 읽음']),
+      { code: 'P0001', message: '자기가 적은 투입만' });
+    await t.setActor(null);
+  },
+},
+
+{
+  id: 'AM-03', expect: '예외',
+  name: '수량을 0 으로 만들어 없앤 셈 칠 수 없다',
+  async run(t) {
+    const m = await master(t);
+    const rawLot = await newMaterialLot(t, m, m.raw, { thickness_band: '0510', qty: 50 });
+    const wo = await newWorkOrder(t, m, { rawLot, sheets: 20 });
+    const lot = await newMaterialLot(t, m, m.reagent, { qty: 10 });
+
+    await t.setActor(m.worker);
+    const pr = await t.val(
+      `insert into process_record (work_order_id, operation_id, day_no, work_date,
+         worker_id, started_at)
+       values ($1,$2,1,current_date,$3,now()) returning id`,
+      [wo.id, m.ops['WS-DX2401-03'], m.worker]);
+    const mi = await t.val(
+      `insert into material_issue (process_record_id, material_lot_id, qty, issued_by)
+       values ($1,$2,4,$3) returning id`, [pr, lot, m.worker]);
+
+    await t.rejects(
+      () => t.rows(`select amend_material_issue($1,$2,$3)`, [mi, 0, '중복 기입']),
+      { code: 'P0001', message: '반납으로 기록' });
+    await t.setActor(null);
+  },
+},
+
+{
+  id: 'AM-04', expect: '확인',
+  name: '반납하면 투입 줄은 남고 재고만 돌아온다',
+  async run(t) {
+    const m = await master(t);
+    const rawLot = await newMaterialLot(t, m, m.raw, { thickness_band: '0510', qty: 50 });
+    const wo = await newWorkOrder(t, m, { rawLot, sheets: 20 });
+    const lot = await newMaterialLot(t, m, m.reagent, { qty: 10 });
+
+    await t.setActor(m.worker);
+    const pr = await t.val(
+      `insert into process_record (work_order_id, operation_id, day_no, work_date,
+         worker_id, started_at)
+       values ($1,$2,1,current_date,$3,now()) returning id`,
+      [wo.id, m.ops['WS-DX2401-03'], m.worker]);
+    const mi = await t.val(
+      `insert into material_issue (process_record_id, material_lot_id, qty, issued_by)
+       values ($1,$2,3,$3) returning id`, [pr, lot, m.worker]);
+
+    await t.rows(`select return_material_issue($1,$2,$3)`, [mi, 3, '중복 기입']);
+
+    t.eq(Number(await t.val(
+      `select qty_available from material_lot where id = $1`, [lot])), 10, '반납 뒤 잔여');
+    // 줄은 그대로 있다. 지우지 않는다
+    t.eq(Number(await t.val(`select qty from material_issue where id = $1`, [mi])), 3, '투입 줄');
+    t.eq(Number(await t.val(
+      `select count(*)::int from stock_movement
+        where material_lot_id = $1 and type = 'RETURN'`, [lot])), 1, '반납 기록');
+    await t.setActor(null);
+  },
+},
+
 ];
