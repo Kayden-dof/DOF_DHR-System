@@ -4,8 +4,9 @@ import { useActionState, useState } from 'react';
 import type { FormState } from '@/lib/forms';
 import { Msg, Tag } from '@/components/ui';
 import {
-  createDeviceMaster, verifyDeviceMaster, addOperation, addBom, addTier,
+  createDeviceMaster, verifyDeviceMaster, addOperation, addBom, addTier, setExpectedUnits,
 } from './actions';
+import { linkOperation } from '../../equipment/actions';
 
 export interface OperationRow {
   id: string; seq: number; code: string; name: string; after_cutting: boolean;
@@ -223,10 +224,13 @@ export function AddTierForm({ dm, bom }: { dm: string; bom: BomRow }) {
 
 /* -------------------------------------------------------------------------- */
 
-export function OperationCard({ dm, op, items, editable }: {
+export function OperationCard({ dm, op, items, editable, equipment = [] }: {
   dm: string; op: OperationRow; items: ItemOption[]; editable: boolean;
+  /** 걸 수 있는 설비 전체와 이 공정에 걸렸는지. 셋업 화면에서 칩으로 켠다 */
+  equipment?: { id: string; code: string; name: string; linked: boolean }[];
 }) {
   const [open, setOpen] = useState(false);
+  const [linkState, linkAction] = useActionState<FormState, FormData>(linkOperation, {});
 
   return (
     <div className="border-b border-line last:border-0">
@@ -241,12 +245,44 @@ export function OperationCard({ dm, op, items, editable }: {
           {op.after_cutting ? '재단 이후' : '재단 이전'}
         </Tag>
         <span className="ml-auto text-xs text-muted">
-          자재 {op.bom.length}종 {open ? '접기' : '펼치기'}
+          자재 {op.bom.length}종
+          {equipment.some((e) => e.linked) &&
+            ` · 설비 ${equipment.filter((e) => e.linked).length}대`}
+          {' '}{open ? '접기' : '펼치기'}
         </span>
       </button>
 
       {open && (
         <div className="bg-canvas/50">
+          {/*
+            * 이 공정에서 쓰는 설비. 칩을 누르면 걸리고 다시 누르면 내려간다.
+            * 내려도 지워지지 않는다 (§10) - 현장 타일에서 빠질 뿐이다.
+            * 발행 여부와 무관하게 고칠 수 있다. 화면이 무엇을 보여 줄지에 대한
+            * 설정이지 기록이 아니다.
+            */}
+          {equipment.length > 0 && (
+            <div className="border-b border-line-soft px-4 py-3">
+              <p className="label mb-2">이 공정에서 쓰는 설비</p>
+              <div className="flex flex-wrap gap-1.5">
+                {equipment.map((e) => (
+                  <form key={e.id} action={linkAction}>
+                    <input type="hidden" name="equipment_id" value={e.id} />
+                    <input type="hidden" name="operation_id" value={op.id} />
+                    <input type="hidden" name="on" value={e.linked ? '0' : '1'} />
+                    <button type="submit"
+                            className={`chip transition-colors ${
+                              e.linked ? 'bg-brand text-white'
+                                       : 'bg-canvas text-muted hover:text-ink'}`}>
+                      {e.code} {e.name}
+                    </button>
+                  </form>
+                ))}
+              </div>
+              {linkState.error && (
+                <p role="alert" className="mt-2 text-xs text-danger">{linkState.error}</p>
+              )}
+            </div>
+          )}
           {op.bom.length === 0 ? (
             <p className="px-4 py-3 text-xs text-faint">등록된 자재가 없습니다.</p>
           ) : (
@@ -297,5 +333,35 @@ export function OperationCard({ dm, op, items, editable }: {
         </div>
       )}
     </div>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   배치당 예상 생산수량
+
+   계획 참고값이다. 실제 수량은 재단에서 정해지고, 배치별 계획은 예정 형명이
+   맡는다. 이 값은 그 계획을 세울 때의 출발점이라 발행 후에도 고칠 수 있다.
+--------------------------------------------------------------------------- */
+export function ExpectedUnitsForm({ id, value }: { id: string; value: number | null }) {
+  const [state, action, pending] = useActionState<FormState, FormData>(setExpectedUnits, {});
+
+  return (
+    <form action={action}
+          className="flex flex-wrap items-end gap-2 border-t border-line-soft px-4 py-3">
+      <input type="hidden" name="id" value={id} />
+      <div className="w-52">
+        <label className="label">배치당 예상 생산수량 (계획 참고값)</label>
+        <input name="expected_units" type="number" min={1}
+               defaultValue={value ?? ''} placeholder="예: 204"
+               className="input h-9 tnum text-xs" />
+      </div>
+      <button type="submit" disabled={pending} className="btn-ghost h-9 px-3 text-xs">
+        저장
+      </button>
+      <span className="pb-2 text-xs leading-relaxed text-faint">
+        실제 수량은 재단에서 정해집니다. 발행을 제약하지 않습니다.
+      </span>
+      <Msg state={state} className="w-full" />
+    </form>
   );
 }

@@ -10,6 +10,11 @@ import type { NavItem } from './nav';
    레이아웃에는 권한 확인만 남기고 하위 메뉴 목록만 여기서 나눠 쓴다.
 --------------------------------------------------------------------------- */
 
+export const PRODUCTION_NAV: NavItem[] = [
+  { href: '/production', label: '작업 지시' },
+  { href: '/production/setup', label: '품목 설정' },
+];
+
 export const MATERIAL_NAV: NavItem[] = [
   { href: '/material', label: '자재 로트' },
   { href: '/material/orders', label: '발주' },

@@ -5,6 +5,8 @@ import { fmtDate, fmtDateTime } from '@/lib/fmt';
 import { WO_STATUS_LABEL } from '@/lib/forms';
 import Denied from '@/components/denied';
 import { Panel, Empty, Tag } from '@/components/ui';
+import { SubNav } from '../nav';
+import { PRODUCTION_NAV } from '../sections';
 import { PageShell, FilterBar } from '@/components/shell';
 import { Table, Th, Td, IdCell, TwoLine, ActionTh, RowLink } from '@/components/table';
 import IssueForm, {
@@ -98,17 +100,20 @@ export default async function ProductionPage({ searchParams }: { searchParams: S
       action={<IssueForm masters={d.masters} rawLots={d.rawLots} finished={d.finished}
                          users={d.users} today={d.today ?? ''} />}
       nav={
-        <FilterBar
-          items={[
-            { href: '/production', label: '전체', count: total, on: !status },
-            ...Object.entries(WO_STATUS_LABEL).map(([code, label]) => ({
-              href: `/production?status=${code}`,
-              label,
-              count: byStatus.get(code) ?? 0,
-              on: status === code,
-            })),
-          ]}
-        />
+        <div className="flex flex-wrap items-center gap-3">
+          <SubNav items={PRODUCTION_NAV} />
+          <FilterBar
+            items={[
+              { href: '/production', label: '전체', count: total, on: !status },
+              ...Object.entries(WO_STATUS_LABEL).map(([code, label]) => ({
+                href: `/production?status=${code}`,
+                label,
+                count: byStatus.get(code) ?? 0,
+                on: status === code,
+              })),
+            ]}
+          />
+        </div>
       }
     >
       <Panel>

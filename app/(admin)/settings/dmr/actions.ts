@@ -7,7 +7,9 @@ import type { FormState } from '@/lib/forms';
 
 async function admin() {
   const user = await requireUser();
-  if (!hasRole(user, 'SYS_ADMIN')) throw new Error('시스템관리자만 제품표준서를 관리할 수 있습니다');
+  // 생산 품목 셋업은 생산관리자의 일이다 (사용자 지시 2026-08-27).
+  // 계정 · 채번 · 공급자는 여전히 시스템관리자만 만진다.
+  if (!hasRole(user, 'SYS_ADMIN', 'PROD_MGR')) throw new Error('생산관리자 또는 시스템관리자만 제품표준서를 관리할 수 있습니다');
   return user;
 }
 
@@ -37,6 +39,33 @@ export async function createDeviceMaster(_p: FormState, form: FormData): Promise
  * 구조화 입력분을 서면 제품표준서와 대조했다는 확인.
  * 판정이 아니라 "옮겨 적은 것이 맞다"는 기록이다 (§4.3 verified_by).
  */
+/**
+ * 배치당 예상 생산수량 (계획 참고값).
+ *
+ * 발행된 작업 지시가 있어도 고칠 수 있다. 계획값이지 기록이 아니고, 이미 발행된
+ * 지시서에는 아무 영향이 없다. 실제 수량은 재단에서 정해진다 (§3).
+ */
+export async function setExpectedUnits(_p: FormState, form: FormData): Promise<FormState> {
+  try {
+    const me = await admin();
+    const raw = String(form.get('expected_units') ?? '').trim();
+    const units = raw === '' ? null : Number(raw);
+    if (units !== null && (!Number.isInteger(units) || units <= 0)) {
+      return { error: '예상 생산수량은 1 이상의 정수이거나 비워 둡니다' };
+    }
+    await withActor(me.id, (db) =>
+      db.rows(`update device_master set expected_units = $2 where id = $1`,
+        [String(form.get('id') ?? ''), units]));
+    revalidatePath('/production/setup');
+    revalidatePath('/settings/dmr');
+    return { ok: true, message: units === null
+      ? '예상 생산수량을 비웠습니다.'
+      : `배치당 예상 생산수량 ${units}개로 저장했습니다.` };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
 export async function verifyDeviceMaster(_p: FormState, form: FormData): Promise<FormState> {
   try {
     const me = await admin();

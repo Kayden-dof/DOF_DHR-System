@@ -14,7 +14,9 @@ import type { FormState } from '@/lib/forms';
 
 async function admin() {
   const user = await requireUser();
-  if (!hasRole(user, 'SYS_ADMIN')) throw new Error('시스템관리자만 설비를 관리할 수 있습니다');
+  // 생산 품목 셋업은 생산관리자의 일이다 (사용자 지시 2026-08-27).
+  // 계정 · 채번 · 공급자는 여전히 시스템관리자만 만진다.
+  if (!hasRole(user, 'SYS_ADMIN', 'PROD_MGR')) throw new Error('생산관리자 또는 시스템관리자만 설비를 관리할 수 있습니다');
   return user;
 }
 
@@ -101,6 +103,9 @@ export async function linkOperation(_p: FormState, form: FormData): Promise<Form
            do update set is_active = excluded.is_active`, [op, eq, on]));
 
     revalidatePath('/equipment');
+    // 같은 연결을 제품표준서 작업대 두 화면도 보여 준다
+    revalidatePath('/production/setup');
+    revalidatePath('/settings/dmr');
     return { ok: true, message: on ? '공정에 걸었습니다.' : '공정에서 뗐습니다.' };
   } catch (e) {
     return { error: dbMessage(e) };

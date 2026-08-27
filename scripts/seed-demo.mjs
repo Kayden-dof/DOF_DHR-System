@@ -221,7 +221,9 @@ if (!dm) {
   await unitBom(ops['WS-DX2401-08'], pouch, 1);
   await unitBom(ops['WS-DX2401-08'], label, 2);
   await unitBom(ops['WS-DX2401-09'], box, 0.02);   // 50개 박스 하나
-  console.log('제품표준서 Rev.02 · 공정 12 · 자재 구성표 8');
+  // 배치당 예상 생산수량 (계획 참고값). 시연 재단 실적 120+60+24 와 같게
+  await c.query(`update device_master set expected_units = 204 where id = $1`, [dm]);
+  console.log('제품표준서 Rev.02 · 공정 12 · 자재 구성표 8 · 예상 204개');
 
   /*
    * 설비.
