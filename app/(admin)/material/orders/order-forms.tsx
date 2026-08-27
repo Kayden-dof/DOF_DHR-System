@@ -70,7 +70,7 @@ export function NewOrder({ items, suppliers, today }: {
         </div>
       </div>
       <p className="mt-3 text-xs leading-relaxed text-muted">
-        수량은 사용 단위 기준입니다. 입고 등록에서 이 발주를 고르면 자동으로 입고 완료로 넘어갑니다.
+        수량은 사용 단위 기준입니다. 입고 등록에서 이 발주를 선택하면 자동으로 입고 완료로 넘어갑니다.
       </p>
       <Msg state={state} />
       <div className="mt-4 flex gap-2">

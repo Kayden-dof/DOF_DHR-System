@@ -200,7 +200,7 @@ export default async function EquipmentLogSheet({
 
       <p className="mt-2 text-[10px] leading-relaxed text-black">
         당시 밸리데이션 열은 사용일을 덮는 이력의 보고서 번호입니다. 없으면 그 사실만
-        적습니다. 시스템은 적합 여부를 판정하지 않습니다.
+        기재합니다. 시스템은 적합 여부를 판정하지 않습니다.
       </p>
     </PrintFrame>
   );

@@ -185,7 +185,7 @@ export function CancelForm({ id }: { id: string }) {
           취소한다
         </button>
         <button type="button" onClick={() => setOpen(false)} className="btn-ghost h-9 px-3 text-xs">
-          그만두기
+          취소
         </button>
       </div>
     </form>
@@ -203,7 +203,7 @@ export function FinishForm({ id }: { id: string }) {
   return (
     <form action={action} className="inline-flex items-center gap-2">
       <input type="hidden" name="id" value={id} />
-      <span className="text-xs text-muted">종료하고 편철 표지를 뽑습니까?</span>
+      <span className="text-xs text-muted">종료하고 편철 표지를 출력하시겠습니까?</span>
       <button type="submit" disabled={pending} className="btn-primary h-9 px-3 text-xs">종료</button>
       <button type="button" onClick={() => setAsk(false)} className="btn-quiet h-9 px-2 text-xs">
         아니오

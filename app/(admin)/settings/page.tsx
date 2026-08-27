@@ -113,7 +113,7 @@ export default async function SettingsHome() {
         <ol className="mt-2 space-y-1.5 text-xs leading-relaxed text-muted">
           <li>1. <b className="text-ink">채번 규칙</b>. 자재 입고와 작업 지시가 번호를 여기서 받습니다.</li>
           <li>2. <b className="text-ink">품목</b>. 자재를 넣고 완제품 형명은 규칙으로 생성합니다.</li>
-          <li>3. <b className="text-ink">공급자</b>와 단가. 자재 입고에서 고를 대상입니다.</li>
+          <li>3. <b className="text-ink">공급자</b>와 단가. 자재 입고에서 선택 대상입니다.</li>
           <li>4. <b className="text-ink">제품표준서</b>. 공정과 자재 구성표를 넣고 서면과 대조 확인합니다.</li>
           <li>5. <b className="text-ink">사용자</b>. 작업자에게 역할을 부여하면 현장 화면을 씁니다.</li>
         </ol>

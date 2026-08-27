@@ -62,7 +62,7 @@ export default async function VerifyPage({
     <PageShell
       section="조회"
       title="인쇄물 조회"
-      lede="종이 아래쪽에 찍힌 자료 식별자 12자리를 넣으십시오. 바코드를 읽어도 같은 값이 들어갑니다."
+      lede="종이 아래쪽에 찍힌 자료 식별자 12자리를 입력하십시오. 바코드를 읽어도 같은 값이 들어갑니다."
       nav={<SubNav items={TRACE_NAV} />}
     >
       <form className="card flex gap-2 p-3">
@@ -96,7 +96,7 @@ export default async function VerifyPage({
 
                     {/* 사실만 적는다. 무효라고 말하지 않는다 */}
                     {h.newer_count > 0 && (
-                      <Tag tone="danger">뒤에 {h.newer_count}회 더 뽑음</Tag>
+                      <Tag tone="danger">뒤에 {h.newer_count}회 재출력</Tag>
                     )}
                     {h.retrieved_at && <Tag tone="ok">회수됨</Tag>}
                   </div>
@@ -174,7 +174,7 @@ export default async function VerifyPage({
         <ul className="mt-2 space-y-1.5 text-xs leading-relaxed text-muted">
           <li>
             · <b className="text-ink">말해 주는 것.</b> 이 종이가 언제, 누가, 어떤 자료로
-            뽑았는지. 그리고 그 뒤에 같은 묶음을 다시 뽑은 회차가 있는지.
+            뽑았는지. 그리고 그 뒤에 같은 묶음을 재출력한 회차가 있는지.
           </li>
           <li>
             · <b className="text-ink">말해 주지 않는 것.</b> 종이 자체의 진위. 식별자는

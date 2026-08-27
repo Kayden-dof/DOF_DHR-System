@@ -45,7 +45,7 @@ export async function createProduct(_p: FormState, form: FormData): Promise<Form
     const newName = String(form.get('new_item_name') ?? '').trim();
 
     if (!productCode) return { error: '제품 코드를 입력하십시오' };
-    if (!existing && !newCode) return { error: '대표 형명을 고르거나 새로 적으십시오' };
+    if (!existing && !newCode) return { error: '대표 형명을 선택하거나 새로 입력하십시오' };
 
     await withActor(me.id, async (db) => {
       let itemId = existing;
@@ -65,7 +65,7 @@ export async function createProduct(_p: FormState, form: FormData): Promise<Form
 
     path();
     return { ok: true,
-      message: `${productCode} ${revision} 을 만들었습니다. 공정 흐름부터 넣으십시오.` };
+      message: `${productCode} ${revision} 을(를) 등록했습니다. 공정 흐름부터 입력하십시오.` };
   } catch (e) {
     return { error: dbMessage(e) };
   }
@@ -82,7 +82,7 @@ export async function createDeviceMaster(_p: FormState, form: FormData): Promise
         [String(form.get('item_id') ?? ''), revision,
          String(form.get('effective_from') ?? '') || null]));
     path();
-    return { ok: true, message: `${revision} 개정을 만들었습니다. 공정과 자재 구성표를 넣으십시오.` };
+    return { ok: true, message: `${revision} 개정을 등록했습니다. 공정과 자재 구성표를 입력하십시오.` };
   } catch (e) {
     return { error: dbMessage(e) };
   }
@@ -243,7 +243,7 @@ export async function verifyDeviceMaster(_p: FormState, form: FormData): Promise
     path(id);
     return {
       ok: true,
-      message: '서면 대조를 확인했습니다. 이제 작업 지시 발행에서 고를 수 있습니다.',
+      message: '서면 대조를 확인했습니다. 이제 작업 지시 발행에서 선택할 수 있습니다.',
     };
   } catch (e) {
     return { error: dbMessage(e) };
@@ -320,7 +320,7 @@ export async function addOperationsBulk(_p: FormState, form: FormData): Promise<
       return { error: `읽을 수 없는 줄이 있습니다: ${bad.slice(0, 2).join(' / ')}` +
         (bad.length > 2 ? ` 외 ${bad.length - 2}줄` : '') };
     }
-    if (rows.length === 0) return { error: '공정을 한 줄 이상 적으십시오' };
+    if (rows.length === 0) return { error: '공정을 한 줄 이상 입력하십시오' };
 
     // 한 트랜잭션이다. 한 줄이라도 거부되면 전부 되돌아간다
     await withActor(me.id, async (db) => {
@@ -352,7 +352,7 @@ export async function copyDmr(_p: FormState, form: FormData): Promise<FormState>
     const me = await admin();
     const dst = String(form.get('device_master_id') ?? '');
     const src = String(form.get('source_id') ?? '');
-    if (!src) return { error: '가져올 제품표준서를 고르십시오' };
+    if (!src) return { error: '가져올 제품표준서를 선택하십시오' };
 
     const n = await withActor(me.id, (db) =>
       db.val<number>(`select copy_dmr_structure($1,$2)`, [src, dst]));
@@ -386,7 +386,7 @@ export async function addBom(_p: FormState, form: FormData): Promise<FormState> 
     return {
       ok: true,
       message: basis === 'SHEET_TIER'
-        ? '자재를 추가했습니다. 장입 구간별 소요량을 이어서 넣으십시오.'
+        ? '자재를 추가했습니다. 장입 구간별 소요량을 이어서 입력하십시오.'
         : '자재를 추가했습니다.',
     };
   } catch (e) {

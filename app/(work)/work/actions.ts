@@ -133,7 +133,7 @@ export async function closeDay(_p: FormState, form: FormData): Promise<FormState
     bump(wo);
     return {
       ok: true,
-      message: `${day}일차 기록을 마감했습니다. 이 묶음은 더 이상 고칠 수 없습니다.`,
+      message: `${day}일차 기록을 마감했습니다. 이 묶음은 더 이상 수정할 수 없습니다.`,
     };
   } catch (e) {
     return { error: dbMessage(e) };
@@ -158,7 +158,7 @@ export async function cutAtField(_p: FormState, form: FormData): Promise<FormSta
     const sample = Number(form.get('qty_sample') ?? 0);
 
     if (!Number.isInteger(produced) || produced < 1) {
-      return { error: '생산 수량을 적으십시오' };
+      return { error: '생산 수량을 입력하십시오' };
     }
     if (sample >= produced) {
       return { error: '샘플 수량이 생산 수량보다 적어야 합니다' };

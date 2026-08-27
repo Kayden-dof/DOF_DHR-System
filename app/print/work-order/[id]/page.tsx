@@ -37,6 +37,22 @@ interface OpRow {
   equipment: { code: string; name: string; valid_until: string | null }[];
 }
 
+/*
+ * 공정명과 "재단 이후" 를 한 칸에 늘어놓으면 칸이 좁을 때 "재단 이 / 후" 로
+ * 갈라진다. 딸린 말이니 아래 줄로 내리고 작게 둔다. 이름이 먼저 읽히고,
+ * 재단 전후는 그 아래에서 한 덩어리로 남는다.
+ */
+function opName(o: { name: string; after_cutting: boolean }) {
+  return (
+    <>
+      {o.name}
+      {o.after_cutting && (
+        <div className="nb text-[10px]">재단 이후</div>
+      )}
+    </>
+  );
+}
+
 export default async function WorkOrderSheet({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
   const { id } = await params;
@@ -209,7 +225,7 @@ export default async function WorkOrderSheet({ params }: { params: Promise<{ id:
           <p className="mt-1.5 text-[10px] leading-relaxed text-black">
             규격은 재단 공정에서 확정됩니다. 위 수량은 예정입니다. 실제 규격과
             수량은 재단 시 기록되어 생산 규격 기록지에 인쇄되므로 이 표에 손으로
-            적지 않습니다. 예정과 실제가 달라도 시스템이 고치지 않습니다.
+            적지 않습니다. 예정과 실제가 달라도 시스템이 보정하지 않습니다.
           </p>
         </>
       )}
@@ -223,13 +239,13 @@ export default async function WorkOrderSheet({ params }: { params: Promise<{ id:
       <table className="print-table mt-1.5">
         <thead>
           <tr>
-            <th className="w-[6%] text-center">순번</th>
-            <th className="w-[7%] text-center">일차</th>
-            <th className="w-[14%]">공정 코드</th>
+            <th className="w-[5%] text-center">순번</th>
+            <th className="w-[5%] text-center">일차</th>
+            <th className="w-[16%]">공정 코드</th>
             <th className="w-[17%]">공정명</th>
             <th className="w-[23%]">자재</th>
             <th className="w-[11%] text-right">소요량</th>
-            <th className="w-[22%]">설비 · 밸리데이션 만료</th>
+            <th className="w-[23%]">설비 · 밸리데이션 만료</th>
           </tr>
         </thead>
         <tbody>
@@ -247,7 +263,7 @@ export default async function WorkOrderSheet({ params }: { params: Promise<{ id:
                     return (
                       <div key={q.code} className={gone ? 'font-bold' : undefined}>
                         <span className="font-mono font-bold">{q.code}</span>{' '}
-                        <span className="tnum">
+                        <span className="nb tnum">
                           {q.valid_until
                             ? <>~{fmtDate(q.valid_until)}{gone && ' 기한 경과'}</>
                             : '밸리데이션 기록 없음'}
@@ -264,7 +280,7 @@ export default async function WorkOrderSheet({ params }: { params: Promise<{ id:
                 <td className="text-center tnum">{o.seq}</td>
                 <td className="text-center tnum">{o.typical_day ?? ''}</td>
                 <td className="font-mono">{o.code}</td>
-                <td>{o.name}{o.after_cutting ? ' (재단 이후)' : ''}</td>
+                <td>{opName(o)}</td>
                 <td className="text-center">-</td>
                 <td />
                 {equipCell}
@@ -277,9 +293,7 @@ export default async function WorkOrderSheet({ params }: { params: Promise<{ id:
                       <td rowSpan={rows} className="text-center tnum">{o.seq}</td>
                       <td rowSpan={rows} className="text-center tnum">{o.typical_day ?? ''}</td>
                       <td rowSpan={rows} className="font-mono">{o.code}</td>
-                      <td rowSpan={rows}>
-                        {o.name}{o.after_cutting ? ' (재단 이후)' : ''}
-                      </td>
+                      <td rowSpan={rows}>{opName(o)}</td>
                     </>
                   )}
                   <td>{m.item_name} ({m.item_code})</td>
@@ -303,7 +317,7 @@ export default async function WorkOrderSheet({ params }: { params: Promise<{ id:
         따로 표시하지 않습니다.
         시약과 포장재의 로트번호는 이 지시서에 인쇄하지 않습니다. 착수 전에 확정되지 않으며,
         실제 투입 로트는 제조기록서에 기록합니다. 여기 적힌 소요량은 예정이며, 실제와 달라도
-        시스템이 고치지 않습니다.
+        시스템이 보정하지 않습니다.
       </p>
 
       <SignRow roles={['생산 책임자', '품질 책임자']} />

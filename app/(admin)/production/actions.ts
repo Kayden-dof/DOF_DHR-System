@@ -184,7 +184,7 @@ export async function retrievePrint(_p: FormState, form: FormData): Promise<Form
     const me = await mgr();
     const id = String(form.get('print_id') ?? '');
     const reason = String(form.get('reason') ?? '').trim();
-    if (!reason) return { error: '회수 사유를 적으십시오' };
+    if (!reason) return { error: '회수 사유를 입력하십시오' };
 
     await withActor(me.id, (db) =>
       db.rows(`select retrieve_print($1, $2)`, [id, reason]));

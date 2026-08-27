@@ -137,12 +137,12 @@ export default function IssueForm({ masters, rawLots, finished, users, today }: 
         </div>
         <div className="sm:col-span-2">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <label className="label mb-0">예정 형명 (여러 개 고를 수 있습니다)</label>
+            <label className="label mb-0">예정 형명 (여러 개 선택할 수 있습니다)</label>
             <span className="text-xs text-muted">
               {planned.length > 0
                 ? <>형명 <b className="tnum text-ink">{planned.length}</b>종 ·
                     합계 <b className="tnum text-ink">{plannedUnits}</b>개</>
-                : '고르지 않으면 지시서에 형명이 인쇄되지 않습니다'}
+                : '선택하지 않으면 지시서에 형명이 인쇄되지 않습니다'}
             </span>
           </div>
 

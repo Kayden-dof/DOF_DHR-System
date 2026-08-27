@@ -17,38 +17,43 @@ import { usePathname, useRouter } from 'next/navigation';
    충분히 띄우고, 홈 인디케이터가 있는 기기에서는 그만큼 더 올린다
    (safe-area-inset).
 
-   ── 언제 숨는가 ───────────────────────────────────────────────────────────
-   갈 곳이 없으면 나오지 않는다. 눌러도 아무 일이 없는 단추가 떠 있으면 그
-   화면의 다른 단추까지 못 믿게 된다.
+   ── 모든 화면에 둔다 ──────────────────────────────────────────────────────
+   처음에는 각 영역의 첫 화면에서 숨겼는데, 그러면 화면을 옮길 때마다 단추가
+   나타났다 사라진다. 늘 있는 자리에 늘 있어야 손이 먼저 간다 (사용자 지시).
+   그래서 로그인 화면만 빼고 어디서나 같은 자리에 둔다.
 
-     · 각 영역의 첫 화면 (관리 현황 · 현장 배치 목록) 은 돌아갈 위가 없다
-     · 이 앱에 바로 들어온 첫 화면이면 히스토리에 앞이 없다. 뒤로 가면 앱
-       바깥으로 나가 버리므로 그때도 숨는다
-
-   히스토리 길이는 서버에서 알 수 없다. 그래서 처음에는 숨겨 두고 브라우저에서
-   확인한 뒤에 띄운다. 잠깐 없다가 나타나는 편이, 눌렀더니 앱을 벗어나는 것보다
-   낫다.
+   앞이 없을 때는 뒤로 가지 않고 그 영역의 첫 화면으로 올라간다. 히스토리가
+   비었다고 앱 바깥으로 나가 버리면 현장에서는 앱이 꺼진 것처럼 보인다.
 --------------------------------------------------------------------------- */
 
-/** 돌아갈 위가 없는 화면. 각 영역의 첫 장이다 */
-const ROOTS = new Set(['/', '/work', '/login', '/no-role']);
+/** 로그인 앞뒤 화면. 여기엔 돌아갈 앱이 없다 */
+const OUTSIDE = new Set(['/login', '/no-role']);
 
 export default function BackFab() {
   const router = useRouter();
   const path = usePathname();
-  const [canGo, setCanGo] = useState(false);
+  const [hasPrev, setHasPrev] = useState(true);
 
   useEffect(() => {
     // 이 앱에 바로 들어온 화면이면 앞이 없다
-    setCanGo(window.history.length > 1);
+    setHasPrev(window.history.length > 1);
   }, [path]);
 
-  if (ROOTS.has(path) || !canGo) return null;
+  if (OUTSIDE.has(path)) return null;
+
+  /* 현장 화면은 현장 목록으로, 관리 화면은 현황으로 올라간다 */
+  const home = path.startsWith('/work') ? '/work' : '/';
+
+  function go() {
+    if (hasPrev) { router.back(); return; }
+    if (path !== home) { router.push(home); return; }
+    // 첫 화면에 바로 들어왔다. 갈 곳이 없으므로 아무것도 하지 않는다
+  }
 
   return (
     <button
       type="button"
-      onClick={() => router.back()}
+      onClick={go}
       aria-label="뒤로"
       title="뒤로"
       className="back-fab"

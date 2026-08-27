@@ -42,7 +42,7 @@ export async function createSterilBatch(_p: FormState, form: FormData): Promise<
       const qty = Number(form.get(`qty_${m[1]}`) ?? 0);
       if (qty > 0) lots.push({ id: m[1], qty });
     }
-    if (lots.length === 0) return { error: '동봉할 제품 로트와 수량을 고르십시오' };
+    if (lots.length === 0) return { error: '동봉할 제품 로트와 수량을 선택하십시오' };
 
     const batchNo = await withActor(me.id, async (db) => {
       const no = await db.val<string>(`select next_number('STERIL_BATCH')`);
@@ -61,7 +61,7 @@ export async function createSterilBatch(_p: FormState, form: FormData): Promise<
     bump();
     return {
       ok: true,
-      message: `멸균 배치 ${batchNo}를 만들었습니다. 제품 로트 ${lots.length}건이 들어갔습니다.`,
+      message: `멸균 배치 ${batchNo}를 등록했습니다. 제품 로트 ${lots.length}건이 들어갔습니다.`,
     };
   } catch (e) {
     return { error: dbMessage(e) };
@@ -96,7 +96,7 @@ export async function approveRelease(_p: FormState, form: FormData): Promise<For
   try {
     const me = await mgr();
     const name = String(form.get('release_approved_by') ?? '').trim();
-    if (!name) return { error: '서면에 서명한 품질책임자 성명을 적으십시오' };
+    if (!name) return { error: '서면에 서명한 품질책임자 성명을 입력하십시오' };
 
     await withActor(me.id, (db) =>
       db.rows(

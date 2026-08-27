@@ -97,7 +97,7 @@ export default async function NumberingPage() {
             카운터는 화면에서 다루지 않습니다.
           </li>
           <li>
-              · <b className="text-ink">품목별 규칙이 공통 규칙보다 우선합니다.</b> 품목을 고르고
+              · <b className="text-ink">품목별 규칙이 공통 규칙보다 우선합니다.</b> 품목을 선택하고
             등록하면 그 품목만 그 형식으로 채번되고, 나머지는 공통 규칙을 계속 씁니다.
             제조번호 · 배치번호 · 작업 지시서 번호에 걸 수 있습니다.
           </li>

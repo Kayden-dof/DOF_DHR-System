@@ -73,7 +73,7 @@ export default async function TracePage({ searchParams }: { searchParams: Search
     <PageShell
       section="조회"
       title="계보 추적"
-      lede="제조번호 · 자재 로트번호 · 배치번호 · 성적서 번호 중 아무거나 넣으십시오."
+      lede="제조번호 · 자재 로트번호 · 배치번호 · 성적서 번호 중 아무거나 입력하십시오."
       nav={<SubNav items={TRACE_NAV} />}
     >
       <form className="card flex gap-2 p-3">

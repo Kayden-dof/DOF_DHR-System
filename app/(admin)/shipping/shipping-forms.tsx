@@ -340,7 +340,7 @@ export function ApproveForm({ lot, today }: { lot: PlOpt; today: string }) {
       <input type="hidden" name="id" value={lot.id} />
       <Caution>
         품질책임자는 시스템 계정을 쓰지 않습니다. 서면 요청서에 서명받은 내용을
-        그대로 옮겨 적으십시오. 시스템이 판정하는 것이 아닙니다.
+        그대로 옮겨 입력하십시오. 시스템이 판정하는 것이 아닙니다.
       </Caution>
       <div className="mt-2 flex flex-wrap items-end gap-2">
         <div className="w-44">
@@ -484,7 +484,7 @@ function ShipRowForm({ lot, today }: { lot: PlOpt; today: string }) {
         </div>
       </div>
       <p className="mt-2 text-xs leading-relaxed text-muted">
-        서면 승인이 끝난 요청서의 번호를 옮겨 적습니다. 번호 없이는 기록되지 않습니다.
+        서면 승인이 끝난 요청서의 번호를 옮겨 기재합니다. 번호 없이는 기록되지 않습니다.
       </p>
       <Msg state={state} />
     </form>

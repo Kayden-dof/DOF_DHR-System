@@ -1,4 +1,5 @@
 import { requireUser } from '@/lib/session';
+import BackFab from '@/components/back-fab';
 
 /* ---------------------------------------------------------------------------
    인쇄 화면
@@ -12,5 +13,15 @@ import { requireUser } from '@/lib/session';
 
 export default async function PrintLayout({ children }: { children: React.ReactNode }) {
   await requireUser();
-  return <div className="min-h-screen bg-canvas py-6 print:bg-white print:py-0">{children}</div>;
+  return (
+    <div className="min-h-screen bg-canvas py-6 print:bg-white print:py-0">
+      {children}
+      {/*
+        * 인쇄 화면에도 같은 자리에 둔다. 여기서 돌아갈 곳이 가장 많고 (배치 ·
+        * 설비 · 출하) 머리글의 "돌아가기" 는 위로 스크롤해야 닿는다.
+        * 인쇄물에는 나오지 않는다 (.back-fab 은 @media print 에서 숨는다).
+        */}
+      <BackFab />
+    </div>
+  );
 }

@@ -143,13 +143,13 @@ export default function RuleForm({
               required
               className="input"
             >
-              <option value="">품목을 고르십시오</option>
+              <option value="">품목을 선택하십시오</option>
               {items.map((i) => (
                 <option key={i.id} value={i.id}>{i.code} · {i.name}</option>
               ))}
             </select>
             <p className="mt-1 text-xs leading-relaxed text-faint">
-              품목을 고르면 그 품목만 이 형식으로 채번되고, 나머지는 공통 규칙을 씁니다.
+              품목을 선택하면 그 품목만 이 형식으로 채번되고, 나머지는 공통 규칙을 씁니다.
             </p>
           </div>
         )}
@@ -239,7 +239,7 @@ export default function RuleForm({
         <Alert tone="danger">
           패턴에 순번 토큰이 없습니다. 1회차와 2회차가 같은 번호로 나옵니다
           첫 발행 이후 전부 중복이 됩니다. <code className="font-mono">{'{SEQ:4}'}</code>를
-          넣으십시오.
+          입력하십시오.
         </Alert>
       )}
 

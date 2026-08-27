@@ -181,7 +181,7 @@ export async function suggestMinStock(): Promise<FormState> {
     return {
       ok: true,
       message: `${n}개 품목에 제안값을 계산했습니다. 최소 재고선은 덮어쓰지 않았습니다. ` +
-               `품목 화면에서 근거를 보고 직접 넣으십시오.`,
+               `품목 화면에서 근거를 보고 직접 입력하십시오.`,
     };
   } catch (e) {
     return { error: dbMessage(e) };

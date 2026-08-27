@@ -69,7 +69,7 @@ export function NewEquipment() {
         </div>
       </div>
       <p className="mt-2 text-xs leading-relaxed text-muted">
-        코드는 등록 후 고칠 수 없습니다. 제조기록서에 이 값이 그대로 적힙니다.
+        코드는 등록 후 수정할 수 없습니다. 제조기록서에 이 값이 그대로 기재됩니다.
       </p>
       <Msg state={state} />
       <div className="mt-3 flex gap-2">
@@ -77,7 +77,7 @@ export function NewEquipment() {
           {pending ? '등록 중' : '등록'}
         </button>
         <button type="button" onClick={() => setOpen(false)} className="btn-ghost h-9 px-3 text-xs">
-          그만두기
+          취소
         </button>
       </div>
     </form>
@@ -169,7 +169,7 @@ export function EquipCard({ e, ops }: { e: EquipRow; ops: OpOption[] }) {
             </button>
             <button type="button" onClick={() => setEdit(false)}
                     className="btn-ghost h-9 px-3 text-xs">
-              그만두기
+              취소
             </button>
           </div>
         </form>

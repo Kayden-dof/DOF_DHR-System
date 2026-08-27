@@ -168,7 +168,7 @@ export function ItemRowView({ it }: { it: ItemRow }) {
                 <p className="rounded-md bg-surface px-3 py-2 text-xs leading-relaxed text-muted lg:col-span-5">
                   <b className="text-ink">자동 산출값 {Number(it.min_stock_auto)}</b>
                   {it.min_stock_basis ? ` · ${it.min_stock_basis}` : ''}
-                  <br />제안일 뿐이며 최소 재고선을 덮어쓰지 않습니다. 쓰려면 위 칸에 직접 넣으십시오.
+                  <br />제안일 뿐이며 최소 재고선을 덮어쓰지 않습니다. 쓰려면 위 항목에 직접 입력하십시오.
                 </p>
               )}
               <div className="lg:col-span-5"><Msg state={state} /></div>
@@ -197,8 +197,8 @@ export function GenerateFinished() {
       <h3 className="text-sm font-bold text-ink">완제품 형명 생성</h3>
       <p className="mt-1 text-xs leading-relaxed text-muted">
         형명은 <code className="font-mono">PD + 가로2 + 세로2 + 두께하한2 + 두께상한2</code> 규칙입니다.
-        크기와 두께 구간을 넣으면 조합으로 만듭니다. 손으로 한 줄씩 등록하지 마십시오.
-        이미 있는 코드는 건드리지 않으므로 여러 번 눌러도 안전합니다.
+        크기와 두께 구간을 입력하면 조합으로 만듭니다. 손으로 한 줄씩 등록하지 마십시오.
+        이미 있는 코드는 건드리지 않으므로 반복 실행해도 안전합니다.
       </p>
 
       <div className="mt-3 grid gap-3 lg:grid-cols-3">

@@ -392,7 +392,7 @@ export default async function CoverSheet({ params }: { params: Promise<{ id: str
       </table>
       <p className="mt-1.5 text-[10px] leading-relaxed text-black">
         목록과 회차 · 매수는 시스템 발행 기록입니다. 철 확인란은 편철하는 사람이
-        서류를 실제로 끼우며 표시합니다. 설비 사용 기록은 배치 묶음이 아니라 설비별
+        서류를 편철하며 대조 표시합니다. 설비 사용 기록은 배치 묶음이 아니라 설비별
         이력 파일에 철합니다.
       </p>
 

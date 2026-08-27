@@ -99,7 +99,7 @@ export default async function EquipmentPage() {
     <PageShell
       section="설비"
       title="설비"
-      lede="공정에 걸어 두면 현장에서 타일로 고르고, 고른 값이 제조기록서에 적힙니다. 밸리데이션은 서면 보고서 번호로 등록하며, 기한이 지나도 막지 않고 발행 화면과 검토 지원에 표시됩니다."
+      lede="공정에 걸어 두면 현장에서 타일로 선택하고, 고른 값이 제조기록서에 기재됩니다. 밸리데이션은 서면 보고서 번호로 등록하며, 기한이 지나도 막지 않고 발행 화면과 검토 지원에 표시됩니다."
       action={<NewEquipment />}
       stats={<StatStrip items={stats} />}
     >

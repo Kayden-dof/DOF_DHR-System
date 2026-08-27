@@ -184,8 +184,8 @@ export default function WorkPanel({
 
         {locked && (
           <p className="mt-3 rounded-md border border-ok/30 bg-ok-bg px-3 py-2.5 text-sm leading-relaxed text-ink">
-            <b>{day}일차는 마감되었습니다.</b> 기록서를 인쇄했으므로 더 이상 고칠 수 없습니다.
-            빠뜨린 것은 다음 일차에 정정 기록으로 남기십시오.
+            <b>{day}일차는 마감되었습니다.</b> 기록서를 인쇄했으므로 더 이상 수정할 수 없습니다.
+            누락된 것은 다음 일차에 정정 기록으로 남기십시오.
           </p>
         )}
       </section>
@@ -641,7 +641,7 @@ function MaterialForm({ woId, rec, op, lots, sheets }: {
               <>
                 자재 구성표 기준 장입 {sheets}장의 <b className="text-ink">예상</b> 소요량{' '}
                 <b className="text-ink tnum">{need} {lot.usage_uom}</b>을 미리 채웠습니다.
-                실제로 넣은 양이 다르면 고쳐 적으십시오.
+                실제로 넣은 양이 다르면 고쳐 입력하십시오.
               </>
             ) : null
           }
@@ -678,7 +678,7 @@ function EndForm({ woId, rec, op, missing }: {
             ))}
           </ul>
           <p className="mt-2 text-sm leading-relaxed text-muted">
-            자재를 기록하거나, 아래에서 해당 없음 사유를 고르십시오. 둘 다 없으면 마감되지 않습니다.
+            자재를 기록하거나, 아래에서 해당 없음 사유를 선택하십시오. 둘 다 없으면 마감되지 않습니다.
           </p>
         </div>
       )}
@@ -711,7 +711,7 @@ function EndForm({ woId, rec, op, missing }: {
             </button>
             <button type="button" onClick={() => setConfirm(false)}
                     className="btn-ghost h-14 flex-1 text-base">
-              그만두기
+              취소
             </button>
           </div>
         </div>
@@ -732,8 +732,8 @@ function CloseDayCard({ woId, day, batchNo, open }: {
     <section className="card border-brand-line p-4">
       <h2 className="text-base font-bold text-ink">{day}일차 마감</h2>
       <p className="mt-1 text-sm leading-relaxed text-muted">
-        마감하면 제조기록서가 발행되고 <b className="text-ink">이 묶음은 더 이상 고칠 수 없습니다.</b>
-        {' '}잠금을 푸는 방법은 없습니다. 빠뜨린 것은 다음 일차에 정정 기록으로 남겨야 합니다.
+        마감하면 제조기록서가 발행되고 <b className="text-ink">이 묶음은 더 이상 수정할 수 없습니다.</b>
+        {' '}잠금을 푸는 방법은 없습니다. 누락된 것은 다음 일차에 정정 기록으로 남겨야 합니다.
       </p>
 
       {open > 0 && (
@@ -763,7 +763,7 @@ function CloseDayCard({ woId, day, batchNo, open }: {
             </button>
             <button type="button" onClick={() => setConfirm(false)}
                     className="btn-ghost h-14 flex-1 text-base">
-              그만두기
+              취소
             </button>
           </div>
         </form>
@@ -909,7 +909,7 @@ function CutPanel({ woId, finished, lots, sampleTiers, sampleBasis, band }: {
             <p className="text-sm leading-relaxed text-muted">
               생산 <b className="tnum text-ink">{Number(produced)}</b>개는{' '}
               <b className="tnum text-ink">{needTier!.min_qty}~{needTier!.max_qty ?? ''}</b> 구간이라
-              시료 <b className="tnum text-ink">{need}</b>개를 뽑습니다.
+              시료 <b className="tnum text-ink">{need}</b>개를 출력합니다.
               {sampleBasis && <span className="text-faint"> ({sampleBasis})</span>}
               {touched && Number(sample || 0) !== need && (
                 <b className="text-warn"> 지금 적은 값은 {Number(sample || 0)}개입니다.</b>
@@ -918,7 +918,7 @@ function CutPanel({ woId, finished, lots, sampleTiers, sampleBasis, band }: {
           ) : sampleTiers.length > 0 && Number(produced || 0) > 0 ? (
             <p className="text-sm leading-relaxed text-muted">
               생산 {Number(produced)}개가 드는 시료 구간이 등록되어 있지 않습니다.
-              시료 수는 검사기준서를 보고 적으십시오.
+              시료 수는 검사기준서를 보고 입력하십시오.
             </p>
           ) : null}
 

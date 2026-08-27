@@ -49,7 +49,7 @@ export default async function StockPage() {
       title="재고"
       lede={
         <>
-          자재는 품목별 합계, 완제품은 <b className="text-ink">유효기한 순</b>으로 봅니다.
+          자재는 품목별 합계, 완제품은 <b className="text-ink">유효기한 순</b>으로 정렬합니다.
           사용기간이 짧고 형명이 많아 형명별로 보면 임박품이 묻힙니다.
         </>
       }

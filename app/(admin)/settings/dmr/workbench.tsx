@@ -168,7 +168,7 @@ export async function DmrWorkbench({
                 {!editable && dm.wo_count > 0 && (
                   <p className="border-t border-line bg-canvas px-4 py-2.5 text-xs leading-relaxed text-muted">
                     이 개정으로 발행된 작업 지시가 {dm.wo_count}건 있어 공정과 자재 구성표를
-                    더 이상 고칠 수 없습니다. 바꾸려면 새 개정을 만드십시오.
+                    더 이상 수정할 수 없습니다. 바꾸려면 새 개정을 만드십시오.
                   </p>
                 )}
               </Panel>
@@ -273,7 +273,7 @@ export async function DmrWorkbench({
                   <div className="flex gap-2">
                     <dt className="w-32 shrink-0 font-semibold text-ink">원재료는 넣지 않는다</dt>
                     <dd className="text-muted">
-                      작업 지시에 이미 지정되어 있습니다. 자재 구성표에 넣으면 S05가 이중으로 걸립니다.
+                      작업 지시에 이미 지정되어 있습니다. 자재 구성표에 입력하면 S05가 이중으로 걸립니다.
                     </dd>
                   </div>
                 </dl>

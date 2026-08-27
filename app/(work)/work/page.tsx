@@ -75,7 +75,7 @@ export default async function WorkHome() {
       <div>
         <h1 className="text-2xl font-bold text-white">작업할 배치</h1>
         <p className="mt-1.5 text-sm text-on-dark-mute">
-          {user.full_name} 님. 배치를 눌러 공정 기록을 작성하십시오.
+          {user.full_name} 님. 배치를 선택하여 공정 기록을 작성하십시오.
         </p>
       </div>
 
@@ -170,12 +170,12 @@ export default async function WorkHome() {
         <ul className="space-y-2.5 text-sm leading-relaxed text-on-dark-mute">
           <li>
             자재를 넣지 않고 마감하려면{' '}
-            <b className="font-semibold text-white">해당 없음 사유</b>를 골라야 합니다.
+            <b className="font-semibold text-white">해당 없음 사유</b>를 선택해야 합니다.
           </li>
           <li>
             일차를 마감하고 기록서를 인쇄하면{' '}
-            <b className="font-semibold text-white">그 묶음은 고칠 수 없습니다.</b>{' '}
-            빠뜨린 것은 다음 일차에 정정 기록으로 남기십시오.
+            <b className="font-semibold text-white">그 묶음은 수정할 수 없습니다.</b>{' '}
+            누락된 것은 다음 일차에 정정 기록으로 남기십시오.
           </li>
         </ul>
       </div>

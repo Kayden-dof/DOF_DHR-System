@@ -58,7 +58,7 @@ export function NewDeviceMaster({ items }: { items: ItemOption[] }) {
         </div>
       </div>
       <p className="mt-3 rounded-md bg-canvas px-3 py-2 text-xs leading-relaxed text-muted">
-        서면 제품표준서가 정본입니다. 여기에는 개정 표기와 공정 · 자재 구성표만 옮겨 적습니다.
+        서면 제품표준서가 정본입니다. 여기에는 개정 표기와 공정 · 자재 구성표만 옮겨 기재합니다.
         파일은 올리지 않습니다.
       </p>
       <Msg state={state} />
@@ -91,7 +91,7 @@ export function VerifyForm({
   return (
     <div className="rounded-md border border-warn/30 bg-warn-bg p-3">
       <p className="text-sm leading-relaxed text-ink">
-        <b>아직 서면 대조 확인 전입니다.</b> 확인 전에는 작업 지시 발행에서 고를 수 없습니다.
+        <b>아직 서면 대조 확인 전입니다.</b> 확인 전에는 작업 지시 발행에서 선택할 수 없습니다.
         공정과 자재 구성표를 모두 넣은 뒤, 서면 제품표준서와 한 항목씩 대조하고 확인하십시오.
       </p>
       <button onClick={() => setOpen(true)} className="btn-ghost mt-3 h-9 px-3 text-xs">
@@ -115,8 +115,8 @@ export function VerifyForm({
               <div>
                 <h3 className="text-[0.9375rem] font-bold text-ink">서면 제품표준서와 대조</h3>
                 <p className="mt-0.5 text-xs leading-relaxed text-muted">
-                  아래는 이 화면에 옮겨 적힌 값입니다. 서면과 한 항목씩 견주고 같으면
-                  짚으십시오. 다르면 닫고 고친 뒤 다시 오십시오.
+                  아래는 이 화면에 기재된 값입니다. 서면과 한 항목씩 견주고 같으면
+                  확인하십시오. 다르면 닫고 수정한 뒤 다시 확인하십시오.
                 </p>
               </div>
               <span className={`ml-auto shrink-0 tnum text-xs font-bold ${
@@ -156,7 +156,7 @@ export function VerifyForm({
               <span className="min-w-0 flex-1 text-xs leading-relaxed text-muted">
                 {all
                   ? '전부 대조했습니다. 확인자로 기록되며 되돌릴 수 없습니다.'
-                  : '남은 항목을 모두 짚어야 확인할 수 있습니다.'}
+                  : '남은 항목을 모두 확인해야 확인할 수 있습니다.'}
               </span>
               <button type="submit" disabled={!all || pending}
                       className="btn-primary h-9 px-4 text-xs">
@@ -611,7 +611,7 @@ export function SamplePlanForm({ id, tiers, basis }: {
           구간 추가
         </button>
         <span className="pb-2 text-xs leading-relaxed text-faint">
-          같은 시작값을 다시 넣으면 그 구간이 갱신됩니다.
+          같은 시작값을 다시 입력하면 그 구간이 갱신됩니다.
         </span>
         <Msg state={tState} className="w-full" />
       </form>
@@ -703,7 +703,7 @@ export function OperationSetForm({
   if (mode === null) {
     return (
       <div className="border-t border-line bg-canvas px-4 py-3">
-        <p className="text-sm font-semibold text-ink">공정이 없습니다. 흐름부터 넣으십시오.</p>
+        <p className="text-sm font-semibold text-ink">공정이 없습니다. 흐름부터 입력하십시오.</p>
         <p className="mt-1 text-xs leading-relaxed text-muted">
           공정 흐름을 한 번에 적거나, 이미 만들어 둔 제품표준서에서 가져옵니다.
           가져오면 자재 구성표와 설비 연결까지 함께 옵니다.
@@ -736,7 +736,7 @@ export function OperationSetForm({
           <div className="w-72">
             <label className="label">가져올 표준서</label>
             <select name="source_id" required className="input h-9 text-xs">
-              <option value="">고르십시오</option>
+              <option value="">선택하십시오</option>
               {sources.map((x) => (
                 <option key={x.id} value={x.id}>{x.label} · 공정 {x.op_count}</option>
               ))}
@@ -746,7 +746,7 @@ export function OperationSetForm({
             {copyPending ? '가져오는 중' : '가져오기'}
           </button>
           <button type="button" onClick={() => setMode(null)}
-                  className="btn-ghost h-9 px-3 text-xs">그만두기</button>
+                  className="btn-ghost h-9 px-3 text-xs">취소</button>
         </div>
         <Msg state={copyState} />
       </form>
@@ -788,7 +788,7 @@ FI-DX2402-01 | 완제품 검사     | 재단이후 | 4`}
           {bulkPending ? '넣는 중' : '공정 넣기'}
         </button>
         <button type="button" onClick={() => setMode(null)}
-                className="btn-ghost h-9 px-3 text-xs">그만두기</button>
+                className="btn-ghost h-9 px-3 text-xs">취소</button>
       </div>
     </form>
   );
@@ -879,7 +879,7 @@ export function NewProduct({
 
         {useExisting ? (
           <select name="item_id" required className="input mt-2.5">
-            <option value="">고르십시오</option>
+            <option value="">선택하십시오</option>
             {finished.map((f) => (
               <option key={f.id} value={f.id}>{f.code} · {f.name}</option>
             ))}
@@ -911,7 +911,7 @@ export function NewProduct({
           {pending ? '등록 중' : '등록'}
         </button>
         <button type="button" onClick={() => setOpen(false)}
-                className="btn-ghost h-9 px-3 text-xs">그만두기</button>
+                className="btn-ghost h-9 px-3 text-xs">취소</button>
       </div>
     </form>
   );

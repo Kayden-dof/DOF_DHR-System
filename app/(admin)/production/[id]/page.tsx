@@ -231,7 +231,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                 확인해 볼 항목 <span className="tnum">{d.review.length}</span>
               </h3>
               <p className="mt-0.5 text-xs leading-relaxed text-muted">
-                산술로 어긋나는 것만 짚었습니다. 적합 여부는 전체를 보는 검토자가 판단합니다.
+                산술로 어긋나는 것만 표시했습니다. 적합 여부는 전체를 보는 검토자가 판단합니다.
               </p>
             </div>
           </header>
@@ -252,7 +252,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
 
           <p className="border-t border-line-soft bg-surface-sub px-4 py-2.5 text-xs leading-relaxed text-muted">
             여기에 없는 항목이 곧 문제가 없다는 뜻은 아닙니다. 시스템은 계산으로
-            판정되는 것만 짚습니다.
+            판정되는 것만 표시합니다.
           </p>
         </section>
       )}
@@ -491,7 +491,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
       {d.prints.length > 0 && (
         <Panel
           title="인쇄 이력"
-          note="다시 뽑은 회차가 있으면 앞 종이를 거둬들이고 그 사실을 남깁니다"
+          note="재출력한 회차가 있으면 앞 종이를 회수하고 그 사실을 남깁니다"
         >
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -530,7 +530,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                       {p.retrieved_at ? (
                         <Tag tone="ok">회수됨</Tag>
                       ) : p.newer_count > 0 ? (
-                        <Tag tone="danger">뒤에 {p.newer_count}회 더 뽑음</Tag>
+                        <Tag tone="danger">뒤에 {p.newer_count}회 재출력</Tag>
                       ) : (
                         <Tag tone="quiet">최신</Tag>
                       )}
@@ -558,7 +558,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
           아직 안 끝났어도 막지는 않는다 (§2 차단은 다섯 개뿐이다). 대신 무엇이
           남았는지 적어 두고, 그렇게 뽑은 종이에도 같은 문장이 인쇄된다.
       --------------------------------------------------------------- */}
-      <Panel title="배치 종료와 편철" note="편철 표지는 배치가 끝난 뒤에 뽑습니다">
+      <Panel title="배치 종료와 편철" note="편철 표지는 배치가 끝난 뒤에 출력합니다">
         <div className="flex flex-wrap items-start justify-between gap-4 p-4">
           <div className="min-w-0 space-y-1.5">
             {remaining.length > 0 ? (
@@ -567,7 +567,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                   아직 남은 것이 있습니다: <b>{remaining.join(' · ')}</b>
                 </p>
                 <p className="text-xs leading-relaxed text-muted">
-                  지금 뽑아도 되지만 매수와 목록이 확정값이 아닙니다.
+                  지금 출력해도 되지만 매수와 목록이 확정값이 아닙니다.
                   그 종이에도 미완료 표시가 함께 인쇄됩니다.
                 </p>
               </>
@@ -575,7 +575,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
               <p className="text-sm leading-relaxed text-muted">
                 기록서 <b className="tnum text-ink">{totalPages}</b>장 ·
                 제품 로트 <b className="tnum text-ink">{d.lots.length}</b>건.
-                표지를 뽑아 종이 묶음 맨 위에 얹고 매수를 세어 맞춰 보십시오.
+                표지를 출력하여 기록지 묶음 상단에 편철하고 매수를 대조하십시오.
               </p>
             )}
           </div>

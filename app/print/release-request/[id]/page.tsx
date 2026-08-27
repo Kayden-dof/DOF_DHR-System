@@ -200,7 +200,7 @@ export default async function ReleaseRequestSheet({
       <p className="mt-2 text-[10px] leading-relaxed text-black">
         판정란은 비워서 발행합니다. 시스템은 적합 여부를 판정하지 않으며 전자서명을 받지
         않습니다. 승인된 내용은 관리자가 시스템에 옮겨 적고, 출고를 기록할 때 이 요청서
-        번호를 함께 적습니다.
+        번호를 함께 기재합니다.
       </p>
     </PrintFrame>
   );
