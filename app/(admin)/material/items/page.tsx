@@ -9,6 +9,13 @@ import { NewItemForm, ItemRowView, type ItemRow } from '../../settings/items/ite
 
 export const dynamic = 'force-dynamic';
 
+/*
+ * 탭 제목. 화면을 여럿 열어 견주는 일이 있으므로 (사용자 요청) 탭마다 다른
+ * 이름이 붙어야 한다. 전부 "DOF DHR" 이면 탭을 여러 개 열어도 어느 것이
+ * 무엇인지 알 수 없어 여는 의미가 없다.
+ */
+export const metadata = { title: '자재 품목' };
+
 type Search = Promise<{ type?: string; q?: string }>;
 
 export default async function MaterialItemsPage({ searchParams }: { searchParams: Search }) {

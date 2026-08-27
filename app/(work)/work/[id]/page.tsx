@@ -6,9 +6,28 @@ import { fmtDate } from '@/lib/fmt';
 import { Tag } from '@/components/ui';
 import WorkPanel, {
   type Op, type Rec, type LotOpt, type PersonOpt, type PlOpt, type FinOpt,
+  type SampleTier,
 } from './work-panel';
 
 export const dynamic = 'force-dynamic';
+
+/*
+ * 탭 제목에 배치번호를 넣는다. 배치 둘을 나란히 놓고 견주려면 탭 이름만 보고
+ * 어느 쪽이 어느 배치인지 알아야 한다 (사용자 요청). 자료를 못 읽으면 조용히
+ * 기본 제목으로 떨어진다 - 제목 때문에 화면이 죽으면 안 된다.
+ */
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
+  try {
+    const user = await requireUser();
+    const { id } = await params;
+    const b = await withActor(user.id, (db) =>
+      db.val<string>(`select batch_no from work_order where id = $1`, [id]));
+    return b ? { title: `${b} 현장` } : {};
+  } catch {
+    return {};
+  }
+}
+
 
 interface Wo {
   id: string; batch_no: string; wo_no: string; sheet_count: number; status: string;
@@ -95,8 +114,12 @@ export default async function WorkBatchPage({ params }: { params: Promise<{ id: 
        */
       cutOpId: await db.val<string | null>(
         `select cut_operation_id($1)`, [wo.device_master_id]),
-      samplePerLot: await db.val<number | null>(
-        `select sample_per_lot from device_master where id = $1`, [wo.device_master_id]),
+      /* 생산 수량 구간별 시료 수. 근거 문구도 함께 내보낸다 (§6) */
+      sampleTiers: await db.rows<SampleTier>(
+        `select min_qty, max_qty, sample_qty from sample_plan
+          where device_master_id = $1 order by min_qty`, [wo.device_master_id]),
+      sampleBasis: await db.val<string | null>(
+        `select sample_basis from device_master where id = $1`, [wo.device_master_id]),
       /* 두께는 원재료가 정하므로 이 배치에서 나올 형명은 그 두께의 것뿐이다 (§3 ③) */
       finished: await db.rows<FinOpt>(
         `select i.id, i.code, i.name from item i
@@ -144,7 +167,8 @@ export default async function WorkBatchPage({ params }: { params: Promise<{ id: 
         productLots={d.productLots}
         cutOpId={d.cutOpId ?? null}
         finished={d.finished}
-        samplePerLot={d.samplePerLot ?? null}
+        sampleTiers={d.sampleTiers}
+        sampleBasis={d.sampleBasis ?? null}
         band={wo.thickness_band}
         meId={user.id}
         lockedDays={d.lockedDays.map((r) => r.day_no)}

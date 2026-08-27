@@ -120,29 +120,62 @@ export async function setExpectedUnits(_p: FormState, form: FormData): Promise<F
 }
 
 /**
- * 완제품검사 샘플 수량.
+ * 완제품검사 시료 채취 기준.
  *
- * WS-07 에서 뽑는다. 몇 개를 뽑는지는 검사 기준이 정하고, 여기서는 그 값을
- * 옮겨 적어 둘 뿐이다. 현장 재단 화면이 이 값을 그대로 보여 준다.
- * 비워 두면 현장에 아무것도 안내하지 않는다 (§1).
+ * 생산 수량 구간별 시료 수와 그 근거를 받는다. 구간도 수량도 검사기준서가
+ * 정하고 여기서는 옮겨 적을 뿐이다. 근거 없는 숫자는 아무도 믿지 않는다 (§6).
  */
-export async function setSamplePerLot(_p: FormState, form: FormData): Promise<FormState> {
+export async function addSampleTier(_p: FormState, form: FormData): Promise<FormState> {
   try {
     const me = await admin();
-    const raw = String(form.get('sample_per_lot') ?? '').trim();
-    const n = raw === '' ? null : Number(raw);
-    if (n !== null && (!Number.isInteger(n) || n < 0)) {
-      return { error: '샘플 수량은 0 이상의 정수이거나 비워 둡니다' };
+    const dm = String(form.get('id') ?? '');
+    const min = Number(form.get('min_qty') ?? 0);
+    const rawMax = String(form.get('max_qty') ?? '').trim();
+    const max = rawMax === '' ? null : Number(rawMax);
+    const qty = Number(form.get('sample_qty') ?? 0);
+
+    if (!Number.isInteger(min) || min < 1) {
+      return { error: '구간 시작은 1 이상의 정수입니다' };
     }
+    if (max !== null && (!Number.isInteger(max) || max < min)) {
+      return { error: '구간 끝은 시작보다 크거나 같아야 합니다. 상한이 없으면 비워 둡니다' };
+    }
+    if (!Number.isInteger(qty) || qty < 0) {
+      return { error: '시료 수는 0 이상의 정수입니다' };
+    }
+
     await withActor(me.id, (db) =>
-      db.rows(`update device_master set sample_per_lot = $2 where id = $1`,
-        [String(form.get('id') ?? ''), n]));
+      db.rows(
+        `insert into sample_plan (device_master_id, min_qty, max_qty, sample_qty, registered_by)
+         values ($1,$2,$3,$4,$5)
+         on conflict (device_master_id, min_qty)
+           do update set max_qty = excluded.max_qty, sample_qty = excluded.sample_qty`,
+        [dm, min, max, qty, me.id]));
+
     revalidatePath('/production/setup');
     revalidatePath('/settings/dmr');
     revalidatePath('/work');
-    return { ok: true, message: n === null
-      ? '샘플 수량을 비웠습니다. 현장에 안내하지 않습니다.'
-      : `완제품검사 샘플을 제조번호당 ${n}개로 저장했습니다.` };
+    return { ok: true, message:
+      `${min}~${max ?? ''}개 구간의 시료 수를 ${qty}개로 저장했습니다.` };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
+/** 시료 채취 기준의 근거 문구. 어느 검사기준서의 어느 표를 옮겼는가. */
+export async function setSampleBasis(_p: FormState, form: FormData): Promise<FormState> {
+  try {
+    const me = await admin();
+    const basis = String(form.get('sample_basis') ?? '').trim() || null;
+    await withActor(me.id, (db) =>
+      db.rows(`update device_master set sample_basis = $2 where id = $1`,
+        [String(form.get('id') ?? ''), basis]));
+    revalidatePath('/production/setup');
+    revalidatePath('/settings/dmr');
+    revalidatePath('/work');
+    return { ok: true, message: basis === null
+      ? '근거 문구를 비웠습니다.'
+      : '근거 문구를 저장했습니다.' };
   } catch (e) {
     return { error: dbMessage(e) };
   }

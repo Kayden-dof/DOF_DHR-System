@@ -380,4 +380,60 @@ export default [
   },
 },
 
+
+{
+  id: 'SP-01', expect: '확인',
+  name: '시료 수는 생산 수량 구간이 정한다 (장입 구간과 같은 모양)',
+  async run(t) {
+    const m = await master(t);
+    await t.setActor(m.admin);
+
+    // 기존 구간을 치우고 세 구간을 새로 깐다
+    await t.rows(`update sample_plan set max_qty = 0 where device_master_id = $1`, [m.dm]);
+    for (const [lo, hi, n] of [[1, 50, 3], [51, 150, 5], [151, null, 8]]) {
+      await t.rows(
+        `insert into sample_plan (device_master_id, min_qty, max_qty, sample_qty, registered_by)
+         values ($1,$2,$3,$4,$5)
+         on conflict (device_master_id, min_qty)
+           do update set max_qty = excluded.max_qty, sample_qty = excluded.sample_qty`,
+        [m.dm, lo, hi, n, m.admin]);
+    }
+
+    t.eq(await t.val(`select required_sample($1,$2)`, [m.dm, 1]),   3, '1개');
+    t.eq(await t.val(`select required_sample($1,$2)`, [m.dm, 50]),  3, '50개');
+    t.eq(await t.val(`select required_sample($1,$2)`, [m.dm, 51]),  5, '51개');
+    t.eq(await t.val(`select required_sample($1,$2)`, [m.dm, 150]), 5, '150개');
+    t.eq(await t.val(`select required_sample($1,$2)`, [m.dm, 151]), 8, '151개');
+    t.eq(await t.val(`select required_sample($1,$2)`, [m.dm, 900]), 8, '상한 없는 구간');
+  },
+},
+
+{
+  id: 'SP-02', expect: '확인',
+  name: '구간이 없으면 안내하지 않는다 (임의로 정하지 않는다)',
+  async run(t) {
+    const m = await master(t);
+    await t.setActor(m.admin);
+
+    const item = await t.val(
+      `insert into item (code,name,type,purchase_uom,usage_uom)
+       values ('ZZ-SP-TEST','시험 제품','FIN','EA','EA') returning id`);
+    const dm = await t.val(
+      `insert into device_master (item_id,revision,status,effective_from)
+       values ($1,'Rev.01','ACTIVE',current_date) returning id`, [item]);
+
+    t.eq(await t.val(`select required_sample($1,$2)`, [dm, 40]), null,
+         '구간 미등록이면 null');
+  },
+},
+
+{
+  id: 'SP-03', expect: '권한 거부',
+  name: 'app_role의 sample_plan DELETE',
+  async run(t) {
+    await t.asRole('app_role', () =>
+      t.rejects(() => t.rows(`delete from sample_plan`), { code: '42501' }));
+  },
+},
+
 ];

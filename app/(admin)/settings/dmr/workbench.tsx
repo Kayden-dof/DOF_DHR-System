@@ -5,7 +5,7 @@ import { fmtDate, fmtDateTime } from '@/lib/fmt';
 import { Panel, Empty, Tag, Field } from '@/components/ui';
 import {
   NewDeviceMaster, VerifyForm, AddOperationForm, OperationCard, ExpectedUnitsForm,
-  SamplePerLotForm,
+  SamplePlanForm, type SampleTier,
   ProductCodeForm, OperationSetForm,
   type OperationRow, type ItemOption,
 } from './dmr-forms';
@@ -21,7 +21,7 @@ import {
 interface DmRow {
   id: string; revision: string; status: string; effective_from: string | null;
   verified_at: Date | null; verified_by_name: string | null;
-  expected_units: number | null; sample_per_lot: number | null;
+  expected_units: number | null; sample_basis: string | null;
   product_code: string | null; product_name: string | null;
   item_code: string; item_name: string;
   op_count: number; bom_count: number; wo_count: number;
@@ -41,7 +41,7 @@ export async function DmrWorkbench({
   const d = await withActor(userId, async (db) => {
     const masters = await db.rows<DmRow>(
       `select dm.id, dm.revision, dm.status, dm.effective_from, dm.verified_at,
-              dm.expected_units, dm.sample_per_lot, dm.product_code, dm.product_name,
+              dm.expected_units, dm.sample_basis, dm.product_code, dm.product_name,
               u.full_name as verified_by_name, i.code as item_code, i.name as item_name,
               (select count(*)::int from dmr_operation o where o.device_master_id = dm.id) as op_count,
               (select count(*)::int from dmr_bom b
@@ -88,6 +88,12 @@ export async function DmrWorkbench({
                from operation_equipment oe
                join dmr_operation o on o.id = oe.operation_id
               where o.device_master_id = $1 and oe.is_active`, [selected])
+        : [],
+      /* 생산 수량 구간별 시료 수. 근거는 device_master 에 붙는다 */
+      sampleTiers: selected
+        ? await db.rows<SampleTier>(
+            `select id, min_qty, max_qty, sample_qty from sample_plan
+              where device_master_id = $1 order by min_qty`, [selected])
         : [],
       items: await db.rows<ItemOption>(
         `select id, code, name, usage_uom, type::text as type from item
@@ -157,7 +163,8 @@ export async function DmrWorkbench({
                 <ProductCodeForm id={dm.id} code={dm.product_code}
                                  name={dm.product_name} itemCode={dm.item_code} />
                 <ExpectedUnitsForm id={dm.id} value={dm.expected_units} />
-                <SamplePerLotForm id={dm.id} value={dm.sample_per_lot} />
+                <SamplePlanForm id={dm.id} basis={dm.sample_basis}
+                                tiers={d.sampleTiers} />
                 {!editable && dm.wo_count > 0 && (
                   <p className="border-t border-line bg-canvas px-4 py-2.5 text-xs leading-relaxed text-muted">
                     이 개정으로 발행된 작업 지시가 {dm.wo_count}건 있어 공정과 자재 구성표를

@@ -39,6 +39,7 @@ export interface PlOpt {
   qty_produced?: number; qty_sample?: number;
 }
 export interface FinOpt { id: string; code: string; name: string }
+export interface SampleTier { min_qty: number; max_qty: number | null; sample_qty: number }
 
 const REASONS = [
   '해당 공정 미실시',
@@ -55,7 +56,7 @@ const REASONS = [
 --------------------------------------------------------------------------- */
 export default function WorkPanel({
   woId, batchNo, sheets, ops, records, lots, people, productLots, meId, lockedDays,
-  cutOpId, finished, samplePerLot, band,
+  cutOpId, finished, sampleTiers, sampleBasis, band,
 }: {
   woId: string; batchNo: string; sheets: number;
   ops: Op[]; records: Rec[]; lots: LotOpt[]; people: PersonOpt[];
@@ -63,7 +64,8 @@ export default function WorkPanel({
   /** 재단 공정. 이 공정 카드에서 형명별 수량을 적는다 */
   cutOpId: string | null;
   finished: FinOpt[];
-  samplePerLot: number | null;
+  sampleTiers: SampleTier[];
+  sampleBasis: string | null;
   band: string | null;
 }) {
   const myRecords = useMemo(() => records.filter((r) => r.worker_id === meId), [records, meId]);
@@ -248,7 +250,7 @@ export default function WorkPanel({
           productLots={productLots} locked={locked} sheets={sheets}
           attemptCount={dayRecords.filter((r) => r.operation_id === op.id).length}
           isCut={op.id === cutOpId} finished={finished}
-          samplePerLot={samplePerLot} band={band}
+          sampleTiers={sampleTiers} sampleBasis={sampleBasis} band={band}
         />
       )}
 
@@ -325,12 +327,13 @@ function OpTile({
 
 function OperationCard({
   woId, day, op, rec, lots, people, productLots, locked, sheets, attemptCount,
-  isCut, finished, samplePerLot, band,
+  isCut, finished, sampleTiers, sampleBasis, band,
 }: {
   woId: string; day: number; op: Op; rec: Rec | null; lots: LotOpt[];
   people: PersonOpt[]; productLots: PlOpt[]; locked: boolean; sheets: number;
   attemptCount: number;
-  isCut: boolean; finished: FinOpt[]; samplePerLot: number | null; band: string | null;
+  isCut: boolean; finished: FinOpt[]; band: string | null;
+  sampleTiers: SampleTier[]; sampleBasis: string | null;
 }) {
   const running = rec && !rec.ended_at;
 
@@ -367,7 +370,7 @@ function OperationCard({
         */}
       {isCut && rec && (
         <CutPanel woId={woId} finished={finished} lots={productLots}
-                  samplePerLot={samplePerLot} band={band} />
+                  sampleTiers={sampleTiers} sampleBasis={sampleBasis} band={band} />
       )}
 
       {rec && rec.issues.length > 0 && (
@@ -779,18 +782,36 @@ function CloseDayCard({ woId, day, batchNo, open }: {
    샘플 수를 시스템이 정하지 않는다. 검사 기준이 정하고 제품표준서에 옮겨 적힌
    값을 읽어 올 뿐이다. 등록된 값이 없으면 아무것도 안내하지 않는다 (§1).
 --------------------------------------------------------------------------- */
-function CutPanel({ woId, finished, lots, samplePerLot, band }: {
+function CutPanel({ woId, finished, lots, sampleTiers, sampleBasis, band }: {
   woId: string; finished: FinOpt[]; lots: PlOpt[];
-  samplePerLot: number | null; band: string | null;
+  sampleTiers: SampleTier[]; sampleBasis: string | null; band: string | null;
 }) {
   const [state, action, pending] = useActionState<FormState, FormData>(cutAtField, {});
   const [item, setItem] = useState('');
   const [produced, setProduced] = useState('');
-  const [sample, setSample] = useState(samplePerLot === null ? '0' : String(samplePerLot));
+  const [sample, setSample] = useState('');
+  /* 사람이 직접 시료 수를 고쳤는가. 고쳤으면 그 값을 덮어쓰지 않는다 */
+  const [touched, setTouched] = useState(false);
 
   const made = lots.reduce((a, l) => a + (l.qty_produced ?? 0), 0);
-  const avail = Math.max(0, Number(produced || 0) - Number(sample || 0));
   const picked = finished.find((f) => f.id === item);
+
+  /*
+   * 생산 수량이 드는 구간을 찾는다. DB 의 required_sample() 과 같은 규칙이다 -
+   * 겹치는 구간이 있어도 시작값이 큰 쪽이 이겨 답이 하나로 정해진다.
+   * 여기 값은 안내와 미리 채우기에만 쓰고, 기록되는 건 사람이 적은 값이다.
+   */
+  const n = Number(produced || 0);
+  const needTier = n > 0
+    ? [...sampleTiers]
+        .sort((a, b) => b.min_qty - a.min_qty)
+        .find((t) => n >= t.min_qty && (t.max_qty === null || n <= t.max_qty)) ?? null
+    : null;
+  const need = needTier?.sample_qty ?? null;
+
+  // 사람이 손대기 전까지는 구간이 정한 수를 따라간다
+  const shown = touched ? sample : (need === null ? '' : String(need));
+  const avail = Math.max(0, n - Number(shown || 0));
 
   return (
     <div className="border-t border-line bg-canvas p-4">
@@ -860,7 +881,8 @@ function CutPanel({ woId, finished, lots, samplePerLot, band }: {
             <div>
               <label className="label">샘플 수량</label>
               <input name="qty_sample" type="number" min={0} inputMode="numeric"
-                     value={sample} onChange={(e) => setSample(e.target.value)}
+                     value={shown}
+                     onChange={(e) => { setTouched(true); setSample(e.target.value); }}
                      className="input tnum text-lg" />
             </div>
             <div>
@@ -872,18 +894,27 @@ function CutPanel({ woId, finished, lots, samplePerLot, band }: {
           </div>
 
           {/*
-            * 뽑아야 할 샘플 수는 검사 기준이 정한다. 여기서는 등록된 값을 그대로
-            * 읽어 주고, 적힌 값이 그와 다르면 다르다는 사실만 적는다 (§8.5).
+            * 뽑아야 할 시료 수는 검사기준서의 구간표가 정한다. 여기서는 지금 적은
+            * 생산 수량이 드는 구간을 찾아 그 수와 근거를 그대로 읽어 준다.
+            * 드는 구간이 없으면 아무것도 적지 않는다 - 잘못된 수를 안내하는 것보다
+            * 안내하지 않는 편이 낫다 (§1).
             */}
-          {samplePerLot !== null && (
+          {need !== null ? (
             <p className="text-sm leading-relaxed text-muted">
-              제품표준서에 완제품검사 샘플이 제조번호당{' '}
-              <b className="tnum text-ink">{samplePerLot}</b>개로 적혀 있습니다.
-              {Number(sample || 0) !== samplePerLot && (
+              생산 <b className="tnum text-ink">{Number(produced)}</b>개는{' '}
+              <b className="tnum text-ink">{needTier!.min_qty}~{needTier!.max_qty ?? ''}</b> 구간이라
+              시료 <b className="tnum text-ink">{need}</b>개를 뽑습니다.
+              {sampleBasis && <span className="text-faint"> ({sampleBasis})</span>}
+              {touched && Number(sample || 0) !== need && (
                 <b className="text-warn"> 지금 적은 값은 {Number(sample || 0)}개입니다.</b>
               )}
             </p>
-          )}
+          ) : sampleTiers.length > 0 && Number(produced || 0) > 0 ? (
+            <p className="text-sm leading-relaxed text-muted">
+              생산 {Number(produced)}개가 드는 시료 구간이 등록되어 있지 않습니다.
+              시료 수는 검사기준서를 보고 적으십시오.
+            </p>
+          ) : null}
 
           <p className="text-sm leading-relaxed text-muted">
             {picked && <><b className="font-mono text-ink">{picked.code}</b> · </>}

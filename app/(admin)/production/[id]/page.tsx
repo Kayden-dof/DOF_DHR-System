@@ -14,6 +14,24 @@ import {
 
 export const dynamic = 'force-dynamic';
 
+/*
+ * 탭 제목에 배치번호를 넣는다. 배치 둘을 나란히 놓고 견주려면 탭 이름만 보고
+ * 어느 쪽이 어느 배치인지 알아야 한다 (사용자 요청). 자료를 못 읽으면 조용히
+ * 기본 제목으로 떨어진다 - 제목 때문에 화면이 죽으면 안 된다.
+ */
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
+  try {
+    const user = await requireUser();
+    const { id } = await params;
+    const b = await withActor(user.id, (db) =>
+      db.val<string>(`select batch_no from work_order where id = $1`, [id]));
+    return b ? { title: `${b} 배치` } : {};
+  } catch {
+    return {};
+  }
+}
+
+
 interface Wo {
   id: string; wo_no: string; batch_no: string; status: string; sheet_count: number;
   dmr_revision: string; issued_at: Date; cancelled_reason: string | null;

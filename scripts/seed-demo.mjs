@@ -225,10 +225,26 @@ if (!dm) {
   // 제품 최상위 관리 코드. 형명(PD…)은 그 아래의 규격이다
   await c.query(
     `update device_master
-        set expected_units = 204, sample_per_lot = 2,
-            product_code = 'DX2401', product_name = '돈피 진피'
+        set expected_units = 204,
+            product_code = 'DX2401', product_name = '돈피 진피',
+            sample_basis = '예시 값 · 실제 검사기준서의 표로 바꾸십시오'
       where id = $1`, [dm]);
-  console.log('제품표준서 Rev.02 · 공정 12 · 자재 구성표 8 · 예상 204개');
+
+  /*
+   * 완제품검사 시료 채취 기준. 생산 수량 구간별 시료 수다.
+   *
+   * 아래 숫자는 구조를 보이기 위한 예시다. 실제 값은 검사기준서의 표를 그대로
+   * 옮겨야 하며, 근거 문구도 그 문서 번호로 바꿔야 한다. 시스템이 정하지 않는다.
+   */
+  for (const [lo, hi, n] of [[1, 50, 3], [51, 150, 5], [151, null, 8]]) {
+    await c.query(
+      `insert into sample_plan (device_master_id, min_qty, max_qty, sample_qty, registered_by)
+       values ($1,$2,$3,$4,$5)
+       on conflict (device_master_id, min_qty)
+         do update set max_qty = excluded.max_qty, sample_qty = excluded.sample_qty`,
+      [dm, lo, hi, n, admin]);
+  }
+  console.log('제품표준서 Rev.02 · 공정 12 · 자재 구성표 8 · 예상 204개 · 시료 구간 3');
 
   /*
    * 설비.

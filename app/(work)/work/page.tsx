@@ -7,6 +7,13 @@ import { Tag } from '@/components/ui';
 
 export const dynamic = 'force-dynamic';
 
+/*
+ * 탭 제목. 화면을 여럿 열어 견주는 일이 있으므로 (사용자 요청) 탭마다 다른
+ * 이름이 붙어야 한다. 전부 "DOF DHR" 이면 탭을 여러 개 열어도 어느 것이
+ * 무엇인지 알 수 없어 여는 의미가 없다.
+ */
+export const metadata = { title: '현장' };
+
 interface BatchTile {
   id: string; batch_no: string; wo_no: string; status: string; sheet_count: number;
   item_name: string; item_code: string;

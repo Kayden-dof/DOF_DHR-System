@@ -5,7 +5,7 @@ import type { FormState } from '@/lib/forms';
 import { Msg, Tag } from '@/components/ui';
 import {
   createDeviceMaster, verifyDeviceMaster, addOperation, addBom, addTier, setExpectedUnits, setProductCode,
-  addOperationsBulk, copyDmr, createProduct, setSamplePerLot,
+  addOperationsBulk, copyDmr, createProduct, addSampleTier, setSampleBasis,
 } from './actions';
 import { linkOperation } from '../../equipment/actions';
 
@@ -494,32 +494,100 @@ export function ExpectedUnitsForm({ id, value }: { id: string; value: number | n
 }
 
 /* ---------------------------------------------------------------------------
-   완제품검사 샘플 수량
+   완제품검사 시료 채취 기준
 
-   WS-07 에서 뽑는 수다. 현장 재단 화면이 이 값을 그대로 보여 주고 미리 채운다.
-   시스템이 정하는 값이 아니라 검사 기준에서 옮겨 적는 값이다.
+   생산 수량 구간별 시료 수다. 시약의 장입 구간(SHEET_TIER)과 같은 모양이며,
+   같은 이유로 비례하지 않는다. 근거 문구를 함께 받아 화면과 현장에 같이 내보낸다
+   - 숫자만 있으면 검토자가 그 숫자를 확인할 방법이 없다 (§6).
 --------------------------------------------------------------------------- */
-export function SamplePerLotForm({ id, value }: { id: string; value: number | null }) {
-  const [state, action, pending] = useActionState<FormState, FormData>(setSamplePerLot, {});
+export interface SampleTier {
+  id: string; min_qty: number; max_qty: number | null; sample_qty: number;
+}
+
+export function SamplePlanForm({ id, tiers, basis }: {
+  id: string; tiers: SampleTier[]; basis: string | null;
+}) {
+  const [tState, tAction, tPending] = useActionState<FormState, FormData>(addSampleTier, {});
+  const [bState, bAction, bPending] = useActionState<FormState, FormData>(setSampleBasis, {});
 
   return (
-    <form action={action}
-          className="flex flex-wrap items-end gap-2 border-t border-line-soft px-4 py-3">
-      <input type="hidden" name="id" value={id} />
-      <div className="w-52">
-        <label className="label">완제품검사 샘플 (제조번호당)</label>
-        <input name="sample_per_lot" type="number" min={0}
-               defaultValue={value ?? ''} placeholder="예: 2"
-               className="input h-9 tnum text-xs" />
+    <div className="border-t border-line-soft px-4 py-3">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <span className="label mb-0">완제품검사 시료 채취 기준</span>
+        <span className="text-xs leading-relaxed text-faint">
+          생산 수량 구간별 시료 수입니다. 현장 재단 화면이 이 표를 보고 안내합니다.
+        </span>
       </div>
-      <button type="submit" disabled={pending} className="btn-ghost h-9 px-3 text-xs">
-        저장
-      </button>
-      <span className="pb-2 text-xs leading-relaxed text-faint">
-        재단 화면에 이 수가 안내되고 미리 채워집니다. 비워 두면 안내하지 않습니다.
-      </span>
-      <Msg state={state} className="w-full" />
-    </form>
+
+      {tiers.length > 0 && (
+        <table className="mt-2 w-full max-w-md">
+          <thead>
+            <tr>
+              <th className="th">생산 수량</th>
+              <th className="th text-right">시료 수</th>
+            </tr>
+          </thead>
+          <tbody>
+            {tiers.map((t) => (
+              <tr key={t.id}>
+                <td className="td tnum">
+                  {t.min_qty} ~ {t.max_qty ?? ''}
+                  {t.max_qty === null && <span className="text-faint"> (상한 없음)</span>}
+                </td>
+                <td className="td tnum text-right font-bold">{t.sample_qty}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      <form action={tAction} className="mt-2 flex flex-wrap items-end gap-2">
+        <input type="hidden" name="id" value={id} />
+        <div className="w-24">
+          <label className="label">구간 시작</label>
+          <input name="min_qty" type="number" min={1} required placeholder="1"
+                 className="input h-9 tnum text-xs" />
+        </div>
+        <div className="w-24">
+          <label className="label">구간 끝</label>
+          <input name="max_qty" type="number" min={1} placeholder="비우면 무제한"
+                 className="input h-9 tnum text-xs" />
+        </div>
+        <div className="w-24">
+          <label className="label">시료 수</label>
+          <input name="sample_qty" type="number" min={0} required placeholder="예: 3"
+                 className="input h-9 tnum text-xs" />
+        </div>
+        <button type="submit" disabled={tPending} className="btn-ghost h-9 px-3 text-xs">
+          구간 추가
+        </button>
+        <span className="pb-2 text-xs leading-relaxed text-faint">
+          같은 시작값을 다시 넣으면 그 구간이 갱신됩니다.
+        </span>
+        <Msg state={tState} className="w-full" />
+      </form>
+
+      <form action={bAction} className="mt-2 flex flex-wrap items-end gap-2">
+        <input type="hidden" name="id" value={id} />
+        <div className="min-w-0 flex-1">
+          <label className="label">근거</label>
+          <input name="sample_basis" defaultValue={basis ?? ''}
+                 placeholder="예: 검사기준서 QC-DX2401-01 표3"
+                 className="input h-9 text-xs" />
+        </div>
+        <button type="submit" disabled={bPending} className="btn-ghost h-9 px-3 text-xs">
+          저장
+        </button>
+        <Msg state={bState} className="w-full" />
+      </form>
+
+      {tiers.length === 0 && (
+        <p className="mt-2 text-xs leading-relaxed text-muted">
+          등록된 구간이 없으면 현장에 아무것도 안내하지 않습니다.
+          잘못된 수를 안내하는 것보다 안내하지 않는 편이 낫습니다.
+        </p>
+      )}
+    </div>
   );
 }
 

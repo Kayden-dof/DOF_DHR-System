@@ -14,15 +14,21 @@ import { useRouter } from 'next/navigation';
 
      · 로트번호를 긁어 복사하는 중이면 이동하지 않는다. 이 화면의 번호는
        복사해서 대조하는 값이다
-     · Ctrl/Cmd 클릭은 새 탭이다. 배치 두 개를 나란히 놓고 비교하는 일이 있다
+     · Ctrl/Cmd 클릭과 가운데 버튼은 새 탭이다. 배치 두 개를 나란히 놓고
+       비교하는 일이 있고, 브라우저에서 그 두 가지가 같은 뜻이다
      · 키보드로도 들어간다. 행이 초점을 받고 Enter 로 연다
 --------------------------------------------------------------------------- */
 export function RowLink({ href, children }: { href: string; children: React.ReactNode }) {
   const router = useRouter();
 
+  function newTab() {
+    // noopener 를 붙이지 않으면 연 창이 이 창을 조작할 수 있다
+    window.open(href, '_blank', 'noopener');
+  }
+
   function open(e: React.MouseEvent) {
     if (window.getSelection()?.toString()) return;   // 긁는 중이다
-    if (e.ctrlKey || e.metaKey) { window.open(href, '_blank'); return; }
+    if (e.ctrlKey || e.metaKey || e.shiftKey) { newTab(); return; }
     router.push(href);
   }
 
@@ -31,6 +37,9 @@ export function RowLink({ href, children }: { href: string; children: React.Reac
       role="link"
       tabIndex={0}
       onClick={open}
+      /* 가운데 버튼. 브라우저에서 이건 늘 "새 탭으로" 다 */
+      onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); newTab(); } }}
+      onMouseDown={(e) => { if (e.button === 1) e.preventDefault(); }}
       onKeyDown={(e) => { if (e.key === 'Enter') router.push(href); }}
       className="group cursor-pointer"
     >

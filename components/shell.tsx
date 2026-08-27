@@ -175,8 +175,16 @@ export function FilterBar({
             }`}
           >
             {it.label}
+            {/*
+              * 0 건인 갈래는 세어 봐야 갈 곳이 없다. 숫자를 한 단계 눌러 눈이
+              * 값이 있는 갈래에 먼저 닿게 한다. StatStrip 이 0 을 눌러 두는 것과
+              * 같은 규칙이다 - 화면마다 다르게 굴면 규칙이 아니다.
+              */}
             {it.count !== undefined && (
-              <span className={`ml-1.5 tnum ${it.on ? 'text-brand' : 'text-faint'}`}>
+              <span className={`ml-1.5 tnum ${
+                it.on ? 'text-brand'
+                  : it.count === 0 ? 'text-faint/55' : 'text-faint'
+              }`}>
                 {it.count}
               </span>
             )}

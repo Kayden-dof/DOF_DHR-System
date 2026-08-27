@@ -66,18 +66,30 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             )}
 
             <div className="hidden items-center gap-2.5 md:flex">
+              {/*
+                * 개발 계정 표시를 이름 옆 꼬리표에서 동그라미 자체로 옮긴다.
+                * 꼬리표로 두면 이름 줄에 세 번째 색이 끼어들어 머리글이 시끄럽고,
+                * 정작 봐야 할 이름보다 꼬리표가 먼저 읽힌다.
+                *
+                * 동그라미를 물들이면 색은 하나로 줄면서 오히려 더 눈에 띈다.
+                * 이 표시는 장식이 아니라 "지금 개발 계정이다"라는 경고다.
+                */}
               <span
                 aria-hidden
-                className="grid size-9 place-items-center rounded-full bg-brand-tint text-[0.8125rem] font-bold text-brand"
+                className={`grid size-9 place-items-center rounded-full text-[0.8125rem] font-bold ${
+                  user.is_developer
+                    ? 'bg-warn-bg text-warn ring-1 ring-warn/25'
+                    : 'bg-brand-tint text-brand'
+                }`}
               >
                 {initial}
               </span>
               <div className="leading-tight">
-                <div className="flex items-center gap-1.5 text-[0.8125rem] font-bold text-ink">
+                <div className="text-[0.8125rem] font-bold text-ink">
                   {user.full_name}
-                  {user.is_developer && <span className="chip bg-warn-bg text-warn">개발</span>}
                 </div>
                 <div className="text-[0.6875rem] text-muted">
+                  {user.is_developer && <span className="font-bold text-warn">개발 · </span>}
                   {user.roles.length
                     ? user.roles.map((r) => ROLE_LABEL[r]).join(' · ')
                     : '역할 없음'}

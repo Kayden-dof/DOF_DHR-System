@@ -10,6 +10,13 @@ import { MovementForm, SolutionForm, type LotOpt, type WoOpt } from './movement-
 
 export const dynamic = 'force-dynamic';
 
+/*
+ * 탭 제목. 화면을 여럿 열어 견주는 일이 있으므로 (사용자 요청) 탭마다 다른
+ * 이름이 붙어야 한다. 전부 "DOF DHR" 이면 탭을 여러 개 열어도 어느 것이
+ * 무엇인지 알 수 없어 여는 의미가 없다.
+ */
+export const metadata = { title: '증감 · 용액' };
+
 interface MoveRow {
   id: string; type: string; qty: string; reason_code: string; reason_detail: string | null;
   registered_at: Date; lot_no: string; item_code: string; item_name: string;

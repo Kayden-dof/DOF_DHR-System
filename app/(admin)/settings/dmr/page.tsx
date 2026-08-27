@@ -6,6 +6,13 @@ import { DmrWorkbench } from './workbench';
 
 export const dynamic = 'force-dynamic';
 
+/*
+ * 탭 제목. 화면을 여럿 열어 견주는 일이 있으므로 (사용자 요청) 탭마다 다른
+ * 이름이 붙어야 한다. 전부 "DOF DHR" 이면 탭을 여러 개 열어도 어느 것이
+ * 무엇인지 알 수 없어 여는 의미가 없다.
+ */
+export const metadata = { title: '제품표준서' };
+
 /* 작업대는 workbench.tsx 하나다. 생산 > 품목 설정과 같은 것을 쓴다. */
 export default async function DmrPage({
   searchParams,
