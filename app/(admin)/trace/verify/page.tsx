@@ -32,6 +32,7 @@ interface Hit {
   work_order_id: string | null; batch_no: string | null; wo_no: string | null;
   day_no: number | null; worker_name: string | null;
   product_lot_no: string | null; material_lot_no: string | null;
+  equipment_code: string | null; equipment_name: string | null;
   newer_count: number; latest_seq: number;
 }
 
@@ -109,6 +110,14 @@ export default async function VerifyPage({
                     {h.product_lot_no && (
                       <Field label="제조번호">
                         <span className="font-mono">{h.product_lot_no}</span>
+                      </Field>
+                    )}
+                    {h.equipment_code && (
+                      <Field label="설비">
+                        <span className="font-mono">{h.equipment_code}</span>
+                        {h.equipment_name && (
+                          <span className="ml-1.5 text-muted">{h.equipment_name}</span>
+                        )}
                       </Field>
                     )}
                     {h.material_lot_no && (
