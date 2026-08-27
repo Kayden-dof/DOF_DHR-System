@@ -27,14 +27,12 @@ interface Wo {
   prod_name: string; qa_name: string; device_master_id: string;
 }
 interface PlanRow { item_code: string; item_name: string; planned_qty: number | null }
-interface EquipLine {
-  op_name: string; code: string; name: string; valid_until: string | null;
-}
-
 interface OpRow {
   seq: number; code: string; name: string; after_cutting: boolean;
   materials: { item_code: string; item_name: string; usage_uom: string;
                basis: string; required: string | null }[];
+  /** 공정에 걸린 설비. 소요량 표의 설비 열에 만료일과 함께 찍힌다 */
+  equipment: { code: string; name: string; valid_until: string | null }[];
 }
 
 export default async function WorkOrderSheet({ params }: { params: Promise<{ id: string }> }) {
@@ -73,23 +71,6 @@ export default async function WorkOrderSheet({ params }: { params: Promise<{ id:
     return {
       wo,
       plan,
-      /*
-       * 공정별 설비와 밸리데이션 만료일. 발행 시점의 사실이 종이에 남는다.
-       * 기한이 지난 것이 있으면 착수 전에 이 종이에서 보인다 (사용자 지시 -
-       * 작업 들어가서 작업자가 알기 전에). 발행을 막지는 않는다 (§2).
-       */
-      equipment: await db.rows<EquipLine>(
-        `select o.name as op_name, e.code, e.name,
-                v.valid_until::text as valid_until
-           from dmr_operation o
-           join operation_equipment oe on oe.operation_id = o.id and oe.is_active
-           join equipment e on e.id = oe.equipment_id and e.is_active
-           left join lateral (
-             select max(valid_until) as valid_until
-               from equipment_validation where equipment_id = e.id
-           ) v on true
-          where o.device_master_id = $1
-          order by o.seq, e.code`, [wo.device_master_id]),
       today: await db.val<string>(
         `select to_char(timezone('Asia/Seoul', now()), 'YYYY-MM-DD')`),
       ops: await db.rows<OpRow>(
@@ -99,7 +80,22 @@ export default async function WorkOrderSheet({ params }: { params: Promise<{ id:
                     'item_code', r.item_code, 'item_name', r.item_name,
                     'usage_uom', r.usage_uom, 'basis', r.basis::text,
                     'required', r.required) order by r.item_code)
-                    from operation_requirements(o.id, $2, $3) r), '[]'::json) as materials
+                    from operation_requirements(o.id, $2, $3) r), '[]'::json) as materials,
+                /*
+                 * 공정에 걸린 설비와 밸리데이션 만료일. 발행 시점의 사실이
+                 * 소요량 표의 설비 열에 함께 찍힌다. 기한이 지난 것이 있으면
+                 * 착수 전에 이 종이에서 보인다 (사용자 지시). 막지는 않는다 (§2).
+                 */
+                coalesce((
+                  select json_agg(json_build_object(
+                    'code', e.code, 'name', e.name,
+                    'valid_until', (select max(valid_until)::text
+                                      from equipment_validation ev
+                                     where ev.equipment_id = e.id))
+                    order by e.code)
+                    from operation_equipment oe
+                    join equipment e on e.id = oe.equipment_id and e.is_active
+                   where oe.operation_id = o.id and oe.is_active), '[]'::json) as equipment
            from dmr_operation o
           where o.device_master_id = $1 order by o.seq`,
         [wo.device_master_id, wo.sheet_count, units]),
@@ -107,7 +103,7 @@ export default async function WorkOrderSheet({ params }: { params: Promise<{ id:
   });
 
   if (!d) notFound();
-  const { wo, ops, plan, equipment, today } = d;
+  const { wo, ops, plan, today } = d;
 
   // 필요 용기 수: 장입 구간 기준 자재의 소요량 합. 시약이 통 단위로 나가므로
   // 그 합이 곧 현장에서 꺼내야 할 용기 수다.
@@ -209,53 +205,50 @@ export default async function WorkOrderSheet({ params }: { params: Promise<{ id:
         </>
       )}
 
-      {equipment.length > 0 && (
-        <>
-          <h2 className="mt-5 text-sm font-bold text-black">공정별 설비</h2>
-          <table className="print-table mt-1.5">
-            <thead>
-              <tr>
-                <th className="w-[30%]">공정</th>
-                <th className="w-[15%]">관리번호</th>
-                <th className="w-[30%]">설비명</th>
-                <th className="w-[25%]">밸리데이션 만료</th>
-              </tr>
-            </thead>
-            <tbody>
-              {equipment.map((q, i) => {
-                const gone = !q.valid_until || (today != null && q.valid_until < today);
-                return (
-                  <tr key={i}>
-                    <td>{q.op_name}</td>
-                    <td className="font-mono font-bold">{q.code}</td>
-                    <td>{q.name}</td>
-                    <td className={gone ? 'font-bold' : 'tnum'}>
-                      {q.valid_until
-                        ? <>{fmtDate(q.valid_until)}{gone && ' · 기한 경과'}</>
-                        : '밸리데이션 기록 없음'}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </>
-      )}
-
+      {/*
+        * 설비는 따로 표를 세우지 않고 이 표의 열로 넣는다 (사용자 지시).
+        * 공정 하나가 표에서 한 묶음이므로, 그 공정의 설비와 밸리데이션 만료일도
+        * 같은 줄에서 읽히는 편이 종이에서 자연스럽다. 발행 시점의 사실이다.
+        */}
       <h2 className="mt-5 text-sm font-bold text-black">공정 순서 및 자재 소요량</h2>
       <table className="print-table mt-1.5">
         <thead>
           <tr>
-            <th className="w-[7%] text-center">순번</th>
-            <th className="w-[18%]">공정 코드</th>
-            <th className="w-[25%]">공정명</th>
-            <th className="w-[35%]">자재</th>
-            <th className="w-[15%] text-right">소요량</th>
+            <th className="w-[6%] text-center">순번</th>
+            <th className="w-[15%]">공정 코드</th>
+            <th className="w-[19%]">공정명</th>
+            <th className="w-[26%]">자재</th>
+            <th className="w-[12%] text-right">소요량</th>
+            <th className="w-[22%]">설비 · 밸리데이션 만료</th>
           </tr>
         </thead>
         <tbody>
           {ops.map((o) => {
             const rows = o.materials.length || 1;
+
+            /* 공정 한 묶음에 한 번만 찍는 설비 칸. 여러 대면 줄로 쌓인다 */
+            const equipCell = (
+              <td rowSpan={rows} className={o.equipment.length === 0 ? 'text-center' : undefined}>
+                {o.equipment.length === 0 ? (
+                  '-'
+                ) : (
+                  o.equipment.map((q) => {
+                    const gone = !q.valid_until || (today != null && q.valid_until < today);
+                    return (
+                      <div key={q.code} className={gone ? 'font-bold' : undefined}>
+                        <span className="font-mono font-bold">{q.code}</span>{' '}
+                        <span className="tnum">
+                          {q.valid_until
+                            ? <>~{fmtDate(q.valid_until)}{gone && ' 기한 경과'}</>
+                            : '밸리데이션 기록 없음'}
+                        </span>
+                      </div>
+                    );
+                  })
+                )}
+              </td>
+            );
+
             return o.materials.length === 0 ? (
               <tr key={o.seq}>
                 <td className="text-center tnum">{o.seq}</td>
@@ -263,6 +256,7 @@ export default async function WorkOrderSheet({ params }: { params: Promise<{ id:
                 <td>{o.name}{o.after_cutting ? ' (재단 이후)' : ''}</td>
                 <td className="text-center">-</td>
                 <td />
+                {equipCell}
               </tr>
             ) : (
               o.materials.map((m, i) => (
@@ -282,6 +276,7 @@ export default async function WorkOrderSheet({ params }: { params: Promise<{ id:
                       ? (m.basis === 'PER_UNIT' ? '재단 후 확정' : '구간 없음')
                       : `${Number(m.required)} ${m.usage_uom}`}
                   </td>
+                  {i === 0 && equipCell}
                 </tr>
               ))
             );
