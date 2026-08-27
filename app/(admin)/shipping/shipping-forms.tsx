@@ -14,6 +14,10 @@ export interface PlOpt {
   expiry_date: string; manufactured_on: string;
   release_approved_by: string | null; release_approved_on: string | null;
   shipped: number;
+  /** 완제품검사 시료 수량. 앞 번호부터 빠진다 */
+  qty_sample: number;
+  /** 다음에 내보낼 첫 개체 순번 */
+  next_unit: number;
 }
 export interface SbRow {
   id: string; batch_no: string; request_no: string | null; vendor_name: string;
@@ -449,6 +453,13 @@ export function ShipList({ lots, today }: { lots: PlOpt[]; today: string }) {
 
 function ShipRowForm({ lot, today }: { lot: PlOpt; today: string }) {
   const [state, action, pending] = useActionState<FormState, FormData>(ship, {});
+  /*
+   * 수량과 시작 순번이 끝 순번을 정한다. 사람이 셋을 따로 적으면 반드시
+   * 어긋나므로 끝 번호는 계산해서 보여 주기만 한다.
+   */
+  const [qty, setQty] = useState(String(lot.qty_available));
+  const [from, setFrom] = useState(String(lot.next_unit));
+  const unitTo = (Number(from) || 1) + (Number(qty) || 1) - 1;
 
   return (
     <form action={action} className="px-5 py-4">
@@ -470,7 +481,26 @@ function ShipRowForm({ lot, today }: { lot: PlOpt; today: string }) {
         <div>
           <label className="label">수량 (최대 {lot.qty_available})</label>
           <input name="qty" type="number" min={1} max={lot.qty_available}
-                 defaultValue={lot.qty_available} required className="input tnum" />
+                 value={qty} onChange={(e) => setQty(e.target.value)}
+                 required className="input tnum" />
+        </div>
+        {/*
+          * 나가는 개체 순번. 라벨에 개체마다 다른 번호가 찍히므로 어느 번호가
+          * 어디로 갔는지를 여기서 적는다. 시료는 앞 번호부터 빠지고 (§ 0042),
+          * 이미 나간 범위는 건너뛴 다음 번호가 미리 채워진다.
+          *
+          * 겹치거나 로트를 벗어나면 DB 가 막는다. 한 개체가 두 곳으로 갈 수 없다.
+          */}
+        <div>
+          <label className="label">개체 순번</label>
+          <div className="flex items-center gap-1.5">
+            <input name="unit_from" type="number" min={1} required
+                   value={from} onChange={(e) => setFrom(e.target.value)}
+                   className="input w-20 tnum" />
+            <span className="text-sm text-muted">~</span>
+            <input name="unit_to" type="number" min={1} required readOnly
+                   value={unitTo} className="input w-20 tnum bg-canvas" />
+          </div>
         </div>
         <div>
           <label className="label">출고일</label>
@@ -482,6 +512,12 @@ function ShipRowForm({ lot, today }: { lot: PlOpt; today: string }) {
             {pending ? '기록 중' : '출고 기록'}
           </button>
         </div>
+        <p className="text-xs leading-relaxed text-muted sm:col-span-3 lg:col-span-5">
+          라벨에는 <span className="font-mono">{lot.lot_no}-{String(from).padStart(3, '0')}</span>
+          {' '}부터 <span className="font-mono">{lot.lot_no}-{String(unitTo).padStart(3, '0')}</span>
+          {' '}까지 찍힙니다. 앞 <b className="tnum text-ink">{lot.qty_sample ?? 0}</b>개는
+          완제품검사 시료로 빠집니다.
+        </p>
       </div>
       <p className="mt-2 text-xs leading-relaxed text-muted">
         서면 승인이 끝난 요청서의 번호를 옮겨 기재합니다. 번호 없이는 기록되지 않습니다.

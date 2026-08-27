@@ -121,14 +121,20 @@ export async function ship(_p: FormState, form: FormData): Promise<FormState> {
     await withActor(me.id, (db) =>
       db.rows(
         `insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by,
-                               release_request_no)
-         values ($1,$2,$3,$4::date,$5,$6)`,
+                               release_request_no, unit_from, unit_to)
+         values ($1,$2,$3,$4::date,$5,$6,$7,$8)`,
         [String(form.get('product_lot_id') ?? ''),
          String(form.get('customer_name') ?? '').trim(),
          Number(form.get('qty') ?? 0),
          String(form.get('shipped_at') ?? ''), me.id,
          // 서면 승인이 끝난 요청서의 번호. 비워 두면 비워진 채로 남는다
-         String(form.get('release_request_no') ?? '').trim() || null]));
+         String(form.get('release_request_no') ?? '').trim() || null,
+         /*
+          * 나간 개체 순번. 겹치는지 · 로트를 벗어나는지 · 수량과 맞는지는
+          * DB 가 본다 (trg_shipment_unit_range). 여기서 다시 세지 않는다.
+          */
+         Number(form.get('unit_from') ?? 0) || null,
+         Number(form.get('unit_to') ?? 0) || null]));
     bump();
     return { ok: true, message: '출고를 기록했습니다.' };
   } catch (e) {

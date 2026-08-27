@@ -134,10 +134,11 @@ export default async function LabelRequestSheet({ params }: { params: Promise<{ 
       <table className="print-table mt-1.5">
         <thead>
           <tr>
-            <th className="w-[18%]">제조번호</th>
-            <th className="w-[34%]">제품명 / 모델명</th>
-            <th className="w-[24%]">제조일</th>
-            <th className="w-[24%]">유효기한</th>
+            <th className="w-[16%]">제조번호</th>
+            <th className="w-[28%]">제품명 / 모델명</th>
+            <th className="w-[24%]">개체 번호</th>
+            <th className="w-[16%]">제조일</th>
+            <th className="w-[16%]">유효기한</th>
           </tr>
         </thead>
         <tbody>
@@ -145,6 +146,15 @@ export default async function LabelRequestSheet({ params }: { params: Promise<{ 
             <tr key={l.lot_no}>
               <td className="font-mono font-bold">{l.lot_no}</td>
               <td>{l.item_name}<div className="font-mono text-[9px]">{l.item_code}</div></td>
+              {/*
+                * 라벨은 개체마다 다른 번호를 답니다. 한 장씩 무엇을 찍을지
+                * 알아야 하므로 번호를 범위로 적는다.
+                */}
+              <td className="font-mono">
+                {l.lot_no}-{String(1).padStart(3, '0')}
+                {' ~ '}
+                {l.lot_no}-{String(l.qty_produced).padStart(3, '0')}
+              </td>
               <td className="tnum">{fmtDate(l.manufactured_on)}</td>
               <td className="tnum">{fmtDate(l.expiry_date)}</td>
             </tr>
@@ -153,6 +163,8 @@ export default async function LabelRequestSheet({ params }: { params: Promise<{ 
       </table>
 
       <p className="mt-2 text-[10px] leading-relaxed text-black">
+        라벨은 개체마다 다른 번호를 답니다. 제조번호 뒤에 001 부터 생산 수량까지
+        세 자리로 붙이며, 앞 번호부터 완제품검사 시료로 빠집니다.
         유효기한은 제조번호를 부여한 시점의 사용기간으로 확정된 값입니다. 이후 사용기간이
         바뀌어도 이 로트에는 소급되지 않습니다.
       </p>

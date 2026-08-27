@@ -567,4 +567,103 @@ export default [
   },
 },
 
+
+{
+  id: 'SN-01', expect: '확인',
+  name: '출고 순번은 시료 다음 번호부터 시작한다',
+  async run(t) {
+    const m = await master(t);
+    const rawLot = await newMaterialLot(t, m, m.raw, { thickness_band: '0510', qty: 50 });
+    const wo = await newWorkOrder(t, m, { rawLot, sheets: 20 });
+    await t.setActor(m.admin);
+    const lot = await t.val(
+      `select cut_product_lot($1,$2,$3,$4,current_date)`, [wo.id, m.fin, 40, 2]);
+
+    t.eq(await t.val(`select next_unit_seq($1)`, [lot]), 3, '시료 2개 다음');
+
+    await t.rows(
+      `insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by,
+                             release_request_no, unit_from, unit_to)
+       values ($1,'A병원',10,current_date,$2,'RR-1',3,12)`, [lot, m.admin]);
+
+    t.eq(await t.val(`select next_unit_seq($1)`, [lot]), 13, '나간 범위 다음');
+    await t.setActor(null);
+  },
+},
+
+{
+  id: 'SN-02', expect: '예외',
+  name: '같은 개체를 두 곳으로 내보낼 수 없다',
+  async run(t) {
+    const m = await master(t);
+    const rawLot = await newMaterialLot(t, m, m.raw, { thickness_band: '0510', qty: 50 });
+    const wo = await newWorkOrder(t, m, { rawLot, sheets: 20 });
+    await t.setActor(m.admin);
+    const lot = await t.val(
+      `select cut_product_lot($1,$2,$3,$4,current_date)`, [wo.id, m.fin, 40, 2]);
+
+    await t.rows(
+      `insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by,
+                             release_request_no, unit_from, unit_to)
+       values ($1,'A병원',10,current_date,$2,'RR-1',3,12)`, [lot, m.admin]);
+
+    await t.rejects(
+      () => t.rows(
+        `insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by,
+                               release_request_no, unit_from, unit_to)
+         values ($1,'B병원',5,current_date,$2,'RR-2',10,14)`, [lot, m.admin]),
+      { code: 'P0001', message: '겹칩니다' });
+    await t.setActor(null);
+  },
+},
+
+{
+  id: 'SN-03', expect: '예외',
+  name: '시료 번호는 출고할 수 없고, 로트 범위도 넘지 못한다',
+  async run(t) {
+    const m = await master(t);
+    const rawLot = await newMaterialLot(t, m, m.raw, { thickness_band: '0510', qty: 50 });
+    const wo = await newWorkOrder(t, m, { rawLot, sheets: 20 });
+    await t.setActor(m.admin);
+    const lot = await t.val(
+      `select cut_product_lot($1,$2,$3,$4,current_date)`, [wo.id, m.fin, 40, 2]);
+
+    await t.rejects(
+      () => t.rows(
+        `insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by,
+                               release_request_no, unit_from, unit_to)
+         values ($1,'A병원',2,current_date,$2,'RR-1',1,2)`, [lot, m.admin]),
+      { code: 'P0001', message: '시료' });
+
+    await t.rejects(
+      () => t.rows(
+        `insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by,
+                               release_request_no, unit_from, unit_to)
+         values ($1,'A병원',5,current_date,$2,'RR-1',38,42)`, [lot, m.admin]),
+      { code: 'P0001', message: '개까지입니다' });
+    await t.setActor(null);
+  },
+},
+
+{
+  id: 'SN-04', expect: '예외',
+  name: '순번 범위와 출고 수량이 어긋나면 거부한다',
+  async run(t) {
+    const m = await master(t);
+    const rawLot = await newMaterialLot(t, m, m.raw, { thickness_band: '0510', qty: 50 });
+    const wo = await newWorkOrder(t, m, { rawLot, sheets: 20 });
+    await t.setActor(m.admin);
+    const lot = await t.val(
+      `select cut_product_lot($1,$2,$3,$4,current_date)`, [wo.id, m.fin, 40, 2]);
+
+    await t.rejects(
+      () => t.rows(
+        `insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by,
+                               release_request_no, unit_from, unit_to)
+         values ($1,'A병원',7,current_date,$2,'RR-1',3,12)`, [lot, m.admin]),
+      { code: 'P0001', message: '출고 수량' });
+    await t.setActor(null);
+  },
+},
+
 ];

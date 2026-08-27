@@ -29,11 +29,13 @@ export default async function ShipPage() {
   const d = await withActor(user.id, async (db) => ({
     lots: await db.rows<PlOpt>(
       `select pl.id, pl.lot_no, i.code as item_code, i.name as item_name,
-              pl.qty_available, wo.batch_no, pl.status::text as status,
+              pl.qty_available, pl.qty_sample, wo.batch_no, pl.status::text as status,
               pl.expiry_date, pl.manufactured_on,
               pl.release_approved_by, pl.release_approved_on::text as release_approved_on,
               coalesce((select sum(sh.qty)::int from shipment sh
-                         where sh.product_lot_id = pl.id), 0) as shipped
+                         where sh.product_lot_id = pl.id), 0) as shipped,
+              /* 다음에 내보낼 첫 개체 순번. 시료 다음부터 세고 나간 범위는 건너뛴다 */
+              next_unit_seq(pl.id) as next_unit
          from product_lot pl
          join item i on i.id = pl.item_id
          join work_order wo on wo.id = pl.work_order_id
@@ -41,6 +43,7 @@ export default async function ShipPage() {
         order by pl.expiry_date, pl.lot_no`),
     shipments: await db.rows<ShipRow>(
       `select sh.release_request_no, sh.id, sh.customer_name, sh.qty, sh.shipped_at::text as shipped_at,
+              sh.unit_from, sh.unit_to,
               pl.lot_no, i.code as item_code, i.name as item_name,
               wo.batch_no, u.full_name as shipped_by_name
          from shipment sh
