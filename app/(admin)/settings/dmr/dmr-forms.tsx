@@ -4,7 +4,7 @@ import { useActionState, useState } from 'react';
 import type { FormState } from '@/lib/forms';
 import { Msg, Tag } from '@/components/ui';
 import {
-  createDeviceMaster, verifyDeviceMaster, addOperation, addBom, addTier, setExpectedUnits,
+  createDeviceMaster, verifyDeviceMaster, addOperation, addBom, addTier, setExpectedUnits, setProductCode,
 } from './actions';
 import { linkOperation } from '../../equipment/actions';
 
@@ -360,6 +360,43 @@ export function ExpectedUnitsForm({ id, value }: { id: string; value: number | n
       </button>
       <span className="pb-2 text-xs leading-relaxed text-faint">
         실제 수량은 재단에서 정해집니다. 발행을 제약하지 않습니다.
+      </span>
+      <Msg state={state} className="w-full" />
+    </form>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   제품 코드 · 제품명
+
+   최상위 관리 코드다 (DX2401). 완제품 형명(PD05050510)은 그 아래의 규격이므로
+   화면과 인쇄물의 "제품" 자리에는 이 값이 나가야 한다.
+--------------------------------------------------------------------------- */
+export function ProductCodeForm({
+  id, code, name, itemCode,
+}: { id: string; code: string | null; name: string | null; itemCode: string }) {
+  const [state, action, pending] = useActionState<FormState, FormData>(setProductCode, {});
+
+  return (
+    <form action={action}
+          className="flex flex-wrap items-end gap-2 border-t border-line-soft px-4 py-3">
+      <input type="hidden" name="id" value={id} />
+      <div className="w-40">
+        <label className="label">제품 코드 (관리 코드)</label>
+        <input name="product_code" defaultValue={code ?? ''} placeholder="DX2401"
+               autoComplete="off" className="input h-9 font-mono text-xs" />
+      </div>
+      <div className="w-56">
+        <label className="label">제품명</label>
+        <input name="product_name" defaultValue={name ?? ''} placeholder="돈피 진피"
+               autoComplete="off" className="input h-9 text-xs" />
+      </div>
+      <button type="submit" disabled={pending} className="btn-ghost h-9 px-3 text-xs">
+        저장
+      </button>
+      <span className="pb-2 text-xs leading-relaxed text-faint">
+        최상위 관리 코드입니다. 형명 <span className="font-mono">{itemCode}</span> 은
+        그 아래의 규격이며, 비우면 형명이 대신 나옵니다.
       </span>
       <Msg state={state} className="w-full" />
     </form>

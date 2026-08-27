@@ -4,6 +4,7 @@ import { fmtDate, fmtDateTime } from '@/lib/fmt';
 import { Panel, Empty, Tag, Field } from '@/components/ui';
 import {
   NewDeviceMaster, VerifyForm, AddOperationForm, OperationCard, ExpectedUnitsForm,
+  ProductCodeForm,
   type OperationRow, type ItemOption,
 } from './dmr-forms';
 
@@ -19,6 +20,7 @@ interface DmRow {
   id: string; revision: string; status: string; effective_from: string | null;
   verified_at: Date | null; verified_by_name: string | null;
   expected_units: number | null;
+  product_code: string | null; product_name: string | null;
   item_code: string; item_name: string;
   op_count: number; bom_count: number; wo_count: number;
 }
@@ -37,7 +39,7 @@ export async function DmrWorkbench({
   const d = await withActor(userId, async (db) => {
     const masters = await db.rows<DmRow>(
       `select dm.id, dm.revision, dm.status, dm.effective_from, dm.verified_at,
-              dm.expected_units,
+              dm.expected_units, dm.product_code, dm.product_name,
               u.full_name as verified_by_name, i.code as item_code, i.name as item_name,
               (select count(*)::int from dmr_operation o where o.device_master_id = dm.id) as op_count,
               (select count(*)::int from dmr_bom b
@@ -117,7 +119,9 @@ export async function DmrWorkbench({
                 }`}
               >
                 <div className="flex items-center gap-2">
-                  <code className="font-mono text-xs font-semibold text-ink">{m.item_code}</code>
+                  <code className="font-mono text-xs font-semibold text-ink">
+                    {m.product_code ?? m.item_code}
+                  </code>
                   <span className="font-mono text-xs text-brand-deep">{m.revision}</span>
                   <Tag tone={m.verified_at ? 'ok' : 'warn'}>
                     {m.verified_at ? '대조 확인' : '확인 전'}
@@ -133,7 +137,9 @@ export async function DmrWorkbench({
 
           {dm && (
             <>
-              <Panel title={`${dm.item_code} ${dm.revision}`} note={dm.item_name}>
+              <Panel title={`${dm.product_code ?? dm.item_code} ${dm.revision}`}
+                     note={<>{dm.product_name ?? dm.item_name}
+                       {dm.product_code && <> · 형명 <span className="font-mono">{dm.item_code}</span></>}</>}>
                 <div className="grid gap-x-6 gap-y-3 px-4 py-3 sm:grid-cols-2 lg:grid-cols-4">
                   <Field label="상태">
                     <Tag tone={dm.verified_at ? 'ok' : 'warn'}>
@@ -146,6 +152,8 @@ export async function DmrWorkbench({
                     <span className="tnum">{fmtDateTime(dm.verified_at)}</span>
                   </Field>
                 </div>
+                <ProductCodeForm id={dm.id} code={dm.product_code}
+                                 name={dm.product_name} itemCode={dm.item_code} />
                 <ExpectedUnitsForm id={dm.id} value={dm.expected_units} />
                 {!editable && dm.wo_count > 0 && (
                   <p className="border-t border-line bg-canvas px-4 py-2.5 text-xs leading-relaxed text-muted">

@@ -66,6 +66,7 @@ export default async function EquipmentPage() {
     ops: await db.rows<OpOption>(
       `select o.id, o.code, o.name, o.seq,
               dm.id as dm_id, dm.revision,
+              dm.product_code, dm.product_name,
               i.code as item_code, i.name as item_name
          from dmr_operation o
          join device_master dm on dm.id = o.device_master_id

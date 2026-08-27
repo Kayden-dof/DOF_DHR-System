@@ -17,6 +17,7 @@ export const dynamic = 'force-dynamic';
 interface Head {
   batch_no: string; wo_no: string; status: string; sheet_count: number;
   dmr_revision: string; issued_at: Date; item_code: string; item_name: string;
+  product_code: string | null; product_name: string | null;
   raw_lot_no: string; raw_item_code: string; thickness_band: string | null;
   supplier_name: string; coa_no: string; prod_name: string; qa_name: string;
   cancelled_reason: string | null;
@@ -45,6 +46,7 @@ export default async function CoverSheet({ params }: { params: Promise<{ id: str
       `select wo.batch_no, wo.wo_no, wo.status::text as status, wo.sheet_count,
               wo.dmr_revision, wo.issued_at, wo.cancelled_reason,
               i.code as item_code, i.name as item_name,
+              dm.product_code, dm.product_name,
               ml.lot_no as raw_lot_no, ri.code as raw_item_code, ml.thickness_band,
               s.name as supplier_name, ml.coa_no,
               up.full_name as prod_name, uq.full_name as qa_name
@@ -155,7 +157,13 @@ export default async function CoverSheet({ params }: { params: Promise<{ id: str
           </tr>
           <tr>
             <th>제품</th>
-            <td>{head.item_name} ({head.item_code})</td>
+            <td>
+              {head.product_name ?? head.item_name}{' '}
+              (<span className="font-mono">{head.product_code ?? head.item_code}</span>)
+              {head.product_code && (
+                <span className="ml-2">형명 <span className="font-mono">{head.item_code}</span></span>
+              )}
+            </td>
             <th>제품표준서 개정</th>
             <td className="font-mono">{head.dmr_revision}</td>
           </tr>

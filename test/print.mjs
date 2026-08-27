@@ -42,6 +42,7 @@ const one = async (sql, p = []) => (await rows(sql, p))[0] ?? null;
 const wo = await one(
   `select wo.id, wo.wo_no, wo.batch_no, wo.sheet_count, wo.dmr_revision,
           i.code as item_code, i.name as item_name,
+          dm.product_code, dm.product_name,
           ml.lot_no as raw_lot_no, ml.thickness_band, ml.coa_no,
           s.name as supplier_name, ml.supplier_lot_no,
           up.full_name as prod_name, uq.full_name as qa_name
@@ -195,7 +196,9 @@ await sheet('① 작업 지시서', `/print/work-order/${wo.id}`, [
   ...common('작업 지시서'),
   { label: '지시서번호',        value: wo.wo_no },
   { label: '배치번호',          value: wo.batch_no },
-  { label: '제품명',            value: wo.item_name },
+  // 제품 자리에는 최상위 관리 코드가 나가고, 형명(PD…)은 규격으로 함께 적힌다
+  { label: '제품 관리 코드',    value: wo.product_code ?? wo.item_code },
+  { label: '제품명',            value: wo.product_name ?? wo.item_name },
   { label: '형명',              value: wo.item_code },
   { label: '제품표준서 개정',   value: wo.dmr_revision },
   { label: '원재료 로트번호',   value: wo.raw_lot_no },

@@ -34,9 +34,18 @@ export async function saveEquipment(_p: FormState, form: FormData): Promise<Form
 
     await withActor(me.id, async (db) => {
       if (id) {
+        /*
+         * 코드도 고칠 수 있다. 다만 한 번이라도 쓰인 설비는 DB 트리거가 막는다
+         * (0031) - 기록에 코드가 문자열로 적혀 있어 바꾸면 그 기록이 가리키는
+         * 대상이 사라지고, 기록은 되돌릴 수 없다. 오타 정정만 열어 둔 것이다.
+         */
+        const code = String(form.get('code') ?? '').trim();
         await db.rows(
-          `update equipment set name = $2, note = $3, is_active = $4 where id = $1`,
-          [id, name, note, form.get('is_active') === 'on']);
+          `update equipment
+              set code = coalesce(nullif($5,''), code),
+                  name = $2, note = $3, is_active = $4
+            where id = $1`,
+          [id, name, note, form.get('is_active') === 'on', code]);
       } else {
         await db.rows(
           `insert into equipment (code, name, note) values ($1, $2, $3)`,

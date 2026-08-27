@@ -181,6 +181,35 @@ export default [
 },
 
 {
+  id: 'EQ-01', expect: '예외',
+  name: '이미 사용된 설비의 코드는 바꿀 수 없다',
+  async run(t) {
+    const m = await master(t);
+    const rawLot = await newMaterialLot(t, m, m.raw, { thickness_band: '0510', qty: 50 });
+    const wo = await newWorkOrder(t, m, { rawLot, sheets: 20 });
+    await t.setActor(m.admin);
+
+    const eq = await t.val(
+      `insert into equipment (code, name) values ('EQ-T1','시험 설비') returning id`);
+
+    // 아직 안 쓰였으면 오타 정정이 된다
+    await t.rows(`update equipment set code = 'EQ-T2' where id = $1`, [eq]);
+    t.eq(await t.val(`select code from equipment where id = $1`, [eq]), 'EQ-T2', '미사용 시 변경');
+
+    // 기록에 적히고 나면 막힌다. 기록은 되돌릴 수 없다
+    const { pr } = await goodOp(t, m, wo);
+    await t.rows(`update process_record set equipment_id = 'EQ-T2' where id = $1`, [pr]);
+    await t.rejects(
+      () => t.rows(`update equipment set code = 'EQ-T3' where id = $1`, [eq]),
+      { code: 'P0001', message: '이미 사용된 설비' });
+
+    // 이름 · 비고 · 활성 여부는 그대로 고칠 수 있다
+    await t.rows(`update equipment set name = '이름만 변경' where id = $1`, [eq]);
+    t.eq(await t.val(`select name from equipment where id = $1`, [eq]), '이름만 변경', '이름 변경');
+  },
+},
+
+{
   id: 'RV-06', expect: '확인',
   name: '판정 문구를 쓰지 않는다',
   async run(t) {

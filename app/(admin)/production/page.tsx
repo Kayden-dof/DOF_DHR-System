@@ -60,6 +60,7 @@ export default async function ProductionPage({ searchParams }: { searchParams: S
         order by wo.issued_at desc limit 200`, [status]),
     masters: await db.rows<DmOpt>(
       `select dm.id, dm.revision, dm.verified_at, i.code as item_code, i.name as item_name,
+              dm.product_code, dm.product_name,
               (select count(*)::int from dmr_operation o where o.device_master_id = dm.id) as op_count
          from device_master dm join item i on i.id = dm.item_id
         order by i.code, dm.revision desc`),

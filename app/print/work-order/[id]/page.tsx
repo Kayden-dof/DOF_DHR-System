@@ -21,6 +21,7 @@ export const dynamic = 'force-dynamic';
 
 interface Wo {
   wo_no: string; batch_no: string; sheet_count: number; dmr_revision: string;
+  product_code: string | null; product_name: string | null;
   issued_at: Date; item_code: string; item_name: string;
   raw_lot_no: string; thickness_band: string | null; raw_item_code: string;
   supplier_name: string; supplier_lot_no: string; coa_no: string; coa_date: string;
@@ -43,6 +44,7 @@ export default async function WorkOrderSheet({ params }: { params: Promise<{ id:
     const wo = await db.one<Wo>(
       `select wo.wo_no, wo.batch_no, wo.sheet_count, wo.dmr_revision, wo.issued_at,
               wo.device_master_id, i.code as item_code, i.name as item_name,
+              dm.product_code, dm.product_name,
               ml.lot_no as raw_lot_no, ml.thickness_band, ri.code as raw_item_code,
               s.name as supplier_name, ml.supplier_lot_no, ml.coa_no, ml.coa_date,
               up.full_name as prod_name, uq.full_name as qa_name
@@ -134,7 +136,13 @@ export default async function WorkOrderSheet({ params }: { params: Promise<{ id:
           </tr>
           <tr>
             <th>제품</th>
-            <td>{wo.item_name} ({wo.item_code})</td>
+            <td>
+              {wo.product_name ?? wo.item_name}{' '}
+              (<span className="font-mono">{wo.product_code ?? wo.item_code}</span>)
+              {wo.product_code && (
+                <span className="ml-2">형명 <span className="font-mono">{wo.item_code}</span></span>
+              )}
+            </td>
             <th>제품표준서 개정</th>
             <td className="font-mono">{wo.dmr_revision}</td>
           </tr>

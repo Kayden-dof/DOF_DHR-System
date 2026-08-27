@@ -66,6 +66,31 @@ export async function setExpectedUnits(_p: FormState, form: FormData): Promise<F
   }
 }
 
+/**
+ * 제품 코드 · 제품명.
+ *
+ * 최상위 관리 코드다 (DX2401). 완제품 형명(PD…)은 그 아래의 규격이므로
+ * 화면과 인쇄물의 "제품" 자리에는 이 값이 나가야 한다. 비우면 형명으로
+ * 떨어진다.
+ */
+export async function setProductCode(_p: FormState, form: FormData): Promise<FormState> {
+  try {
+    const me = await admin();
+    const code = String(form.get('product_code') ?? '').trim() || null;
+    const name = String(form.get('product_name') ?? '').trim() || null;
+    await withActor(me.id, (db) =>
+      db.rows(`update device_master set product_code = $2, product_name = $3 where id = $1`,
+        [String(form.get('id') ?? ''), code, name]));
+    revalidatePath('/production/setup');
+    revalidatePath('/settings/dmr');
+    revalidatePath('/production');
+    revalidatePath('/equipment');
+    return { ok: true, message: code ? `제품 코드를 ${code} 로 저장했습니다.` : '제품 코드를 비웠습니다.' };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
 export async function verifyDeviceMaster(_p: FormState, form: FormData): Promise<FormState> {
   try {
     const me = await admin();

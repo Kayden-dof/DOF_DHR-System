@@ -222,7 +222,11 @@ if (!dm) {
   await unitBom(ops['WS-DX2401-08'], label, 2);
   await unitBom(ops['WS-DX2401-09'], box, 0.02);   // 50개 박스 하나
   // 배치당 예상 생산수량 (계획 참고값). 시연 재단 실적 120+60+24 와 같게
-  await c.query(`update device_master set expected_units = 204 where id = $1`, [dm]);
+  // 제품 최상위 관리 코드. 형명(PD…)은 그 아래의 규격이다
+  await c.query(
+    `update device_master
+        set expected_units = 204, product_code = 'DX2401', product_name = '돈피 진피'
+      where id = $1`, [dm]);
   console.log('제품표준서 Rev.02 · 공정 12 · 자재 구성표 8 · 예상 204개');
 
   /*

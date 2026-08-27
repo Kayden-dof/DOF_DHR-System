@@ -8,6 +8,7 @@ import { previewIssue, type IssuePreview } from './preview';
 
 export interface DmOpt {
   id: string; revision: string; item_code: string; item_name: string;
+  product_code: string | null; product_name: string | null;
   verified_at: Date | null; op_count: number;
 }
 export interface RawLotOpt {
@@ -110,7 +111,7 @@ export default function IssueForm({ masters, rawLots, finished, users, today }: 
                   onChange={(e) => setDm(e.target.value)} className="input">
             {ready.map((m) => (
               <option key={m.id} value={m.id}>
-                {m.item_code} {m.revision} · 공정 {m.op_count}
+                {m.product_code ?? m.item_code} {m.revision} · 공정 {m.op_count}
               </option>
             ))}
           </select>

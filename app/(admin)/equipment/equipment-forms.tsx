@@ -21,6 +21,8 @@ export interface EquipRow {
 export interface OpOption {
   id: string; code: string; name: string; seq: number;
   dm_id: string; revision: string; item_code: string; item_name: string;
+  /** 제품 최상위 관리 코드 (DX2401). 없으면 형명으로 떨어진다 */
+  product_code: string | null; product_name: string | null;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -128,7 +130,23 @@ export function EquipCard({ e, ops }: { e: EquipRow; ops: OpOption[] }) {
         <form action={action} className="border-b border-line-soft bg-surface-sub px-4 py-3">
           <input type="hidden" name="id" value={e.id} />
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="lg:col-span-2">
+            {/*
+              * 코드는 아직 쓰이지 않은 설비만 고칠 수 있다. 기록에 문자열로
+              * 적히므로 쓰인 뒤 바꾸면 그 기록이 가리키는 대상이 사라지고,
+              * 기록은 되돌릴 수 없다. DB 트리거가 같은 것을 막는다 (0031).
+              */}
+            <div>
+              <label className="label">설비 코드</label>
+              <input name="code" defaultValue={e.code} disabled={e.used > 0}
+                     autoComplete="off" className="input font-mono" />
+              {e.used > 0 && (
+                <p className="mt-1 text-xs leading-relaxed text-muted">
+                  제조기록 {e.used}건에 <span className="font-mono">{e.code}</span> 로
+                  적혀 있어 코드를 바꿀 수 없습니다.
+                </p>
+              )}
+            </div>
+            <div>
               <label className="label">설비명</label>
               <input name="name" defaultValue={e.name} required className="input" />
             </div>
@@ -180,8 +198,10 @@ export function EquipCard({ e, ops }: { e: EquipRow; ops: OpOption[] }) {
           for (const o of ops) {
             let g = groups.find((x) => x.dm_id === o.dm_id);
             if (!g) {
-              g = { dm_id: o.dm_id, label: `${o.item_code} ${o.revision}`,
-                    sub: o.item_name, ops: [] };
+              // 제품 자리에는 최상위 관리 코드가 나간다. 형명(PD…)은 규격이다
+              g = { dm_id: o.dm_id,
+                    label: `${o.product_code ?? o.item_code} ${o.revision}`,
+                    sub: o.product_name ?? o.item_name, ops: [] };
               groups.push(g);
             }
             g.ops.push(o);
