@@ -66,6 +66,12 @@ const RETURN_REASONS = [
   '필요량보다 많이 꺼냄',
 ];
 
+/*
+ * 순환자를 타일로 보여 줄 최대 인원. 없음 타일까지 합해 3열 두 줄이 한계다.
+ * 이보다 많아지면 목록으로 바꾼다.
+ */
+const ROTATION_TILE_MAX = 5;
+
 const REASONS = [
   '해당 공정 미실시',
   '자재 사용 없음',
@@ -534,20 +540,45 @@ function StartCard({ woId, day, op, people, productLots, attempt, done }: {
         </div>
       )}
 
+      {/*
+        * 순환자.
+        *
+        * 사람이 몇 안 되면 타일이 낫다. 한 번 눌러 고르고 무엇이 골라졌는지
+        * 한눈에 보인다. 그런데 사람이 늘면 타일이 화면을 덮어 정작 아래의
+        * 시작 단추가 밀려 내려간다 (사용자 지적).
+        *
+        * 그래서 넘어가면 목록으로 바꾼다. 태블릿에서 목록을 누르면 전체 화면
+        * 고르개가 떠서 손가락으로도 고르기 쉽다. 어느 쪽이든 고르지 않으면
+        * 없음이다 - 순환자는 원래 없을 수 있는 자리다 (§11 "공정당 0~1명").
+        */}
       <div>
-        <span className="label">순환자 (없으면 비워 둡니다)</span>
-        <div className="grid gap-2 sm:grid-cols-3">
-          <button type="button" onClick={() => setRotation('')}
-                  data-on={rotation === ''} className="tile items-center text-center">
-            <span className="text-sm font-semibold">없음</span>
-          </button>
-          {people.map((p) => (
-            <button key={p.id} type="button" onClick={() => setRotation(p.id)}
-                    data-on={rotation === p.id} className="tile items-center text-center">
-              <span className="text-sm font-semibold">{p.full_name}</span>
+        <span className="label">순환자 (고르지 않으면 없음)</span>
+        {people.length > ROTATION_TILE_MAX ? (
+          <select
+            value={rotation}
+            onChange={(e) => setRotation(e.target.value)}
+            className="input text-base"
+            aria-label="순환자"
+          >
+            <option value="">없음</option>
+            {people.map((p) => (
+              <option key={p.id} value={p.id}>{p.full_name}</option>
+            ))}
+          </select>
+        ) : (
+          <div className="grid gap-2 sm:grid-cols-3">
+            <button type="button" onClick={() => setRotation('')}
+                    data-on={rotation === ''} className="tile items-center text-center">
+              <span className="text-sm font-semibold">없음</span>
             </button>
-          ))}
-        </div>
+            {people.map((p) => (
+              <button key={p.id} type="button" onClick={() => setRotation(p.id)}
+                      data-on={rotation === p.id} className="tile items-center text-center">
+                <span className="text-sm font-semibold">{p.full_name}</span>
+              </button>
+            ))}
+          </div>
+        )}
         <p className="mt-2 text-xs text-muted">
           순환자는 서명하지 않습니다. 이름만 기록서에 나옵니다.
         </p>
