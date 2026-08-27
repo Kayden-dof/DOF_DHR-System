@@ -1,11 +1,11 @@
 import { requireUser } from '@/lib/session';
 import { withActor } from '@/lib/db';
-import { PageShell } from '@/components/shell';
+import { PageShell, FilterBar } from '@/components/shell';
 import { SubNav } from '../nav';
 import { MATERIAL_NAV } from '../sections';
 import { fmtDate } from '@/lib/fmt';
 import { MATERIAL_STATUS_LABEL } from '@/lib/forms';
-import { Panel, Empty, Tag } from '@/components/ui';
+import { Panel, Empty, Truncated, Tag } from '@/components/ui';
 import { Table, Th, Td, IdCell, TwoLine } from '@/components/table';
 import ReceiveForm, { type ItemOpt, type SupplierOpt, type OrderOpt } from './receive-form';
 
@@ -90,25 +90,26 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
       nav={<SubNav items={MATERIAL_NAV} />}
     >
 
-      <div className="card flex flex-wrap items-center gap-2 p-3">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <a href={link()} className={`chip ${!status ? 'bg-brand text-white' : 'bg-canvas text-muted'}`}>
-            전체 {total}
-          </a>
-          {Object.entries(MATERIAL_STATUS_LABEL).map(([code, label]) => (
-            <a key={code} href={link(code)}
-               className={`chip ${status === code ? 'bg-brand text-white' : 'bg-canvas text-muted'}`}>
-              {label} {byStatus.get(code) ?? 0}
-            </a>
-          ))}
-        </div>
-        <form className="ml-auto flex gap-2">
-          {status && <input type="hidden" name="status" value={status} />}
-          <input name="q" defaultValue={q ?? ''} autoComplete="off"
-                 placeholder="로트번호 · 품목 · 성적서" className="input h-9 w-64 text-xs" />
-          <button className="btn-ghost h-9 px-3 text-xs">검색</button>
-        </form>
-      </div>
+      {/* 작업 지시 · 사용자 화면과 같은 거르개다. 화면마다 다르게 굴면 규칙이 아니다 */}
+      <FilterBar
+        items={[
+          { href: link(), label: '전체', count: total, on: !status },
+          ...Object.entries(MATERIAL_STATUS_LABEL).map(([code, label]) => ({
+            href: link(code), label, count: byStatus.get(code) ?? 0, on: status === code,
+          })),
+        ]}
+        extra={
+          <form className="flex gap-2">
+            {status && <input type="hidden" name="status" value={status} />}
+            <input name="q" defaultValue={q ?? ''} autoComplete="off"
+                   placeholder="로트번호 · 품목 · 성적서" className="input h-9 w-64 text-xs" />
+            <button className="btn-ghost h-9 px-3 text-xs">검색</button>
+          </form>
+        }
+      />
+
+      <Truncated shown={d.lots.length} cap={200}
+                 hint="찾는 로트가 없으면 상태로 거르거나 로트번호 · 품목 · 성적서 번호로 검색하십시오." />
 
       <Panel>
         {d.lots.length === 0 ? (

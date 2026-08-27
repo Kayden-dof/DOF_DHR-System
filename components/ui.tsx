@@ -182,3 +182,23 @@ export function Caution({ children }: { children: React.ReactNode }) {
     </p>
   );
 }
+
+/* ---------------------------------------------------------------------------
+   잘린 목록 알림
+
+   목록에 상한을 두면 화면이 빨라지지만, 자른 사실을 적지 않으면 보는 사람은
+   그것이 전부인 줄 안다. 조용한 잘림은 "다 봤다"로 읽힌다.
+
+   상한에 닿았을 때만 나온다. 닿지 않았으면 아무것도 그리지 않는다.
+--------------------------------------------------------------------------- */
+export function Truncated({ shown, cap, hint }: {
+  shown: number; cap: number; hint?: React.ReactNode;
+}) {
+  if (shown < cap) return null;
+  return (
+    <p className="card px-4 py-2.5 text-xs leading-relaxed text-muted">
+      최근 <b className="tnum text-ink">{cap}</b>건만 보이고 있습니다.
+      {hint ? <> {hint}</> : ' 찾는 것이 없으면 위에서 걸러 내거나 검색하십시오.'}
+    </p>
+  );
+}
