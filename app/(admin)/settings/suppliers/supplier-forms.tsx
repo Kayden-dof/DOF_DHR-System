@@ -78,12 +78,13 @@ function Fields({ s }: { s?: SupplierRow }) {
 
 export function NewSupplierForm() {
   const [state, action, pending] = useActionState<FormState, FormData>(saveSupplier, {});
-  const [open, setOpen] = useState(false);
-
-  if (!open) return <button onClick={() => setOpen(true)} className="btn-primary">공급자 등록</button>;
+  const { open, setOpen } = useDialog(state);
 
   return (
-    <form action={action} className="card p-4">
+    <>
+      <button onClick={() => setOpen(true)} className="btn-primary">공급자 등록</button>
+      <Dialog open={open} onClose={() => setOpen(false)} wide title="공급자 등록">
+        <form action={action}>
       <h3 className="mb-3 text-sm font-bold text-ink">새 공급자</h3>
       <Fields />
       <p className="mt-3 rounded-md bg-canvas px-3 py-2 text-xs leading-relaxed text-muted">
@@ -95,7 +96,9 @@ export function NewSupplierForm() {
         <button type="submit" disabled={pending} className="btn-primary">등록</button>
         <button type="button" onClick={() => setOpen(false)} className="btn-ghost">닫기</button>
       </div>
-    </form>
+        </form>
+      </Dialog>
+    </>
   );
 }
 

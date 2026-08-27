@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState, useState } from 'react';
+import { Dialog, useDialog } from '@/components/dialog';
 import { PIN_MIN_LENGTH } from '@/lib/auth-const';
 import type { FormState } from '@/lib/forms';
 import { createUser } from './actions';
@@ -8,19 +9,14 @@ import { Msg } from './user-row';
 
 export default function NewUserForm() {
   const [state, action, pending] = useActionState<FormState, FormData>(createUser, {});
-  const [open, setOpen] = useState(false);
+  const { open, setOpen } = useDialog(state);
   const [canLogin, setCanLogin] = useState(true);
 
-  if (!open) {
-    return (
-      <button onClick={() => setOpen(true)} className="btn-primary">
-        새 계정 등록
-      </button>
-    );
-  }
-
   return (
-    <form action={action} className="card p-4">
+    <>
+      <button onClick={() => setOpen(true)} className="btn-primary"> 새 계정 등록 </button>
+      <Dialog open={open} onClose={() => setOpen(false)} wide title="새 계정 등록">
+        <form action={action}>
       <h2 className="mb-3 text-sm font-bold text-ink">새 계정</h2>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -90,6 +86,8 @@ export default function NewUserForm() {
           닫기
         </button>
       </div>
-    </form>
+        </form>
+      </Dialog>
+    </>
   );
 }

@@ -3,6 +3,7 @@
 import { useActionState, useMemo, useState } from 'react';
 import type { FormState } from '@/lib/forms';
 import { Msg } from '@/components/ui';
+import { Dialog, useDialog } from '@/components/dialog';
 import { receiveMaterial } from './actions';
 
 export interface ItemOpt {
@@ -26,7 +27,7 @@ export default function ReceiveForm({ items, suppliers, orders, today }: {
   items: ItemOpt[]; suppliers: SupplierOpt[]; orders: OrderOpt[]; today: string;
 }) {
   const [state, action, pending] = useActionState<FormState, FormData>(receiveMaterial, {});
-  const [open, setOpen] = useState(false);
+  const { open, setOpen } = useDialog(state);
   const [itemId, setItemId] = useState('');
   const [qty, setQty] = useState('');
   const [poId, setPoId] = useState('');
@@ -38,12 +39,11 @@ export default function ReceiveForm({ items, suppliers, orders, today }: {
   const isRaw = item?.type === 'RAW';
   const poPool = orders.filter((o) => !itemId || o.item_id === itemId);
 
-  if (!open) {
-    return <button onClick={() => setOpen(true)} className="btn-primary">자재 입고 등록</button>;
-  }
-
   return (
-    <form action={action} className="card p-4">
+    <>
+      <button onClick={() => setOpen(true)} className="btn-primary">자재 입고 등록</button>
+      <Dialog open={open} onClose={() => setOpen(false)} wide title="자재 입고 등록">
+        <form action={action}>
       <h3 className="text-sm font-bold text-ink">자재 입고</h3>
       <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="lg:col-span-2">
@@ -151,6 +151,8 @@ export default function ReceiveForm({ items, suppliers, orders, today }: {
         </button>
         <button type="button" onClick={() => setOpen(false)} className="btn-ghost">닫기</button>
       </div>
-    </form>
+        </form>
+      </Dialog>
+    </>
   );
 }

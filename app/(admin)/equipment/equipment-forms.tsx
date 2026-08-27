@@ -30,24 +30,13 @@ export interface OpOption {
 
 export function NewEquipment() {
   const [state, action, pending] = useActionState<FormState, FormData>(saveEquipment, {});
-  const [open, setOpen] = useState(false);
-
-  if (!open) {
-    return <button onClick={() => setOpen(true)} className="btn-primary">설비 등록</button>;
-  }
-  if (state.ok) {
-    return (
-      <div className="card w-full p-4">
-        <Msg state={state} />
-        <div className="mt-3 flex gap-2">
-          <button onClick={() => setOpen(false)} className="btn-ghost h-9 px-3 text-xs">닫기</button>
-        </div>
-      </div>
-    );
-  }
+  const { open, setOpen } = useDialog(state);
 
   return (
-    <form action={action} className="card w-full p-4">
+    <>
+      <button onClick={() => setOpen(true)} className="btn-primary">설비 등록</button>
+      <Dialog open={open} onClose={() => setOpen(false)} wide title="설비 등록">
+        <form action={action}>
       <h3 className="text-sm font-bold text-ink">설비 등록</h3>
       <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div>
@@ -75,13 +64,12 @@ export function NewEquipment() {
       <Msg state={state} />
       <div className="mt-3 flex gap-2">
         <button type="submit" disabled={pending} className="btn-primary h-9 px-4 text-xs">
-          {pending ? '등록 중' : '등록'}
-        </button>
-        <button type="button" onClick={() => setOpen(false)} className="btn-ghost h-9 px-3 text-xs">
-          취소
+          {pending ? '등록하는 중' : '등록'}
         </button>
       </div>
-    </form>
+        </form>
+      </Dialog>
+    </>
   );
 }
 

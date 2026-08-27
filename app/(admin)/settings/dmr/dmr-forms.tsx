@@ -3,6 +3,7 @@
 import { useActionState, useState } from 'react';
 import type { FormState } from '@/lib/forms';
 import { Msg, Tag } from '@/components/ui';
+import { Dialog, useDialog } from '@/components/dialog';
 import {
   createDeviceMaster, verifyDeviceMaster, addOperation, addBom, addTier, setExpectedUnits, setProductCode,
   addOperationsBulk, copyDmr, createProduct, addSampleTier, setSampleBasis,
@@ -26,19 +27,14 @@ export interface ItemOption { id: string; code: string; name: string; usage_uom:
 
 export function NewDeviceMaster({ items }: { items: ItemOption[] }) {
   const [state, action, pending] = useActionState<FormState, FormData>(createDeviceMaster, {});
-  const [open, setOpen] = useState(false);
+  const { open, setOpen } = useDialog(state);
   const fin = items.filter((i) => i.type === 'FIN');
 
-  if (!open) {
-    return (
-      <button onClick={() => setOpen(true)} className="btn-primary" disabled={fin.length === 0}>
-        제품표준서 개정 추가
-      </button>
-    );
-  }
-
   return (
-    <form action={action} className="card p-4">
+    <>
+      <button onClick={() => setOpen(true)} className="btn-primary" disabled={fin.length === 0}> 제품표준서 개정 추가 </button>
+      <Dialog open={open} onClose={() => setOpen(false)} wide title="제품표준서 개정 추가">
+        <form action={action}>
       <h3 className="mb-3 text-sm font-bold text-ink">새 개정</h3>
       <div className="grid gap-3 sm:grid-cols-3">
         <div>
@@ -66,7 +62,9 @@ export function NewDeviceMaster({ items }: { items: ItemOption[] }) {
         <button type="submit" disabled={pending} className="btn-primary">추가</button>
         <button type="button" onClick={() => setOpen(false)} className="btn-ghost">닫기</button>
       </div>
-    </form>
+        </form>
+      </Dialog>
+    </>
   );
 }
 
@@ -809,27 +807,15 @@ export function NewProduct({
   today: string;
 }) {
   const [state, action, pending] = useActionState<FormState, FormData>(createProduct, {});
-  const [open, setOpen] = useState(false);
+  const { open, setOpen } = useDialog(state);
   const [useExisting, setUseExisting] = useState(finished.length > 0);
 
-  if (!open) {
-    return <button onClick={() => setOpen(true)} className="btn-primary">제품 등록</button>;
-  }
-  if (state.ok) {
-    return (
-      <div className="card w-full p-4">
-        <Msg state={state} />
-        <button onClick={() => setOpen(false)} className="btn-ghost mt-3 h-9 px-3 text-xs">
-          닫기
-        </button>
-      </div>
-    );
-  }
-
   return (
-    <form action={action} className="card w-full p-4">
-      <h3 className="text-sm font-bold text-ink">제품 등록</h3>
-      <p className="mt-1 text-xs leading-relaxed text-muted">
+    <>
+      <button onClick={() => setOpen(true)} className="btn-primary">제품 등록</button>
+      <Dialog open={open} onClose={() => setOpen(false)} wide title="제품 등록">
+    <form action={action}>
+      <p className="text-xs leading-relaxed text-muted">
         만드는 제품입니다. 사들이는 자재는 <b className="text-ink">자재 &gt; 품목</b>에서
         등록합니다.
       </p>
@@ -910,9 +896,9 @@ export function NewProduct({
         <button type="submit" disabled={pending} className="btn-primary h-9 px-4 text-xs">
           {pending ? '등록 중' : '등록'}
         </button>
-        <button type="button" onClick={() => setOpen(false)}
-                className="btn-ghost h-9 px-3 text-xs">취소</button>
       </div>
     </form>
+      </Dialog>
+    </>
   );
 }

@@ -3,6 +3,7 @@
 import { useActionState, useState } from 'react';
 import type { FormState } from '@/lib/forms';
 import { Msg } from '@/components/ui';
+import { Dialog, useDialog } from '@/components/dialog';
 import { createOrder, cancelOrder } from '../actions';
 
 export interface OrderRow {
@@ -20,14 +21,15 @@ export function NewOrder({ items, suppliers, today }: {
   items: ItemOpt[]; suppliers: SupplierOpt[]; today: string;
 }) {
   const [state, action, pending] = useActionState<FormState, FormData>(createOrder, {});
-  const [open, setOpen] = useState(false);
+  const { open, setOpen } = useDialog(state);
   const [itemId, setItemId] = useState('');
   const item = items.find((i) => i.id === itemId) ?? items[0];
 
-  if (!open) return <button onClick={() => setOpen(true)} className="btn-primary">발주 등록</button>;
-
   return (
-    <form action={action} className="card p-4">
+    <>
+      <button onClick={() => setOpen(true)} className="btn-primary">발주 등록</button>
+      <Dialog open={open} onClose={() => setOpen(false)} wide title="발주 등록">
+        <form action={action}>
       <h3 className="mb-3 text-sm font-bold text-ink">새 발주</h3>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div>
@@ -77,7 +79,9 @@ export function NewOrder({ items, suppliers, today }: {
         <button type="submit" disabled={pending} className="btn-primary">등록</button>
         <button type="button" onClick={() => setOpen(false)} className="btn-ghost">닫기</button>
       </div>
-    </form>
+        </form>
+      </Dialog>
+    </>
   );
 }
 

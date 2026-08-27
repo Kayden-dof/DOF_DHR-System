@@ -30,14 +30,13 @@ const typeLabel = (t: string) => ITEM_TYPES.find((x) => x.code === t)?.label ?? 
 
 export function NewItemForm({ materialOnly = false }: { materialOnly?: boolean }) {
   const [state, action, pending] = useActionState<FormState, FormData>(createItem, {});
-  const [open, setOpen] = useState(false);
-
-  if (!open) {
-    return <button onClick={() => setOpen(true)} className="btn-primary">품목 등록</button>;
-  }
+  const { open, setOpen } = useDialog(state);
 
   return (
-    <form action={action} className="card p-4">
+    <>
+      <button onClick={() => setOpen(true)} className="btn-primary">품목 등록</button>
+      <Dialog open={open} onClose={() => setOpen(false)} wide title="품목 등록">
+        <form action={action}>
       <h3 className="mb-3 text-sm font-bold text-ink">새 품목</h3>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -100,7 +99,9 @@ export function NewItemForm({ materialOnly = false }: { materialOnly?: boolean }
         </button>
         <button type="button" onClick={() => setOpen(false)} className="btn-ghost">닫기</button>
       </div>
-    </form>
+        </form>
+      </Dialog>
+    </>
   );
 }
 
@@ -187,16 +188,13 @@ export function ItemRowView({ it }: { it: ItemRow }) {
 
 export function GenerateFinished() {
   const [state, action, pending] = useActionState<GenResult, FormData>(generateFinished, {});
-  const [open, setOpen] = useState(false);
-
-  if (!open) {
-    return (
-      <button onClick={() => setOpen(true)} className="btn-ghost">완제품 형명 생성</button>
-    );
-  }
+  const { open, setOpen } = useDialog(state);
 
   return (
-    <form action={action} className="card p-4">
+    <>
+      <button onClick={() => setOpen(true)} className="btn-ghost">완제품 형명 생성</button>
+      <Dialog open={open} onClose={() => setOpen(false)} wide title="완제품 형명 생성">
+        <form action={action}>
       <h3 className="text-sm font-bold text-ink">완제품 형명 생성</h3>
       <p className="mt-1 text-xs leading-relaxed text-muted">
         형명은 <code className="font-mono">PD + 가로2 + 세로2 + 두께하한2 + 두께상한2</code> 규칙입니다.
@@ -269,6 +267,8 @@ export function GenerateFinished() {
         </button>
         <button type="button" onClick={() => setOpen(false)} className="btn-ghost">닫기</button>
       </div>
-    </form>
+        </form>
+      </Dialog>
+    </>
   );
 }
