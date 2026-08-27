@@ -24,6 +24,7 @@ interface Head {
 interface MatRow {
   item_code: string; item_name: string; lot_no: string; usage_uom: string;
   qty: string; operation_name: string; product_lot_no: string | null;
+  day_no: number; attempt: number;
 }
 interface LotRow {
   lot_no: string; item_code: string; item_name: string;
@@ -62,12 +63,12 @@ export default async function CoverSheet({ params }: { params: Promise<{ id: str
       head,
       materials: await db.rows<MatRow>(
         `select item_code, item_name, material_lot_no as lot_no, qty,
-                operation_name, product_lot_id,
+                operation_name, product_lot_id, day_no, attempt,
                 (select lot_no from product_lot pl where pl.id = g.product_lot_id) as product_lot_no,
                 (select usage_uom from item i2 where i2.code = g.item_code) as usage_uom
            from v_lot_genealogy g
           where work_order_id = $1
-          order by item_code, material_lot_no`, [id]),
+          order by item_code, material_lot_no, day_no, attempt, product_lot_no`, [id]),
       lots: await db.rows<LotRow>(
         `select pl.lot_no, i.code as item_code, i.name as item_name,
                 pl.qty_produced, pl.qty_sample, pl.qty_available,
@@ -96,11 +97,33 @@ export default async function CoverSheet({ params }: { params: Promise<{ id: str
           where pr.work_order_id = $1
           group by pr.work_order_id, pr.day_no, pr.worker_id, u.full_name
           order by pr.day_no, u.full_name`, [id]),
+      /*
+       * 편철 서류 목록의 재료. 이 배치에서 시스템이 발행한 양식들의 마지막
+       * 회차와, 서면으로만 존재하는 문서(멸균 성적서 원본, 원재료 성적서
+       * 사본)의 번호다. 목록은 사실이고, 실제로 철했는지는 사람이 확인란에
+       * 표시한다.
+       */
+      prints: await db.rows<{ kind: string; latest: number; count: number }>(
+        `select kind::text as kind, max(seq)::int as latest, count(*)::int as count
+           from record_print
+          where work_order_id = $1 and kind in ('WORK_ORDER','LABEL_REQUEST')
+          group by kind`, [id]),
+      requests: await db.rows<{ seq: number }>(
+        `select seq from record_print
+          where work_order_id = $1 and kind = 'RELEASE_REQUEST'
+          order by seq`, [id]),
+      certs: await db.rows<{ cert_no: string; vendor_name: string }>(
+        `select distinct sb.cert_no, sb.vendor_name
+           from steril_batch sb
+           join steril_batch_lot sbl on sbl.steril_batch_id = sb.id
+           join product_lot pl on pl.id = sbl.product_lot_id
+          where pl.work_order_id = $1 and sb.cert_no is not null
+          order by sb.cert_no`, [id]),
     };
   });
 
   if (!d) notFound();
-  const { head, materials, lots, days } = d;
+  const { head, materials, lots, days, prints, requests, certs } = d;
 
   // 아직 남아 있는 것. 사실만 적고 판정하지 않는다 (§10).
   const openDays = days.filter((r) => r.prints === 0).length;
@@ -224,12 +247,23 @@ export default async function CoverSheet({ params }: { params: Promise<{ id: str
             <td>작업 지시 지정</td>
             <td>배치 전체</td>
           </tr>
+          {/*
+            * 같은 자재 · 같은 로트 행이 여러 번 나오는 것은 중복이 아니다.
+            * 재단 이후 공정은 제품 로트별로 불출이 갈리고 (§3), 같은 공정을
+            * 두 번 한 것은 회차가 다른 두 번의 불출이다. 합치면 §8.3 의
+            * 정추적이 끊긴다. 대신 갈린 이유(일차 · 회차 · 제품 로트)를
+            * 행마다 적어 종이만 봐도 알게 한다.
+            */}
           {materials.map((m, i) => (
             <tr key={i}>
               <td>{m.item_name} ({m.item_code})</td>
               <td className="font-mono">{m.lot_no}</td>
               <td className="text-right tnum">{Number(m.qty)} {m.usage_uom}</td>
-              <td>{m.operation_name}</td>
+              <td>
+                {m.operation_name}
+                <span className="tnum"> · {m.day_no}일차</span>
+                {m.attempt > 1 && <span className="tnum font-bold"> · {m.attempt}회차</span>}
+              </td>
               <td className="font-mono">{m.product_lot_no ?? '배치 전체'}</td>
             </tr>
           ))}
@@ -272,6 +306,87 @@ export default async function CoverSheet({ params }: { params: Promise<{ id: str
           </tr>
         </tbody>
       </table>
+
+      {/*
+        * 이 묶음에 무엇이 철해져야 하는가 (사용자 요청 2026-08-27).
+        *
+        * 시스템이 발행한 양식은 마지막 회차와 매수를 사실로 적고, 서면으로만
+        * 존재하는 문서(멸균 성적서 원본, 원재료 성적서 사본)는 번호만 적는다.
+        * 철 확인란은 비워서 낸다 - 실제로 철했는지는 편철하는 사람이 종이
+        * 위에서 표시한다. 시스템은 목록까지만 안다.
+        *
+        * 설비 사용 기록은 여기 없다. 그건 배치 묶음이 아니라 설비별 이력
+        * 파일에 철하는 문서다.
+        */}
+      <h2 className="mt-5 text-sm font-bold text-black">편철 서류 목록</h2>
+      <table className="print-table mt-1.5">
+        <thead>
+          <tr>
+            <th className="w-[6%] text-center">순번</th>
+            <th className="w-[30%]">서류</th>
+            <th className="w-[40%]">시스템 기록</th>
+            <th className="w-[12%] text-right">매수</th>
+            <th className="w-[12%] text-center">철 확인</th>
+          </tr>
+        </thead>
+        <tbody>
+          {(() => {
+            const wp = prints.find((x) => x.kind === 'WORK_ORDER');
+            const lp = prints.find((x) => x.kind === 'LABEL_REQUEST');
+            const dayPages = days.reduce((a, r) => a + r.prints, 0);
+            const rows: { name: string; fact: React.ReactNode; pages: string }[] = [
+              { name: '편철 표지 (이 장)',
+                fact: <>발행 {meta.seq}회차 · 식별자 {meta.dataHash.slice(0, 12)}</>,
+                pages: '1' },
+              { name: '작업 지시서',
+                fact: wp
+                  ? <>최종 {wp.latest}회차 발행분{wp.count > 1 && ` (총 ${wp.count}회 발행)`}</>
+                  : '발행 이력 없음',
+                pages: wp ? '1' : '-' },
+              { name: '제조기록서 (일차 · 작업자별)',
+                fact: <>{days.length}묶음{days.some((r) => r.prints === 0) &&
+                        ` · 미발행 ${days.filter((r) => r.prints === 0).length}건`}
+                        {' '}· 재단 일차는 생산 규격 기록지 포함</>,
+                pages: String(dayPages || '-') },
+              { name: '라벨요청서',
+                fact: lp ? <>최종 {lp.latest}회차 발행분</> : '발행 이력 없음',
+                pages: lp ? '1' : '-' },
+              { name: '출하 승인 요청서 (서면 승인 원본)',
+                fact: requests.length === 0
+                  ? '발행 이력 없음'
+                  : <span className="font-mono">
+                      {requests.map((r) =>
+                        `RR-${head.batch_no}-${String(r.seq).padStart(2, '0')}`).join(' · ')}
+                    </span>,
+                pages: requests.length ? String(requests.length) : '-' },
+              { name: '멸균 성적서 (외부 원본)',
+                fact: certs.length === 0
+                  ? '회수된 성적서 없음'
+                  : <span className="font-mono">
+                      {certs.map((c) => c.cert_no).join(' · ')}
+                    </span>,
+                pages: certs.length ? String(certs.length) : '-' },
+              { name: '원재료 성적서 사본',
+                fact: <span className="font-mono">{head.coa_no}</span>,
+                pages: '1' },
+            ];
+            return rows.map((r, i) => (
+              <tr key={i}>
+                <td className="text-center tnum">{i + 1}</td>
+                <td className="font-bold">{r.name}</td>
+                <td className="text-[10px]">{r.fact}</td>
+                <td className="text-right tnum">{r.pages}</td>
+                <td className="sign-box" style={{ height: 'auto' }} />
+              </tr>
+            ));
+          })()}
+        </tbody>
+      </table>
+      <p className="mt-1.5 text-[10px] leading-relaxed text-black">
+        목록과 회차 · 매수는 시스템 발행 기록입니다. 철 확인란은 편철하는 사람이
+        서류를 실제로 끼우며 표시합니다. 설비 사용 기록은 배치 묶음이 아니라 설비별
+        이력 파일에 철합니다.
+      </p>
 
       <SignRow roles={['생산 책임자', '품질 검토', '품질 책임자']} />
     </PrintFrame>

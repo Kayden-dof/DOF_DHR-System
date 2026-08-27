@@ -101,6 +101,21 @@ const issues = day ? await rows(
     where pr.work_order_id = $1 and pr.day_no = $2 and pr.worker_id = $3
     order by o.seq`, [day.work_order_id, day.day_no, day.worker_id]) : [];
 
+/* 편철 표지 대조 재료: 재작업 회차 · 출하 승인 요청서 번호 · 멸균 성적서 */
+const rework = await one(
+  `select 1 from process_record where work_order_id = $1 and attempt > 1 limit 1`, [wo.id]);
+const coverRR = await one(
+  `select 'RR-' || $2 || '-' || lpad(min(seq)::text, 2, '0') as v
+     from record_print where work_order_id = $1 and kind = 'RELEASE_REQUEST'`,
+  [wo.id, wo.batch_no]).then((r) => r?.v ?? '');
+const coverCert = await one(
+  `select min(sb.cert_no) as v
+     from steril_batch sb
+     join steril_batch_lot sbl on sbl.steril_batch_id = sb.id
+     join product_lot pl on pl.id = sbl.product_lot_id
+    where pl.work_order_id = $1 and sb.cert_no is not null`, [wo.id])
+  .then((r) => r?.v ?? '');
+
 /* 공정별 설비. 지시서에 밸리데이션 만료일과 함께 인쇄된다 */
 const equipLines = await rows(
   `select e.code, e.name,
@@ -258,6 +273,16 @@ await sheet('④ 편철 표지', `/print/cover/${wo.id}`, [
     { label: '일차별 기록 작업자', value: day.worker_name },
     { label: '일차별 기록 작업일', value: day.work_date },
   ] : []),
+  // 같은 공정을 두 번 한 불출은 회차가 찍혀야 중복으로 오해되지 않는다
+  { label: '재작업 회차 표기', value: rework ? '2회차' : '' },
+  // 편철 서류 목록. 이 묶음에 무엇이 철해져야 하는지가 종이에 있어야 한다
+  { label: '편철 서류 목록',   value: '편철 서류 목록' },
+  { label: '목록 · 작업 지시서', value: '작업 지시서' },
+  { label: '목록 · 제조기록서', value: '제조기록서 (일차 · 작업자별)' },
+  { label: '목록 · 출하 승인 요청서', value: coverRR },
+  { label: '목록 · 멸균 성적서', value: coverCert },
+  { label: '목록 · 원재료 성적서', value: wo.coa_no },
+  { label: '철 확인란',        value: '철 확인' },
   { label: '품질 검토 서명란', value: '서명' },
 ]);
 
