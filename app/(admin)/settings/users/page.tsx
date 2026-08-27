@@ -2,7 +2,7 @@ import { requireUser, hasRole } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import { ROLE_LABEL, ROLE_NOTE, ROLE_ORDER } from '@/lib/roles';
 import Denied from '@/components/denied';
-import { PageShell } from '@/components/shell';
+import { PageShell, FilterBar } from '@/components/shell';
 import { SubNav } from '../../nav';
 import { SETTINGS_NAV } from '../../sections';
 import NewUserForm from './new-user-form';
@@ -17,23 +17,52 @@ export const dynamic = 'force-dynamic';
  */
 export const metadata = { title: '사용자' };
 
-export default async function UsersPage() {
+type Search = Promise<{ q?: string; role?: string }>;
+
+export default async function UsersPage({ searchParams }: { searchParams: Search }) {
   const me = await requireUser();
   if (!hasRole(me, 'SYS_ADMIN')) {
     return <Denied what="사용자 · 역할 관리" need="시스템관리자" />;
   }
 
-  const users = await withActor(me.id, (db) =>
-    db.rows<UserRow>(
+  /*
+   * 사람이 늘면 표를 눈으로 훑어 찾게 된다. 이름이나 번호로 걸러 내고 역할로
+   * 갈라 볼 수 있게 한다 (사용자 지시). 자재 품목 · 작업 지시 화면과 같은
+   * 방식이라 배울 것이 없다.
+   */
+  const sp = await searchParams;
+  const q = (sp.q || '').trim() || null;
+  const role = ROLE_ORDER.includes(sp.role as never) ? sp.role! : null;
+
+  const d = await withActor(me.id, async (db) => ({
+    users: await db.rows<UserRow>(
       `select u.id, u.login_code, u.full_name, u.is_active, u.is_developer, u.can_login,
               (u.pin_hash is not null) as has_pin,
               array_remove(array_agg(r.role::text order by r.role), null)::text[] as roles
          from app_user u
          left join user_role r on r.user_id = u.id
+        where ($1::text is null
+               or u.full_name ilike '%'||$1||'%' or u.login_code like '%'||$1||'%')
+          and ($2::text is null
+               or exists (select 1 from user_role x
+                           where x.user_id = u.id and x.role::text = $2))
         group by u.id
-        order by u.is_active desc, u.login_code`,
-    ),
-  );
+        order by u.is_active desc, u.login_code`, [q, role]),
+    counts: await db.rows<{ role: string; n: number }>(
+      `select r.role::text as role, count(distinct r.user_id)::int as n
+         from user_role r group by r.role`),
+    total: await db.val<number>(`select count(*)::int from app_user`),
+  }));
+
+  const users = d.users;
+  const byRole = new Map(d.counts.map((c) => [c.role, c.n]));
+  const link = (r?: string) => {
+    const p = new URLSearchParams();
+    if (r) p.set('role', r);
+    if (q) p.set('q', q);
+    const s = p.toString();
+    return s ? `/settings/users?${s}` : '/settings/users';
+  };
 
   return (
     <PageShell
@@ -43,6 +72,23 @@ export default async function UsersPage() {
       action={<NewUserForm />}
       nav={<SubNav items={SETTINGS_NAV} />}
     >
+
+      <FilterBar
+        items={[
+          { href: link(), label: '전체', count: d.total ?? 0, on: !role },
+          ...ROLE_ORDER.map((r) => ({
+            href: link(r), label: ROLE_LABEL[r], count: byRole.get(r) ?? 0, on: role === r,
+          })),
+        ]}
+        extra={
+          <form className="flex gap-2">
+            {role && <input type="hidden" name="role" value={role} />}
+            <input name="q" defaultValue={q ?? ''} placeholder="이름 또는 로그인 번호"
+                   className="input h-9 w-56 text-xs" autoComplete="off" />
+            <button className="btn-ghost h-9 px-3 text-xs">검색</button>
+          </form>
+        }
+      />
 
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">
@@ -57,7 +103,13 @@ export default async function UsersPage() {
               </tr>
             </thead>
             <tbody>
-              {users.map((u) => (
+              {users.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="td text-center text-xs text-faint">
+                    해당하는 계정이 없습니다.
+                  </td>
+                </tr>
+              ) : users.map((u) => (
                 <UserRowView key={u.id} u={{ ...u, roles: u.roles ?? [] }}
                              meId={me.id} meIsDeveloper={me.is_developer} />
               ))}

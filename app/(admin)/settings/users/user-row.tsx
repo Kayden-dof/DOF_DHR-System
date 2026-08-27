@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState, useState } from 'react';
+import { Dialog } from '@/components/dialog';
 import { ROLE_LABEL, ROLE_NOTE, ROLE_ORDER, type RoleCode } from '@/lib/roles';
 import { PIN_MIN_LENGTH } from '@/lib/auth-const';
 import type { FormState } from '@/lib/forms';
@@ -54,23 +55,30 @@ export default function UserRowView(
           </div>
         </td>
         <td className="td text-right">
-          <button onClick={() => setOpen((v) => !v)} className="btn-ghost h-8 px-3 text-xs">
-            {open ? '닫기' : '관리'}
+          <button onClick={() => setOpen(true)} className="btn-ghost h-8 px-3 text-xs">
+            관리
           </button>
         </td>
       </tr>
 
-      {open && (
-        <tr>
-          <td colSpan={5} className="border-b border-line bg-canvas px-4 py-4">
-            <div className="grid gap-5 lg:grid-cols-3">
-              <RolePanel u={u} isMe={isMe} />
-              <PinPanel u={u} isMe={isMe} canReset={meIsDeveloper} />
-              <FlagPanel u={u} isMe={isMe} />
-            </div>
-          </td>
-        </tr>
-      )}
+      {/*
+        * 팝업으로 띄운다. 표 안에서 줄을 벌리면 세 칸이 한꺼번에 펼쳐져 뒤의
+        * 계정들이 통째로 밀려 내려간다. 사람이 늘수록 심해진다.
+        *
+        * 여기는 스스로 닫지 않는다. 역할 부여 · 비밀번호 초기화 · 활성 전환이
+        * 한 칸에 모여 있어 하나를 마치고 다른 하나를 이어서 하는 일이 흔하다.
+        * 매번 닫히면 같은 사람을 다시 찾아 들어와야 한다.
+        */}
+      <Dialog open={open} onClose={() => setOpen(false)} wide
+              title={`${u.full_name} 계정 관리`}
+              note={<><span className="tnum">{u.login_code}</span>
+                {u.is_developer && <span className="ml-1.5 font-bold text-warn">개발 계정</span>}</>}>
+        <div className="grid gap-5 lg:grid-cols-3">
+          <RolePanel u={u} isMe={isMe} />
+          <PinPanel u={u} isMe={isMe} canReset={meIsDeveloper} />
+          <FlagPanel u={u} isMe={isMe} />
+        </div>
+      </Dialog>
     </>
   );
 }
