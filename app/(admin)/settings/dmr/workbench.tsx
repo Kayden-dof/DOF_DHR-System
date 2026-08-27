@@ -1,9 +1,11 @@
 import Link from 'next/link';
+import FlowDiagram from './flow-diagram';
 import { withActor } from '@/lib/db';
 import { fmtDate, fmtDateTime } from '@/lib/fmt';
 import { Panel, Empty, Tag, Field } from '@/components/ui';
 import {
   NewDeviceMaster, VerifyForm, AddOperationForm, OperationCard, ExpectedUnitsForm,
+  SamplePerLotForm,
   ProductCodeForm, OperationSetForm,
   type OperationRow, type ItemOption,
 } from './dmr-forms';
@@ -19,7 +21,7 @@ import {
 interface DmRow {
   id: string; revision: string; status: string; effective_from: string | null;
   verified_at: Date | null; verified_by_name: string | null;
-  expected_units: number | null;
+  expected_units: number | null; sample_per_lot: number | null;
   product_code: string | null; product_name: string | null;
   item_code: string; item_name: string;
   op_count: number; bom_count: number; wo_count: number;
@@ -39,7 +41,7 @@ export async function DmrWorkbench({
   const d = await withActor(userId, async (db) => {
     const masters = await db.rows<DmRow>(
       `select dm.id, dm.revision, dm.status, dm.effective_from, dm.verified_at,
-              dm.expected_units, dm.product_code, dm.product_name,
+              dm.expected_units, dm.sample_per_lot, dm.product_code, dm.product_name,
               u.full_name as verified_by_name, i.code as item_code, i.name as item_name,
               (select count(*)::int from dmr_operation o where o.device_master_id = dm.id) as op_count,
               (select count(*)::int from dmr_bom b
@@ -155,6 +157,7 @@ export async function DmrWorkbench({
                 <ProductCodeForm id={dm.id} code={dm.product_code}
                                  name={dm.product_name} itemCode={dm.item_code} />
                 <ExpectedUnitsForm id={dm.id} value={dm.expected_units} />
+                <SamplePerLotForm id={dm.id} value={dm.sample_per_lot} />
                 {!editable && dm.wo_count > 0 && (
                   <p className="border-t border-line bg-canvas px-4 py-2.5 text-xs leading-relaxed text-muted">
                     이 개정으로 발행된 작업 지시가 {dm.wo_count}건 있어 공정과 자재 구성표를
@@ -163,8 +166,35 @@ export async function DmrWorkbench({
                 )}
               </Panel>
 
-              <VerifyForm id={dm.id} verified={verified} />
+              {/*
+                * 대조는 제품당 한 번뿐이다. 그 한 번에 옮겨 적은 값을 항목별로
+                * 짚게 하려면 화면이 가진 값을 그대로 넘겨야 한다 (사용자 요청).
+                */}
+              <VerifyForm
+                id={dm.id}
+                verified={verified}
+                sheet={{
+                  productCode: dm.product_code, productName: dm.product_name,
+                  itemCode: dm.item_code, revision: dm.revision,
+                  effectiveFrom: fmtDate(dm.effective_from), expectedUnits: dm.expected_units,
+                  operations: d.operations,
+                  equipmentByOp: Object.fromEntries(d.operations.map((op) => [
+                    op.id,
+                    d.opEquip
+                      .filter((x) => x.operation_id === op.id)
+                      .map((x) => d.equipment.find((e) => e.id === x.equipment_id))
+                      .filter((e) => !!e)
+                      .map((e) => `${e!.code} ${e!.name}`),
+                  ])),
+                }}
+              />
 
+              {/*
+                * 공정을 표로만 늘어놓으면 "이 제품이 어떻게 만들어지는가"가 안
+                * 보인다. 흐름은 흐름으로 함께 보여 준다 (사용자 요청). 넓은
+                * 화면에서는 나란히, 좁으면 공정도가 아래로 내려간다.
+                */}
+              <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
               <Panel
                 title="공정 순서"
                 note="재단 이후 공정은 기록이 제품 로트에 붙습니다"
@@ -202,6 +232,22 @@ export async function DmrWorkbench({
                   <AddOperationForm dm={dm.id} nextSeq={(d.operations.at(-1)?.seq ?? 0) + 1} />
                 )}
               </Panel>
+
+              {d.operations.length > 0 && (
+                <Panel title="제조 공정도" note="재단에서 형명별로 갈립니다">
+                  <FlowDiagram
+                    operations={d.operations}
+                    equipmentByOp={new Map(d.operations.map((op) => [
+                      op.id,
+                      d.opEquip
+                        .filter((x) => x.operation_id === op.id)
+                        .map((x) => d.equipment.find((e) => e.id === x.equipment_id)?.code)
+                        .filter((c): c is string => !!c),
+                    ]))}
+                  />
+                </Panel>
+              )}
+              </div>
 
               <section className="card p-4">
                 <h3 className="text-xs font-bold text-ink">소요량 기준</h3>

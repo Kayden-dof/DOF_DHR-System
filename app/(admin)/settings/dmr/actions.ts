@@ -120,6 +120,35 @@ export async function setExpectedUnits(_p: FormState, form: FormData): Promise<F
 }
 
 /**
+ * 완제품검사 샘플 수량.
+ *
+ * WS-07 에서 뽑는다. 몇 개를 뽑는지는 검사 기준이 정하고, 여기서는 그 값을
+ * 옮겨 적어 둘 뿐이다. 현장 재단 화면이 이 값을 그대로 보여 준다.
+ * 비워 두면 현장에 아무것도 안내하지 않는다 (§1).
+ */
+export async function setSamplePerLot(_p: FormState, form: FormData): Promise<FormState> {
+  try {
+    const me = await admin();
+    const raw = String(form.get('sample_per_lot') ?? '').trim();
+    const n = raw === '' ? null : Number(raw);
+    if (n !== null && (!Number.isInteger(n) || n < 0)) {
+      return { error: '샘플 수량은 0 이상의 정수이거나 비워 둡니다' };
+    }
+    await withActor(me.id, (db) =>
+      db.rows(`update device_master set sample_per_lot = $2 where id = $1`,
+        [String(form.get('id') ?? ''), n]));
+    revalidatePath('/production/setup');
+    revalidatePath('/settings/dmr');
+    revalidatePath('/work');
+    return { ok: true, message: n === null
+      ? '샘플 수량을 비웠습니다. 현장에 안내하지 않습니다.'
+      : `완제품검사 샘플을 제조번호당 ${n}개로 저장했습니다.` };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
+/**
  * 제품 코드 · 제품명.
  *
  * 최상위 관리 코드다 (DX2401). 완제품 형명(PD…)은 그 아래의 규격이므로

@@ -13,7 +13,10 @@ export const dynamic = 'force-dynamic';
    제품명, 제조번호, 모델명, 규격, 수량 (WS-07 작업 5번)
 --------------------------------------------------------------------------- */
 
-interface Head { batch_no: string; wo_no: string; item_name: string; thickness_band: string | null }
+interface Head {
+  batch_no: string; wo_no: string; item_name: string; thickness_band: string | null;
+  product_code: string | null; product_name: string | null;
+}
 interface LotRow {
   lot_no: string; item_code: string; item_name: string;
   qty_produced: number; qty_sample: number; qty_available: number;
@@ -34,7 +37,8 @@ export default async function LabelRequestSheet({ params }: { params: Promise<{ 
 
   const d = await withActor(user.id, async (db) => {
     const head = await db.one<Head>(
-      `select wo.batch_no, wo.wo_no, i.name as item_name, ml.thickness_band
+      `select wo.batch_no, wo.wo_no, i.name as item_name, ml.thickness_band,
+              dm.product_code, dm.product_name
          from work_order wo
          join device_master dm on dm.id = wo.device_master_id
          join item i on i.id = dm.item_id
@@ -76,8 +80,18 @@ export default async function LabelRequestSheet({ params }: { params: Promise<{ 
             <td className="w-[35%] font-mono">{head.wo_no}</td>
           </tr>
           <tr>
-            <th>제품명</th>
-            <td>{head.item_name}</td>
+            {/*
+              * 이 요청서는 배치 하나의 여러 형명을 함께 담는다. 머리글에 대표
+              * 형명을 적으면 아래 표의 다른 형명과 어긋나 보인다. 여기는 최상위
+              * 제품 코드 자리다 (DX2401). 형명은 줄마다 따로 적힌다.
+              */}
+            <th>제품</th>
+            <td>
+              {head.product_code
+                ? <><b className="font-mono">{head.product_code}</b>
+                    {head.product_name && <> · {head.product_name}</>}</>
+                : head.item_name}
+            </td>
             <th>두께 구간</th>
             <td>{head.thickness_band ?? ''}</td>
           </tr>

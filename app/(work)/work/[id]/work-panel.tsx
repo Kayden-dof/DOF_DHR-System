@@ -6,7 +6,7 @@ import type { FormState } from '@/lib/forms';
 import { fmtDateTime } from '@/lib/fmt';
 import { Msg, Tag } from '@/components/ui';
 import NumPad, { PresetPicker } from '@/components/num-pad';
-import { startRecord, issueMaterial, endRecord, closeDay } from '../actions';
+import { startRecord, issueMaterial, endRecord, closeDay, cutAtField } from '../actions';
 
 /** KST 오늘. 만료 비교는 날짜 문자열끼리 한다 */
 function todayStr(): string {
@@ -34,7 +34,11 @@ export interface LotOpt {
   usage_uom: string; qty_available: string; expiry_date: string | null;
 }
 export interface PersonOpt { id: string; full_name: string }
-export interface PlOpt { id: string; lot_no: string; item_code: string; item_name: string }
+export interface PlOpt {
+  id: string; lot_no: string; item_code: string; item_name: string;
+  qty_produced?: number; qty_sample?: number;
+}
+export interface FinOpt { id: string; code: string; name: string }
 
 const REASONS = [
   '해당 공정 미실시',
@@ -51,10 +55,16 @@ const REASONS = [
 --------------------------------------------------------------------------- */
 export default function WorkPanel({
   woId, batchNo, sheets, ops, records, lots, people, productLots, meId, lockedDays,
+  cutOpId, finished, samplePerLot, band,
 }: {
   woId: string; batchNo: string; sheets: number;
   ops: Op[]; records: Rec[]; lots: LotOpt[]; people: PersonOpt[];
   productLots: PlOpt[]; meId: string; lockedDays: number[];
+  /** 재단 공정. 이 공정 카드에서 형명별 수량을 적는다 */
+  cutOpId: string | null;
+  finished: FinOpt[];
+  samplePerLot: number | null;
+  band: string | null;
 }) {
   const myRecords = useMemo(() => records.filter((r) => r.worker_id === meId), [records, meId]);
 
@@ -237,6 +247,8 @@ export default function WorkPanel({
           woId={woId} day={day} op={op} rec={rec} lots={lots} people={people}
           productLots={productLots} locked={locked} sheets={sheets}
           attemptCount={dayRecords.filter((r) => r.operation_id === op.id).length}
+          isCut={op.id === cutOpId} finished={finished}
+          samplePerLot={samplePerLot} band={band}
         />
       )}
 
@@ -313,10 +325,12 @@ function OpTile({
 
 function OperationCard({
   woId, day, op, rec, lots, people, productLots, locked, sheets, attemptCount,
+  isCut, finished, samplePerLot, band,
 }: {
   woId: string; day: number; op: Op; rec: Rec | null; lots: LotOpt[];
   people: PersonOpt[]; productLots: PlOpt[]; locked: boolean; sheets: number;
   attemptCount: number;
+  isCut: boolean; finished: FinOpt[]; samplePerLot: number | null; band: string | null;
 }) {
   const running = rec && !rec.ended_at;
 
@@ -344,6 +358,16 @@ function OperationCard({
                    done={!!rec?.ended_at} />
       ) : (
         <RunningCard woId={woId} op={op} rec={rec} lots={lots} sheets={sheets} />
+      )}
+
+      {/*
+        * 재단 결과는 재단한 사람이 재단한 자리에서 적는다 (사용자 지적).
+        * 공정을 시작해야 칸이 열린다 - 시작하지 않은 사람이 결과부터 적는 일을
+        * 막는 건 DB 가 하지만, 화면에서도 순서를 보여 준다.
+        */}
+      {isCut && rec && (
+        <CutPanel woId={woId} finished={finished} lots={productLots}
+                  samplePerLot={samplePerLot} band={band} />
       )}
 
       {rec && rec.issues.length > 0 && (
@@ -736,5 +760,144 @@ function CloseDayCard({ woId, day, batchNo, open }: {
         </form>
       )}
     </section>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   재단 결과 (현장)
+
+   여기가 배치가 갈라지는 자리다. 재단 전에는 배치 하나가 통째로 흐르고, 재단
+   뒤에는 형명별 제품 로트가 각각 흐른다 (§3 ①). 그 갈라짐을 만드는 사람이
+   잘라 낸 작업자이므로, 세어 본 수를 그 자리에서 적는다.
+
+   ── 화면이 답해 주는 것 ───────────────────────────────────────────────────
+   · 고를 형명은 이 배치의 두께 구간 것뿐이다 - 두께는 원재료가 정한다 (§3 ③)
+   · 샘플을 몇 개 빼야 하는지는 제품표준서에 적힌 값을 그대로 보여 준다
+   · 출하 가능 수량이 몇 개가 되는지 적는 동안 계속 보인다
+   · 이미 부여한 제조번호와 그 수량이 위에 쌓인다
+
+   샘플 수를 시스템이 정하지 않는다. 검사 기준이 정하고 제품표준서에 옮겨 적힌
+   값을 읽어 올 뿐이다. 등록된 값이 없으면 아무것도 안내하지 않는다 (§1).
+--------------------------------------------------------------------------- */
+function CutPanel({ woId, finished, lots, samplePerLot, band }: {
+  woId: string; finished: FinOpt[]; lots: PlOpt[];
+  samplePerLot: number | null; band: string | null;
+}) {
+  const [state, action, pending] = useActionState<FormState, FormData>(cutAtField, {});
+  const [item, setItem] = useState('');
+  const [produced, setProduced] = useState('');
+  const [sample, setSample] = useState(samplePerLot === null ? '0' : String(samplePerLot));
+
+  const made = lots.reduce((a, l) => a + (l.qty_produced ?? 0), 0);
+  const avail = Math.max(0, Number(produced || 0) - Number(sample || 0));
+  const picked = finished.find((f) => f.id === item);
+
+  return (
+    <div className="border-t border-line bg-canvas p-4">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <h3 className="text-base font-bold text-ink">재단 결과</h3>
+        <p className="text-xs leading-relaxed text-muted">
+          형명별로 몇 장이 나왔는지 적으면 제조번호가 붙습니다.
+          {band && <> 이 배치의 두께 구간은 <b className="text-ink">{band}</b> 입니다.</>}
+        </p>
+      </div>
+
+      {/* 이미 부여한 것부터 보여 준다. 같은 형명을 두 번 적지 않게 한다 */}
+      {lots.length > 0 && (
+        <ul className="mt-3 space-y-1.5">
+          {lots.map((l) => (
+            <li key={l.id}
+                className="flex flex-wrap items-baseline gap-x-3 rounded-md border border-line bg-surface px-3 py-2">
+              <span className="font-mono text-base font-bold text-ink">{l.lot_no}</span>
+              <span className="text-sm text-body">{l.item_code}</span>
+              <span className="ml-auto text-sm text-muted">
+                생산 <b className="tnum text-ink">{l.qty_produced ?? 0}</b>
+                {(l.qty_sample ?? 0) > 0 && <> · 샘플 <b className="tnum text-ink">{l.qty_sample}</b></>}
+              </span>
+            </li>
+          ))}
+          <li className="px-3 pt-1 text-sm text-muted">
+            지금까지 <b className="tnum text-ink">{made}</b>개를 재단했습니다.
+          </li>
+        </ul>
+      )}
+
+      {finished.length === 0 ? (
+        <p className="mt-3 rounded-md bg-warn-bg px-3 py-2.5 text-sm leading-relaxed text-ink">
+          이 두께 구간({band ?? '미기재'})에 해당하는 형명이 없습니다.
+          관리자 화면에서 형명을 확인하십시오.
+        </p>
+      ) : (
+        <form action={action} className="mt-3 space-y-3">
+          <input type="hidden" name="work_order_id" value={woId} />
+          <input type="hidden" name="item_id" value={item} />
+
+          <div>
+            <span className="label">형명</span>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {finished.map((f) => {
+                const already = lots.some((l) => l.item_code === f.code);
+                return (
+                  <button key={f.id} type="button" onClick={() => setItem(f.id)}
+                          data-on={item === f.id} className="tile">
+                    <span className="font-mono text-base font-bold">{f.code}</span>
+                    <span className="text-xs text-muted">
+                      {f.name}{already && ' · 이미 부여함'}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div>
+              <label className="label">생산 수량</label>
+              <input name="qty_produced" type="number" min={1} required inputMode="numeric"
+                     value={produced} onChange={(e) => setProduced(e.target.value)}
+                     className="input tnum text-lg" />
+            </div>
+            <div>
+              <label className="label">샘플 수량</label>
+              <input name="qty_sample" type="number" min={0} inputMode="numeric"
+                     value={sample} onChange={(e) => setSample(e.target.value)}
+                     className="input tnum text-lg" />
+            </div>
+            <div>
+              <label className="label">제조일</label>
+              <input name="manufactured_on" type="date"
+                     defaultValue={new Date().toISOString().slice(0, 10)}
+                     className="input tnum" />
+            </div>
+          </div>
+
+          {/*
+            * 뽑아야 할 샘플 수는 검사 기준이 정한다. 여기서는 등록된 값을 그대로
+            * 읽어 주고, 적힌 값이 그와 다르면 다르다는 사실만 적는다 (§8.5).
+            */}
+          {samplePerLot !== null && (
+            <p className="text-sm leading-relaxed text-muted">
+              제품표준서에 완제품검사 샘플이 제조번호당{' '}
+              <b className="tnum text-ink">{samplePerLot}</b>개로 적혀 있습니다.
+              {Number(sample || 0) !== samplePerLot && (
+                <b className="text-warn"> 지금 적은 값은 {Number(sample || 0)}개입니다.</b>
+              )}
+            </p>
+          )}
+
+          <p className="text-sm leading-relaxed text-muted">
+            {picked && <><b className="font-mono text-ink">{picked.code}</b> · </>}
+            출하 가능 수량은 <b className="tnum text-ink">{avail}</b>개가 됩니다.
+            샘플은 생산 수량에서 빠지며 회수되어도 복귀하지 않습니다.
+            유효기한은 지금 시점의 사용기간으로 고정됩니다.
+          </p>
+
+          <Msg state={state} />
+          <button type="submit" disabled={pending || !item} className="btn-primary w-full sm:w-auto">
+            {pending ? '부여하는 중' : '제조번호 부여'}
+          </button>
+        </form>
+      )}
+    </div>
   );
 }

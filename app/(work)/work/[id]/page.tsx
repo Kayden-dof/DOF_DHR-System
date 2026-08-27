@@ -5,7 +5,7 @@ import { withActor } from '@/lib/db';
 import { fmtDate } from '@/lib/fmt';
 import { Tag } from '@/components/ui';
 import WorkPanel, {
-  type Op, type Rec, type LotOpt, type PersonOpt, type PlOpt,
+  type Op, type Rec, type LotOpt, type PersonOpt, type PlOpt, type FinOpt,
 } from './work-panel';
 
 export const dynamic = 'force-dynamic';
@@ -85,9 +85,24 @@ export default async function WorkBatchPage({ params }: { params: Promise<{ id: 
            join user_role r on r.user_id = u.id and r.role = 'WORKER'
           where u.is_active and u.id <> $1 order by u.full_name`, [user.id]),
       productLots: await db.rows<PlOpt>(
-        `select pl.id, pl.lot_no, i.code as item_code, i.name as item_name
+        `select pl.id, pl.lot_no, i.code as item_code, i.name as item_name,
+                pl.qty_produced, pl.qty_sample
            from product_lot pl join item i on i.id = pl.item_id
           where pl.work_order_id = $1 order by i.code`, [id]),
+      /*
+       * 재단은 현장에서 일어난다. 잘라 낸 사람이 그 자리에서 형명별 수량을
+       * 적을 수 있으려면 고를 형명과 뽑을 샘플 수가 화면에 있어야 한다.
+       */
+      cutOpId: await db.val<string | null>(
+        `select cut_operation_id($1)`, [wo.device_master_id]),
+      samplePerLot: await db.val<number | null>(
+        `select sample_per_lot from device_master where id = $1`, [wo.device_master_id]),
+      /* 두께는 원재료가 정하므로 이 배치에서 나올 형명은 그 두께의 것뿐이다 (§3 ③) */
+      finished: await db.rows<FinOpt>(
+        `select i.id, i.code, i.name from item i
+          where i.type = 'FIN' and i.is_active
+            and ($1::text is null or right(i.code, 4) = $1)
+          order by i.code`, [wo.thickness_band]),
       lockedDays: await db.rows<{ day_no: number }>(
         `select day_no from day_lock where work_order_id = $1 and worker_id = $2`,
         [id, user.id]),
@@ -127,6 +142,10 @@ export default async function WorkBatchPage({ params }: { params: Promise<{ id: 
         lots={d.lots}
         people={d.people}
         productLots={d.productLots}
+        cutOpId={d.cutOpId ?? null}
+        finished={d.finished}
+        samplePerLot={d.samplePerLot ?? null}
+        band={wo.thickness_band}
         meId={user.id}
         lockedDays={d.lockedDays.map((r) => r.day_no)}
       />

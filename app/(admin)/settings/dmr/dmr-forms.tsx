@@ -5,7 +5,7 @@ import type { FormState } from '@/lib/forms';
 import { Msg, Tag } from '@/components/ui';
 import {
   createDeviceMaster, verifyDeviceMaster, addOperation, addBom, addTier, setExpectedUnits, setProductCode,
-  addOperationsBulk, copyDmr, createProduct,
+  addOperationsBulk, copyDmr, createProduct, setSamplePerLot,
 } from './actions';
 import { linkOperation } from '../../equipment/actions';
 
@@ -68,11 +68,23 @@ export function NewDeviceMaster({ items }: { items: ItemOption[] }) {
   );
 }
 
-export function VerifyForm({ id, verified }: { id: string; verified: boolean }) {
+export function VerifyForm({
+  id, verified, sheet,
+}: {
+  id: string;
+  verified: boolean;
+  /** 대조할 항목. 화면에 옮겨 적힌 값 그대로 */
+  sheet?: VerifySheet;
+}) {
   const [state, action, pending] = useActionState<FormState, FormData>(verifyDeviceMaster, {});
-  const [confirm, setConfirm] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [done, setDone] = useState<Record<string, boolean>>({});
 
   if (verified) return null;
+
+  const rows = sheet ? verifyRows(sheet) : [];
+  const left = rows.filter((r) => !done[r.key]).length;
+  const all = rows.length > 0 && left === 0;
 
   return (
     <div className="rounded-md border border-warn/30 bg-warn-bg p-3">
@@ -80,27 +92,141 @@ export function VerifyForm({ id, verified }: { id: string; verified: boolean }) 
         <b>아직 서면 대조 확인 전입니다.</b> 확인 전에는 작업 지시 발행에서 고를 수 없습니다.
         공정과 자재 구성표를 모두 넣은 뒤, 서면 제품표준서와 한 항목씩 대조하고 확인하십시오.
       </p>
-      {!confirm ? (
-        <button onClick={() => setConfirm(true)} className="btn-ghost mt-3 h-9 px-3 text-xs">
-          서면 대조 확인
-        </button>
-      ) : (
-        <form action={action} className="mt-3 flex flex-wrap items-center gap-2">
-          <input type="hidden" name="id" value={id} />
-          <span className="text-xs text-ink">
-            서면과 대조했고 옮겨 적은 내용이 일치합니까? 확인자로 기록됩니다.
-          </span>
-          <button type="submit" disabled={pending} className="btn-primary h-9 px-3 text-xs">
-            확인했습니다
-          </button>
-          <button type="button" onClick={() => setConfirm(false)} className="btn-quiet h-9 px-3 text-xs">
-            취소
-          </button>
-        </form>
-      )}
+      <button onClick={() => setOpen(true)} className="btn-ghost mt-3 h-9 px-3 text-xs">
+        서면 대조 확인
+      </button>
       <Msg state={state} />
+
+      {/*
+        * 대조는 제품당 한 번뿐이다. 그 한 번에 옮겨 적은 값을 항목별로 짚게
+        * 한다 (사용자 요청). 한 판에 몰아서 "확인했습니다" 를 누르면 실제로는
+        * 아무것도 대조하지 않고 누르게 된다.
+        *
+        * 마지막 항목까지 짚어야 확인 단추가 열린다. 남은 개수를 계속 보여 주어
+        * 어디까지 왔는지 알게 한다.
+        */}
+      {open && (
+        <div role="dialog" aria-modal="true" aria-label="서면 대조 확인"
+             className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-ink/45 p-4 backdrop-blur-sm">
+          <div className="card-raised my-6 w-full max-w-3xl">
+            <header className="section-head">
+              <div>
+                <h3 className="text-[0.9375rem] font-bold text-ink">서면 제품표준서와 대조</h3>
+                <p className="mt-0.5 text-xs leading-relaxed text-muted">
+                  아래는 이 화면에 옮겨 적힌 값입니다. 서면과 한 항목씩 견주고 같으면
+                  짚으십시오. 다르면 닫고 고친 뒤 다시 오십시오.
+                </p>
+              </div>
+              <span className={`ml-auto shrink-0 tnum text-xs font-bold ${
+                all ? 'text-ok' : 'text-warn'}`}>
+                {all ? '전부 대조함' : `남은 ${left}`}
+              </span>
+            </header>
+
+            <ul className="max-h-[55vh] divide-y divide-line-soft overflow-y-auto">
+              {rows.map((r) => (
+                <li key={r.key}>
+                  <label className="flex cursor-pointer items-start gap-3 px-4 py-2.5 hover:bg-canvas">
+                    <input
+                      type="checkbox"
+                      checked={!!done[r.key]}
+                      onChange={(e) =>
+                        setDone((d) => ({ ...d, [r.key]: e.target.checked }))}
+                      className="mt-0.5 size-4 shrink-0 accent-brand"
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="text-[0.6875rem] font-bold tracking-wide text-muted">
+                        {r.group}
+                      </span>
+                      <span className="block text-sm leading-relaxed text-ink">{r.label}</span>
+                      {r.value && (
+                        <span className="mt-0.5 block font-mono text-xs text-body">{r.value}</span>
+                      )}
+                    </span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+
+            <form action={action}
+                  className="flex flex-wrap items-center gap-2 border-t border-line bg-canvas px-4 py-3">
+              <input type="hidden" name="id" value={id} />
+              <span className="min-w-0 flex-1 text-xs leading-relaxed text-muted">
+                {all
+                  ? '전부 대조했습니다. 확인자로 기록되며 되돌릴 수 없습니다.'
+                  : '남은 항목을 모두 짚어야 확인할 수 있습니다.'}
+              </span>
+              <button type="submit" disabled={!all || pending}
+                      className="btn-primary h-9 px-4 text-xs">
+                {pending ? '기록 중' : '서면 확인 완료했습니다'}
+              </button>
+              <button type="button" onClick={() => setOpen(false)}
+                      className="btn-ghost h-9 px-3 text-xs">닫기</button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
+}
+
+/* ---------------------------------------------------------------------------
+   대조 목록 만들기
+
+   화면에 옮겨 적힌 값을 그대로 줄로 편다. 사람이 서면을 보며 하나씩 견주는
+   단위와 같아야 하므로, 공정은 공정마다 · 자재는 자재마다 한 줄이다.
+--------------------------------------------------------------------------- */
+
+export interface VerifySheet {
+  productCode: string | null; productName: string | null;
+  itemCode: string; revision: string; effectiveFrom: string | null;
+  expectedUnits: number | null;
+  operations: OperationRow[];
+  equipmentByOp: Record<string, string[]>;
+}
+
+function verifyRows(s: VerifySheet) {
+  const rows: { key: string; group: string; label: string; value?: string }[] = [];
+
+  rows.push({ key: 'product', group: '제품',
+    label: '제품 코드와 제품명이 서면과 같습니까?',
+    value: `${s.productCode ?? '(비어 있음)'} · ${s.productName ?? '(비어 있음)'}` });
+  rows.push({ key: 'item', group: '제품',
+    label: '대표 형명(규격)이 서면과 같습니까?', value: s.itemCode });
+  rows.push({ key: 'rev', group: '제품',
+    label: '개정 표기와 시행일이 서면과 같습니까?',
+    value: `${s.revision} · ${s.effectiveFrom || '시행일 없음'}` });
+  rows.push({ key: 'units', group: '제품',
+    label: '배치당 예상 생산수량이 서면과 같습니까?',
+    value: s.expectedUnits === null ? '(비어 있음)' : `${s.expectedUnits}개` });
+
+  rows.push({ key: 'op-count', group: '공정',
+    label: `공정 수가 서면과 같습니까? 빠진 공정이 없습니까?`,
+    value: `${s.operations.length}개` });
+
+  for (const op of s.operations) {
+    const eq = s.equipmentByOp[op.id] ?? [];
+    rows.push({
+      key: `op-${op.id}`, group: `공정 ${op.seq}`,
+      label: `${op.name} — 순서 · 코드 · 재단 전후 · 설비가 서면과 같습니까?`,
+      value: [op.code, op.after_cutting ? '재단 이후' : '재단 이전',
+              eq.length ? eq.join(' · ') : '설비 없음'].join(' · '),
+    });
+    for (const b of op.bom) {
+      rows.push({
+        key: `bom-${b.id}`, group: `공정 ${op.seq} 자재`,
+        label: `${b.item_name} — 소요량 기준과 수량이 서면과 같습니까?`,
+        value: b.basis === 'PER_UNIT'
+          ? `제품 1개당 ${Number(b.qty_per_unit)} ${b.usage_uom}`
+          : b.tiers.length
+            ? b.tiers.map((t) =>
+                `${t.min_sheets}~${t.max_sheets ?? ''}장 ${Number(t.qty)} ${b.usage_uom}`).join(' / ')
+            : '장입 구간 미등록',
+      });
+    }
+  }
+
+  return rows;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -361,6 +487,36 @@ export function ExpectedUnitsForm({ id, value }: { id: string; value: number | n
       </button>
       <span className="pb-2 text-xs leading-relaxed text-faint">
         실제 수량은 재단에서 정해집니다. 발행을 제약하지 않습니다.
+      </span>
+      <Msg state={state} className="w-full" />
+    </form>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   완제품검사 샘플 수량
+
+   WS-07 에서 뽑는 수다. 현장 재단 화면이 이 값을 그대로 보여 주고 미리 채운다.
+   시스템이 정하는 값이 아니라 검사 기준에서 옮겨 적는 값이다.
+--------------------------------------------------------------------------- */
+export function SamplePerLotForm({ id, value }: { id: string; value: number | null }) {
+  const [state, action, pending] = useActionState<FormState, FormData>(setSamplePerLot, {});
+
+  return (
+    <form action={action}
+          className="flex flex-wrap items-end gap-2 border-t border-line-soft px-4 py-3">
+      <input type="hidden" name="id" value={id} />
+      <div className="w-52">
+        <label className="label">완제품검사 샘플 (제조번호당)</label>
+        <input name="sample_per_lot" type="number" min={0}
+               defaultValue={value ?? ''} placeholder="예: 2"
+               className="input h-9 tnum text-xs" />
+      </div>
+      <button type="submit" disabled={pending} className="btn-ghost h-9 px-3 text-xs">
+        저장
+      </button>
+      <span className="pb-2 text-xs leading-relaxed text-faint">
+        재단 화면에 이 수가 안내되고 미리 채워집니다. 비워 두면 안내하지 않습니다.
       </span>
       <Msg state={state} className="w-full" />
     </form>

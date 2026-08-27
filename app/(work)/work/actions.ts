@@ -139,3 +139,45 @@ export async function closeDay(_p: FormState, form: FormData): Promise<FormState
     return { error: dbMessage(e) };
   }
 }
+
+/* ---------------------------------------------------------------------------
+   재단 결과 기록 (현장)
+
+   재단한 사람이 재단한 자리에서 형명별 수량을 적는다. 제조번호는 채번 규칙이
+   만들고 유효기한은 이 시점 사용기간으로 고정된다 - 관리자 화면에서 부르던
+   것과 같은 함수를 지나므로 결과가 갈라지지 않는다.
+
+   "그 배치의 재단 공정을 기록하고 있는 사람인가"는 DB 가 본다
+   (cut_product_lot_field). 응용 계층에서만 막은 건 검증이 아니다 (§1).
+--------------------------------------------------------------------------- */
+export async function cutAtField(_p: FormState, form: FormData): Promise<FormState> {
+  try {
+    const me = await worker();
+    const wo = String(form.get('work_order_id') ?? '');
+    const produced = Number(form.get('qty_produced') ?? 0);
+    const sample = Number(form.get('qty_sample') ?? 0);
+
+    if (!Number.isInteger(produced) || produced < 1) {
+      return { error: '생산 수량을 적으십시오' };
+    }
+    if (sample >= produced) {
+      return { error: '샘플 수량이 생산 수량보다 적어야 합니다' };
+    }
+
+    const lot = await withActor(me.id, (db) =>
+      db.val<string>(`select cut_product_lot_field($1,$2,$3,$4,$5::date)`,
+        [wo, String(form.get('item_id') ?? ''), produced, sample,
+         String(form.get('manufactured_on') ?? '') || null]));
+
+    const lotNo = await withActor(me.id, (db) =>
+      db.val<string>(`select lot_no from product_lot where id=$1`, [lot]));
+
+    bump(wo);
+    return {
+      ok: true,
+      message: `제조번호 ${lotNo} · 생산 ${produced}개 중 샘플 ${sample}개를 빼면 출하 가능 ${produced - sample}개입니다.`,
+    };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}

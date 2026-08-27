@@ -283,4 +283,101 @@ export default [
   },
 },
 
+
+{
+  id: 'CT-01', expect: '확인',
+  name: '재단 공정은 이름이 아니라 구조로 찾는다 (재단 이전 가운데 마지막)',
+  async run(t) {
+    const m = await master(t);
+    await t.setActor(m.admin);
+
+    const cut = await t.val(`select cut_operation_id($1)`, [m.dm]);
+    t.ok(!!cut, '재단 공정을 찾았다');
+
+    const row = await t.one(
+      `select o.seq, o.after_cutting from dmr_operation o where o.id = $1`, [cut]);
+    t.eq(row.after_cutting, false, '재단 자체는 재단 이전 공정이다');
+
+    // 이 공정보다 뒤에 있는 재단 이전 공정이 없어야 한다
+    t.eq(Number(await t.val(
+      `select count(*)::int from dmr_operation
+        where device_master_id = $1 and not after_cutting and seq > $2`, [m.dm, row.seq])),
+      0, '재단 뒤에 오는 재단 이전 공정');
+  },
+},
+
+{
+  id: 'CT-02', expect: '예외',
+  name: '재단 공정을 시작하지 않은 사람은 재단 결과를 적을 수 없다',
+  async run(t) {
+    const m = await master(t);
+    const rawLot = await newMaterialLot(t, m, m.raw, { thickness_band: '0510', qty: 50 });
+    const wo = await newWorkOrder(t, m, { rawLot, sheets: 20 });
+
+    // 작업자로 들어가되 재단 공정 기록은 만들지 않는다
+    await t.setActor(m.worker);
+    await t.rejects(
+      () => t.rows(`select cut_product_lot_field($1,$2,$3,$4,current_date)`,
+        [wo.id, m.fin, 10, 1]),
+      { code: 'P0001', message: '재단 공정을 시작한 뒤에' });
+    await t.setActor(null);
+  },
+},
+
+{
+  id: 'CT-03', expect: '확인',
+  name: '재단 공정을 시작한 사람은 그 자리에서 제조번호를 부여한다',
+  async run(t) {
+    const m = await master(t);
+    const rawLot = await newMaterialLot(t, m, m.raw, { thickness_band: '0510', qty: 50 });
+    const wo = await newWorkOrder(t, m, { rawLot, sheets: 20 });
+
+    const cut = await t.val(`select cut_operation_id($1)`, [m.dm]);
+    await t.setActor(m.worker);
+    await t.rows(
+      `insert into process_record (work_order_id, operation_id, day_no, work_date,
+         worker_id, started_at)
+       values ($1,$2,1,current_date,$3,now())`, [wo.id, cut, m.worker]);
+
+    const lot = await t.val(
+      `select cut_product_lot_field($1,$2,$3,$4,current_date)`, [wo.id, m.fin, 10, 2]);
+    t.ok(!!lot, '제품 로트가 생겼다');
+
+    const pl = await t.one(
+      `select lot_no, qty_produced, qty_sample, qty_available, expiry_date
+         from product_lot where id = $1`, [lot]);
+    t.ok(!!pl.lot_no, '제조번호가 붙었다');
+    t.eq(pl.qty_available, 8, '샘플을 뺀 출하 가능 수량');
+    t.ok(!!pl.expiry_date, '유효기한이 그 자리에서 고정된다');
+  },
+},
+
+{
+  id: 'RV-08', expect: '확인',
+  name: '표시 문구는 공정을 코드가 아니라 이름으로 부른다',
+  async run(t) {
+    const m = await master(t);
+    const rawLot = await newMaterialLot(t, m, m.raw, { thickness_band: '0510', qty: 50 });
+    const wo = await newWorkOrder(t, m, { rawLot, sheets: 20 });
+    const op = m.ops['WS-DX2401-03'];
+
+    // 시작이 종료보다 늦은 기록 하나
+    await t.rows(
+      `insert into process_record (work_order_id, operation_id, day_no, work_date,
+         worker_id, started_at, ended_at)
+       values ($1,$2,1,current_date,$3,
+               current_date + interval '9 hours', current_date + interval '8 hours')`,
+      [wo.id, op, m.worker]);
+
+    const rows = await flags(t, wo);
+    const hit = rows.find((r) => r.kind === '시각 모순');
+    if (!hit) throw new Error('시각 역전을 잡지 못했다');
+
+    const name = await t.val(`select name from dmr_operation where id = $1`, [op]);
+    if (!hit.detail.includes(name)) {
+      throw new Error(`공정 이름 "${name}" 이 없다: ${hit.detail}`);
+    }
+  },
+},
+
 ];

@@ -225,7 +225,8 @@ if (!dm) {
   // 제품 최상위 관리 코드. 형명(PD…)은 그 아래의 규격이다
   await c.query(
     `update device_master
-        set expected_units = 204, product_code = 'DX2401', product_name = '돈피 진피'
+        set expected_units = 204, sample_per_lot = 2,
+            product_code = 'DX2401', product_name = '돈피 진피'
       where id = $1`, [dm]);
   console.log('제품표준서 Rev.02 · 공정 12 · 자재 구성표 8 · 예상 204개');
 

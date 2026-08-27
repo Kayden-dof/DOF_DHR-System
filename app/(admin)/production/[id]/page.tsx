@@ -171,7 +171,8 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
           * 편철 표지는 배치를 닫는 칸에 둔다.
           */}
         <div className="flex flex-wrap items-center gap-2">
-          <Link href={`/print/work-order/${wo.id}`} className="btn-ghost">
+          {/* 옆의 배치 종료와 같은 크기로 맞춘다. 나란히 서는 단추다 */}
+          <Link href={`/print/work-order/${wo.id}`} className="btn-ghost h-9 px-3 text-xs">
             작업 지시서 인쇄
           </Link>
           {active && <FinishForm id={wo.id} />}
@@ -368,7 +369,8 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
           </div>
         )}
         {active && (
-          <CutForm woId={wo.id} options={d.finished} today={d.today ?? ''} used={usedIds} />
+          <CutForm woId={wo.id} options={d.finished} today={d.today ?? ''} used={usedIds}
+                   band={wo.thickness_band} />
         )}
       </Panel>
 

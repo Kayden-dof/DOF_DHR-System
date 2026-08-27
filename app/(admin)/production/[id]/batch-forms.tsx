@@ -18,16 +18,36 @@ export interface FinOpt { id: string; code: string; name: string }
 /* ---------------------------------------------------------------------------
    재단 분할
 
-   한 배치는 하나의 두께 구간이므로 나올 수 있는 형명이 좁혀진다.
-   제조번호는 채번 규칙이 만들고 유효기한은 이 시점 값으로 고정된다.
+   한 배치는 하나의 두께 구간이므로 나올 수 있는 형명이 좁혀진다 (§3 ③).
+   두께는 원재료가 정하고 재단에서는 가로x세로만 갈리므로, 이 배치에서 나올 수
+   있는 형명은 62 개가 아니라 그 두께의 13 개다.
+
+   그런데 목록은 62 개를 그대로 펼치고 있었다. 재단하는 사람이 두께가 다른
+   형명을 고를 수 있고, 목록 첫 줄이 이 배치와 무관한 두께였다. 그래서 이
+   배치의 두께 구간을 앞으로 모으고 첫 줄로 세운다.
+
+   다른 두께를 지우지는 않는다. 차단은 S01~S05 뿐이고 (§2) 여기는 그 다섯이
+   아니다. 원재료 로트에 두께가 안 적혀 있을 수도 있다. 고를 수는 있게 두되
+   고른 것이 이 배치의 두께와 다르면 그 사실만 적는다 (§8.5).
 --------------------------------------------------------------------------- */
-export function CutForm({ woId, options, today, used }: {
+export function CutForm({ woId, options, today, used, band }: {
   woId: string; options: FinOpt[]; today: string; used: Set<string>;
+  /** 이 배치 원재료 로트의 두께 구간. 예 '1015' */
+  band?: string | null;
 }) {
   const [state, action, pending] = useActionState<FormState, FormData>(cutLot, {});
   const [produced, setProduced] = useState('');
   const [sample, setSample] = useState('0');
   const pool = options.filter((o) => !used.has(o.id));
+
+  // 형명 뒤 4 자리가 두께 구간이다 (PD + 가로2 + 세로2 + 두께하한2 + 두께상한2)
+  const ofBand = band ? pool.filter((o) => o.code.slice(-4) === band) : [];
+  const others = band ? pool.filter((o) => o.code.slice(-4) !== band) : pool;
+
+  const [itemId, setItemId] = useState('');
+  const picked = pool.find((o) => o.id === itemId) ?? ofBand[0] ?? others[0];
+  const offBand = !!band && !!picked && picked.code.slice(-4) !== band;
+
   const avail = Math.max(0, Number(produced || 0) - Number(sample || 0));
 
   return (
@@ -36,8 +56,26 @@ export function CutForm({ woId, options, today, used }: {
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <div className="lg:col-span-2">
           <label className="label">형명</label>
-          <select name="item_id" required className="input">
-            {pool.map((o) => <option key={o.id} value={o.id}>{o.code} · {o.name}</option>)}
+          <select name="item_id" required className="input"
+                  value={picked?.id ?? ''} onChange={(e) => setItemId(e.target.value)}>
+            {ofBand.length > 0 ? (
+              <>
+                <optgroup label={`이 배치의 두께 구간 ${band}`}>
+                  {ofBand.map((o) => (
+                    <option key={o.id} value={o.id}>{o.code} · {o.name}</option>
+                  ))}
+                </optgroup>
+                {others.length > 0 && (
+                  <optgroup label="그 밖의 두께">
+                    {others.map((o) => (
+                      <option key={o.id} value={o.id}>{o.code} · {o.name}</option>
+                    ))}
+                  </optgroup>
+                )}
+              </>
+            ) : (
+              pool.map((o) => <option key={o.id} value={o.id}>{o.code} · {o.name}</option>)
+            )}
           </select>
         </div>
         <div>
@@ -55,6 +93,14 @@ export function CutForm({ woId, options, today, used }: {
           <input name="manufactured_on" type="date" defaultValue={today} className="input tnum" />
         </div>
       </div>
+
+      {/* 두께가 다른 형명을 골랐다는 사실만 적는다. 막지 않는다 (§8.5) */}
+      {offBand && (
+        <Caution>
+          이 배치의 원재료 두께 구간은 {band} 인데 고른 형명 {picked!.code} 의
+          두께 구간은 {picked!.code.slice(-4)} 입니다.
+        </Caution>
+      )}
 
       <p className="mt-2 text-xs leading-relaxed text-muted">
         출하 가능 수량은 <b className="text-ink tnum">{avail}</b>개가 됩니다.

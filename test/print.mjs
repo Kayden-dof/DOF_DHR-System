@@ -254,6 +254,8 @@ if (day) {
 await sheet('③ 라벨요청서', `/print/label-request/${wo.id}`, [
   ...common('라벨요청서'),
   { label: '배치번호', value: wo.batch_no },
+  // 이 종이는 배치 하나의 여러 형명을 함께 담는다. 머리글은 최상위 제품 코드다
+  { label: '제품 관리 코드', value: wo.product_code ?? wo.item_name },
   ...lots.flatMap((l) => [
     { label: `제조번호 ${l.item_code}`, value: l.lot_no },
     { label: `모델명 ${l.lot_no}`,      value: l.item_code },
