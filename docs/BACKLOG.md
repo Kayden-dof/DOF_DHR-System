@@ -49,7 +49,7 @@ Android/iPad면 해당되지 않는다. **캡처를 정말 막아야 한다면 �
 
 실운영을 시작하는 날:
 
-1. `RESET_DB=ERASE node scripts/reset-db.mjs --prod` 로 시연 자료를 비운다
+1. `node scripts/reset-db.mjs --prod --erase` 로 시연 자료를 비운다
 2. 실제 계정과 기준정보를 화면에서 등록한다 (M1 전에 실제 로트 등록 금지)
 3. **`scripts/reset-db.mjs` 를 저장소에서 지운다.** 실기록이 생긴 뒤에 존재하면
    안 되는 도구다. 시연 자료 일괄 정리라는 한 가지 목적으로만 임시로 있다

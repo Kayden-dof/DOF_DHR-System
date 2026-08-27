@@ -1,10 +1,13 @@
 /* ---------------------------------------------------------------------------
    DB 초기화 (임시 도구 · 실운영 착수 전까지만)
 
-     node scripts/reset-db.mjs                     로컬 · 계획만 보여 준다
-     RESET_DB=ERASE node scripts/reset-db.mjs --demo          로컬 비우고 시연 자료
-     RESET_DB=ERASE node scripts/reset-db.mjs --prod          운영 비우고 빈 상태로
-     RESET_DB=ERASE node scripts/reset-db.mjs --prod --demo   운영 비우고 시연 자료
+     node scripts/reset-db.mjs                        로컬 · 계획만 보여 준다
+     node scripts/reset-db.mjs --erase --demo         로컬 비우고 시연 자료
+     node scripts/reset-db.mjs --prod --erase         운영 비우고 빈 상태로
+     node scripts/reset-db.mjs --prod --erase --demo  운영 비우고 시연 자료
+
+   --erase 대신 환경변수 RESET_DB=ERASE 도 같은 뜻이다. 플래그를 둔 이유는
+   PowerShell 에서 VAR=값 접두 문법이 없기 때문이다.
 
    2026-08-27 대표 시연을 위해 운영 DB에 시연 자료를 넣기로 하면서, 실운영을
    시작할 때 그 자료를 일괄 정리할 길이 함께 필요해졌다 (사용자 지시).
@@ -20,7 +23,7 @@
    DB 소유자 접속 정보(.env.deploy)를 가진 운영자만, 이 장비에서만 쓸 수 있다.
 
    ── 실운영 착수 시 ─────────────────────────────────────────────────────────
-   1) RESET_DB=ERASE node scripts/reset-db.mjs --prod   로 시연 자료를 비운다
+   1) node scripts/reset-db.mjs --prod --erase   로 시연 자료를 비운다
    2) 화면에서 실제 계정·기준정보를 등록한다
    3) **이 파일을 저장소에서 지운다.** 실기록이 생긴 뒤에는 존재하면 안 되는
       도구다. docs/BACKLOG.md 에 같은 내용이 적혀 있다
@@ -35,6 +38,7 @@ import { pgSsl } from './pgssl.mjs';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PROD = process.argv.includes('--prod');
 const DEMO = process.argv.includes('--demo');
+const ERASE = process.env.RESET_DB === 'ERASE' || process.argv.includes('--erase');
 
 // 대상 결정. 운영은 .env.deploy 의 소유자 접속(5432)만 쓴다
 for (const f of PROD ? ['.env.deploy'] : ['.env.local']) {
@@ -69,9 +73,9 @@ const counts = (await client.query(`
 console.log(`대상   : ${PROD ? '운영 (Supabase)' : '로컬'} · ${mask}`);
 console.table([counts]);
 
-if (process.env.RESET_DB !== 'ERASE') {
-  console.log('계획만 보여 주었습니다. 실제로 비우려면:');
-  console.log(`  RESET_DB=ERASE node scripts/reset-db.mjs${PROD ? ' --prod' : ''}${DEMO ? ' --demo' : ''}`);
+if (!ERASE) {
+  console.log('계획만 보여 주었습니다. 실제로 비우려면 --erase 를 붙이십시오:');
+  console.log(`  node scripts/reset-db.mjs${PROD ? ' --prod' : ''} --erase${DEMO ? ' --demo' : ''}`);
   await client.end();
   process.exit(0);
 }
