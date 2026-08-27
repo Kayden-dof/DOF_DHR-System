@@ -1,17 +1,22 @@
 import { requireUser, hasRole } from '@/lib/session';
+import { withActor } from '@/lib/db';
 import Denied from '@/components/denied';
 import { PageShell } from '@/components/shell';
 import { SubNav } from '../../nav';
 import { PRODUCTION_NAV } from '../../sections';
-import { NewItemForm } from '../../settings/items/item-forms';
+import { NewProduct } from '../../settings/dmr/dmr-forms';
 import { DmrWorkbench } from '../../settings/dmr/workbench';
 
 export const dynamic = 'force-dynamic';
 
 /* ---------------------------------------------------------------------------
-   생산 품목 설정 (사용자 지시 2026-08-27)
+   제품 (사용자 지시 2026-08-27)
 
-   새 생산 품목이 생기면 생산관리자가 여기서 셋업한다. 완제품 품목을 만들고,
+   만드는 것(제품)과 사들이는 것(자재 품목)은 다른 물건이다. 여기는 제품이고,
+   자재 품목은 자재 > 품목이 맡는다. 둘을 한 "품목 등록"으로 묶어 두었더니
+   제품 하나 만드는 데 폼 셋을 거쳐야 했다.
+
+   새 제품이 생기면 생산관리자가 여기서 셋업한다. 완제품 품목을 만들고,
    제품표준서 개정을 등록해 공정을 구성하고, 공정별 자재 구성표와 설비를 걸고,
    배치당 예상 생산수량을 적는다. 서면 제품표준서와 대조 확인까지 끝나야
    작업 지시를 발행할 수 있다.
@@ -28,12 +33,23 @@ export default async function ProductionSetupPage({
   }
   const sp = await searchParams;
 
+  // 대표 형명 후보와 오늘. 제품 등록 폼이 쓴다
+  const d = await withActor(user.id, async (db) => ({
+    finished: await db.rows<{ id: string; code: string; name: string }>(
+      `select i.id, i.code, i.name from item i
+        where i.type = 'FIN' and i.is_active
+          and not exists (select 1 from device_master dm where dm.item_id = i.id)
+        order by i.code limit 200`),
+    today: (await db.val<string>(
+      `select to_char(timezone('Asia/Seoul', now()),'YYYY-MM-DD')`)) ?? '',
+  }));
+
   return (
     <PageShell
       section="생산"
-      title="품목 설정"
-      lede="새 생산 품목의 셋업입니다. 완제품 품목을 만들고, 공정을 구성하고, 자재 구성표와 설비를 걸고, 배치당 예상 생산수량을 적습니다. 서면 대조 확인까지 끝나야 작업 지시를 발행할 수 있습니다."
-      action={<NewItemForm />}
+      title="제품"
+      lede="만드는 제품을 여기서 셋업합니다. 제품 코드와 규격을 정하고, 공정 흐름을 넣고, 자재 구성표와 설비를 겁니다. 서면 대조 확인까지 끝나야 작업 지시를 발행할 수 있습니다. 사들이는 자재는 자재 > 품목에서 등록합니다."
+      action={<NewProduct finished={d.finished} today={d.today} />}
       nav={<SubNav items={PRODUCTION_NAV} />}
     >
       <DmrWorkbench userId={user.id} dmParam={sp.dm} base="/production/setup" />

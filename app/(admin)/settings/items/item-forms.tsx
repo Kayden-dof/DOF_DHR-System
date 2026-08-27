@@ -27,7 +27,7 @@ const typeLabel = (t: string) => ITEM_TYPES.find((x) => x.code === t)?.label ?? 
 
 /* -------------------------------------------------------------------------- */
 
-export function NewItemForm() {
+export function NewItemForm({ materialOnly = false }: { materialOnly?: boolean }) {
   const [state, action, pending] = useActionState<FormState, FormData>(createItem, {});
   const [open, setOpen] = useState(false);
 
@@ -52,7 +52,7 @@ export function NewItemForm() {
         <div>
           <label className="label" htmlFor="type">유형</label>
           <select id="type" name="type" className="input" defaultValue="REAGENT">
-            {ITEM_TYPES.map((x) => (
+            {(materialOnly ? ITEM_TYPES.filter((x) => x.code !== 'FIN') : ITEM_TYPES).map((x) => (
               <option key={x.code} value={x.code}>{x.label}</option>
             ))}
           </select>

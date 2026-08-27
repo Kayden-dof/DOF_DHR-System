@@ -18,6 +18,59 @@ const path = (dm?: string) => {
   if (dm) revalidatePath(`/settings/dmr/${dm}`);
 };
 
+/**
+ * 제품 등록.
+ *
+ * 제품 하나를 만드는 데 폼 셋을 거쳐야 했다 - 품목(형명) 등록 → 표준서 개정
+ * 추가 → 제품 코드 입력. 개념이 섞여 있어서 그렇다. 만드는 것(제품)과
+ * 사들이는 것(자재 품목)은 다른 물건인데 같은 "품목 등록" 하나로 묶여 있었다
+ * (사용자 지적).
+ *
+ * 제품 등록은 한 번에 끝낸다. 제품 코드 · 제품명 · 대표 형명 · 개정 표기를
+ * 받아 형명(item)과 제품표준서(device_master)를 함께 만든다.
+ *
+ * 형명은 규격이다 (PD + 가로 + 세로 + 두께하한 + 두께상한). 제품 하나에 규격이
+ * 여럿이고, 실제로 어느 규격이 나오는지는 재단에서 정해진다 (§3). 여기서 받는
+ * 것은 그 제품을 대표하는 형명 하나이고, 나머지 규격은 완제품 형명 생성으로
+ * 만든다.
+ */
+export async function createProduct(_p: FormState, form: FormData): Promise<FormState> {
+  try {
+    const me = await admin();
+    const productCode = String(form.get('product_code') ?? '').trim();
+    const productName = String(form.get('product_name') ?? '').trim();
+    const revision = String(form.get('revision') ?? '').trim();
+    const existing = String(form.get('item_id') ?? '').trim();
+    const newCode = String(form.get('new_item_code') ?? '').trim();
+    const newName = String(form.get('new_item_name') ?? '').trim();
+
+    if (!productCode) return { error: '제품 코드를 입력하십시오' };
+    if (!existing && !newCode) return { error: '대표 형명을 고르거나 새로 적으십시오' };
+
+    await withActor(me.id, async (db) => {
+      let itemId = existing;
+      if (!itemId) {
+        itemId = (await db.val<string>(
+          `insert into item (code, name, type, purchase_uom, usage_uom, shelf_life_months)
+           values ($1,$2,'FIN','EA','EA',12) returning id`,
+          [newCode, newName || `${productName} ${newCode}`]))!;
+      }
+      await db.rows(
+        `insert into device_master
+           (item_id, revision, status, effective_from, product_code, product_name)
+         values ($1,$2,'DRAFT',$3::date,$4,$5)`,
+        [itemId, revision, String(form.get('effective_from') ?? '') || null,
+         productCode, productName || null]);
+    });
+
+    path();
+    return { ok: true,
+      message: `${productCode} ${revision} 을 만들었습니다. 공정 흐름부터 넣으십시오.` };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
 export async function createDeviceMaster(_p: FormState, form: FormData): Promise<FormState> {
   try {
     const me = await admin();

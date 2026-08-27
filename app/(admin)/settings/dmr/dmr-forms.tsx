@@ -5,7 +5,7 @@ import type { FormState } from '@/lib/forms';
 import { Msg, Tag } from '@/components/ui';
 import {
   createDeviceMaster, verifyDeviceMaster, addOperation, addBom, addTier, setExpectedUnits, setProductCode,
-  addOperationsBulk, copyDmr,
+  addOperationsBulk, copyDmr, createProduct,
 } from './actions';
 import { linkOperation } from '../../equipment/actions';
 
@@ -513,6 +513,129 @@ FI-DX2402-01 | 완제품 검사 | 재단이후`}
           {bulkPending ? '넣는 중' : '공정 넣기'}
         </button>
         <button type="button" onClick={() => setMode(null)}
+                className="btn-ghost h-9 px-3 text-xs">그만두기</button>
+      </div>
+    </form>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   제품 등록
+
+   만드는 것(제품)과 사들이는 것(자재 품목)은 다른 물건이다. 여기는 제품이다.
+   제품 코드 · 제품명 · 대표 형명 · 개정을 한 번에 받아 형명과 제품표준서를
+   함께 만든다. 그다음이 공정 흐름이다.
+--------------------------------------------------------------------------- */
+export function NewProduct({
+  finished, today,
+}: {
+  /** 이미 있는 완제품 형명. 새 규격이면 직접 적는다 */
+  finished: { id: string; code: string; name: string }[];
+  today: string;
+}) {
+  const [state, action, pending] = useActionState<FormState, FormData>(createProduct, {});
+  const [open, setOpen] = useState(false);
+  const [useExisting, setUseExisting] = useState(finished.length > 0);
+
+  if (!open) {
+    return <button onClick={() => setOpen(true)} className="btn-primary">제품 등록</button>;
+  }
+  if (state.ok) {
+    return (
+      <div className="card w-full p-4">
+        <Msg state={state} />
+        <button onClick={() => setOpen(false)} className="btn-ghost mt-3 h-9 px-3 text-xs">
+          닫기
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <form action={action} className="card w-full p-4">
+      <h3 className="text-sm font-bold text-ink">제품 등록</h3>
+      <p className="mt-1 text-xs leading-relaxed text-muted">
+        만드는 제품입니다. 사들이는 자재는 <b className="text-ink">자재 &gt; 품목</b>에서
+        등록합니다.
+      </p>
+
+      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div>
+          <label className="label">제품 코드 (관리 코드)</label>
+          <input name="product_code" required autoComplete="off" placeholder="DX2402"
+                 className="input font-mono" />
+        </div>
+        <div>
+          <label className="label">제품명</label>
+          <input name="product_name" autoComplete="off" placeholder="우피 진피"
+                 className="input" />
+        </div>
+        <div>
+          <label className="label">제품표준서 개정</label>
+          <input name="revision" required autoComplete="off" placeholder="Rev.01"
+                 className="input font-mono" />
+        </div>
+        <div>
+          <label className="label">시행일</label>
+          <input name="effective_from" type="date" defaultValue={today} className="input tnum" />
+        </div>
+      </div>
+
+      {/*
+        * 대표 형명. 형명은 규격이다 (PD + 가로 + 세로 + 두께). 제품 하나에
+        * 규격이 여럿이고 실제로 어느 규격이 나오는지는 재단에서 정해진다.
+        * 여기서는 그 제품을 대표하는 하나만 정하고, 나머지는 완제품 형명
+        * 생성으로 만든다.
+        */}
+      <div className="mt-3 rounded-md border border-line bg-canvas p-3">
+        <p className="label mb-2">대표 형명 (규격)</p>
+        <div className="flex flex-wrap gap-1.5">
+          {finished.length > 0 && (
+            <button type="button" onClick={() => setUseExisting(true)}
+                    className={`chip ${useExisting ? 'bg-brand text-white' : 'bg-surface text-muted'}`}>
+              이미 있는 형명에서
+            </button>
+          )}
+          <button type="button" onClick={() => setUseExisting(false)}
+                  className={`chip ${!useExisting ? 'bg-brand text-white' : 'bg-surface text-muted'}`}>
+            새 형명 만들기
+          </button>
+        </div>
+
+        {useExisting ? (
+          <select name="item_id" required className="input mt-2.5">
+            <option value="">고르십시오</option>
+            {finished.map((f) => (
+              <option key={f.id} value={f.id}>{f.code} · {f.name}</option>
+            ))}
+          </select>
+        ) : (
+          <div className="mt-2.5 grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="label">형명 코드</label>
+              <input name="new_item_code" autoComplete="off" placeholder="PD05050510"
+                     className="input font-mono" />
+            </div>
+            <div>
+              <label className="label">형명 이름</label>
+              <input name="new_item_name" autoComplete="off"
+                     placeholder="DX2402 0.5x0.5 0.5~1.0mm" className="input" />
+            </div>
+          </div>
+        )}
+        <p className="mt-2 text-xs leading-relaxed text-faint">
+          형명은 규격입니다. 제품 하나에 규격이 여럿이고, 실제로 어느 규격이 나오는지는
+          재단에서 정해집니다. 나머지 규격은 등록 후 <b className="text-ink">완제품 형명
+          생성</b>으로 한꺼번에 만듭니다.
+        </p>
+      </div>
+
+      <Msg state={state} />
+      <div className="mt-3 flex gap-2">
+        <button type="submit" disabled={pending} className="btn-primary h-9 px-4 text-xs">
+          {pending ? '등록 중' : '등록'}
+        </button>
+        <button type="button" onClick={() => setOpen(false)}
                 className="btn-ghost h-9 px-3 text-xs">그만두기</button>
       </div>
     </form>
