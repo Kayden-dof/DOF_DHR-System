@@ -164,6 +164,19 @@ body {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   overscroll-behavior-y: none;
+
+  /*
+   * 한글은 낱말째 넘긴다.
+   *
+   * 브라우저 기본값은 한글을 음절 단위로 끊는다. 라틴 문자에는 맞지만 한글은
+   * "NaCl 처리·세 / 척" 처럼 낱말 가운데가 갈라진다. 좁은 칸이 많은 표에서
+   * 특히 자주 나오고, 읽는 사람이 한 번 더 붙여 읽어야 한다.
+   *
+   * 칸보다 긴 낱말은 어쩔 수 없이 끊어야 밖으로 삐져나가지 않으므로
+   * overflow-wrap 을 함께 둔다. 평소에는 지키고 정말 안 될 때만 끊는다.
+   */
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }
 
 /*
@@ -649,8 +662,6 @@ h2 { line-height: 1.3; }
    삐져나가므로, 그때만 끊도록 overflow-wrap 을 함께 둔다. 평소에는 낱말을
    지키고 어쩔 수 없을 때만 끊는다.
 --------------------------------------------------------------------------- */
-.sheet { word-break: keep-all; overflow-wrap: break-word; }
-
 .print-table { border-collapse: collapse; width: 100%; }
 .print-table th, .print-table td {
   border: 1px solid #333;
