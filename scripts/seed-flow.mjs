@@ -329,17 +329,22 @@ console.log('\n[품질] 부적합과 결말');
  *
  * 불량으로 적은 만큼만 출하 가능 수량이 준다.
  */
-for (const [lot, qty, outcome, reason] of [
-  [lots[0], 3, 'REWORK',     '포장 손상'],
-  [lots[0], 1, 'SCRAP',      '외관 불량'],
-  [lots[1], 2, 'CONCESSION', '치수 이탈'],
+/* 어디서 발견했는지도 함께 적는다. 재단 이후 공정만 온다 (0047) */
+for (const [lot, qty, outcome, reason, opCode] of [
+  [lots[0], 3, 'REWORK',     '포장 손상', 'PI-DX2401-02'],
+  [lots[0], 1, 'SCRAP',      '외관 불량', 'FI-DX2401-01'],
+  [lots[1], 2, 'CONCESSION', '치수 이탈', 'PI-DX2401-02'],
 ]) {
+  const ncOp = await val(
+    `select o.id from dmr_operation o
+       join work_order w on w.device_master_id = o.device_master_id
+      where w.id = $1 and o.code = $2`, [wo.id, opCode]);
   await as(mgrUser.id, () =>
     client.query(
       `insert into product_nonconformity
-         (product_lot_id, qty, outcome, reason_code, registered_by,
+         (product_lot_id, operation_id, qty, outcome, reason_code, registered_by,
           approved_by, approved_on, concession_doc_no)
-       values ($1,$2,$3::nc_outcome,$4,$5,$6,$7,$8)`,
+       values ($1,$9,$2,$3::nc_outcome,$4,$5,$6,$7,$8)`,
       /*
        * 특채는 품질팀 기록지의 문서 코드가 있어야 특채로 잡힌다 (0046).
        * 코드가 없으면 행 자체가 들어가지 않는다.
@@ -347,9 +352,34 @@ for (const [lot, qty, outcome, reason] of [
       [lot.id, qty, outcome, reason, mgrUser.id,
        outcome === 'CONCESSION' ? '정품질' : null,
        outcome === 'CONCESSION' ? new Date().toISOString().slice(0, 10) : null,
-       outcome === 'CONCESSION' ? 'QC-CON-2026-004' : null]));
+       outcome === 'CONCESSION' ? 'QC-CON-2026-004' : null,
+       ncOp]));
   say(`${lot.lot_no} ${reason} ${qty}개 → ${
     outcome === 'REWORK' ? '재작업' : outcome === 'CONCESSION' ? '특채' : '불량'}`);
+}
+
+/*
+ * 재단 전 부적합. 단위가 장이다 (0047).
+ *
+ * 1차 반제품 검사에서 두 장이 걸렸고 한 장은 재세척으로 살렸다. 제품 개수와
+ * 더하지 않으므로 화면에서도 따로 선다.
+ */
+for (const [opCode, sheets, outcome, reason] of [
+  ['PI-DX2401-01', 1, 'SCRAP',  '외관 불량'],
+  ['WS-DX2401-05', 1, 'REWORK', '치수 이탈'],
+]) {
+  /* 배치를 거쳐 찾는다. 제품표준서 id 를 여기까지 들고 오지 않는다 */
+  const opId = await val(
+    `select o.id from dmr_operation o
+       join work_order w on w.device_master_id = o.device_master_id
+      where w.id = $1 and o.code = $2`, [wo.id, opCode]);
+  await as(mgrUser.id, () =>
+    client.query(
+      `insert into wip_nonconformity
+         (work_order_id, operation_id, sheets, outcome, reason_code, registered_by)
+       values ($1,$2,$3,$4::nc_outcome,$5,$6)`,
+      [wo.id, opId, sheets, outcome, reason, mgrUser.id]));
+  say(`${opCode} ${reason} ${sheets}장 → ${outcome === 'SCRAP' ? '불량' : '재작업'}`);
 }
 
 /* --- 재고 증감 ------------------------------------------------------------ */

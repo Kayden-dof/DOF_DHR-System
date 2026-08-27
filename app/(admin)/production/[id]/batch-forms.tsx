@@ -8,7 +8,7 @@ import { Msg, Caution } from '@/components/ui';
 import { Dialog, useDialog } from '@/components/dialog';
 import {
   cutLot, setLotStatus, cancelWorkOrder, finishWorkOrder, retrievePrint,
-  recordNonconformity,
+  recordNonconformity, recordWipNonconformity,
 } from '../actions';
 
 export interface LotRow {
@@ -329,8 +329,12 @@ const NC_REASONS = [
   '외관 불량', '치수 이탈', '포장 손상', '라벨 오류', '멸균 부적합', '기타',
 ];
 
-export function NonconformityForm({ lot, woId, today }: {
+export interface OpOpt { id: string; code: string; name: string; after_cutting: boolean }
+
+export function NonconformityForm({ lot, woId, today, ops }: {
   lot: LotRow; woId: string; today: string;
+  /** 이 배치의 공정. 재단 이후 것만 고를 수 있다 */
+  ops: OpOpt[];
 }) {
   const [state, action, pending] = useActionState<FormState, FormData>(
     recordNonconformity, {});
@@ -365,7 +369,21 @@ export function NonconformityForm({ lot, woId, today }: {
             </div>
           </div>
 
+          {/*
+            * 어디서 발견했나. 별도의 위치 코드를 만들지 않고 공정을 그대로
+            * 쓴다 - dmr_operation 이 이미 모든 단계를 가지고 있고, 같은 것에
+            * 이름이 둘이면 반드시 어긋난다.
+            */}
           <div className="grid gap-3 sm:grid-cols-3">
+            <div className="sm:col-span-2">
+              <label className="label">발견 공정</label>
+              <select name="operation_id" required className="input">
+                <option value="">선택하십시오</option>
+                {ops.filter((o) => o.after_cutting).map((o) => (
+                  <option key={o.id} value={o.id}>{o.name} ({o.code})</option>
+                ))}
+              </select>
+            </div>
             <div>
               <label className="label">수량</label>
               <input name="qty" type="number" min={1}
@@ -379,7 +397,7 @@ export function NonconformityForm({ lot, woId, today }: {
                 {NC_REASONS.map((r) => <option key={r}>{r}</option>)}
               </select>
             </div>
-            <div>
+            <div className="sm:col-span-2">
               <label className="label">발견일</label>
               <input name="found_at" type="date" defaultValue={today} className="input tnum" />
             </div>
@@ -426,6 +444,120 @@ export function NonconformityForm({ lot, woId, today }: {
               ? '불량으로 적은 수량만큼 이 제조번호의 출하 가능 수량이 줄어듭니다. 되돌릴 수 없습니다.'
               : '재작업과 특채는 제품으로 나가므로 출하 가능 수량이 줄지 않습니다.'}
             {' '}무엇이 부적합인지는 서면으로 정하고, 시스템은 그 결과를 적습니다.
+          </p>
+
+          <Msg state={state} />
+          <button type="submit" disabled={pending} className="btn-primary w-full">
+            {pending ? '기록하는 중' : '기록한다'}
+          </button>
+        </form>
+      </Dialog>
+    </>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   재단 전 부적합
+
+   단위가 장이다. 재단 전에는 아직 제품이 없으므로 개로 셀 수 없고, 한 장에서
+   여러 개가 나오므로 나중에 개로 환산할 수도 없다. 그래서 제품 부적합과 표를
+   나누고 화면도 나눈다 (0047).
+
+   어디서 발견했는지는 공정으로 받는다. 별도의 위치 코드를 만들지 않는다 -
+   dmr_operation 이 이미 모든 단계를 가지고 있다. 여기 목록에는 재단 이전
+   공정만 오고, 재단 이후를 고르면 DB 가 거부한다.
+
+   장입 장수는 줄지 않는다. 발행 시점에 장입하기로 한 수이고 이미 일어난 일이다.
+--------------------------------------------------------------------------- */
+export function WipNonconformityForm({ woId, today, ops, sheets }: {
+  woId: string; today: string; ops: OpOpt[]; sheets: number;
+}) {
+  const [state, action, pending] = useActionState<FormState, FormData>(
+    recordWipNonconformity, {});
+  const { open, setOpen } = useDialog(state);
+  const [outcome, setOutcome] = useState<'REWORK' | 'CONCESSION' | 'SCRAP'>('SCRAP');
+
+  return (
+    <>
+      <button onClick={() => setOpen(true)} className="btn-ghost h-9 px-3 text-xs">
+        재단 전 부적합
+      </button>
+      <Dialog open={open} onClose={() => setOpen(false)} wide
+              title="재단 전 부적합 기록"
+              note={<>장입 <span className="tnum">{sheets}</span>장 · 단위는 <b>장</b>입니다.
+                재단 이후 부적합은 제품 로트에 적습니다.</>}>
+        <form action={action} className="space-y-4">
+          <input type="hidden" name="work_order_id" value={woId} />
+          <input type="hidden" name="outcome" value={outcome} />
+
+          <div>
+            <span className="label">결말</span>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {NC_OUTCOMES.map((o) => (
+                <button key={o.code} type="button" onClick={() => setOutcome(o.code)}
+                        data-on={outcome === o.code}
+                        className="tile items-center py-2.5 text-center">
+                  <span className="text-sm font-bold">{o.label}</span>
+                  <span className="text-xs text-muted">{o.note}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="sm:col-span-2">
+              <label className="label">발견 공정</label>
+              <select name="operation_id" required className="input">
+                <option value="">선택하십시오</option>
+                {ops.filter((o) => !o.after_cutting).map((o) => (
+                  <option key={o.id} value={o.id}>{o.name} ({o.code})</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="label">장수</label>
+              <input name="sheets" type="number" min={1} required className="input tnum" />
+            </div>
+            <div>
+              <label className="label">사유</label>
+              <select name="reason_code" required className="input">
+                <option value="">선택하십시오</option>
+                {NC_REASONS.map((r) => <option key={r}>{r}</option>)}
+              </select>
+            </div>
+            <div className="sm:col-span-2">
+              <label className="label">발견일</label>
+              <input name="found_at" type="date" defaultValue={today} className="input tnum" />
+            </div>
+          </div>
+
+          <div>
+            <label className="label">상세 (선택)</label>
+            <input name="reason_detail" autoComplete="off" className="input" />
+          </div>
+
+          {outcome === 'CONCESSION' && (
+            <div className="grid gap-3 rounded-md border border-warn/30 bg-warn-bg p-3 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <label className="label">특채 기록지 문서 코드 (필수)</label>
+                <input name="concession_doc_no" required autoComplete="off"
+                       placeholder="예: QC-CON-2026-004" className="input font-mono" />
+              </div>
+              <div>
+                <label className="label">서면 승인자 (필수)</label>
+                <input name="approved_by" required autoComplete="off" className="input" />
+              </div>
+              <div>
+                <label className="label">승인일 (필수)</label>
+                <input name="approved_on" type="date" required defaultValue={today}
+                       className="input tnum" />
+              </div>
+            </div>
+          )}
+
+          <p className="text-xs leading-relaxed text-muted">
+            장입 장수는 줄지 않습니다. 발행 시점에 장입하기로 한 수이고 이미 일어난
+            일입니다. 버린 사실을 따로 적을 뿐입니다.
           </p>
 
           <Msg state={state} />

@@ -798,13 +798,15 @@ export default [
     const lot = await t.val(
       `select cut_product_lot($1,$2,$3,$4,current_date)`, [wo.id, m.fin, 100, 2]);
 
+    /* 어디서 발견했나. 재단 이후 공정만 온다 (0047) */
+    const fi = m.ops['FI-DX2401-01'];
     const nc = (qty, outcome, extra = '') => t.rows(
       `insert into product_nonconformity
-         (product_lot_id, qty, outcome, reason_code, registered_by
+         (product_lot_id, operation_id, qty, outcome, reason_code, registered_by
           ${extra ? ', approved_by, approved_on, concession_doc_no' : ''})
-       values ($1,$2,$3::nc_outcome,'외관 불량',$4
+       values ($1,$5,$2,$3::nc_outcome,'외관 불량',$4
           ${extra ? ", '정품질', current_date, 'QC-CON-1'" : ''})`,
-      [lot, qty, outcome, m.admin]);
+      [lot, qty, outcome, m.admin, fi]);
 
     await nc(6, 'REWORK');
     await nc(3, 'CONCESSION', 'y');
@@ -838,25 +840,29 @@ export default [
     await t.rejects(
       () => t.rows(
         `insert into product_nonconformity
-           (product_lot_id, qty, outcome, reason_code, registered_by)
-         values ($1,5,'CONCESSION','외관 불량',$2)`, [lot, m.admin]),
+           (product_lot_id, operation_id, qty, outcome, reason_code, registered_by)
+         values ($1,$3,5,'CONCESSION','외관 불량',$2)`,
+        [lot, m.admin, m.ops['FI-DX2401-01']]),
       { code: '23514' });
 
     // 승인자는 있는데 특채 기록지 문서 코드가 없다. 그래도 특채가 아니다
     await t.rejects(
       () => t.rows(
         `insert into product_nonconformity
-           (product_lot_id, qty, outcome, reason_code, registered_by,
+           (product_lot_id, operation_id, qty, outcome, reason_code, registered_by,
             approved_by, approved_on)
-         values ($1,5,'CONCESSION','외관 불량',$2,'정품질',current_date)`, [lot, m.admin]),
+         values ($1,$3,5,'CONCESSION','외관 불량',$2,'정품질',current_date)`,
+        [lot, m.admin, m.ops['FI-DX2401-01']]),
       { code: '23514' });
 
     // 특채가 아닌 줄에 문서 코드를 붙이지 않는다
     await t.rejects(
       () => t.rows(
         `insert into product_nonconformity
-           (product_lot_id, qty, outcome, reason_code, registered_by, concession_doc_no)
-         values ($1,5,'SCRAP','외관 불량',$2,'QC-CON-9')`, [lot, m.admin]),
+           (product_lot_id, operation_id, qty, outcome, reason_code, registered_by,
+            concession_doc_no)
+         values ($1,$3,5,'SCRAP','외관 불량',$2,'QC-CON-9')`,
+        [lot, m.admin, m.ops['FI-DX2401-01']]),
       { code: '23514' });
     await t.setActor(null);
   },
@@ -876,8 +882,9 @@ export default [
     await t.rejects(
       () => t.rows(
         `insert into product_nonconformity
-           (product_lot_id, qty, outcome, reason_code, registered_by)
-         values ($1,20,'SCRAP','외관 불량',$2)`, [lot, m.admin]),
+           (product_lot_id, operation_id, qty, outcome, reason_code, registered_by)
+         values ($1,$3,20,'SCRAP','외관 불량',$2)`,
+        [lot, m.admin, m.ops['FI-DX2401-01']]),
       { code: 'P0001', message: '많이 폐기할 수 없습니다' });
     await t.setActor(null);
   },
@@ -889,6 +896,85 @@ export default [
   async run(t) {
     await t.asRole('app_role', () =>
       t.rejects(() => t.rows(`delete from product_nonconformity`), { code: '42501' }));
+  },
+},
+
+
+{
+  id: 'WN-01', expect: '확인',
+  name: '재단 전 부적합은 장으로 세고 장입 장수는 줄지 않는다',
+  async run(t) {
+    const m = await master(t);
+    const rawLot = await newMaterialLot(t, m, m.raw, { thickness_band: '0510', qty: 50 });
+    const wo = await newWorkOrder(t, m, { rawLot, sheets: 20 });
+    await t.setActor(m.admin);
+
+    await t.rows(
+      `insert into wip_nonconformity
+         (work_order_id, operation_id, sheets, outcome, reason_code, registered_by)
+       values ($1,$2,2,'SCRAP','외관 불량',$3)`,
+      [wo.id, m.ops['PI-DX2401-01'], m.admin]);
+
+    t.eq(Number(await t.val(
+      `select sheet_count from work_order where id = $1`, [wo.id])), 20, '장입 장수는 그대로');
+
+    const v = (await t.rows(
+      `select sheets, sheet_scrap, sheet_scrap_pct::text as pct from v_board_period
+        where period = 'month' and bucket = date_trunc('month', current_date)::date`))[0];
+    t.ok(Number(v.sheet_scrap) >= 2, '폐기 장수');
+    t.ok(Number(v.pct) > 0, '재단 전 폐기율');
+    await t.setActor(null);
+  },
+},
+
+{
+  id: 'WN-02', expect: '예외',
+  name: '재단 이후 공정은 재단 전 부적합에 적을 수 없다',
+  async run(t) {
+    const m = await master(t);
+    const rawLot = await newMaterialLot(t, m, m.raw, { thickness_band: '0510', qty: 50 });
+    const wo = await newWorkOrder(t, m, { rawLot, sheets: 20 });
+    await t.setActor(m.admin);
+
+    await t.rejects(
+      () => t.rows(
+        `insert into wip_nonconformity
+           (work_order_id, operation_id, sheets, outcome, reason_code, registered_by)
+         values ($1,$2,1,'SCRAP','외관 불량',$3)`,
+        [wo.id, m.ops['FI-DX2401-01'], m.admin]),
+      { code: 'P0001', message: '재단 이후 공정입니다' });
+    await t.setActor(null);
+  },
+},
+
+{
+  id: 'WN-03', expect: '예외',
+  name: '재단 이전 공정은 제품 부적합에 적을 수 없다',
+  async run(t) {
+    const m = await master(t);
+    const rawLot = await newMaterialLot(t, m, m.raw, { thickness_band: '0510', qty: 50 });
+    const wo = await newWorkOrder(t, m, { rawLot, sheets: 20 });
+    await t.setActor(m.admin);
+    const lot = await t.val(
+      `select cut_product_lot($1,$2,$3,$4,current_date)`, [wo.id, m.fin, 40, 2]);
+
+    await t.rejects(
+      () => t.rows(
+        `insert into product_nonconformity
+           (product_lot_id, operation_id, qty, outcome, reason_code, registered_by)
+         values ($1,$2,1,'SCRAP','외관 불량',$3)`,
+        [lot, m.ops['PI-DX2401-01'], m.admin]),
+      { code: 'P0001', message: '재단 이전 공정입니다' });
+    await t.setActor(null);
+  },
+},
+
+{
+  id: 'WN-04', expect: '권한 거부',
+  name: '재단 전 부적합도 지워지지 않는다',
+  async run(t) {
+    await t.asRole('app_role', () =>
+      t.rejects(() => t.rows(`delete from wip_nonconformity`), { code: '42501' }));
   },
 },
 

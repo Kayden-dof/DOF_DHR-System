@@ -246,12 +246,75 @@ export async function recordNonconformity(
          outcome === 'CONCESSION' ? approver : null,
          outcome === 'CONCESSION' ? approvedOn : null,
          String(form.get('found_at') ?? '') || null,
-         me.id]));
+         me.id,
+         /* 어디서 발견했나. 재단 이후 공정만 온다 (trg_nc_scope) */
+         String(form.get('operation_id') ?? '') || null]));
 
     bump(woId);
     const label = outcome === 'REWORK' ? '재작업'
       : outcome === 'CONCESSION' ? '특채' : '불량';
     return { ok: true, message: `${label} ${qty}개를 기록했습니다.` };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   재단 전 부적합 기록
+
+   단위가 장이다. 제품 개수와 더하지 않는다 - 한 장에서 여러 개가 나오므로
+   더하는 순간 뜻을 잃는다 (0047).
+
+   어디서 발견했는지는 공정으로 받는다. 별도의 위치 코드를 만들지 않는다 -
+   dmr_operation 이 이미 모든 단계를 가지고 있고, 같은 것에 이름이 둘이면
+   반드시 어긋난다.
+--------------------------------------------------------------------------- */
+export async function recordWipNonconformity(
+  _p: FormState, form: FormData,
+): Promise<FormState> {
+  try {
+    const me = await mgr();
+    const woId = String(form.get('work_order_id') ?? '');
+    const outcome = String(form.get('outcome') ?? '');
+    const sheets = Number(form.get('sheets') ?? 0);
+    const reason = String(form.get('reason_code') ?? '').trim();
+    const opId = String(form.get('operation_id') ?? '').trim();
+
+    if (!['REWORK', 'CONCESSION', 'SCRAP'].includes(outcome)) {
+      return { error: '결말을 고르십시오' };
+    }
+    if (!opId) return { error: '어느 공정에서 발견했는지 고르십시오' };
+    if (!Number.isInteger(sheets) || sheets < 1) {
+      return { error: '장수는 1 이상의 정수입니다' };
+    }
+    if (!reason) return { error: '사유를 고르십시오' };
+
+    const approver = String(form.get('approved_by') ?? '').trim();
+    const approvedOn = String(form.get('approved_on') ?? '').trim();
+    const docNo = String(form.get('concession_doc_no') ?? '').trim();
+    if (outcome === 'CONCESSION' && (!approver || !approvedOn || !docNo)) {
+      return { error: '특채는 기록지 문서 코드와 서면 승인자 · 승인일이 있어야 기록됩니다' };
+    }
+
+    await withActor(me.id, (db) =>
+      db.rows(
+        `insert into wip_nonconformity
+           (work_order_id, operation_id, sheets, outcome, reason_code, reason_detail,
+            approved_by, approved_on, concession_doc_no, found_at, registered_by)
+         values ($1,$2,$3,$4::nc_outcome,$5,$6,$7,$8::date,$9,
+                 coalesce($10::date, (timezone('Asia/Seoul', now()))::date), $11)`,
+        [woId, opId, sheets, outcome, reason,
+         String(form.get('reason_detail') ?? '').trim() || null,
+         outcome === 'CONCESSION' ? approver : null,
+         outcome === 'CONCESSION' ? approvedOn : null,
+         outcome === 'CONCESSION' ? docNo : null,
+         String(form.get('found_at') ?? '') || null,
+         me.id]));
+
+    bump(woId);
+    const label = outcome === 'REWORK' ? '재작업'
+      : outcome === 'CONCESSION' ? '특채' : '불량';
+    return { ok: true, message: `${label} ${sheets}장을 기록했습니다.` };
   } catch (e) {
     return { error: dbMessage(e) };
   }

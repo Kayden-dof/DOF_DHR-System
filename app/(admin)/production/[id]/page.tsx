@@ -9,7 +9,7 @@ import Denied from '@/components/denied';
 import { Panel, Empty, Tag, Field, Caution } from '@/components/ui';
 import {
   CutForm, LotStatusForm, CancelForm, FinishForm, RetrieveForm, DayPrintLink,
-  NonconformityForm,
+  NonconformityForm, WipNonconformityForm, type OpOpt,
   type LotRow, type FinOpt,
 } from './batch-forms';
 
@@ -133,6 +133,10 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
            left join product_lot pl on pl.id = pr.product_lot_id
           where pr.work_order_id = $1
           order by pr.day_no, o.seq, pr.attempt`, [id]),
+      /* 부적합을 어느 공정에서 발견했는지 고르는 데 쓴다. 재단 전후로 갈린다 */
+      ops: await db.rows<OpOpt>(
+        `select id, code, name, after_cutting from dmr_operation
+          where device_master_id = $1 order by seq`, [wo.device_master_id]),
       finished: await db.rows<FinOpt>(
         `select id, code, name from item where type = 'FIN' and is_active order by code`),
       today: await db.val<string>(`select to_char(timezone('Asia/Seoul', now()),'YYYY-MM-DD')`),
@@ -373,7 +377,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                     </td>
                     <td className="td text-right">
                       {/* 부적합은 기록이지 판정이 아니다. 서면 결과를 적는다 */}
-                      <NonconformityForm lot={l} woId={wo.id} today={d.today ?? ''} />
+                      <NonconformityForm lot={l} woId={wo.id} today={d.today ?? ''} ops={d.ops} />
                       <LotStatusForm lot={l} woId={wo.id} />
                     </td>
                   </tr>
@@ -430,7 +434,17 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
         )}
       </Panel>
 
-      <Panel title="공정 기록">
+      <Panel
+        title="공정 기록"
+        action={
+          /*
+            * 재단 전 부적합은 여기서 적는다. 단위가 장이라 제품 로트 표가 아니라
+            * 배치 쪽에 붙는다 (0047).
+            */
+          <WipNonconformityForm woId={wo.id} today={d.today ?? ''} ops={d.ops}
+                                sheets={wo.sheet_count} />
+        }
+      >
         {d.records.length === 0 ? (
           <Empty>기록이 없습니다.</Empty>
         ) : (
