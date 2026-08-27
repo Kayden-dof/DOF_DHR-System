@@ -58,12 +58,20 @@ export default async function EquipmentPage() {
             order by valid_until desc, performed_on desc limit 1
          ) v on true
         order by e.is_active desc, e.code`),
+    /*
+     * 공정을 제품(표준서)별로 보여 준다. 전 제품의 공정을 한 줄에 쏟으면
+     * 제품이 둘만 되어도 어느 공정이 누구 것인지 읽을 수 없다 (사용자 지적).
+     * 제품을 먼저 고르고 그 공정에서 걸며, 제품마다 따로 걸 수 있다.
+     */
     ops: await db.rows<OpOption>(
-      `select o.id, o.code, o.name, o.seq
+      `select o.id, o.code, o.name, o.seq,
+              dm.id as dm_id, dm.revision,
+              i.code as item_code, i.name as item_name
          from dmr_operation o
          join device_master dm on dm.id = o.device_master_id
+         join item i on i.id = dm.item_id
         where dm.verified_at is not null
-        order by o.seq`),
+        order by i.code, dm.revision desc, o.seq`),
   }));
 
   const active = d.equipment.filter((e) => e.is_active);

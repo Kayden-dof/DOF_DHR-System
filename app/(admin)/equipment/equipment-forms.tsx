@@ -18,7 +18,10 @@ export interface EquipRow {
              note: string | null; registered_by_name: string }[];
 }
 
-export interface OpOption { id: string; code: string; name: string; seq: number }
+export interface OpOption {
+  id: string; code: string; name: string; seq: number;
+  dm_id: string; revision: string; item_code: string; item_name: string;
+}
 
 /* -------------------------------------------------------------------------- */
 
@@ -162,25 +165,71 @@ export function EquipCard({ e, ops }: { e: EquipRow; ops: OpOption[] }) {
         */}
       <ValidationPanel e={e} />
 
+      {/*
+        * 쓰는 공정 · 제품별.
+        *
+        * 제품(표준서)을 펼치면 그 공정이 주르륵 나오고 거기서 건다. 제품마다
+        * 따로 걸 수 있으므로 같은 설비가 여러 제품에 걸리는 것이 자연스럽다.
+        * 이미 걸린 공정이 있는 제품은 펼쳐진 채로 시작한다 - 접힌 묶음 안에
+        * 걸림이 숨으면 이 설비가 어디 쓰이는지 한눈에 못 본다.
+        */}
       <div className="border-t border-line-soft px-4 py-3">
-        <p className="label mb-2">쓰는 공정</p>
-        <div className="flex flex-wrap gap-1.5">
-          {ops.map((o) => {
-            const on = linked.has(o.id);
+        <p className="label mb-2">쓰는 공정 · 제품별</p>
+        {(() => {
+          const groups: { dm_id: string; label: string; sub: string; ops: OpOption[] }[] = [];
+          for (const o of ops) {
+            let g = groups.find((x) => x.dm_id === o.dm_id);
+            if (!g) {
+              g = { dm_id: o.dm_id, label: `${o.item_code} ${o.revision}`,
+                    sub: o.item_name, ops: [] };
+              groups.push(g);
+            }
+            g.ops.push(o);
+          }
+          if (groups.length === 0) {
             return (
-              <form key={o.id} action={linkAction}>
-                <input type="hidden" name="equipment_id" value={e.id} />
-                <input type="hidden" name="operation_id" value={o.id} />
-                <input type="hidden" name="on" value={on ? '0' : '1'} />
-                <button type="submit"
-                        className={`chip transition-colors ${
-                          on ? 'bg-brand text-white' : 'bg-canvas text-muted hover:text-ink'}`}>
-                  {o.name}
-                </button>
-              </form>
+              <p className="text-xs text-faint">
+                서면 대조가 확인된 제품표준서가 없습니다.
+              </p>
             );
-          })}
-        </div>
+          }
+          return groups.map((g) => {
+            const cnt = g.ops.filter((o) => linked.has(o.id)).length;
+            return (
+              <details key={g.dm_id} open={cnt > 0}
+                       className="group rounded-md border border-line-soft [&+details]:mt-1.5">
+                <summary className="flex cursor-pointer flex-wrap items-center gap-x-2.5 gap-y-1 rounded-md px-3 py-2 hover:bg-canvas">
+                  <span aria-hidden
+                        className="text-xs text-faint transition-transform group-open:rotate-90">
+                    &rsaquo;
+                  </span>
+                  <span className="font-mono text-[0.8125rem] font-bold text-ink">{g.label}</span>
+                  <span className="min-w-0 flex-1 truncate text-xs text-muted">{g.sub}</span>
+                  <span className={`tnum text-xs ${cnt ? 'font-bold text-brand' : 'text-faint'}`}>
+                    {cnt ? `공정 ${cnt}곳에 걸림` : '걸린 공정 없음'}
+                  </span>
+                </summary>
+                <div className="flex flex-wrap gap-1.5 border-t border-line-soft px-3 py-2.5">
+                  {g.ops.map((o) => {
+                    const on = linked.has(o.id);
+                    return (
+                      <form key={o.id} action={linkAction}>
+                        <input type="hidden" name="equipment_id" value={e.id} />
+                        <input type="hidden" name="operation_id" value={o.id} />
+                        <input type="hidden" name="on" value={on ? '0' : '1'} />
+                        <button type="submit"
+                                className={`chip transition-colors ${
+                                  on ? 'bg-brand text-white' : 'bg-canvas text-muted hover:text-ink'}`}>
+                          {o.name}
+                        </button>
+                      </form>
+                    );
+                  })}
+                </div>
+              </details>
+            );
+          });
+        })()}
         {linkState.error && (
           <p role="alert" className="mt-2 text-sm text-danger">{linkState.error}</p>
         )}

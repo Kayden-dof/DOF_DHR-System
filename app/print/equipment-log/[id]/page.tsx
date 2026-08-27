@@ -45,12 +45,14 @@ export default async function EquipmentLogSheet({
 
     return {
       head,
-      ops: await db.rows<{ code: string; name: string }>(
-        `select o.code, o.name
+      ops: await db.rows<{ code: string; name: string; item_code: string; revision: string }>(
+        `select o.code, o.name, i.code as item_code, dm.revision
            from operation_equipment oe
            join dmr_operation o on o.id = oe.operation_id
+           join device_master dm on dm.id = o.device_master_id
+           join item i on i.id = dm.item_id
           where oe.equipment_id = $1 and oe.is_active
-          order by o.seq`, [id]),
+          order by i.code, dm.revision desc, o.seq`, [id]),
       vals: await db.rows<Val>(
         `select performed_on::text as performed_on, valid_until::text as valid_until,
                 report_no, note
@@ -105,7 +107,21 @@ export default async function EquipmentLogSheet({
           <tr>
             <th>쓰는 공정</th>
             <td colSpan={3}>
-              {ops.length === 0 ? '' : ops.map((o) => `${o.name} (${o.code})`).join(' · ')}
+              {/* 제품이 여럿이면 제품별로 줄을 가른다. 어느 제품의 공정인지가 함께 적힌다 */}
+              {(() => {
+                const byDm = new Map<string, { label: string; names: string[] }>();
+                for (const o of ops) {
+                  const k = `${o.item_code} ${o.revision}`;
+                  if (!byDm.has(k)) byDm.set(k, { label: k, names: [] });
+                  byDm.get(k)!.names.push(o.name);
+                }
+                return [...byDm.values()].map((g) => (
+                  <div key={g.label}>
+                    <span className="font-mono font-bold">{g.label}</span>
+                    {' : '}{g.names.join(' · ')}
+                  </div>
+                ));
+              })()}
             </td>
           </tr>
           <tr>
