@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requireUser, hasRole } from '@/lib/session';
-import { withActor } from '@/lib/db';
+import { withUser } from '@/lib/db';
 import { fmtDate, fmtDateTime } from '@/lib/fmt';
 import { WO_STATUS_LABEL, PL_STATUS_LABEL } from '@/lib/forms';
 import { KIND_LABEL } from '@/lib/print';
@@ -23,7 +23,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   try {
     const user = await requireUser();
     const { id } = await params;
-    const b = await withActor(user.id, (db) =>
+    const b = await withUser(user, (db) =>
       db.val<string>(`select batch_no from work_order where id = $1`, [id]));
     return b ? { title: `${b} 배치` } : {};
   } catch {
@@ -62,12 +62,12 @@ interface RecRow {
 
 export default async function BatchPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
-  if (!hasRole(user, 'SYS_ADMIN', 'PROD_MGR')) {
+  if (!hasRole(user, 'SYS_ADMIN', 'PROD_MGR', 'VIEWER')) {
     return <Denied what="배치 상세" need="생산관리자 또는 시스템관리자" />;
   }
   const { id } = await params;
 
-  const d = await withActor(user.id, async (db) => {
+  const d = await withUser(user, async (db) => {
     const wo = await db.one<Wo>(
       `select wo.id, wo.wo_no, wo.batch_no, wo.status::text as status, wo.sheet_count,
               wo.planned_units,

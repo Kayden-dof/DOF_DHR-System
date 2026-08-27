@@ -1,5 +1,7 @@
-import { requireUser } from '@/lib/session';
-import { withActor } from '@/lib/db';
+import { requireUser, blocksViewer } from '@/lib/session';
+import Denied from '@/components/denied';
+import { isViewerOnly } from '@/lib/roles';
+import { withUser } from '@/lib/db';
 import { PageShell } from '@/components/shell';
 import { SubNav } from '../../nav';
 import { MATERIAL_NAV } from '../../sections';
@@ -30,8 +32,14 @@ interface FinRow {
 
 export default async function StockPage() {
   const user = await requireUser();
+  /* 열람자에게 열어 둔 화면이 아니다. 주소를 직접 쳐도 들어가지 못한다 */
+  if (blocksViewer(user)) return <Denied what="이 화면" need="생산관리자 또는 시스템관리자" />;
 
-  const d = await withActor(user.id, async (db) => ({
+  /* 순수 열람자면 쓰기 단추를 아예 그리지 않는다 */
+  const viewer = isViewerOnly(user.roles);
+
+
+  const d = await withUser(user, async (db) => ({
     material: await db.rows<StockRow>(
       `select * from v_material_stock order by type, code`),
     finished: await db.rows<FinRow>(
@@ -53,7 +61,7 @@ export default async function StockPage() {
           사용기간이 짧고 형명이 많아 형명별로 보면 임박품이 묻힙니다.
         </>
       }
-      action={<StockTools alerts={d.alerts ?? 0} />}
+      action={viewer ? null : (<StockTools alerts={d.alerts ?? 0} />)}
       nav={<SubNav items={MATERIAL_NAV} />}
     >
 

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { requireUser, hasRole } from '@/lib/session';
-import { withActor } from '@/lib/db';
+import { withUser } from '@/lib/db';
 import { fmtDate, fmtTime } from '@/lib/fmt';
 import {
   NUMBERING_TARGETS, M1_CRITICAL_TARGETS, WO_STATUS_LABEL, tableLabel,
@@ -38,9 +38,9 @@ interface Counts {
 
 export default async function Dashboard() {
   const user = await requireUser();
-  const admin = hasRole(user, 'SYS_ADMIN');
+  const admin = hasRole(user, 'SYS_ADMIN', 'VIEWER');
 
-  const d = await withActor(user.id, async (db) => ({
+  const d = await withUser(user, async (db) => ({
     c: await db.one<Counts>(
       `select
         (select count(*)::int from work_order

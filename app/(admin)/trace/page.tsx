@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { requireUser, hasRole } from '@/lib/session';
-import { withActor } from '@/lib/db';
+import { withUser } from '@/lib/db';
 import { fmtDate, fmtDateTime } from '@/lib/fmt';
 import Denied from '@/components/denied';
 import { Panel, Empty, Tag, Field } from '@/components/ui';
@@ -45,7 +45,7 @@ export default async function TracePage({ searchParams }: { searchParams: Search
   const q = (sp.q ?? '').trim();
 
   const d = q
-    ? await withActor(user.id, async (db) => ({
+    ? await withUser(user, async (db) => ({
         hits: await db.rows<Hit>(
           `select 'product' as kind, pl.id::text as id, pl.lot_no as label,
                   i.name || ' · 배치 ' || wo.batch_no as sub

@@ -1,6 +1,7 @@
 import Link from 'next/link';
+import { isViewerOnly } from '@/lib/roles';
 import { requireUser, hasRole } from '@/lib/session';
-import { withActor } from '@/lib/db';
+import { withUser } from '@/lib/db';
 import { fmtDate, fmtDateTime } from '@/lib/fmt';
 import { WO_STATUS_LABEL } from '@/lib/forms';
 import Denied from '@/components/denied';
@@ -39,14 +40,17 @@ const TONE: Record<string, string> = {
 
 export default async function ProductionPage({ searchParams }: { searchParams: Search }) {
   const user = await requireUser();
-  if (!hasRole(user, 'SYS_ADMIN', 'PROD_MGR')) {
+  if (!hasRole(user, 'SYS_ADMIN', 'PROD_MGR', 'VIEWER')) {
     return <Denied what="생산 관리" need="생산관리자 또는 시스템관리자" />;
   }
+  /* 순수 열람자면 쓰기 단추를 감춘다 */
+  const viewer = isViewerOnly(user.roles);
+
 
   const sp = await searchParams;
   const status = sp.status || null;
 
-  const d = await withActor(user.id, async (db) => ({
+  const d = await withUser(user, async (db) => ({
     orders: await db.rows<WoRow>(
       `select wo.id, wo.wo_no, wo.batch_no, wo.status::text as status, wo.sheet_count,
               wo.dmr_revision, wo.issued_at, wo.cancelled_reason,
@@ -105,8 +109,8 @@ export default async function ProductionPage({ searchParams }: { searchParams: S
         배치 하나는 원재료 로트 하나를 가공하는 단위입니다. 번호는 재사용하지 않습니다.
         공정 기록 입력은 현장 화면에서 합니다.
       </>}
-      action={<IssueForm masters={d.masters} rawLots={d.rawLots} finished={d.finished}
-                         users={d.users} today={d.today ?? ''} />}
+      action={viewer ? null : (<IssueForm masters={d.masters} rawLots={d.rawLots} finished={d.finished}
+                         users={d.users} today={d.today ?? ''} />)}
       nav={
         <div className="flex flex-wrap items-center gap-3">
           <SubNav items={PRODUCTION_NAV} />

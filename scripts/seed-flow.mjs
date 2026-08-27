@@ -235,7 +235,7 @@ for (const c of cuts) {
   const id = await as(mgrUser.id, () =>
     val(`select cut_product_lot($1,$2,$3,$4,(timezone('Asia/Seoul', now()))::date)`,
       [wo.id, itemId, c.qty, c.sample]));
-  const lot = await one(`select id, lot_no, item_id, qty_produced, qty_available
+  const lot = await one(`select id, lot_no, item_id, qty_produced, qty_sample, qty_available
                            from product_lot where id = $1`, [id]);
   lots.push(lot);
   say(`재단 ${c.code} → 제조번호 ${lot.lot_no} (생산 ${c.qty}, 샘플 ${c.sample})`);
@@ -306,11 +306,18 @@ const ship = lots[0];
 await as(mgrUser.id, () =>
   client.query(
     `insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by,
-                           release_request_no)
-     values ($1,$2,$3,(timezone('Asia/Seoul', now()))::date,$4,$5)`,
-    // 승인서 번호 없이는 출고가 기록되지 않는다 (0026). 시연 값은 1회차 형식
-    [ship.id, '서울대학교병원', 40, mgrUser.id, 'RR-' + wo.batch_no + '-01']));
-say(`출고 ${ship.lot_no} 40개 · 서울대학교병원`);
+                           release_request_no, unit_from, unit_to)
+     values ($1,$2,$3,(timezone('Asia/Seoul', now()))::date,$4,$5,$6,$7)`,
+    /*
+     * 승인서 번호 없이는 출고가 기록되지 않는다 (0026). 시연 값은 1회차 형식.
+     *
+     * 개체 순번도 함께 적는다 (0042). 시료가 앞 번호로 빠지므로 그 다음부터
+     * 40개다. 이 값이 있어야 경영 현황에서 개체 번호를 찾았을 때 어디로 갔는지
+     * 나온다.
+     */
+    [ship.id, '서울대학교병원', 40, mgrUser.id, 'RR-' + wo.batch_no + '-01',
+     ship.qty_sample + 1, ship.qty_sample + 40]));
+say(`출고 ${ship.lot_no} 40개 (${ship.qty_sample + 1}~${ship.qty_sample + 40}번) · 서울대학교병원`);
 
 /* --- 재고 증감 ------------------------------------------------------------ */
 

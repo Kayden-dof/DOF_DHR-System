@@ -1,4 +1,5 @@
-import { requireUser } from '@/lib/session';
+import { requireUser, blocksViewer } from '@/lib/session';
+import Denied from '@/components/denied';
 import { withActor } from '@/lib/db';
 import { PageShell } from '@/components/shell';
 import { SubNav } from '../../nav';
@@ -25,6 +26,9 @@ interface MoveRow {
 
 export default async function MovementPage() {
   const user = await requireUser();
+  /* 열람자에게 열어 둔 화면이 아니다. 주소를 직접 쳐도 들어가지 못한다 */
+  if (blocksViewer(user)) return <Denied what="이 화면" need="생산관리자 또는 시스템관리자" />;
+
 
   const d = await withActor(user.id, async (db) => ({
     lots: await db.rows<LotOpt>(

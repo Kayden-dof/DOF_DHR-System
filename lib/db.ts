@@ -1,4 +1,5 @@
 import { Pool, type PoolClient } from 'pg';
+import { isViewerOnly, type RoleCode } from './roles';
 import { pgSsl } from './pgssl';
 
 /* ---------------------------------------------------------------------------
@@ -71,11 +72,20 @@ function wrap(client: PoolClient): Db {
 export async function withActor<T>(
   actorId: string | null,
   fn: (db: Db) => Promise<T>,
+  opts: { readOnly?: boolean } = {},
 ): Promise<T> {
   const client = await pool().connect();
   try {
     await client.query('begin');
-    await client.query('set local role app_role');
+    /*
+     * 열람자 세션은 읽기 전용 역할로 돈다 (app_readonly · 0043).
+     *
+     * 화면 게이트에 넣지 않는 것만으로도 지금은 막힌다. 그런데 그건 내가
+     * 게이트를 하나도 빠뜨리지 않는다는 데 기대는 방식이고, §1 이 그걸
+     * 검증으로 치지 않는다고 못 박고 있다. 응용에 구멍이 생겨도 쓰기는
+     * DB 에서 거부되어야 한다.
+     */
+    await client.query(opts.readOnly ? 'set local role app_readonly' : 'set local role app_role');
     // 트랜잭션 로컬(3번째 인자 true)로 세팅한다. 커넥션 풀러가 세션을
     // 재사용하므로 세션 GUC로 두면 다음 요청의 감사기록에 남의 id가 찍힌다.
     await client.query('select set_config($1, $2, true)', ['app.user_id', actorId ?? '']);
@@ -88,6 +98,22 @@ export async function withActor<T>(
   } finally {
     client.release();
   }
+}
+
+/* ---------------------------------------------------------------------------
+   로그인한 사람으로 질의한다
+
+   withActor 를 직접 부르면 역할을 고르는 판단이 화면마다 흩어진다. 한 군데서
+   정한다 - 순수 열람자면 읽기 전용, 그 밖에는 응용 역할.
+
+   열람자에 다른 역할이 함께 붙어 있으면 그쪽 권한으로 돈다. 섞인 계정을 읽기
+   전용으로 묶으면 그 사람이 원래 하던 일을 못 하게 된다.
+--------------------------------------------------------------------------- */
+export async function withUser<T>(
+  user: { id: string; roles: RoleCode[] },
+  fn: (db: Db) => Promise<T>,
+): Promise<T> {
+  return withActor(user.id, fn, { readOnly: isViewerOnly(user.roles) });
 }
 
 /* ---------------------------------------------------------------------------

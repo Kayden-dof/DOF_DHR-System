@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { withActor } from './db';
 import type { RoleCode } from './roles';
+import { isViewerOnly } from './roles';
 
 /* ---------------------------------------------------------------------------
    세션
@@ -118,4 +119,20 @@ export async function requireUser(): Promise<SessionUser> {
 
 export function hasRole(user: SessionUser, ...roles: RoleCode[]): boolean {
   return roles.some((r) => user.roles.includes(r));
+}
+
+/* ---------------------------------------------------------------------------
+   열람자 차단
+
+   열람자에게 열어 둔 화면은 셋뿐이다 (경영 현황 · 생산 · 감사추적). 나머지는
+   운영하는 사람의 화면이라 주소를 직접 쳐도 들어가지 못하게 한다.
+
+   화면마다 hasRole 을 늘어놓는 대신 이 한 줄을 쓴다. 새 화면을 만들 때
+   빠뜨리기 쉬운 쪽은 "막는 것"이므로, 막는 쪽을 짧게 만들어 둔다.
+
+   세션이 DB 에서도 읽기 전용이라 (app_readonly · 0043) 여기를 지나쳐도 쓰기는
+   일어나지 않는다. 이건 화면을 깔끔히 하려는 것이지 마지막 방어선이 아니다.
+--------------------------------------------------------------------------- */
+export function blocksViewer(user: SessionUser): boolean {
+  return isViewerOnly(user.roles);
 }

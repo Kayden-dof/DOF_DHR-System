@@ -1,5 +1,7 @@
-import { requireUser } from '@/lib/session';
-import { withActor } from '@/lib/db';
+import { requireUser, blocksViewer } from '@/lib/session';
+import Denied from '@/components/denied';
+import { isViewerOnly } from '@/lib/roles';
+import { withUser } from '@/lib/db';
 import { PageShell, FilterBar } from '@/components/shell';
 import { SubNav } from '../nav';
 import { MATERIAL_NAV } from '../sections';
@@ -31,11 +33,17 @@ type Search = Promise<{ status?: string; q?: string }>;
 
 export default async function MaterialLotsPage({ searchParams }: { searchParams: Search }) {
   const user = await requireUser();
+  /* 열람자에게 열어 둔 화면이 아니다. 주소를 직접 쳐도 들어가지 못한다 */
+  if (blocksViewer(user)) return <Denied what="이 화면" need="생산관리자 또는 시스템관리자" />;
+
+  /* 순수 열람자면 쓰기 단추를 아예 그리지 않는다 */
+  const viewer = isViewerOnly(user.roles);
+
   const sp = await searchParams;
   const status = sp.status || null;
   const q = (sp.q || '').trim() || null;
 
-  const d = await withActor(user.id, async (db) => ({
+  const d = await withUser(user, async (db) => ({
     lots: await db.rows<LotRow>(
       `select ml.id, ml.lot_no, i.code as item_code, i.name as item_name, i.usage_uom,
               s.name as supplier_name, s.status as supplier_status, ml.supplier_lot_no,
@@ -85,8 +93,8 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
       section="자재"
       title="자재 로트"
       lede="입고할 때 성적서 번호가 반드시 들어갑니다 (S02). 로트번호는 채번 규칙이 만들며 바코드 값으로 씁니다."
-      action={<ReceiveForm items={d.items} suppliers={d.suppliers}
-                           orders={d.orders} today={d.today ?? ''} />}
+      action={viewer ? null : (<ReceiveForm items={d.items} suppliers={d.suppliers}
+                           orders={d.orders} today={d.today ?? ''} />)}
       nav={<SubNav items={MATERIAL_NAV} />}
     >
 

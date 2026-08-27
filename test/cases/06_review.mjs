@@ -666,4 +666,124 @@ export default [
   },
 },
 
+
+{
+  id: 'VW-01', expect: '권한 거부',
+  name: 'app_readonly는 어떤 표에도 쓰지 못한다',
+  async run(t) {
+    for (const sql of [
+      `insert into supplier (code, name) values ('ZZ-VW','시험')`,
+      `update item set name = 'x' where true`,
+      `insert into material_lot (item_id, lot_no, supplier_id, supplier_lot_no,
+                                 coa_no, coa_date, received_at, registered_by,
+                                 qty_received, qty_available)
+       select id, 'ZZ', id, 'x', 'c', current_date, now(), id, 1, 1 from item limit 1`,
+      `update work_order set sheet_count = 1 where true`,
+    ]) {
+      await t.asRole('app_readonly', () =>
+        t.rejects(() => t.rows(sql), { code: '42501' }));
+    }
+  },
+},
+
+{
+  id: 'VW-02', expect: '권한 거부',
+  name: 'app_readonly는 채번도 인쇄 기록도 부르지 못한다',
+  async run(t) {
+    await t.asRole('app_readonly', () =>
+      t.rejects(() => t.rows(`select next_number('WORK_ORDER')`), { code: '42501' }));
+    await t.asRole('app_readonly', () =>
+      t.rejects(() => t.rows(`select complete_process(gen_random_uuid())`), { code: '42501' }));
+  },
+},
+
+{
+  id: 'VW-03', expect: '확인',
+  name: 'app_readonly는 읽기는 된다',
+  async run(t) {
+    await t.asRole('app_readonly', async () => {
+      const n = await t.val(`select count(*)::int from item`);
+      t.ok(Number(n) >= 0, '품목을 읽는다');
+      await t.rows(`select * from v_lot_genealogy limit 1`);
+      await t.rows(`select * from audit_log limit 1`);
+    });
+  },
+},
+
+{
+  id: 'VW-04', expect: '확인',
+  name: '열람자 역할이 등록되어 있다',
+  async run(t) {
+    const has = await t.val(
+      `select exists (select 1 from pg_enum e
+                       join pg_type ty on ty.oid = e.enumtypid
+                      where ty.typname = 'role_code' and e.enumlabel = 'VIEWER')`);
+    t.eq(has, true, 'VIEWER');
+
+    await t.setActor(t.fx?.admin ?? null);
+    const u = await t.newUser();
+    await t.rows(`insert into user_role (user_id, role) values ($1,'VIEWER')`, [u]);
+    t.eq(Number(await t.val(
+      `select count(*)::int from user_role where user_id = $1 and role = 'VIEWER'`, [u])), 1,
+      '역할 부여');
+    await t.setActor(null);
+  },
+},
+
+
+{
+  id: 'BD-01', expect: '확인',
+  name: '개체 번호로 시료 · 출고 · 없는 번호를 가른다',
+  async run(t) {
+    const m = await master(t);
+    const rawLot = await newMaterialLot(t, m, m.raw, { thickness_band: '0510', qty: 50 });
+    const wo = await newWorkOrder(t, m, { rawLot, sheets: 20 });
+    await t.setActor(m.admin);
+    const lot = await t.val(
+      `select cut_product_lot($1,$2,$3,$4,current_date)`, [wo.id, m.fin, 40, 2]);
+    const lotNo = await t.val(`select lot_no from product_lot where id = $1`, [lot]);
+
+    await t.rows(
+      `insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by,
+                             release_request_no, unit_from, unit_to)
+       values ($1,'A병원',10,current_date,$2,'RR-1',3,12)`, [lot, m.admin]);
+
+    const at = async (n) => (await t.rows(
+      `select standing, customer_name from find_unit($1)`, [`${lotNo}-${n}`]))[0];
+
+    t.eq((await at('001')).standing, '완제품검사 시료', '1번');
+    t.eq((await at('005')).standing, '출고됨', '5번');
+    t.eq((await at('005')).customer_name, 'A병원', '간 곳');
+    t.eq((await at('020')).standing, '재고', '20번');
+    t.eq((await at('900')).standing, '이 제조번호에 없는 번호', '900번');
+
+    // 제조번호만 적어도 찾는다
+    const whole = (await t.rows(`select standing from find_unit($1)`, [lotNo]))[0];
+    t.eq(whole.standing, '제조번호 전체', '순번 없이');
+
+    // 없는 제조번호는 빈 결과
+    t.eq((await t.rows(`select * from find_unit('ZZ-NONE-001')`)).length, 0, '없는 번호');
+    await t.setActor(null);
+  },
+},
+
+{
+  id: 'BD-02', expect: '확인',
+  name: '달별 생산 · 출고 · 재작업이 한 줄에 모인다',
+  async run(t) {
+    const m = await master(t);
+    const rawLot = await newMaterialLot(t, m, m.raw, { thickness_band: '0510', qty: 50 });
+    const wo = await newWorkOrder(t, m, { rawLot, sheets: 20 });
+    await t.setActor(m.admin);
+    await t.val(`select cut_product_lot($1,$2,$3,$4,current_date)`, [wo.id, m.fin, 40, 2]);
+
+    const row = (await t.rows(
+      `select produced, sampled from v_output_monthly
+        where month = date_trunc('month', current_date)::date`))[0];
+    t.ok(Number(row.produced) >= 40, '생산');
+    t.ok(Number(row.sampled) >= 2, '시료');
+    await t.setActor(null);
+  },
+},
+
 ];

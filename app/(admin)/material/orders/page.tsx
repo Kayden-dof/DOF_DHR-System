@@ -1,5 +1,7 @@
-import { requireUser } from '@/lib/session';
-import { withActor } from '@/lib/db';
+import { requireUser, blocksViewer } from '@/lib/session';
+import Denied from '@/components/denied';
+import { isViewerOnly } from '@/lib/roles';
+import { withUser } from '@/lib/db';
 import { PageShell } from '@/components/shell';
 import { SubNav } from '../../nav';
 import { MATERIAL_NAV } from '../../sections';
@@ -25,8 +27,14 @@ const STATUS: Record<string, { label: string; tone: string }> = {
 
 export default async function OrdersPage() {
   const user = await requireUser();
+  /* 열람자에게 열어 둔 화면이 아니다. 주소를 직접 쳐도 들어가지 못한다 */
+  if (blocksViewer(user)) return <Denied what="이 화면" need="생산관리자 또는 시스템관리자" />;
 
-  const d = await withActor(user.id, async (db) => ({
+  /* 순수 열람자면 쓰기 단추를 아예 그리지 않는다 */
+  const viewer = isViewerOnly(user.roles);
+
+
+  const d = await withUser(user, async (db) => ({
     orders: await db.rows<OrderRow>(
       `select po.id, po.po_no, po.qty, po.unit_price, po.ordered_at, po.expected_at,
               po.status, i.code as item_code, i.name as item_name, i.usage_uom,
@@ -55,7 +63,7 @@ export default async function OrdersPage() {
       section="자재"
       title="발주"
       lede="발주중 수량은 최소 재고선 알림에 반영되어 같은 자재로 알림이 반복되지 않습니다."
-      action={<NewOrder items={d.items} suppliers={d.suppliers} today={d.today ?? ''} />}
+      action={viewer ? null : (<NewOrder items={d.items} suppliers={d.suppliers} today={d.today ?? ''} />)}
       nav={<SubNav items={MATERIAL_NAV} />}
     >
 

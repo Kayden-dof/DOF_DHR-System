@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requireUser, hasRole } from '@/lib/session';
-import { withActor } from '@/lib/db';
+import { withUser } from '@/lib/db';
+import type { RoleCode } from '@/lib/roles';
 import { fmtDate, fmtDateTime } from '@/lib/fmt';
 import Denied from '@/components/denied';
 import { Panel, Empty, Tag, Field } from '@/components/ui';
@@ -41,22 +42,24 @@ export default async function TraceDetail({ params }: {
   params: Promise<{ kind: string; id: string }>;
 }) {
   const user = await requireUser();
-  if (!hasRole(user, 'SYS_ADMIN', 'PROD_MGR')) {
+  if (!hasRole(user, 'SYS_ADMIN', 'PROD_MGR', 'VIEWER')) {
     return <Denied what="조회" need="생산관리자 또는 시스템관리자" />;
   }
   const { kind, id } = await params;
 
-  if (kind === 'material') return <MaterialView userId={user.id} id={id} />;
+  if (kind === 'material') return <MaterialView me={user} id={id} />;
   if (kind === 'product' || kind === 'batch') {
-    return <BatchView userId={user.id} kind={kind} id={id} />;
+    return <BatchView me={user} kind={kind} id={id} />;
   }
   notFound();
 }
 
 /* ---- 자재 로트 기준 (정추적) --------------------------------------------- */
 
-async function MaterialView({ userId, id }: { userId: string; id: string }) {
-  const d = await withActor(userId, async (db) => {
+type Me = { id: string; roles: RoleCode[] };
+
+async function MaterialView({ me, id }: { me: Me; id: string }) {
+  const d = await withUser(me, async (db) => {
     const lot = await db.one<MaterialLot>(
       `select ml.lot_no, i.code as item_code, i.name as item_name, i.type::text as item_type,
               i.usage_uom, ml.qty_received, ml.qty_available, ml.coa_no, ml.coa_date,
@@ -193,10 +196,10 @@ async function MaterialView({ userId, id }: { userId: string; id: string }) {
 
 /* ---- 배치 · 제품 로트 기준 (역추적) --------------------------------------- */
 
-async function BatchView({ userId, kind, id }: {
-  userId: string; kind: 'product' | 'batch'; id: string;
+async function BatchView({ me, kind, id }: {
+  me: Me; kind: 'product' | 'batch'; id: string;
 }) {
-  const d = await withActor(userId, async (db) => {
+  const d = await withUser(me, async (db) => {
     const woId = kind === 'product'
       ? await db.val<string>(`select work_order_id::text from product_lot where id = $1`, [id])
       : id;

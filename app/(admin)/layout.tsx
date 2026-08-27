@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { requireUser, hasRole, ROLE_LABEL } from '@/lib/session';
-import { isAdmin, isWorker } from '@/lib/roles';
+import { isAdmin, isWorker, isViewerOnly } from '@/lib/roles';
 import { Wordmark } from '@/components/logo';
 import Watermark, { stamp } from '@/components/watermark';
 import BackFab from '@/components/back-fab';
@@ -21,20 +21,41 @@ import Nav, { type NavItem } from './nav';
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
 
-  // 작업자 전용 계정은 현장 화면으로 보낸다.
-  if (!isAdmin(user.roles)) {
+  /*
+   * 작업자 전용 계정은 현장 화면으로 보낸다. 열람자는 여기 남는다 - 볼 것이
+   * 이 화면들에 있고, 쓰는 단추는 화면마다 감춘다.
+   */
+  const viewer = isViewerOnly(user.roles);
+  if (!isAdmin(user.roles) && !viewer) {
     redirect(isWorker(user.roles) ? '/work' : '/no-role');
   }
 
-  const items: NavItem[] = [
-    { href: '/', label: '현황' },
-    { href: '/production', label: '생산' },
-    { href: '/material', label: '자재' },
-    { href: '/equipment', label: '설비' },
-    { href: '/shipping', label: '출하' },
-    { href: '/trace', label: '조회' },
-    ...(hasRole(user, 'SYS_ADMIN') ? [{ href: '/settings', label: '설정' }] : []),
-  ];
+  /*
+   * 열람자 메뉴는 셋뿐이다 (사용자 지시).
+   *
+   * 오늘 · 이번 달 숫자와 개체 번호 찾기는 경영 현황 한 장에 다 있다. 배치를
+   * 눌러 들어가는 일이 있으므로 생산을 남기고, 누가 무엇을 고쳤는지는 경영진이
+   * 보는 것이 자연스러워 감사추적을 남긴다.
+   *
+   * 자재 · 설비 · 출하 · 조회는 운영하는 사람의 화면이다. 볼 것이 없어서가
+   * 아니라, 볼 것을 넷으로 줄여야 그 넷이 눈에 들어오기 때문이다.
+   */
+  const items: NavItem[] = viewer
+    ? [
+        { href: '/board', label: '경영 현황' },
+        { href: '/production', label: '생산' },
+        { href: '/settings/audit', label: '감사추적' },
+      ]
+    : [
+        { href: '/', label: '현황' },
+        { href: '/board', label: '경영' },
+        { href: '/production', label: '생산' },
+        { href: '/material', label: '자재' },
+        { href: '/equipment', label: '설비' },
+        { href: '/shipping', label: '출하' },
+        { href: '/trace', label: '조회' },
+        ...(hasRole(user, 'SYS_ADMIN') ? [{ href: '/settings', label: '설정' }] : []),
+      ];
 
   const initial = user.full_name.slice(0, 1);
 

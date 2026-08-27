@@ -1,5 +1,6 @@
 import { requireUser, hasRole } from '@/lib/session';
-import { withActor } from '@/lib/db';
+import { isViewerOnly } from '@/lib/roles';
+import { withUser } from '@/lib/db';
 import Denied from '@/components/denied';
 import { Empty } from '@/components/ui';
 import { PageShell, StatStrip, type StatItem } from '@/components/shell';
@@ -33,7 +34,10 @@ export default async function EquipmentPage() {
     return <Denied what="설비 관리" need="생산관리자 또는 시스템관리자" />;
   }
 
-  const d = await withActor(user.id, async (db) => ({
+  /* 순수 열람자면 쓰기 단추를 아예 그리지 않는다 */
+  const viewer = isViewerOnly(user.roles);
+
+  const d = await withUser(user, async (db) => ({
     equipment: await db.rows<EquipRow>(
       `select e.id, e.code, e.name, e.note, e.is_active,
               v.performed_on::text as performed_on,
@@ -100,7 +104,7 @@ export default async function EquipmentPage() {
       section="설비"
       title="설비"
       lede="공정에 걸어 두면 현장에서 타일로 선택하고, 고른 값이 제조기록서에 기재됩니다. 밸리데이션은 서면 보고서 번호로 등록하며, 기한이 지나도 막지 않고 발행 화면과 검토 지원에 표시됩니다."
-      action={<NewEquipment />}
+      action={viewer ? null : (<NewEquipment />)}
       stats={<StatStrip items={stats} />}
     >
       {d.ops.length === 0 && (

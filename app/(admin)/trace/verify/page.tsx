@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { requireUser } from '@/lib/session';
+import Denied from '@/components/denied';
+import { requireUser, blocksViewer } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import { fmtDateTime } from '@/lib/fmt';
 import { KIND_LABEL } from '@/lib/print';
@@ -47,6 +48,9 @@ export default async function VerifyPage({
   searchParams,
 }: { searchParams: Promise<{ q?: string }> }) {
   const user = await requireUser();
+  /* 열람자에게 열어 둔 화면이 아니다. 주소를 직접 쳐도 들어가지 못한다 */
+  if (blocksViewer(user)) return <Denied what="이 화면" need="생산관리자 또는 시스템관리자" />;
+
   const sp = await searchParams;
   const q = (sp.q ?? '').trim().toLowerCase().replace(/[^0-9a-f]/g, '');
 

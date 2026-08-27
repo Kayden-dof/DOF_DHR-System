@@ -1,6 +1,6 @@
 import React from 'react';
 import { requireUser, hasRole } from '@/lib/session';
-import { withActor } from '@/lib/db';
+import { withUser } from '@/lib/db';
 import { fmtDate } from '@/lib/fmt';
 import Denied from '@/components/denied';
 import { Panel, Empty } from '@/components/ui';
@@ -47,7 +47,7 @@ export default async function CostPage() {
     return <Denied what="원가 조회" need="생산관리자 또는 시스템관리자" />;
   }
 
-  const d = await withActor(user.id, async (db) => ({
+  const d = await withUser(user, async (db) => ({
     batches: await db.rows<BatchCost>(
       `select bc.*, wo.status::text as status, wo.issued_at,
               (select count(*)::int from product_lot pl
