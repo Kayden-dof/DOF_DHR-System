@@ -462,4 +462,123 @@ if (wo2) {
     client.query(`update work_order set status='IN_PROCESS' where id=$1`, [wo2.id]));
 }
 
+
+/* --- 지난 기록 -------------------------------------------------------------
+   경영 현황의 일 · 주 · 달이 서로 다르게 보이려면 지난 날짜의 생산이 있어야
+   한다. 시연 자료가 전부 오늘 것이면 세 숫자가 똑같이 나와 기간을 나눈 뜻이
+   사라진다 (사용자 요청).
+
+   여기서는 화면 흐름을 다시 밟지 않고 결과만 넣는다. 공정 기록까지 지난
+   날짜로 지어내면 기록서가 실제로 없는 종이를 가리키게 된다. 배치와 제조번호,
+   출고, 부적합만 남긴다 - 대시보드가 세는 것이 그것들이다.
+-------------------------------------------------------------------------- */
+
+console.log('\n[지난 기록] 주 · 달이 갈리도록');
+
+const dmHist = await one(
+  `select id, revision from device_master where verified_at is not null
+    order by effective_from desc limit 1`);
+const supHist = await val(`select id from supplier order by code limit 1`);
+const rawItem = await val(`select id from item where code = 'RM-006'`);
+
+/**
+ * 지난 날짜의 배치 하나.
+ *
+ * @param day    발행일이자 제조일 (YYYY-MM-DD)
+ * @param sheets 장입 장수
+ * @param cuts   [형명 코드, 생산, 시료]
+ * @param extra  { shipQty, scrap, wipScrap }
+ */
+async function history(day, sheets, cuts, extra = {}) {
+  /* 원재료 로트부터. 배치 하나에 로트 하나다 (§4.5) */
+  const rawLot = await val(`select next_number('MATERIAL_LOT', $1)`, [rawItem]);
+  const rawId = await as(mgrUser.id, () => val(
+    `insert into material_lot (item_id, lot_no, supplier_id, supplier_lot_no, coa_no,
+       coa_date, received_at, registered_by, qty_received, qty_available, unit_price,
+       thickness_band)
+     values ($1,$2,$3,$4,$5,$6::date,$6::date,$7,$8,$8,22000,'0510') returning id`,
+    [rawItem, rawLot, supHist, 'SL-' + rawLot.slice(-4), 'COA-' + rawLot.slice(-4),
+     day, admin.id, sheets + 10]));
+
+  const woId = await as(mgrUser.id, async () => {
+    const woNo = await val(`select next_number('WORK_ORDER')`);
+    const batchNo = await val(`select next_number('BATCH')`);
+    return val(
+      `insert into work_order (wo_no, batch_no, device_master_id, dmr_revision,
+         material_lot_id, sheet_count, issued_by_prod, issued_by_qa, issued_at,
+         planned_units, status)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9::date,$10,'DONE') returning id`,
+      [woNo, batchNo, dmHist.id, dmHist.revision, rawId, sheets, w1.id, mgrUser.id,
+       day, cuts.reduce((a, c) => a + c[1], 0)]);
+  });
+
+  const made = [];
+  for (const [code, qty, sample] of cuts) {
+    const itemId = await val(`select id from item where code = $1`, [code]);
+    const id = await as(mgrUser.id, () => val(
+      `select cut_product_lot($1,$2,$3,$4,$5::date)`, [woId, itemId, qty, sample, day]));
+    made.push(await one(
+      `select id, lot_no, qty_sample, qty_available from product_lot where id = $1`, [id]));
+  }
+
+  if (extra.shipQty) {
+    const lot = made[0];
+    await as(mgrUser.id, () => client.query(
+      `update product_lot set release_approved_by = '정품질', release_approved_on = $2::date,
+              status = 'RELEASE_APPROVED'
+        where id = $1`, [lot.id, day]));
+    await as(mgrUser.id, () => client.query(
+      `insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by,
+                             release_request_no, unit_from, unit_to)
+       values ($1,$2,$3,$4::date,$5,$6,$7,$8)`,
+      [lot.id, extra.customer ?? '서울대학교병원', extra.shipQty, day, mgrUser.id,
+       'RR-HIST-' + day.slice(5).replace('-', ''),
+       lot.qty_sample + 1, lot.qty_sample + extra.shipQty]));
+  }
+
+  if (extra.scrap) {
+    const fi = await val(
+      `select id from dmr_operation where device_master_id = $1 and code = 'FI-DX2401-01'`,
+      [dmHist.id]);
+    await as(mgrUser.id, () => client.query(
+      `insert into product_nonconformity
+         (product_lot_id, operation_id, qty, outcome, reason_code, found_at, registered_by)
+       values ($1,$2,$3,'SCRAP','외관 불량',$4::date,$5)`,
+      [made[0].id, fi, extra.scrap, day, mgrUser.id]));
+  }
+
+  if (extra.wipScrap) {
+    const pi = await val(
+      `select id from dmr_operation where device_master_id = $1 and code = 'PI-DX2401-01'`,
+      [dmHist.id]);
+    await as(mgrUser.id, () => client.query(
+      `insert into wip_nonconformity
+         (work_order_id, operation_id, sheets, outcome, reason_code, found_at, registered_by)
+       values ($1,$2,$3,'SCRAP','외관 불량',$4::date,$5)`,
+      [woId, pi, extra.wipScrap, day, mgrUser.id]));
+  }
+
+  const total = cuts.reduce((a, c) => a + c[1], 0);
+  say(`${day} 장입 ${sheets}장 → 생산 ${total}개${
+    extra.shipQty ? ` · 출고 ${extra.shipQty}` : ''}${
+    extra.scrap ? ` · 불량 ${extra.scrap}` : ''}`);
+}
+
+/*
+ * 오늘 = 2026-08-28 기준으로 골랐다. 주는 월요일 시작이므로 08-24 부터가
+ * 이번 주다. 네 덩이를 두어 일 · 주 · 달이 모두 다른 값을 갖게 한다.
+ *
+ *   지난 달   07-14
+ *   이번 달   08-05, 08-19  (지난 주들)
+ *   이번 주   08-26         (오늘은 아님)
+ */
+await history('2026-07-14', 24, [['PD05050510', 96, 3], ['PD05100510', 40, 2]],
+  { shipQty: 60, scrap: 2, wipScrap: 1, customer: '세브란스병원' });
+await history('2026-08-05', 18, [['PD05050510', 72, 3]],
+  { shipQty: 40, scrap: 1 });
+await history('2026-08-19', 22, [['PD10100510', 44, 2], ['PD05100510', 36, 2]],
+  { shipQty: 30, wipScrap: 2, customer: '삼성서울병원' });
+await history('2026-08-26', 16, [['PD05050510', 60, 3]],
+  { shipQty: 25, scrap: 1, customer: '서울아산병원' });
+
 await client.end();

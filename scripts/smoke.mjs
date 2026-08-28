@@ -22,7 +22,15 @@ const rows = async (sql) => (await db.query(sql)).rows;
 
 const ids = {
   wo: (await rows(`select id from work_order order by issued_at limit 1`))[0]?.id,
-  lot: (await rows(`select id from product_lot order by lot_no limit 1`))[0]?.id,
+  /*
+   * 고른 배치에 속한 로트를 고른다. 아무 로트나 집으면 출하 승인 요청서가
+   * "그 배치의 로트가 아니다" 로 404 가 된다 - 화면이 맞게 구는 것이고
+   * 고르는 쪽이 틀린 것이다.
+   */
+  lot: (await rows(
+    `select pl.id from product_lot pl
+       join work_order wo on wo.id = pl.work_order_id
+      order by wo.issued_at, pl.lot_no limit 1`))[0]?.id,
   mat: (await rows(`select id from material_lot order by lot_no limit 1`))[0]?.id,
   day: (await rows(
     `select work_order_id, day_no, worker_id from process_record order by day_no limit 1`))[0],

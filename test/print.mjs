@@ -131,12 +131,21 @@ const equipLines = await rows(
     where o.device_master_id = (select device_master_id from work_order where id = $1)
     order by o.seq, e.code`, [wo.id]);
 
+/*
+ * 이 설비가 실제로 쓰인 배치를 함께 가져온다. 시험이 고른 배치를 그냥 기대하면,
+ * 배치가 여럿일 때 설비를 쓰지 않은 배치를 기대하게 된다 - 종이는 맞는데
+ * 시험이 틀리는 자리다.
+ */
 const eqLog = await one(
   `select e.id, e.code, e.name,
           (select report_no from equipment_validation ev
             where ev.equipment_id = e.id
             order by valid_until desc limit 1) as report_no,
-          (select count(*)::int from process_record pr where pr.equipment_id = e.code) as used
+          (select count(*)::int from process_record pr where pr.equipment_id = e.code) as used,
+          (select w.batch_no from process_record pr
+             join work_order w on w.id = pr.work_order_id
+            where pr.equipment_id = e.code
+            order by pr.work_date limit 1) as batch_no
      from equipment e
     where exists (select 1 from process_record pr where pr.equipment_id = e.code)
     order by e.code limit 1`);
@@ -344,7 +353,7 @@ if (eqLog) {
     { label: '관리번호',        value: eqLog.code },
     { label: '설비명',          value: eqLog.name },
     { label: '밸리데이션 보고서', value: eqLog.report_no },
-    { label: '사용 배치',       value: wo.batch_no },
+    { label: '사용 배치',       value: eqLog.batch_no },
     { label: '당시 밸리데이션 열', value: '당시 밸리데이션' },
   ]);
 } else {
