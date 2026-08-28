@@ -161,14 +161,14 @@ export default function IssueForm({ masters, rawLots, finished, users, today }: 
         </div>
 
         <div>
-          <label className="label">생산 발행자</label>
+          <label className="label">생산 서명란</label>
           <select name="issued_by_prod" required value={prod || prodOpts[0]?.id}
                   onChange={(e) => setProd(e.target.value)} className="input">
             <IssuerOptions users={users} roles={['PROD_MGR', 'SYS_ADMIN']} />
           </select>
         </div>
         <div>
-          <label className="label">품질 발행자</label>
+          <label className="label">품질 서명란</label>
           <select name="issued_by_qa" required value={qa || qaOpts[0]?.id}
                   onChange={(e) => setQa(e.target.value)} className="input">
             <IssuerOptions users={users} roles={['QP']} />
@@ -176,9 +176,25 @@ export default function IssueForm({ masters, rawLots, finished, users, today }: 
         </div>
       </div>
 
+      {/*
+        * 고르는 사람이 한 명이라는 사실을 화면이 숨기지 않는다 (감사 지적 6).
+        *
+        * 전에는 "발행자" 라고만 적혀 있어, 두 사람이 시스템에서 각자 확인한
+        * 것처럼 읽혔다. 실제로는 지금 로그인한 한 사람이 이름 둘을 고르는
+        * 것이고, 두 번째 사람의 인증은 없다. 확인은 종이 위 서명에서
+        * 일어나므로 여기서 정하는 것은 서명란에 인쇄될 이름이다.
+        *
+        * 시스템이 보증하는 것처럼 읽히면 그것이 더 위험하다.
+        */}
+      <p className="mt-2 text-xs leading-relaxed text-muted">
+        여기서 고른 두 이름이 지시서 서명란에 인쇄됩니다. 확인은 인쇄물에 직접
+        서명하는 것으로 이루어집니다. 시스템은 두 사람이 확인했는지를 알지
+        못하며, 이름을 종이에 옮길 뿐입니다.
+      </p>
+
       {(prod || prodOpts[0]?.id) === (qa || qaOpts[0]?.id) && (
         <p className="mt-2 rounded-md bg-danger-bg px-3 py-2 text-xs text-danger">
-          생산과 품질 발행자가 같습니다. 서로 다른 사람이어야 저장됩니다.
+          생산과 품질 서명란이 같은 사람입니다. 서로 다른 사람이어야 저장됩니다.
         </p>
       )}
 

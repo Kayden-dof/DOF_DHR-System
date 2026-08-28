@@ -286,7 +286,7 @@ async function BatchView({ me, kind, id }: {
             <span className="ml-2 tnum text-xs text-muted">{fmtDate(wo.coa_date)}</span>
           </Field>
           <Field label="발행"><span className="tnum">{fmtDate(wo.issued_at)}</span></Field>
-          <Field label="발행자">{wo.prod_name} · {wo.qa_name}</Field>
+          <Field label="서명란">{wo.prod_name} · {wo.qa_name}</Field>
         </div>
       </Panel>
 

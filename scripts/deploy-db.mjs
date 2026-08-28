@@ -60,6 +60,36 @@ console.log(`엔진 : ${info.rows[0].v.split(' on ')[0]}`);
 console.log(`접속 : ${info.rows[0].u} @ ${info.rows[0].d}`);
 console.log(`시각 : ${info.rows[0].t} (Asia/Seoul)\n`);
 
+/* --- 이관 계정 ----------------------------------------------------------------
+ *
+ * 이관이 기준정보를 고치면 감사추적에 남는데, 그 줄에 행위자가 비어 있었다.
+ * 운영 DB 를 확인해 보니 dmr_operation 수정 12건과 device_master 수정 3건이
+ * 누가 했는지 알 수 없는 채로 있었다 (감사 지적 7). 제품표준서 구조가 그렇게
+ * 바뀌어 있으면 조사에서 답할 말이 없다.
+ *
+ * 사람이 아니라 이관이 한 일이라는 것을 남긴다. 실제 사람의 계정을 빌리면
+ * 그 사람이 한 일로 읽히므로 그것이 더 나쁘다. 로그인할 수 없는 계정이라
+ * 이 이름으로 화면에 들어올 수는 없다.
+ */
+const MIGRATOR = process.env.MIGRATOR_LOGIN_CODE || '000001';
+try {
+  const has = await client.query(
+    `select 1 from information_schema.tables
+      where table_schema = 'public' and table_name = 'app_user'`);
+  if (has.rowCount) {
+    const m = await client.query(
+      `insert into app_user (login_code, full_name, pin_hash, can_login)
+       values ($1, '스키마 이관', null, false)
+       on conflict (login_code) do update set full_name = excluded.full_name
+       returning id`, [MIGRATOR]);
+    await client.query(`select set_config('app.user_id', $1, false)`, [m.rows[0].id]);
+    console.log(`행위자 : 스키마 이관 (${MIGRATOR})\n`);
+  }
+} catch (e) {
+  /* 첫 배포에는 표가 아직 없다. 이관을 세우는 것이 먼저다 */
+  console.log(`행위자 : 아직 없음 (${e.code ?? ''})\n`);
+}
+
 // --- 마이그레이션 -------------------------------------------------------------
 const mdir = path.join(ROOT, 'db', 'migrations');
 for (const f of readdirSync(mdir).filter((f) => f.endsWith('.sql')).sort()) {

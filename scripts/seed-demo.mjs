@@ -14,6 +14,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
+import { randomInt } from 'node:crypto';
 import { hashPin } from './pin.mjs';
 import { pgSsl } from './pgssl.mjs';
 
@@ -50,25 +51,36 @@ if (!admin) { console.error('계정이 없다. npm run dev 로 초기 관리자�
 await c.query(`select set_config('app.user_id', $1, false)`, [admin]);
 
 /*
- * 시연 계정. 비밀번호는 전부 같은 값으로 둔다.
+ * 시연 계정의 비밀번호.
  *
- * 계정마다 다른 값을 두었더니 화면을 옮겨 다니며 확인할 때 어느 계정이 어느
- * 번호였는지 매번 되짚어야 했다. 시연 자료는 언제든 다시 만드는 것이므로
- * 여기서 값을 가릴 이유가 없다.
+ * 전에는 여기에 상수로 박아 두었다. 시연 자료는 언제든 다시 만드는 것이라
+ * 값을 가릴 이유가 없다고 보았는데, 그 판단이 틀렸다. 이 파일은 공개
+ * 저장소에 있고, 같은 스크립트가 운영 DB 에도 한 번 돌았다. 사번 목록과
+ * 비밀번호가 인터넷에 그대로 놓여 있었다 (감사 지적 1).
  *
- * 운영 계정은 다르다. 실제 사람이 쓰는 계정은 각자 다른 값이어야 하고,
- * 그 값을 여기에 적지 않는다.
+ * 이제는 실행할 때마다 만든다. 저장소에는 값이 남지 않는다. 화면을 옮겨
+ * 다니며 확인해야 하니 콘솔에는 한 번 찍고, 다시 보려면 다시 시드한다.
+ *
+ * 같은 값으로 고정해 두고 싶으면 DEMO_PIN 을 세워 실행한다. 그 값도
+ * 저장소가 아니라 각자의 환경에 둔다.
  */
-const DEMO_PIN = '123456';
+const DEMO_PIN = process.env.DEMO_PIN || String(randomInt(100000, 1000000));
 
 // --- 사용자 -------------------------------------------------------------------
 const user = async (code, name, roles, pin) => {
+  const hash = pin ? await hashPin(pin) : null;
   let id = await val(`select id from app_user where login_code = $1`, [code]);
-  if (!id) {
+  if (id) {
+    /*
+     * 이미 있으면 비밀번호를 이번 값으로 맞춘다. 맞추지 않으면 콘솔에 찍힌
+     * 값과 실제 값이 갈라져, 적어 둔 번호로 들어가지 못한다.
+     */
+    if (hash) await c.query(`update app_user set pin_hash = $2 where id = $1`, [id, hash]);
+  } else {
     id = await val(
       `insert into app_user (login_code, full_name, pin_hash, can_login)
        values ($1,$2,$3,$4) returning id`,
-      [code, name, pin ? await hashPin(pin) : null, !!pin]);
+      [code, name, hash, !!pin]);
   }
   for (const r of roles) {
     await c.query(
@@ -343,10 +355,13 @@ await c.query(
 
 console.log('\n완료. 로그인 계정');
 
-console.log(`  000000  개발 계정   시스템관리자   ${DEMO_PIN}`);
-console.log(`  100200  박생산관리  생산관리자     ${DEMO_PIN}`);
-console.log(`  200100  김작업      작업자         ${DEMO_PIN}`);
-console.log(`  200200  이작업      작업자         ${DEMO_PIN}`);
+console.log('  000000  개발 계정   시스템관리자');
+console.log('  100200  박생산관리  생산관리자');
+console.log('  200100  김작업      작업자');
+console.log('  200200  이작업      작업자');
+console.log('  800100  대표 열람   열람자');
 console.log('  900100  정품질책임  품질책임자     로그인하지 않는다');
+console.log(`
+  이번 시드의 비밀번호  ${DEMO_PIN}   (지금 적어 둘 것. 다시 볼 수 없다)`);
 
 await c.end();

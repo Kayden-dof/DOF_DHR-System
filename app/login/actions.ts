@@ -14,6 +14,7 @@ interface UserRow {
   pin_hash: string | null;
   is_active: boolean;
   can_login: boolean;
+  must_change_pin: boolean;
   roles: RoleCode[] | null;
 }
 
@@ -78,7 +79,7 @@ export async function login(_prev: LoginState, form: FormData): Promise<LoginSta
   try {
     row = await withActor(null, (db) =>
       db.one<UserRow>(
-        `select u.id, u.pin_hash, u.is_active, u.can_login,
+        `select u.id, u.pin_hash, u.is_active, u.can_login, u.must_change_pin,
                 array_remove(array_agg(r.role::text order by r.role), null)::text[] as roles
            from app_user u
            left join user_role r on r.user_id = u.id
@@ -129,7 +130,8 @@ export async function login(_prev: LoginState, form: FormData): Promise<LoginSta
     };
   }
 
-  // 관리자면 관리 화면, 작업자면 현장 화면으로 간다.
+  // 남이 정해 준 비밀번호로 들어온 사람은 자기 값을 정하는 자리로 먼저 보낸다.
+  // 두 화면 묶음의 layout 도 같은 것을 보지만, 여기서 보내면 한 번 덜 튄다.
   // redirect는 예외를 던진다. try 안에 넣지 말 것.
-  redirect(homePath(row.roles ?? []));
+  redirect(row.must_change_pin ? '/password' : homePath(row.roles ?? []));
 }

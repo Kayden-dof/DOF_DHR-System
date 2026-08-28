@@ -35,10 +35,17 @@ export async function createUser(_prev: FormState, form: FormData): Promise<Form
 
     const pinHash = canLogin ? await hashPin(pin) : null;
 
+    /*
+     * 만든 사람이 비밀번호를 아는 상태로 남겨 두지 않는다. 그 상태에서 적힌
+     * 기록은 누가 적었는지 성립하지 않는다 - 전자서명이 없으므로 귀속은 오직
+     * 로그인에 달려 있고, 로그인을 둘이 알면 귀속이 없다. 본인이 처음 들어올
+     * 때 스스로 바꾸게 한다 (0052).
+     */
     await withActor(me.id, (db) =>
       db.rows(
-        `insert into app_user (login_code, full_name, pin_hash, can_login, is_developer)
-         values ($1, $2, $3, $4, $5)`,
+        `insert into app_user (login_code, full_name, pin_hash, can_login, is_developer,
+                               must_change_pin)
+         values ($1, $2, $3, $4, $5, $4)`,
         [loginCode, fullName, pinHash, canLogin, isDeveloper],
       ),
     );
@@ -74,12 +81,25 @@ export async function setPin(_prev: FormState, form: FormData): Promise<FormStat
       return { error: '다른 사람의 비밀번호는 개발 계정만 초기화할 수 있습니다' };
     }
 
+    /*
+     * 남의 것을 초기화하면 그 사람이 처음 들어올 때 스스로 다시 바꾸게 한다.
+     * 초기화한 사람이 값을 알고 있는 동안은 그 계정의 기록이 누구 것인지
+     * 성립하지 않는다. 자기 것을 바꾸는 경우는 아는 사람이 본인뿐이므로
+     * 표시를 내린다.
+     */
+    const mine = id === me.id;
     const pinHash = await hashPin(pin);
     await withActor(me.id, (db) =>
-      db.rows(`update app_user set pin_hash = $2 where id = $1`, [id, pinHash]),
+      db.rows(`update app_user set pin_hash = $2, must_change_pin = $3 where id = $1`,
+              [id, pinHash, !mine]),
     );
     revalidatePath('/settings/users');
-    return { ok: true, message: '비밀번호를 변경했습니다.' };
+    return {
+      ok: true,
+      message: mine
+        ? '비밀번호를 변경했습니다.'
+        : '비밀번호를 초기화했습니다. 본인이 처음 로그인할 때 새 비밀번호를 정하게 됩니다.',
+    };
   } catch (e) {
     return { error: dbMessage(e) };
   }

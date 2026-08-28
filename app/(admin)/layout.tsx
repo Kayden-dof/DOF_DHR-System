@@ -7,6 +7,7 @@ import { Wordmark } from '@/components/logo';
 import Watermark, { stamp } from '@/components/watermark';
 import BackFab from '@/components/back-fab';
 import DemoBanner from '@/components/demo-banner';
+import IdleLock from '@/components/idle-lock';
 import { logout } from './actions';
 import Nav, { type NavItem } from './nav';
 
@@ -22,6 +23,13 @@ import Nav, { type NavItem } from './nav';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
+
+  /*
+   * 남이 정해 준 비밀번호로는 아무 일도 하지 않는다 (0052). 기록에 붙는 이름이
+   * 한 사람을 가리켜야 하는데, 값을 둘이 알면 가리키지 않는다.
+   */
+  if (user.must_change_pin) redirect('/password');
+
   /* 시연 자료가 들어 있으면 모든 화면 맨 위에 알린다 (0049) */
   const demo = await withActor(user.id, (db) =>
     db.val<string>(`select seeded_at::text from demo_marker limit 1`));
@@ -145,6 +153,15 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <p className="text-[0.6875rem] tracking-wide text-faint">&copy; DOF Inc.</p>
         </div>
       </footer>
+
+      {/*
+        * 자리 비움 잠금 (감사 지적 12).
+        *
+        * 현장보다 길게 준다. 여기서는 한 화면을 오래 읽는 일이 흔해서, 읽는
+        * 중에 덮이면 잠금이 아니라 방해가 된다. 대신 여기서 하는 일이 더
+        * 되돌리기 어렵다 - 작업 지시 발행, 기준정보 변경, 인쇄.
+        */}
+      <IdleLock minutes={30} name={user.full_name} initial={user.full_name.slice(0, 1)} />
 
       {/* 감사 04. 캡처를 막지는 못하고, 찍히면 누가 언제 봤는지가 함께 남는다 */}
       <Watermark text={stamp(user.full_name, user.login_code)} />

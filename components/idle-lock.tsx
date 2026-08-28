@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useReducer, useRef, useState } from 'react';
-import { unlock, type LoginState } from './lock-action';
-import { logout } from './actions';
+import { unlock, type LoginState } from '@/app/lock-action';
+import { logout } from '@/app/(admin)/actions';
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'clear', '0', 'back'];
 
@@ -12,6 +12,10 @@ const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'clear', '0', 'back']
    현장 패드는 한 대를 여러 사람이 번갈아 쓴다. 앞사람이 로그아웃을 잊으면 다음
    사람의 작업이 앞사람 이름으로 기록된다. 기록은 지울 수 없어 정정 기록으로만
    바로잡을 수 있고, 이미 인쇄된 묶음은 고칠 방법이 없다.
+
+   사무 화면에도 건다 (감사 지적 12). 여기서 하는 일이 더 되돌리기 어렵다 -
+   작업 지시 발행, 기준정보 변경, 인쇄. 세션이 여덟 시간이므로 자리를 비운
+   사이가 짧지 않다. 다만 손이 늦게 움직이는 화면이라 시간은 길게 준다.
 
    로그아웃이 아니라 잠금이다. 세션은 8시간 그대로 두고 화면만 덮는다.
    비밀번호를 다시 누르면 하던 자리로 돌아오고 쓰던 입력도 그대로 남는다.

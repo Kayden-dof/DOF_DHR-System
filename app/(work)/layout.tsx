@@ -8,7 +8,7 @@ import Watermark, { stamp } from '@/components/watermark';
 import BackFab from '@/components/back-fab';
 import DemoBanner from '@/components/demo-banner';
 import { logout } from './actions';
-import IdleLock from './idle-lock';
+import IdleLock from '@/components/idle-lock';
 
 /* ---------------------------------------------------------------------------
    현장 화면
@@ -29,6 +29,10 @@ import IdleLock from './idle-lock';
 
 export default async function WorkLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
+
+  /* 남이 정해 준 비밀번호로는 기록을 적지 않는다 (0052) */
+  if (user.must_change_pin) redirect('/password');
+
   /* 시연 자료가 들어 있으면 모든 화면 맨 위에 알린다 (0049) */
   const demo = await withActor(user.id, (db) =>
     db.val<string>(`select seeded_at::text from demo_marker limit 1`));

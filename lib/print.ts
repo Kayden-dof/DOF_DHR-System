@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHmac } from 'node:crypto';
 import { withActor } from './db';
 import type { PrintMeta } from '@/components/print-frame';
 
@@ -24,8 +24,52 @@ export const KIND_LABEL: Record<string, string> = {
   EQUIPMENT_LOG: '설비 사용 기록',
 };
 
+/* ---------------------------------------------------------------------------
+   자료 식별자
+
+   인쇄물마다 붙는 열두 자리 값이다. 손에 든 종이가 어느 자료에서 나왔는지를
+   되짚는 유일한 고리다.
+
+   ── 왜 무작위가 아닌가 ────────────────────────────────────────────────────
+   예측 가능해서는 안 된다는 지적은 옳다 (사용자 · 감사 지적 2). 다만 답은
+   무작위가 아니다. 무작위로 뽑으면 §7 이 이 값에 얹은 뜻이 통째로 사라진다.
+
+     같은 자료를 다시 뽑으면 식별자가 같고 회차만 오른다.
+     식별자가 다르면 자료가 바뀐 뒤에 다시 뽑았다는 뜻이다.
+
+   이 신호는 종이가 두 장 도는 상황에서 어느 쪽이 무엇인지 가르는 근거다.
+   무작위면 재인쇄마다 값이 달라져 "자료가 바뀌었나" 를 영영 알 수 없다.
+
+   그래서 열쇠를 섞는다. 서버만 아는 비밀을 넣은 HMAC 이면 같은 자료가 같은
+   값을 내면서도 밖에서는 계산할 수 없다. 자료를 고친 뒤 맞는 식별자를 지어
+   내려면 열쇠가 있어야 하고, 열쇠는 자료와 함께 있지 않다.
+
+   ── 열쇠는 바뀌면 안 된다 ─────────────────────────────────────────────────
+   열쇠가 바뀌면 같은 자료가 다른 값을 낸다. 그러면 자료가 그대로인데도
+   "바뀐 뒤에 다시 뽑았다" 로 읽힌다. PRINT_SECRET 을 따로 두는 이유가 그것이다.
+   세션 열쇠는 사고가 나면 갈아야 하지만 인쇄 열쇠는 갈지 않는다.
+
+   PRINT_SECRET 이 없으면 세션 열쇠에서 파생해 쓴다. 배포가 서 버리는 것보다는
+   낫다. 다만 그 상태로 세션 열쇠를 갈면 위 신호가 한 번 끊긴다.
+
+   ── 이미 찍혀 나간 종이 ───────────────────────────────────────────────────
+   전에 뽑힌 인쇄물은 열쇠 없는 값으로 남아 있다. 저장된 값으로 조회되므로
+   되짚는 데는 지장이 없다. 다시 뽑으면 그때부터 새 방식 값이 붙는다.
+--------------------------------------------------------------------------- */
+function printKey(): Buffer {
+  const own = process.env.PRINT_SECRET;
+  if (own && own.length >= 32) return Buffer.from(own, 'utf8');
+
+  const session = process.env.SESSION_SECRET;
+  if (!session || session.length < 32) {
+    throw new Error('PRINT_SECRET 또는 SESSION_SECRET이 없습니다 (32자 이상)');
+  }
+  /* 세션 열쇠를 그대로 쓰지 않는다. 용도가 다른 값은 갈라 둔다 */
+  return createHmac('sha256', session).update('dhr:print:v1').digest();
+}
+
 export function dataHash(payload: unknown): string {
-  return createHash('sha256').update(JSON.stringify(payload)).digest('hex');
+  return createHmac('sha256', printKey()).update(JSON.stringify(payload)).digest('hex');
 }
 
 interface LogArgs {

@@ -26,6 +26,8 @@ export interface SessionUser {
   login_code: string;
   full_name: string;
   is_developer: boolean;
+  /** 만든 사람이 비밀번호를 아는 상태. 본인이 바꾸기 전에는 다른 화면으로 가지 않는다 */
+  must_change_pin: boolean;
   roles: RoleCode[];
 }
 
@@ -96,9 +98,9 @@ export async function currentUser(): Promise<SessionUser | null> {
   return withActor(null, async (db) => {
     const row = await db.one<{
       id: string; login_code: string; full_name: string;
-      is_developer: boolean; roles: RoleCode[] | null;
+      is_developer: boolean; must_change_pin: boolean; roles: RoleCode[] | null;
     }>(
-      `select u.id, u.login_code, u.full_name, u.is_developer,
+      `select u.id, u.login_code, u.full_name, u.is_developer, u.must_change_pin,
               array_remove(array_agg(r.role::text order by r.role), null)::text[] as roles
          from app_user u
          left join user_role r on r.user_id = u.id
