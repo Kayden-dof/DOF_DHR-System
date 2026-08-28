@@ -86,6 +86,8 @@ console.log('\n스키마를 비웁니다');
 await client.query(`drop schema if exists public cascade`);
 await client.query(`create schema public`);
 await client.query(`drop role if exists app_role`);
+/* 읽기 전용 역할도 함께 내린다. 마이그레이션이 다시 만든다 (0043) */
+await client.query(`drop role if exists app_readonly`);
 await client.end();
 
 // 마이그레이션부터 다시. deploy-db 가 초기 관리자까지 만든다

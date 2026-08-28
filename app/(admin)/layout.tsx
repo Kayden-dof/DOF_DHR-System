@@ -1,10 +1,12 @@
 import Link from 'next/link';
+import { withActor } from '@/lib/db';
 import { redirect } from 'next/navigation';
 import { requireUser, hasRole, ROLE_LABEL } from '@/lib/session';
 import { isAdmin, isWorker, isViewerOnly } from '@/lib/roles';
 import { Wordmark } from '@/components/logo';
 import Watermark, { stamp } from '@/components/watermark';
 import BackFab from '@/components/back-fab';
+import DemoBanner from '@/components/demo-banner';
 import { logout } from './actions';
 import Nav, { type NavItem } from './nav';
 
@@ -20,6 +22,10 @@ import Nav, { type NavItem } from './nav';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
+  /* 시연 자료가 들어 있으면 모든 화면 맨 위에 알린다 (0049) */
+  const demo = await withActor(user.id, (db) =>
+    db.val<string>(`select seeded_at::text from demo_marker limit 1`));
+
 
   /*
    * 작업자 전용 계정은 현장 화면으로 보낸다. 열람자는 여기 남는다 - 볼 것이
@@ -70,6 +76,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         * 대신 자리를 넉넉히 준다. 44px 에 다 밀어 넣으니 로고도 메뉴도 이름도
         * 전부 작아져서 무엇 하나 서지 못했다. 크기를 키우는 대신 높이를 준다.
         */}
+      <DemoBanner seededAt={demo ?? null} canPurge={hasRole(user, 'SYS_ADMIN')} />
+
       <header className="sticky top-0 z-30 border-b border-line bg-surface/90 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-6 px-5 lg:gap-9">
           <Link href="/" className="flex shrink-0 items-center gap-3" aria-label="현황으로">

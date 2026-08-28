@@ -1,10 +1,12 @@
 import Link from 'next/link';
+import { withActor } from '@/lib/db';
 import { redirect } from 'next/navigation';
 import { requireUser } from '@/lib/session';
 import { isAdmin, isWorker } from '@/lib/roles';
 import { WordmarkOnDark } from '@/components/logo';
 import Watermark, { stamp } from '@/components/watermark';
 import BackFab from '@/components/back-fab';
+import DemoBanner from '@/components/demo-banner';
 import { logout } from './actions';
 import IdleLock from './idle-lock';
 
@@ -27,6 +29,10 @@ import IdleLock from './idle-lock';
 
 export default async function WorkLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
+  /* 시연 자료가 들어 있으면 모든 화면 맨 위에 알린다 (0049) */
+  const demo = await withActor(user.id, (db) =>
+    db.val<string>(`select seeded_at::text from demo_marker limit 1`));
+
 
   if (!isWorker(user.roles) && !isAdmin(user.roles)) redirect('/no-role');
 
@@ -36,6 +42,12 @@ export default async function WorkLayout({ children }: { children: React.ReactNo
 
   return (
     <div className="touch flex min-h-screen flex-col bg-canvas">
+      {/*
+        * 현장 화면에서는 알리기만 한다. 비우는 일은 사무 화면에서 한다 -
+        * 장갑 낀 손이 오가는 자리에 되돌릴 수 없는 단추를 두지 않는다.
+        */}
+      <DemoBanner seededAt={demo ?? null} canPurge={false} />
+
       <header className="band-solid sticky top-0 z-20">
         <div className="mx-auto flex max-w-[1400px] items-center gap-4 px-5 py-3">
           <Link href="/work" className="flex shrink-0 items-center gap-3" aria-label="배치 목록으로">

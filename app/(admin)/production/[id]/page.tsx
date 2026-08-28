@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requireUser, hasRole } from '@/lib/session';
+import { isViewerOnly } from '@/lib/roles';
 import { withUser } from '@/lib/db';
 import { fmtDate, fmtDateTime } from '@/lib/fmt';
 import { WO_STATUS_LABEL, PL_STATUS_LABEL } from '@/lib/forms';
@@ -67,6 +68,15 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
     return <Denied what="배치 상세" need="생산관리자 또는 시스템관리자" />;
   }
   const { id } = await params;
+
+  /*
+   * 열람 계정은 이 화면을 읽기만 한다 (사용자 지시).
+   *
+   * 쓰기 단추뿐 아니라 인쇄 길도 감춘다. 인쇄는 보기가 아니라 쓰기이고
+   * (record_print 가 생기고 제조기록서는 그 묶음이 잠긴다) 눌러 봐야 거부
+   * 화면만 나온다. 갈 수 없는 곳으로 가는 문을 그려 두지 않는다.
+   */
+  const viewer = isViewerOnly(user.roles);
 
   const d = await withUser(user, async (db) => {
     const wo = await db.one<Wo>(
@@ -195,10 +205,12 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
           */}
         <div className="flex flex-wrap items-center gap-2">
           {/* 옆의 배치 종료와 같은 크기로 맞춘다. 나란히 서는 단추다 */}
-          <Link href={`/print/work-order/${wo.id}`} className="btn-ghost h-9 px-3 text-xs">
-            작업 지시서 인쇄
-          </Link>
-          {active && <FinishForm id={wo.id} />}
+          {!viewer && (
+            <Link href={`/print/work-order/${wo.id}`} className="btn-ghost h-9 px-3 text-xs">
+              작업 지시서 인쇄
+            </Link>
+          )}
+          {active && !viewer && <FinishForm id={wo.id} />}
         </div>
       </div>
 
@@ -326,9 +338,11 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
         note="형명별 · 제조번호"
         action={d.lots.length > 0 ? (
           // 라벨요청서는 재단 뒤에 뽑는다 (§7). 재단 결과가 그대로 요청 내용이다.
-          <Link href={`/print/label-request/${wo.id}`} className="btn-ghost h-8">
-            라벨요청서
-          </Link>
+          viewer ? null : (
+            <Link href={`/print/label-request/${wo.id}`} className="btn-ghost h-8">
+              라벨요청서
+            </Link>
+          )
         ) : null}
       >
         {d.lots.length === 0 ? (
@@ -377,8 +391,11 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                     </td>
                     <td className="td text-right">
                       {/* 부적합은 기록이지 판정이 아니다. 서면 결과를 적는다 */}
-                      <NonconformityForm lot={l} woId={wo.id} today={d.today ?? ''} ops={d.ops} />
-                      <LotStatusForm lot={l} woId={wo.id} />
+                      {!viewer && <>
+                        <NonconformityForm lot={l} woId={wo.id}
+                                           today={d.today ?? ''} ops={d.ops} />
+                        <LotStatusForm lot={l} woId={wo.id} />
+                      </>}
                     </td>
                   </tr>
                 ))}
@@ -386,7 +403,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
             </table>
           </div>
         )}
-        {active && (
+        {active && !viewer && (
           <CutForm woId={wo.id} options={d.finished} today={d.today ?? ''} used={usedIds}
                    band={wo.thickness_band} />
         )}
@@ -421,10 +438,12 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                     </td>
                     <td className="td tnum text-right text-muted">{r.printed || ''}</td>
                     <td className="td text-right">
-                      <DayPrintLink
-                        href={`/print/day-record/${wo.id}/${r.day_no}/${r.worker_id}`}
-                        locked={r.locked}
-                      />
+                      {!viewer && (
+                        <DayPrintLink
+                          href={`/print/day-record/${wo.id}/${r.day_no}/${r.worker_id}`}
+                          locked={r.locked}
+                        />
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -441,8 +460,9 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
             * 재단 전 부적합은 여기서 적는다. 단위가 장이라 제품 로트 표가 아니라
             * 배치 쪽에 붙는다 (0047).
             */
-          <WipNonconformityForm woId={wo.id} today={d.today ?? ''} ops={d.ops}
-                                sheets={wo.sheet_count} />
+          viewer ? null
+            : <WipNonconformityForm woId={wo.id} today={d.today ?? ''} ops={d.ops}
+                                    sheets={wo.sheet_count} />
         }
       >
         {d.records.length === 0 ? (
@@ -547,7 +567,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                     </td>
                     <td className="td sticky right-0 bg-surface text-right">
                       {!p.retrieved_at && p.newer_count > 0 && (
-                        <RetrieveForm id={p.id} woId={wo.id} label={p.short_hash} />
+                        !viewer && <RetrieveForm id={p.id} woId={wo.id} label={p.short_hash} />
                       )}
                     </td>
                   </tr>
@@ -591,11 +611,13 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
           </div>
 
           <div className="flex shrink-0 flex-wrap items-center gap-2">
-            <Link href={`/print/cover/${wo.id}`}
-                  className={remaining.length === 0 ? 'btn-primary' : 'btn-ghost'}>
-              편철 표지
-            </Link>
-            {active && <CancelForm id={wo.id} />}
+            {!viewer && (
+              <Link href={`/print/cover/${wo.id}`}
+                    className={remaining.length === 0 ? 'btn-primary' : 'btn-ghost'}>
+                편철 표지
+              </Link>
+            )}
+            {active && !viewer && <CancelForm id={wo.id} />}
           </div>
         </div>
       </Panel>

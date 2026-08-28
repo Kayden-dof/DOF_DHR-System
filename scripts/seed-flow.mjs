@@ -581,4 +581,19 @@ await history('2026-08-19', 22, [['PD10100510', 44, 2], ['PD05100510', 36, 2]],
 await history('2026-08-26', 16, [['PD05050510', 60, 3]],
   { shipQty: 25, scrap: 1, customer: '서울아산병원' });
 
+/* ---------------------------------------------------------------------------
+   시연 자료 표시
+
+   여기까지 온 자료는 전부 지어낸 것이다. 표시를 남겨 모든 화면 맨 위에 띠가
+   뜨게 한다 (0049). 실 운영 전에 비우라는 말을 사람이 기억하는 데 맡기지
+   않는다.
+
+   표시는 응용이 지우지 못한다. scripts/reset-db.mjs 가 자료와 함께 비운다.
+--------------------------------------------------------------------------- */
+await client.query(
+  `insert into demo_marker (id, note) values (true, $1)
+   on conflict (id) do update set seeded_at = now(), note = excluded.note`,
+  ['scripts/seed-flow.mjs 로 넣은 시연 배치 기록']);
+say('시연 자료 표시를 남겼습니다 - 화면 맨 위에 띠가 뜹니다');
+
 await client.end();
