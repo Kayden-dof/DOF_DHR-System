@@ -1,7 +1,7 @@
 ================================================================================================
  DOF DHR 지원 시스템 - M0 적격성 시험 (OQ)
  범위      : §4.1 사용자·권한 / §4.10 채번 / §5 S03 감사추적 / §8 시험 요건
- 실행 일시 : 2026-08-31 12:37:55 (Asia/Seoul)
+ 실행 일시 : 2026-08-31 12:45:13 (Asia/Seoul)
  대상 DB   : PGlite (메모리)
  엔진      : PostgreSQL 18.3 (PGlite 0.5.7)
  마이그레이션: 0001_app_role.sql, 0002_audit.sql, 0003_users.sql, 0004_numbering.sql, 0005_grants.sql, 0006_supabase_hardening.sql, 0007_m1_item.sql, 0008_m1_supplier.sql, 0009_m1_dmr.sql, 0010_m1_material.sql, 0011_m1_work_order.sql, 0012_m2_product_lot.sql, 0013_m2_process.sql, 0014_m2_print_lock.sql, 0015_m3_stock.sql, 0016_m4_steril_shipment.sql, 0017_grants_audit.sql, 0018_pin_reset.sql, 0019_work_order_plan.sql, 0020_print_pages.sql, 0021_print_control.sql, 0022_login_throttle.sql, 0023_review.sql, 0024_equipment.sql, 0025_release_request.sql, 0026_shipment_request_required.sql, 0027_equipment_validation.sql, 0028_print_lookup_equipment.sql, 0029_genealogy_attempt.sql, 0030_expected_units.sql, 0031_product_code.sql, 0032_equipment_ref.sql, 0033_review_equipment_ref.sql, 0034_dmr_copy.sql, 0035_review_op_name.sql, 0036_field_cut.sql, 0037_sample_plan.sql, 0038_typical_day.sql, 0039_wording.sql, 0040_planned_units.sql, 0041_amend_issue.sql, 0042_unit_seq.sql, 0043_viewer.sql, 0044_board.sql, 0045_nonconformity.sql, 0046_concession_doc.sql, 0047_wip_nonconformity.sql, 0048_board_periods.sql, 0049_demo_marker.sql, 0050_purge_demo.sql, 0051_purge_gate.sql, 0052_immutable.sql, 0053_print_identity.sql, 0054_print_register.sql, 0055_attempt.sql, 0056_amend_return.sql, 0057_spec_label.sql, 0058_batch_load.sql, 0059_batch_load_apply.sql, 0060_audit_secrets.sql, 0061_basis.sql

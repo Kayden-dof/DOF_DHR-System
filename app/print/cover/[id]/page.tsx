@@ -3,7 +3,7 @@ import { requireUser } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import { fmtDate, fmtDateTime } from '@/lib/fmt';
 import { logPrint } from '@/lib/print';
-import PrintFrame, { SignRow } from '@/components/print-frame';
+import PrintFrame, { Sheet, SignRow } from '@/components/print-frame';
 
 export const dynamic = 'force-dynamic';
 
@@ -139,12 +139,24 @@ export default async function CoverSheet({ params }: { params: Promise<{ id: str
     lots.length === 0 && '재단 전',
   ].filter(Boolean) as string[];
 
+  /*
+   * 편철 표지는 두 장이다.
+   *
+   * 전에는 한 장에 다 밀어 넣고 쪽 번호를 1 / 1 로 찍었는데, 브라우저에서
+   * 재어 보니 316mm 였다 (3차 검수 지적). A4 는 297mm 다. 넘어가면 브라우저가
+   * 아무 데서나 자르고 종이에는 여전히 1 / 1 이라고 적힌 채 나간다.
+   *
+   * 몇 장이 될지를 재어 맞히는 대신 장을 나눴다. 그러면 세는 것이 아니라
+   * 아는 것이 된다 - 요약과 목록이 첫 장, 편철 서류 목록과 서명란이 둘째 장.
+   */
   const meta = await logPrint({
     actorId: user.id, actorName: user.full_name, kind: 'COVER',
     workOrderId: id, payload: { head, materials, lots, days },
+    pages: 2,
   });
 
   return (
+    <>
     <PrintFrame
       meta={meta}
       title="제조기록 편철 표지"
@@ -320,101 +332,118 @@ export default async function CoverSheet({ params }: { params: Promise<{ id: str
       </table>
 
       {/*
-        * 이 묶음에 무엇이 철해져야 하는가 (사용자 요청 2026-08-27).
+        * 편철 서류 목록과 서명란은 둘째 장으로 뺀다.
         *
-        * 시스템이 발행한 양식은 마지막 회차와 매수를 사실로 적고, 서면으로만
-        * 존재하는 문서(멸균 성적서 원본, 원재료 성적서 사본)는 번호만 적는다.
-        * 철 확인란은 비워서 낸다 - 실제로 철했는지는 편철하는 사람이 종이
-        * 위에서 표시한다. 시스템은 목록까지만 안다.
+        * 앞 장의 요약과 목록을 한 장에 밀어 넣으면 A4 를 넘어간다 - 재어 보니
+        * 316mm 였다 (3차 검수 지적). 넘어가면 브라우저가 아무 데서나 자르고,
+        * 쪽 번호는 1 / 1 이라고 적힌 채 나간다.
         *
-        * 설비 사용 기록은 여기 없다. 그건 배치 묶음이 아니라 설비별 이력
-        * 파일에 철하는 문서다.
+        * 몇 장인지를 재어 맞히는 대신 장을 나눈다. 그러면 세는 것이 아니라
+        * 아는 것이 된다. 검토자가 서명하는 자리가 서류 목록과 같은 장에
+        * 오는 것도 맞다 - 목록을 대조하고 그 자리에서 서명한다.
         */}
-      <h2 className="mt-5 text-sm font-bold text-black">편철 서류 목록</h2>
-      <table className="print-table mt-1.5">
-        <thead>
-          <tr>
-            <th className="w-[6%] text-center">순번</th>
-            <th className="w-[30%]">서류</th>
-            <th className="w-[40%]">시스템 기록</th>
-            <th className="w-[12%] text-right">매수</th>
-            <th className="w-[12%] text-center">철 확인</th>
-          </tr>
-        </thead>
-        <tbody>
-          {(() => {
-            const wp = prints.find((x) => x.kind === 'WORK_ORDER');
-            const lp = prints.find((x) => x.kind === 'LABEL_REQUEST');
-            const dayPages = days.reduce((a, r) => a + r.prints, 0);
-            const rows: { name: string; fact: React.ReactNode; pages: string }[] = [
-              { name: '편철 표지 (이 장)',
-                fact: <>발행 {meta.seq}회차 · 식별자 {meta.dataHash.slice(0, 12)}</>,
-                pages: '1' },
-              { name: '작업 지시서',
-                fact: wp
-                  ? <>최종 {wp.latest}회차 발행분{wp.count > 1 && ` (총 ${wp.count}회 발행)`}</>
-                  : '발행 이력 없음',
-                pages: wp ? '1' : '-' },
-              { name: '제조기록서 (일차 · 작업자별)',
-                fact: <>{days.length}묶음{days.some((r) => r.prints === 0) &&
-                        ` · 미발행 ${days.filter((r) => r.prints === 0).length}건`}
-                        {' '}· 재단 일차는 생산 규격 기록지 포함</>,
-                pages: String(dayPages || '-') },
-              { name: '라벨요청서',
-                fact: lp ? <>최종 {lp.latest}회차 발행분</> : '발행 이력 없음',
-                pages: lp ? '1' : '-' },
-              { name: '출하 승인 요청서 (서면 승인 원본)',
-                fact: requests.length === 0
-                  ? '발행 이력 없음'
-                  : <span className="font-mono">
-                      {requests.map((r) =>
-                        `RR-${head.batch_no}-${String(r.seq).padStart(2, '0')}`).join(' · ')}
-                    </span>,
-                pages: requests.length ? String(requests.length) : '-' },
-              { name: '멸균 성적서 (외부 원본)',
-                fact: certs.length === 0
-                  ? '회수된 성적서 없음'
-                  : <span className="font-mono">
-                      {certs.map((c) => c.cert_no).join(' · ')}
-                    </span>,
-                pages: certs.length ? String(certs.length) : '-' },
-              /*
-                * 특채 기록지. 품질팀이 발행한 종이이고 시스템은 그 문서 코드만
-                * 안다. 특채가 없으면 이 줄 자체가 나오지 않는다 - 없는 서류를
-                * 목록에 세워 두면 찾다가 시간을 버린다.
-                */
-              ...(concessions.length > 0 ? [{
-                name: '특채 기록지 (품질팀 발행)',
-                fact: (
-                  <span className="font-mono">
-                    {concessions.map((c) => `${c.concession_doc_no} (${c.qty}개)`).join(' · ')}
-                  </span>
-                ),
-                pages: String(concessions.length),
-              }] : []),
-              { name: '원재료 성적서 사본',
-                fact: <span className="font-mono">{head.coa_no}</span>,
-                pages: '1' },
-            ];
-            return rows.map((r, i) => (
-              <tr key={i}>
-                <td className="text-center tnum">{i + 1}</td>
-                <td className="font-bold">{r.name}</td>
-                <td className="text-[10px]">{r.fact}</td>
-                <td className="text-right tnum">{r.pages}</td>
-                <td className="sign-box" style={{ height: 'auto' }} />
-              </tr>
-            ));
-          })()}
-        </tbody>
-      </table>
-      <p className="mt-1.5 text-[10px] leading-relaxed text-black">
-        목록과 회차 · 매수는 시스템 발행 기록입니다. 철 확인란은 편철하는 사람이
-        서류를 편철하며 대조 표시합니다. 설비 사용 기록은 배치 묶음이 아니라 설비별
-        이력 파일에 철합니다.
-      </p>
+      </PrintFrame>
 
-      <SignRow roles={['생산 책임자', '품질 검토', '품질 책임자']} />
-    </PrintFrame>
+      <Sheet meta={meta} page={2}
+             title="제조기록 편철 표지"
+             subtitle={<>배치 {head.batch_no} · 편철 서류 목록</>}>
+        {/*
+          * 이 묶음에 무엇이 철해져야 하는가 (사용자 요청 2026-08-27).
+          *
+          * 시스템이 발행한 양식은 마지막 회차와 매수를 사실로 적고, 서면으로만
+          * 존재하는 문서(멸균 성적서 원본, 원재료 성적서 사본)는 번호만 적는다.
+          * 철 확인란은 비워서 낸다 - 실제로 철했는지는 편철하는 사람이 종이
+          * 위에서 표시한다. 시스템은 목록까지만 안다.
+          *
+          * 설비 사용 기록은 여기 없다. 그건 배치 묶음이 아니라 설비별 이력
+          * 파일에 철하는 문서다.
+          */}
+        <h2 className="mt-5 text-sm font-bold text-black">편철 서류 목록</h2>
+        <table className="print-table mt-1.5">
+          <thead>
+            <tr>
+              <th className="w-[6%] text-center">순번</th>
+              <th className="w-[30%]">서류</th>
+              <th className="w-[40%]">시스템 기록</th>
+              <th className="w-[12%] text-right">매수</th>
+              <th className="w-[12%] text-center">철 확인</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(() => {
+              const wp = prints.find((x) => x.kind === 'WORK_ORDER');
+              const lp = prints.find((x) => x.kind === 'LABEL_REQUEST');
+              const dayPages = days.reduce((a, r) => a + r.prints, 0);
+              const rows: { name: string; fact: React.ReactNode; pages: string }[] = [
+                { name: '편철 표지 (이 장)',
+                  fact: <>발행 {meta.seq}회차 · 식별자 {meta.dataHash.slice(0, 12)}</>,
+                  pages: '1' },
+                { name: '작업 지시서',
+                  fact: wp
+                    ? <>최종 {wp.latest}회차 발행분{wp.count > 1 && ` (총 ${wp.count}회 발행)`}</>
+                    : '발행 이력 없음',
+                  pages: wp ? '1' : '-' },
+                { name: '제조기록서 (일차 · 작업자별)',
+                  fact: <>{days.length}묶음{days.some((r) => r.prints === 0) &&
+                          ` · 미발행 ${days.filter((r) => r.prints === 0).length}건`}
+                          {' '}· 재단 일차는 생산 규격 기록지 포함</>,
+                  pages: String(dayPages || '-') },
+                { name: '라벨요청서',
+                  fact: lp ? <>최종 {lp.latest}회차 발행분</> : '발행 이력 없음',
+                  pages: lp ? '1' : '-' },
+                { name: '출하 승인 요청서 (서면 승인 원본)',
+                  fact: requests.length === 0
+                    ? '발행 이력 없음'
+                    : <span className="font-mono">
+                        {requests.map((r) =>
+                          `RR-${head.batch_no}-${String(r.seq).padStart(2, '0')}`).join(' · ')}
+                      </span>,
+                  pages: requests.length ? String(requests.length) : '-' },
+                { name: '멸균 성적서 (외부 원본)',
+                  fact: certs.length === 0
+                    ? '회수된 성적서 없음'
+                    : <span className="font-mono">
+                        {certs.map((c) => c.cert_no).join(' · ')}
+                      </span>,
+                  pages: certs.length ? String(certs.length) : '-' },
+                /*
+                  * 특채 기록지. 품질팀이 발행한 종이이고 시스템은 그 문서 코드만
+                  * 안다. 특채가 없으면 이 줄 자체가 나오지 않는다 - 없는 서류를
+                  * 목록에 세워 두면 찾다가 시간을 버린다.
+                  */
+                ...(concessions.length > 0 ? [{
+                  name: '특채 기록지 (품질팀 발행)',
+                  fact: (
+                    <span className="font-mono">
+                      {concessions.map((c) => `${c.concession_doc_no} (${c.qty}개)`).join(' · ')}
+                    </span>
+                  ),
+                  pages: String(concessions.length),
+                }] : []),
+                { name: '원재료 성적서 사본',
+                  fact: <span className="font-mono">{head.coa_no}</span>,
+                  pages: '1' },
+              ];
+              return rows.map((r, i) => (
+                <tr key={i}>
+                  <td className="text-center tnum">{i + 1}</td>
+                  <td className="font-bold">{r.name}</td>
+                  <td className="text-[10px]">{r.fact}</td>
+                  <td className="text-right tnum">{r.pages}</td>
+                  <td className="sign-box" style={{ height: 'auto' }} />
+                </tr>
+              ));
+            })()}
+          </tbody>
+        </table>
+        <p className="mt-1.5 text-[10px] leading-relaxed text-black">
+          목록과 회차 · 매수는 시스템 발행 기록입니다. 철 확인란은 편철하는 사람이
+          서류를 편철하며 대조 표시합니다. 설비 사용 기록은 배치 묶음이 아니라 설비별
+          이력 파일에 철합니다.
+        </p>
+
+        <SignRow roles={['생산 책임자', '품질 검토', '품질 책임자']} />
+      </Sheet>
+    </>
   );
 }

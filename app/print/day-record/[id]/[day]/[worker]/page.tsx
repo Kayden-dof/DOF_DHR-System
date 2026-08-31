@@ -21,6 +21,34 @@ export const dynamic = 'force-dynamic';
    순환자는 서명하지 않는다. 이름만 표시한다. 책임 주체는 작업자 하나다.
 --------------------------------------------------------------------------- */
 
+/* ---------------------------------------------------------------------------
+   공정 기록이 A4 몇 장이 되는가
+
+   쪽 번호 n / N 은 §7 이 모든 인쇄물에 요구한 항목이다. 종이가 흩어졌을 때
+   몇 장짜리였는지를 그 장만 보고 알아야 한다. 그러려면 N 이 실제 매수와
+   같아야 하고, 지금은 그것을 셀 사람이 여기밖에 없다.
+
+   ── 값의 근거 ─────────────────────────────────────────────────────────────
+   A4 세로 297mm 에서 위아래 여백 30mm 를 빼면 267mm 가 남는다.
+   첫 장은 머리글 · 지시 내용 표 · 꼬리글이 약 115mm 를 쓰므로 공정 기록에
+   150mm 가 남고, 한 줄이 투입 자재 두어 건을 담으면 약 15mm 다. 그래서 열 줄.
+   이어지는 장은 표 머리글과 꼬리글만 있어 약 230mm 가 남아 열여덟 줄.
+
+   DX2401 은 공정이 12개이므로 대개 한 장이다. 재작업 회차가 쌓인 날에만
+   두 장이 된다.
+
+   브라우저가 실제로 자르는 자리는 globals.css 의 @media print 가 정한다.
+   여기 값이 그보다 넉넉해야 종이가 모자라지 않는다 - 모자란 쪽보다 남는
+   쪽이 낫다.
+--------------------------------------------------------------------------- */
+const ROWS_FIRST = 10;
+const ROWS_NEXT = 18;
+
+function sheetsFor(rows: number): number {
+  if (rows <= ROWS_FIRST) return 1;
+  return 1 + Math.ceil((rows - ROWS_FIRST) / ROWS_NEXT);
+}
+
 export default async function DayRecordSheet({ params }: {
   params: Promise<{ id: string; day: string; worker: string }>;
 }) {
@@ -73,8 +101,7 @@ export default async function DayRecordSheet({ params }: {
     actorId: user.id, actorName: user.full_name, kind: 'DAY_RECORD',
     workOrderId: id, dayNo, workerId: worker,
     payload: { head, records },
-    // 규격 기록지가 붙으면 두 장이다. 쪽 번호가 실제 매수와 맞아야 한다.
-    pages: specLines.length > 0 ? 2 : 1,
+    pages: sheetsFor(records.length) + (specLines.length > 0 ? 1 : 0),
     lockDay: true,
   });
 
@@ -93,7 +120,7 @@ export default async function DayRecordSheet({ params }: {
           * 공정 기록 사이에 끼워 넣으면 같은 배치가 여러 건인 것처럼 읽힌다.
           * 장을 나눠 뒤에 붙인다.
           */
-        <Sheet meta={meta} page={2}
+        <Sheet meta={meta} page={meta.pages}
                title="생산 규격 기록지"
                subtitle={<>배치 {head.batch_no} · {dayNo}일차 · {head.worker_name}</>}>
           <table className="print-table">

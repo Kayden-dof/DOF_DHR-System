@@ -822,8 +822,38 @@ h2 { line-height: 1.3; }
   .print-table th { background: #eee; }
   .sign-box { height: 56pt; }
 
+  /* -------------------------------------------------------------------------
+     A4 장 나누기
+
+     한 양식이 A4 한 장을 넘으면 브라우저가 알아서 자른다. 자르는 자리를
+     정해 주지 않으면 표 머리글만 남고 내용이 넘어가거나, 제목이 아래쪽에
+     혼자 남거나, 서명란이 두 장에 걸쳐 잘린다.
+
+     GMP 정본은 사람이 그 자리에서 읽고 서명하는 종이다. 어디서 잘리는지가
+     읽는 순서를 정한다.
+  ------------------------------------------------------------------------- */
+
+  /* 표 머리글은 넘어간 장에서 다시 찍는다. 무엇을 보는 표인지 없이 숫자만
+     이어지면 읽을 수 없다 */
   thead { display: table-header-group; }
-  tr { page-break-inside: avoid; }
+  tfoot { display: table-footer-group; }
+
+  /* 한 줄이 두 장에 걸치지 않는다. 시각과 자재 로트가 갈라지면 대조가 안 된다 */
+  tr, .print-table tbody tr { break-inside: avoid; page-break-inside: avoid; }
+
+  /* 제목이 장 맨 아래에 혼자 남지 않는다 */
+  h1, h2, h3 { break-after: avoid; page-break-after: avoid; }
+
+  /* 서명란은 통째로 한 장에 둔다. 이름 칸과 서명 칸이 갈라지면 서명할 자리가
+     어디인지 알 수 없다 */
+  .sign-box { break-inside: avoid; }
+  table:has(.sign-box) { break-inside: avoid; page-break-inside: avoid; }
+
+  /* 문단이 한 줄만 남거나 한 줄만 넘어가지 않게 한다 */
+  p, li { orphans: 3; widows: 3; }
+
+  /* 안내 문구는 그것이 설명하는 표와 떨어지지 않는다 */
+  .print-table + p { break-before: avoid; page-break-before: avoid; }
 }
 
 /* ---------------------------------------------------------------------------
