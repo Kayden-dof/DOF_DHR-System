@@ -119,6 +119,21 @@ export default function LoginForm({ owners }: { owners: string[] }) {
       } else if (e.key === 'Escape') {
         e.preventDefault();
         pressRef.current('clear');
+      } else if (e.key === 'Tab') {
+        /*
+         * 키보드로 치면 초점이 <body> 에 남아, Tab 이 칸 사이가 아니라 문서
+         * 전체를 돈다. 눌러도 아무 일이 없는 것처럼 보인다 (사용자 지적).
+         *
+         * 사번 ↔ 비밀번호 사이만 우리가 옮기고, 양 끝에서는 손을 뗀다 -
+         * 끝에서도 붙잡으면 키보드만 쓰는 사람이 이 판을 빠져나갈 수 없다.
+         */
+        if (!e.shiftKey && target.current === 'code') {
+          e.preventDefault();
+          select('pin');
+        } else if (e.shiftKey && target.current === 'pin') {
+          e.preventDefault();
+          select('code');
+        }
       } else if (e.key === 'Enter') {
         /*
          * Enter 는 초점이 어디에 있든 "다음 칸 또는 로그인"이다.

@@ -76,6 +76,7 @@ export default function PinForm({ first }: { first: boolean }) {
    * 번 더 누른다.
    */
   const SLOTS: Slot[] = ['current', 'next', 'again'];
+  const btnRef = useRef<Partial<Record<Slot, HTMLButtonElement | null>>>({});
   const pressRef = useRef(press);
   pressRef.current = press;
   const readyRef = useRef(ready);
@@ -103,6 +104,21 @@ export default function PinForm({ first }: { first: boolean }) {
         const i = SLOTS.indexOf(atRef.current);
         if (i < SLOTS.length - 1) setAt(SLOTS[i + 1]);
         else if (readyRef.current && !pending) formRef.current?.requestSubmit();
+      } else if (e.key === 'Tab') {
+        /*
+         * 키보드로 치면 초점이 <body> 에 남는다. 그대로 두면 Tab 이 칸 사이가
+         * 아니라 문서 전체를 돌아, 눌러도 아무 일이 없는 것처럼 보인다
+         * (사용자 지적 2026-08-31).
+         *
+         * 칸 안에서는 우리가 옮기고, 양 끝에서는 손을 뗀다 - 끝에서도 붙잡으면
+         * 키보드만 쓰는 사람이 이 판을 빠져나갈 수 없다.
+         */
+        const i = SLOTS.indexOf(atRef.current);
+        const n = e.shiftKey ? i - 1 : i + 1;
+        if (n < 0 || n >= SLOTS.length) return;      // 기본 동작에 맡긴다
+        e.preventDefault();
+        setAt(SLOTS[n]);
+        btnRef.current[SLOTS[n]]?.focus();
       }
     }
     window.addEventListener('keydown', onKey);
@@ -122,6 +138,7 @@ export default function PinForm({ first }: { first: boolean }) {
           {(['current', 'next', 'again'] as Slot[]).map((s) => (
             <button
               key={s}
+              ref={(el) => { btnRef.current[s] = el; }}
               type="button"
               onClick={() => setAt(s)}
               /* Tab 으로 옮겨 와도 그 칸이 받는다. 초점과 받는 칸이 갈리면
