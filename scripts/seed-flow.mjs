@@ -125,12 +125,24 @@ async function runOp(actor, opCode, { day, lot = null, attempt = 1, units = 0, r
   const equip = await val(
     `select id from operation_equipment_list($1) limit 1`, [op.id]);
 
+  /*
+   * 시각은 KST 벽시계로 만든 뒤 timezone('Asia/Seoul', ...) 로 감싼다.
+   *
+   * 감싸지 않으면 시간대 없는 값이 timestamptz 칸에 그대로 들어가 세션 시간대
+   * (서버는 UTC) 로 읽힌다. 07:00 으로 넣은 것이 16:00 이 되고, 값이 크면
+   * 날짜까지 넘어간다. 실제로 시연 배치에서 앞 공정 시작이 작업일보다 하루 뒤로
+   * 찍혀, 검토 지원이 "뒤 공정이 앞 공정보다 빠르다" 를 짚었다 (2026-08-31).
+   *
+   * 앱은 이 함정이 없다 - work_date 와 started_at 을 같은 순간에서 뽑는다
+   * (work_date = KST 오늘, started_at = now()). 여기만 손으로 조립한다.
+   */
   const prId = await as(actor.id, async () => {
     const id = await val(
       `insert into process_record (work_order_id, product_lot_id, operation_id, attempt,
          day_no, work_date, worker_id, rotation_worker_id, equipment_ref, started_at)
        values ($1,$2,$3,$4,$5,(timezone('Asia/Seoul', now()))::date,$6,$7,$9,
-               (timezone('Asia/Seoul', now()))::date + ($8 || ' minutes')::interval)
+               timezone('Asia/Seoul',
+                 (timezone('Asia/Seoul', now()))::date + ($8 || ' minutes')::interval))
        returning id`,
       [wo.id, lot, op.id, attempt, day, actor.id, rotation, startMin, equip]);
     return id;
@@ -150,7 +162,8 @@ async function runOp(actor, opCode, { day, lot = null, attempt = 1, units = 0, r
   await as(actor.id, () =>
     client.query(
       `update process_record
-          set ended_at = (timezone('Asia/Seoul', now()))::date + ($2 || ' minutes')::interval
+          set ended_at = timezone('Asia/Seoul',
+                (timezone('Asia/Seoul', now()))::date + ($2 || ' minutes')::interval)
         where id = $1`, [prId, startMin + 30]));
   await as(actor.id, () => client.query(`select complete_process($1)`, [prId]));
   say(`${op.code} ${op.name}${lot ? ' · 로트별' : ''} 마감`);
