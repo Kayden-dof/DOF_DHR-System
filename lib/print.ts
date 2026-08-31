@@ -56,9 +56,28 @@ export const KIND_LABEL: Record<string, string> = {
    전에 뽑힌 인쇄물은 열쇠 없는 값으로 남아 있다. 저장된 값으로 조회되므로
    되짚는 데는 지장이 없다. 다시 뽑으면 그때부터 새 방식 값이 붙는다.
 --------------------------------------------------------------------------- */
+/**
+ * 인쇄 열쇠.
+ *
+ * PRINT_SECRET 이 64자 16진수면 그 바이트로 읽는다. 그 밖에는 글자 그대로다.
+ *
+ * ── 왜 16진수를 따로 보는가 ───────────────────────────────────────────────
+ * scripts/print-key.mjs 가 "지금 쓰고 있는 파생 열쇠" 를 16진수로 찍어 준다.
+ * 그 값을 PRINT_SECRET 에 넣는 이유는 열쇠를 바꾸지 않고 고정하려는 것이다.
+ *
+ * 그런데 그것을 글자로 읽으면 32바이트 파생 열쇠가 아니라 64바이트 문자열이
+ * 되어 전혀 다른 열쇠가 된다. 고정하려다 갈아 버리는 셈이고, 그러면 같은
+ * 자료가 다른 식별자를 내어 §7 의 신호가 끊긴다.
+ *
+ * 실제로 그럴 뻔했다 (3차 검수 후속 확인). 16진수로 보이면 바이트로 읽는다.
+ */
 function printKey(): Buffer {
   const own = process.env.PRINT_SECRET;
-  if (own && own.length >= 32) return Buffer.from(own, 'utf8');
+  if (own && own.length >= 32) {
+    return /^[0-9a-f]{64}$/i.test(own)
+      ? Buffer.from(own, 'hex')
+      : Buffer.from(own, 'utf8');
+  }
 
   const session = process.env.SESSION_SECRET;
   if (!session || session.length < 32) {

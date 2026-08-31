@@ -3,7 +3,8 @@ import Denied from '@/components/denied';
 import { requireUser, blocksViewer } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import { fmtDateTime } from '@/lib/fmt';
-import { KIND_LABEL } from '@/lib/print';
+import { KIND_LABEL, dataHash } from '@/lib/print';
+import { dayRecordPayload } from '@/lib/print-payload';
 import { Panel, Empty, Tag, Field } from '@/components/ui';
 import { PageShell } from '@/components/shell';
 import { SubNav } from '../../nav';
@@ -42,6 +43,9 @@ interface Hit {
   product_lot_no: string | null; material_lot_no: string | null;
   equipment_code: string | null; equipment_name: string | null;
   newer_count: number; latest_seq: number;
+  data_hash: string;
+  /* 지금 자료로 다시 계산한 값. 대조할 수 없는 양식이면 null */
+  recomputed?: string | null;
 }
 
 export default async function VerifyPage({
@@ -61,6 +65,27 @@ export default async function VerifyPage({
             where short_hash like $1 || '%'
             order by printed_at desc limit 20`, [q]))
     : [];
+
+  /*
+   * 지금 자료로 다시 계산해 종이에 찍힌 값과 견준다 (1차 감사 지적 2 의 나머지).
+   *
+   * 제조기록서만 한다. 인쇄하면 그 묶음이 잠겨 (S04) 자료가 얼기 때문에,
+   * 나중에 다시 계산한 값이 다르면 그건 실제로 무언가 달라진 것이다.
+   *
+   * 다른 양식은 대조하지 않는다. 편철 표지는 일차가 늘면 바뀌고 라벨요청서는
+   * 재단이 진행되면 바뀐다. 그것까지 견주면 정상 진행에도 계속 "다르다" 가
+   * 떠서, 신호가 아니라 소음이 된다 (§8.5).
+   */
+  await withActor(user.id, async (db) => {
+    for (const h of hits) {
+      if (h.kind !== 'DAY_RECORD' || !h.work_order_id || h.day_no === null) continue;
+      const worker = await db.val<string>(
+        `select worker_id::text from record_print where id = $1`, [h.id]);
+      if (!worker) continue;
+      const payload = await dayRecordPayload(db, h.work_order_id, h.day_no, worker);
+      h.recomputed = payload ? dataHash(payload) : null;
+    }
+  });
 
   return (
     <PageShell
@@ -144,6 +169,35 @@ export default async function VerifyPage({
                       <span className="tnum">{h.pages}장</span>
                     </Field>
                   </div>
+
+                  {/*
+                    * 지금 자료로 다시 계산한 값.
+                    *
+                    * 종이에 찍힌 값은 인쇄한 그 순간의 자료를 요약한 것이다.
+                    * 지금 자료를 같은 방법으로 요약해 견주면, 그 뒤로 무언가
+                    * 달라졌는지 알 수 있다. 이 대조가 없으면 재인쇄가 일어나기
+                    * 전까지 어긋남이 드러나지 않는다.
+                    *
+                    * 판정하지 않는다 (§8.5). 같다 · 다르다만 적고, 다르면
+                    * 무엇을 보라고만 일러 준다.
+                    */}
+                  {h.recomputed !== undefined && (
+                    h.recomputed === h.data_hash ? (
+                      <p className="rounded-md border border-line bg-surface-sub px-3.5 py-2.5 text-sm leading-relaxed text-muted">
+                        지금 자료로 다시 계산해도 같은 식별자입니다. 이 종이가 나온 뒤
+                        이 묶음의 자료는 달라지지 않았습니다.
+                      </p>
+                    ) : (
+                      <p className="rounded-md border border-warn/40 bg-warn-bg px-3.5 py-2.5 text-sm leading-relaxed text-ink">
+                        <b>지금 자료로 다시 계산하면 값이 다릅니다.</b>{' '}
+                        <span className="font-mono text-xs">
+                          {h.recomputed ? h.recomputed.slice(0, 12) : '자료 없음'}
+                        </span>
+                        {' '}이 종이가 나온 뒤 이 묶음에 무엇이 달라졌는지는
+                        감사추적에서 확인하십시오.
+                      </p>
+                    )
+                  )}
 
                   {h.newer_count > 0 && (
                     <p className="rounded-md border border-danger-line bg-danger-bg px-3.5 py-2.5 text-sm leading-relaxed text-ink">

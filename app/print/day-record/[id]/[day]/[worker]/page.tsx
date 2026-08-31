@@ -4,6 +4,7 @@ import { withActor } from '@/lib/db';
 import { fmtDate, fmtDateTime } from '@/lib/fmt';
 import { logPrint } from '@/lib/print';
 import PrintFrame, { Sheet, SignRow } from '@/components/print-frame';
+import { dayRecordPayload, type RecRow } from '@/lib/print-payload';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,30 +21,6 @@ export const dynamic = 'force-dynamic';
    순환자는 서명하지 않는다. 이름만 표시한다. 책임 주체는 작업자 하나다.
 --------------------------------------------------------------------------- */
 
-interface Head {
-  batch_no: string; wo_no: string; sheet_count: number; dmr_revision: string;
-  item_code: string; item_name: string;
-  raw_lot_no: string; raw_item_code: string; raw_supplier: string;
-  raw_coa_no: string; raw_coa_date: string; raw_thickness: string | null;
-  supplier_lot_no: string;
-  worker_name: string; work_date: string;
-}
-interface RecRow {
-  operation_seq: number; operation_code: string; operation_name: string;
-  attempt: number;
-  product_lot_no: string | null; product_item_code: string | null;
-  product_item_name: string | null; product_qty: number | null;
-  product_sample: number | null;
-  started_at: Date | null; ended_at: Date | null;
-  equipment_id: string | null; rework_qty: number | null; no_material_reason: string | null;
-  rotation_name: string | null;
-  issues: { item_code: string; item_name: string; lot_no: string;
-            qty: string; usage_uom: string; amend_reason: string | null }[];
-  // 위탁 멸균으로 나간 수량. 자재가 아니라 제품이라 투입 자재 칸에 들어가지 않는다.
-  steril: { batch_no: string; qty: number; vendor_name: string;
-            shipped_at: string | null; cert_no: string | null }[];
-}
-
 export default async function DayRecordSheet({ params }: {
   params: Promise<{ id: string; day: string; worker: string }>;
 }) {
@@ -51,71 +28,11 @@ export default async function DayRecordSheet({ params }: {
   const { id, day, worker } = await params;
   const dayNo = Number(day);
 
-  const d = await withActor(user.id, async (db) => {
-    const head = await db.one<Head>(
-      `select wo.batch_no, wo.wo_no, wo.sheet_count, wo.dmr_revision,
-              i.code as item_code, i.name as item_name,
-              ml.lot_no as raw_lot_no, ri.code as raw_item_code,
-              s.name as raw_supplier, ml.coa_no as raw_coa_no,
-              ml.coa_date::text as raw_coa_date, ml.thickness_band as raw_thickness,
-              ml.supplier_lot_no,
-              u.full_name as worker_name,
-              (select min(pr.work_date)::text from process_record pr
-                where pr.work_order_id = wo.id and pr.day_no = $2
-                  and pr.worker_id = $3) as work_date
-         from work_order wo
-         join device_master dm on dm.id = wo.device_master_id
-         join item i on i.id = dm.item_id
-         join material_lot ml on ml.id = wo.material_lot_id
-         join item ri on ri.id = ml.item_id
-         join supplier s on s.id = ml.supplier_id
-         join app_user u on u.id = $3
-        where wo.id = $1`, [id, dayNo, worker]);
-    if (!head) return null;
-
-    return {
-      head,
-      records: await db.rows<RecRow>(
-        `select o.seq as operation_seq, o.code as operation_code, o.name as operation_name,
-                pr.attempt, pl.lot_no as product_lot_no,
-                pi.code as product_item_code, pi.name as product_item_name,
-                pl.qty_produced as product_qty, pl.qty_sample as product_sample,
-                pr.started_at, pr.ended_at,
-                pr.equipment_id, pr.rework_qty, pr.no_material_reason,
-                ru.full_name as rotation_name,
-                coalesce((
-                  select json_agg(json_build_object(
-                    'item_code', i.code, 'item_name', i.name, 'lot_no', ml.lot_no,
-                    'qty', mi.qty, 'usage_uom', i.usage_uom,
-                    'amend_reason', mi.amend_reason) order by i.code)
-                    from material_issue mi
-                    join material_lot ml on ml.id = mi.material_lot_id
-                    join item i on i.id = ml.item_id
-                   where mi.process_record_id = pr.id), '[]'::json) as issues,
-                /*
-                 * 멸균은 위탁이라 자재를 넣는 공정이 아니라 제품을 내보내는 공정이다.
-                 * 몇 개가 나갔는지가 기록서에 없으면 회수 수량과 대조할 근거가 없다.
-                 * 수량은 steril_batch_lot 에 있고 제품 로트로 이어 붙인다.
-                 */
-                coalesce((
-                  select json_agg(json_build_object(
-                    'batch_no', sb.batch_no, 'qty', sbl.qty,
-                    'vendor_name', sb.vendor_name,
-                    'shipped_at', sb.shipped_at::text, 'cert_no', sb.cert_no)
-                    order by sb.batch_no)
-                    from steril_batch_lot sbl
-                    join steril_batch sb on sb.id = sbl.steril_batch_id
-                   where pr.product_lot_id is not null
-                     and sbl.product_lot_id = pr.product_lot_id), '[]'::json) as steril
-           from process_record pr
-           join dmr_operation o on o.id = pr.operation_id
-           left join product_lot pl on pl.id = pr.product_lot_id
-           left join item pi on pi.id = pl.item_id
-           left join app_user ru on ru.id = pr.rotation_worker_id
-          where pr.work_order_id = $1 and pr.day_no = $2 and pr.worker_id = $3
-          order by o.seq, pr.attempt`, [id, dayNo, worker]),
-    };
-  });
+  /*
+   * 자료는 lib/print-payload 에서 온다. 인쇄물 조회가 같은 것을 읽어
+   * 자료 식별자를 다시 계산하므로, 두 곳이 갈라지면 안 된다.
+   */
+  const d = await withActor(user.id, (db) => dayRecordPayload(db, id, dayNo, worker));
 
   if (!d || d.records.length === 0) notFound();
   const { head, records } = d;
