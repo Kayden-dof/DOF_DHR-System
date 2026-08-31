@@ -16,6 +16,11 @@ export default function ErrorScreen({
   error, reset,
 }: { error: Error & { digest?: string }; reset: () => void }) {
   return (
+    /*
+     * 이 화면은 클라이언트 부품이라 첫 HTML 에 실리지 않는다. 그래서 화면
+     * 시험은 여기에 표시를 달아 찾지 못한다 - 서버가 보낸 흐름에서 오류
+     * 봉투를 본다 (scripts/smoke.mjs).
+     */
     <main className="flex min-h-screen flex-col items-center justify-center bg-canvas px-5 py-12">
       <div className="w-full max-w-lg">
         <Wordmark className="h-6 w-auto" />

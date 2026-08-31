@@ -67,6 +67,25 @@ const WORKER = ['/work', ids.wo && `/work/${ids.wo}`].filter(Boolean);
 
 let bad = 0;
 
+/* ---------------------------------------------------------------------------
+   화면이 실제로 그려졌는가
+
+   200 만으로는 아무것도 모른다. 화면이 던지면 app/error.tsx 가 받아 200 으로
+   응답하고, 그 오류 화면은 클라이언트 부품이라 첫 HTML 에 실리지도 않는다.
+   그래서 완전히 깨진 화면이 "통과 200" 으로 나온다.
+
+   실제로 그랬다. 화면 첫 줄에 throw 를 넣고 돌렸더니 "전 화면 통과" 라고
+   했다 (2026-09-01). 하루 종일 이 출력을 근거로 삼고 있었다.
+
+   ── 왜 문구로 찾지 않는가 ─────────────────────────────────────────────────
+   전에는 영어 오류 문구 세 개를 찾았다. 이 앱의 오류 화면은 한국어라 걸리지
+   않았다. 문구 목록은 문구를 고쳐 쓰는 순간 낡고, 그때 다시 눈이 먼다.
+
+   던진 오류는 React Flight 흐름에 :E{"digest":…} 봉투로 실려 온다. 그것을
+   본다. 성한 화면 여덟에서 헛불이 나지 않는 것을 확인했다.
+--------------------------------------------------------------------------- */
+const RENDER_ERROR = /:E\{\\?"digest\\?":/;
+
 async function sweep(label, cookie, paths) {
   console.log(`\n${label}`);
   for (const p of paths) {
@@ -75,7 +94,9 @@ async function sweep(label, cookie, paths) {
       const r = await fetch(`${BASE}${p}`, { headers: { cookie }, redirect: 'manual' });
       status = r.status;
       const body = r.status === 200 ? await r.text() : '';
-      if (/A server error occurred|application error|Internal Server Error/i.test(body)) {
+      if (RENDER_ERROR.test(body)) {
+        note = '화면이 그려지다 던졌다';
+      } else if (/A server error occurred|application error|Internal Server Error/i.test(body)) {
         note = '서버 오류 화면';
       }
     } catch (e) {
