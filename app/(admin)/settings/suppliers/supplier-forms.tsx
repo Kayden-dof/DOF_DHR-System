@@ -73,6 +73,24 @@ function Fields({ s }: { s?: SupplierRow }) {
         <label className="label">비고</label>
         <input name="note" defaultValue={s?.note ?? ''} className="input" />
       </div>
+
+      {/*
+        * 왜 바꾸는가. 고칠 때만 묻는다 - 새로 등록하는 것은 만든 것 자체가
+        * 사유다 (3차 검수 결함 7).
+        *
+        * 감사추적에 남는다. 비워 두어도 저장되지만, 나중에 "이 공급자는 왜
+        * 정지되었나" 를 물었을 때 답이 없다.
+        */}
+      {s && (
+        <div className="lg:col-span-4">
+          <label className="label" htmlFor={`why-${s.id}`}>변경 사유</label>
+          <input id={`why-${s.id}`} name="change_reason" className="input"
+                 placeholder="예: 정기 재평가 결과 · 실사 지적 · 계약 갱신" />
+          <p className="mt-1 text-xs text-faint">
+            감사추적에 함께 남습니다. 비워 두어도 저장됩니다.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

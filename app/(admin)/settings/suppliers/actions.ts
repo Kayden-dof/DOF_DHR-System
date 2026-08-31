@@ -34,7 +34,18 @@ export async function saveSupplier(_p: FormState, form: FormData): Promise<FormS
           `update supplier set name=$2, status=$3, approved_until=$4::date, contact_name=$5,
                   contact_phone=$6, contact_email=$7, biz_no=$8, address=$9,
                   payment_terms=$10, note=$11
-            where id=$1`, [id, ...fields]));
+            where id=$1`, [id, ...fields]),
+        /*
+         * 왜 바꿨는가를 함께 싣는다 (0061 · 3차 검수 결함 7).
+         *
+         * 공급자 상태와 승인기한은 아래로 흐르는 값이다 - 미승인 공급자는
+         * 작업 지시 발행 화면에 경고로 뜬다. 나중에 "이 배치는 왜 미승인
+         * 공급자 자재로 나갔나" 를 물었을 때, 언제 무엇이 바뀌었는지만으로는
+         * 답이 안 된다.
+         *
+         * 등록에는 묻지 않는다. 만든 것 자체가 사유다.
+         */
+        { reason: String(form.get('change_reason') ?? '').trim() || undefined });
       revalidatePath('/settings/suppliers');
       return { ok: true, message: '공급자 정보를 수정했습니다.' };
     }

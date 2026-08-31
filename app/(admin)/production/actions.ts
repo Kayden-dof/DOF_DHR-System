@@ -33,12 +33,17 @@ export async function issueWorkOrder(_p: FormState, form: FormData): Promise<For
     const dmId = String(form.get('device_master_id') ?? '');
 
     const out = await withActor(me.id, async (db) => {
-      const dm = await db.one<{ revision: string; verified_at: Date | null }>(
-        `select revision, verified_at from device_master where id = $1`, [dmId]);
+      /*
+       * 개정번호만 읽는다. 쓸 수 있는 표준서인지는 DB 가 본다 (0061).
+       *
+       * 전에는 여기서 verified_at 만 보고 있었고 status 도 effective_from 도
+       * 조회하지 않았다. 그래서 DRAFT 이고 발효일이 2099년인 표준서로도
+       * 작업 지시가 발행되었다 (3차 검수 결함 5). 응용 계층에서만 막은 건
+       * 검증이 아니다 (§1) - 판정을 DB 로 옮기고 여기서는 예외를 그대로 올린다.
+       */
+      const dm = await db.one<{ revision: string }>(
+        `select revision from device_master where id = $1`, [dmId]);
       if (!dm) throw new Error('제품표준서를 찾을 수 없습니다');
-      if (!dm.verified_at) {
-        throw new Error('서면 대조 확인이 끝나지 않은 제품표준서로는 발행할 수 없습니다');
-      }
 
       const woNo = await db.val<string>(`select next_number('WORK_ORDER')`);
       const batchNo = await db.val<string>(`select next_number('BATCH')`);

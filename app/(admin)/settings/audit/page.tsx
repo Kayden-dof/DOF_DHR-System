@@ -57,8 +57,22 @@ export default async function AuditPage({ searchParams }: { searchParams: Search
        * 품목 코드 · 이름. 그것을 꺼내 보여 주고, 없을 때만 uuid 로 떨어진다.
        * 변경 기록이면 바뀌기 전 값에도 같은 번호가 있으므로 양쪽을 본다.
        */
+      /*
+       * 비밀 컬럼은 서버에서 떼어 낸다.
+       *
+       * 가리는 코드가 entry.tsx 안에만 있었다. 그건 'use client' 파일이라
+       * 서버가 값을 통째로 직렬화해 브라우저로 보낸 뒤 화면에서만 덮는
+       * 구조였다. 페이지 소스에 원본이 그대로 있었고, 감사추적은 열람자에게도
+       * 열려 있는 화면이다 (3차 검수 결함 2).
+       *
+       * 0060 이 트리거 쪽에서 아예 담지 않게 했으므로 앞으로 쌓이는 행에는
+       * 값이 없다. 그 전에 쌓인 행은 audit_log 를 고칠 수 없어 그대로 있는데,
+       * 여기서 떼어 내면 화면으로는 나가지 않는다.
+       */
       `select a.id::text as id, a.table_name, a.record_id::text as record_id, a.action,
-              a.acted_at, a.old_value, a.new_value, u.full_name as actor_name,
+              a.acted_at, a.reason, u.full_name as actor_name,
+              audit_redact(a.old_value, a.table_name) as old_value,
+              audit_redact(a.new_value, a.table_name) as new_value,
               coalesce(
                 a.new_value->>'lot_no',      a.old_value->>'lot_no',
                 a.new_value->>'batch_no',    a.old_value->>'batch_no',

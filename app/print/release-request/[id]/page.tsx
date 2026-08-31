@@ -32,7 +32,7 @@ interface Row {
   id: string; lot_no: string; item_code: string; item_name: string;
   qty_produced: number; qty_sample: number; qty_available: number;
   manufactured_on: string; expiry_date: string;
-  shipped: number; steril_cert: string | null; spec: string;
+  shipped: number; steril_cert: string | null; spec: string; shelf_basis: string;
 }
 
 /* 규격 문구는 DB 의 spec_label() 하나에서만 만든다 (0057 · 3차 검수 결함 1) */
@@ -72,6 +72,7 @@ export default async function ReleaseRequestSheet({
     const rows = await db.rows<Row>(
       `select pl.id, pl.lot_no, i.code as item_code, i.name as item_name,
               spec_label(i.code) as spec,
+              shelf_life_basis(pl.shelf_life_ref, pl.item_id) as shelf_basis,
               pl.qty_produced, pl.qty_sample, pl.qty_available,
               pl.manufactured_on, pl.expiry_date,
               coalesce((select sum(sh.qty)::int from shipment sh
@@ -157,7 +158,14 @@ export default async function ReleaseRequestSheet({
                 <div className="text-[10px]">{r.spec}</div>
               </td>
               <td className="tnum">{fmtDate(r.manufactured_on)}</td>
-              <td className="tnum font-bold">{fmtDate(r.expiry_date)}</td>
+              {/*
+                * 유효기한 밑에 그 근거를 적는다. 품질책임자가 이 종이 위에
+                * 서명하는데, 무엇에 근거한 기한인지가 종이에 없으면 물어볼
+                * 곳이 없다 (3차 검수 결함 5).
+                */}
+              <td className="tnum font-bold">{fmtDate(r.expiry_date)}
+                <div className="text-[8px] font-normal leading-tight">{r.shelf_basis}</div>
+              </td>
               <td className="text-right tnum">{r.qty_produced}</td>
               <td className="text-right tnum">{r.shipped || ''}</td>
               <td className="text-right tnum">{r.qty_available}</td>

@@ -16,6 +16,8 @@ export interface AuditEntry {
   new_value: Record<string, unknown> | null;
   /** 남겨 둔 값에서 꺼낸 사람이 아는 번호. 없으면 null */
   label: string | null;
+  /** 왜 바꿨는가 (0061). 변경에만 있고 비어 있을 수 있다 */
+  reason: string | null;
 }
 
 /* 해시·비밀 값은 화면에 올리지 않는다. 감사추적은 "무엇이 바뀌었는가"를 보여주는
@@ -80,7 +82,13 @@ export default function Entry({ e }: { e: AuditEntry }) {
             ? <span className="text-ink">{e.label}</span>
             : <span className="text-faint">{shortId(e.record_id)}</span>}
         </td>
-        <td className="td">{e.actor_name ?? <span className="text-faint">-</span>}</td>
+        <td className="td">
+          {e.actor_name ?? <span className="text-faint">-</span>}
+          {/* 왜 바꿨는가. 있는 줄에만 나온다 - 없는 것이 정상인 줄이 대부분이다 */}
+          {e.reason && (
+            <div className="mt-0.5 text-xs leading-snug text-muted">{e.reason}</div>
+          )}
+        </td>
         <td className="td text-right">
           {/*
             * 스무 줄에 같은 단추가 스무 개 서 있었다. 평소에는 눌러 놓고 줄에

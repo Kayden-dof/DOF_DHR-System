@@ -20,7 +20,7 @@ interface Head {
 interface LotRow {
   lot_no: string; item_code: string; item_name: string;
   qty_produced: number; qty_sample: number; qty_available: number;
-  manufactured_on: string; expiry_date: string; spec: string;
+  manufactured_on: string; expiry_date: string; spec: string; shelf_basis: string;
 }
 
 /*
@@ -52,7 +52,8 @@ export default async function LabelRequestSheet({ params }: { params: Promise<{ 
       lots: await db.rows<LotRow>(
         `select pl.lot_no, i.code as item_code, i.name as item_name,
                 pl.qty_produced, pl.qty_sample, pl.qty_available,
-                pl.manufactured_on, pl.expiry_date, spec_label(i.code) as spec
+                pl.manufactured_on, pl.expiry_date, spec_label(i.code) as spec,
+                shelf_life_basis(pl.shelf_life_ref, pl.item_id) as shelf_basis
            from product_lot pl join item i on i.id = pl.item_id
           where pl.work_order_id = $1 order by i.code`, [id]),
     };
@@ -158,7 +159,9 @@ export default async function LabelRequestSheet({ params }: { params: Promise<{ 
                 {l.lot_no}-{String(l.qty_produced).padStart(3, '0')}
               </td>
               <td className="tnum">{fmtDate(l.manufactured_on)}</td>
-              <td className="tnum">{fmtDate(l.expiry_date)}</td>
+              <td className="tnum">{fmtDate(l.expiry_date)}
+                <div className="text-[9px] leading-tight">{l.shelf_basis}</div>
+              </td>
             </tr>
           ))}
         </tbody>

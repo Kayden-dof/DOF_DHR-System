@@ -73,7 +73,7 @@ function wrap(client: PoolClient): Db {
 export async function withActor<T>(
   actorId: string | null,
   fn: (db: Db) => Promise<T>,
-  opts: { readOnly?: boolean } = {},
+  opts: { readOnly?: boolean; reason?: string } = {},
 ): Promise<T> {
   const client = await pool().connect();
   try {
@@ -90,6 +90,12 @@ export async function withActor<T>(
     // 트랜잭션 로컬(3번째 인자 true)로 세팅한다. 커넥션 풀러가 세션을
     // 재사용하므로 세션 GUC로 두면 다음 요청의 감사기록에 남의 id가 찍힌다.
     await client.query('select set_config($1, $2, true)', ['app.user_id', actorId ?? '']);
+    /*
+     * 왜 바꿨는가. 주면 감사추적에 남고 (0061), 주지 않으면 비어 있다.
+     * 트랜잭션 로컬이라 다음 요청으로 새지 않는다.
+     */
+    await client.query('select set_config($1, $2, true)',
+                       ['app.change_reason', opts.reason ?? '']);
     const out = await fn(wrap(client));
     await client.query('commit');
     return out;
