@@ -56,7 +56,16 @@ const wo = await one(
      join supplier s on s.id = ml.supplier_id
      join app_user up on up.id = wo.issued_by_prod
      join app_user uq on uq.id = wo.issued_by_qa
+    /*
+     * 제품 로트도 있고 잠긴 일차도 있는 배치라야 여섯 양식을 다 대조할 수 있다.
+     *
+     * 전에는 제품 로트만 보고 골랐다. 지난 기록으로 넣은 배치들은 재단 결과만
+     * 있고 공정 기록이 없어서, 가장 오래된 것을 고르면 편철 표지는 그 배치를
+     * 대조하는데 제조기록서는 다른 배치 것을 열게 되었다 (2차 검수 지적).
+     * 픽스처는 실제 관계에서 뽑아야 한다.
+     */
     where exists (select 1 from product_lot pl where pl.work_order_id = wo.id)
+      and exists (select 1 from day_lock dl where dl.work_order_id = wo.id)
     order by wo.issued_at limit 1`);
 
 if (!wo) {
@@ -82,6 +91,16 @@ const mat = await one(
 /*
  * 제조기록서는 이미 잠긴 묶음만 고른다. 안 잠긴 것을 열면 이 시험이 그 묶음을
  * 잠가 버린다. 잠금 해제는 없으므로 시험이 자료를 되돌릴 수 없게 바꾼다.
+ *
+ * 반드시 위에서 고른 배치(wo)의 묶음이어야 한다.
+ *
+ * 전에는 잠긴 묶음이면 아무거나 골랐다. 그런데 편철 표지는 wo 것을 대조하면서
+ * 그 안의 "일차별 기록 작업자 · 작업일" 은 여기서 고른 day 로 견주므로, 둘이
+ * 다른 배치면 상시 불일치가 났다. 시연 자료에 배치가 하나뿐일 때는 우연히
+ * 맞아떨어져 오래 드러나지 않았다 (2차 검수 지적).
+ *
+ * 인쇄 충실성 시험(§8.2)이 OQ 근거가 되는 문서다. 그 시험이 스스로 틀리면
+ * 대조 결과 전체를 믿을 수 없다.
  */
 const day = await one(
   `select dl.work_order_id, dl.day_no, dl.worker_id, u.full_name as worker_name,
@@ -90,7 +109,16 @@ const day = await one(
               and pr.day_no = dl.day_no and pr.worker_id = dl.worker_id) as work_date,
           (select wo2.batch_no from work_order wo2 where wo2.id = dl.work_order_id) as batch_no
      from day_lock dl join app_user u on u.id = dl.worker_id
-    order by dl.locked_at limit 1`);
+    where dl.work_order_id = $1
+    order by dl.locked_at limit 1`, [wo.id]);
+
+if (!day) {
+  console.error(
+    `배치 ${wo.batch_no} 에 잠긴 일차 묶음이 없습니다.\n` +
+    '제조기록서와 편철 표지를 대조하려면 일차 마감이 하나는 있어야 합니다.\n' +
+    'scripts/seed-flow.mjs 를 먼저 돌리십시오.');
+  process.exit(2);
+}
 
 const issues = day ? await rows(
   `select ml.lot_no, mi.qty, i.name as item_name, o.code as op_code, o.name as op_name,

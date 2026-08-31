@@ -117,6 +117,37 @@ console.log('  올렸다');
 step('자료를 넣는다 (트리거는 잠시 물러난다)');
 await c.query(`set session_replication_role = 'replica'`);
 
+/*
+ * NOT VALID 검사 제약을 잠시 걷는다.
+ *
+ * NOT VALID 는 "이미 있는 행은 보지 않는다" 는 뜻이지 "앞으로도 보지 않는다"
+ * 가 아니다. 넣을 때는 그대로 검사한다. 그래서 그 제약을 만들게 한 옛 행이
+ * 백업에 들어 있으면 복구가 통째로 막힌다.
+ *
+ * 실제로 그랬다. record_print_hash_form(자료 식별자 64자)을 건 직후 운영
+ * 백업을 되살려 보니 옛 12자 행에서 멈췄다. 이 훈련을 돌리지 않았으면
+ * 정작 필요할 때 알았을 일이다.
+ *
+ * NOT VALID 로 걸린 제약은 애초에 "지난 것은 그대로 두고 앞으로만 지킨다"
+ * 는 뜻이므로, 복구도 지난 것을 그대로 되살리는 일이다. 넣고 나서 같은
+ * 모양으로 다시 건다.
+ */
+const relaxed = (await c.query(`
+  select n.nspname sch, t.relname tbl, co.conname name,
+         pg_get_constraintdef(co.oid) def
+    from pg_constraint co
+    join pg_class t on t.oid = co.conrelid
+    join pg_namespace n on n.oid = t.relnamespace
+   where n.nspname = 'public' and co.contype = 'c' and not co.convalidated`)).rows;
+
+for (const r of relaxed) {
+  await c.query(`alter table ${r.sch}.${r.tbl} drop constraint ${r.name}`);
+}
+if (relaxed.length) {
+  console.log(`  넣는 동안 잠시 걷는 제약 ${relaxed.length}개: ` +
+              relaxed.map((r) => r.name).join(', '));
+}
+
 let table = null;
 let batch = [];
 const loaded = {};
@@ -168,6 +199,11 @@ await flush();
 /* 다음 번호가 이어지도록 시퀀스를 맞춘다. 빠뜨리면 키가 충돌한다 */
 for (const [col, s] of Object.entries(man.sequences ?? {})) {
   await c.query(`select setval($1, $2, true)`, [s.seq, s.last]);
+}
+
+/* 걷었던 제약을 같은 모양으로 다시 건다. 앞으로 들어올 것은 다시 검사한다 */
+for (const r of relaxed) {
+  await c.query(`alter table ${r.sch}.${r.tbl} add constraint ${r.name} ${r.def}`);
 }
 
 await c.query(`set session_replication_role = 'origin'`);
