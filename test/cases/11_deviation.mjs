@@ -208,4 +208,37 @@ export default [
   },
 },
 
+{
+  id: 'DV-10', expect: '예외',
+  name: '아직 오지 않은 날은 받지 않는다',
+  async run(t) {
+    const m = await master(t);
+    await withRule(t, m);
+
+    /*
+     * 0064 는 하한만 걸었다 - 승인일과 종결일이 발생일보다 앞설 수 없다.
+     * 상한이 없어 다음 달에 일어난 일탈이 그대로 들어갔다 (0065).
+     * 공정 기록의 작업일에는 0052 가 이미 같은 것을 걸어 두었다.
+     */
+    await t.rejects(() => t.rows(
+      `insert into deviation (deviation_no, occurred_on, title, registered_by)
+       values (next_number('DEVIATION'), current_date + 1, '내일 일어날 일', $1)`,
+      [m.admin]), { ...BLOCKED, message: '아직 오지 않은 날' });
+
+    const [a] = await openOne(t, m);
+    await t.rejects(() => t.rows(
+      `update deviation
+          set report_no='DR-9', outcome='앞당겨 적음', approved_by='정품질책임',
+              approved_on = current_date + 1, closed_on = current_date
+        where id = $1`, [a.id]), { ...BLOCKED, message: '아직 오지 않은 날' });
+
+    /* 오늘은 받는다 */
+    await t.resolves(() => t.rows(
+      `update deviation
+          set report_no='DR-10', outcome='당일 종결', approved_by='정품질책임',
+              approved_on = current_date, closed_on = current_date
+        where id = $1`, [a.id]));
+  },
+},
+
 ];

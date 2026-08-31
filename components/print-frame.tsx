@@ -173,7 +173,15 @@ export function SignRow({ roles }: { roles: string[] }) {
         <tr>{roles.map((r) => <th key={r} className="w-1/4 text-center">{r}</th>)}</tr>
       </thead>
       <tbody>
-        <tr>{roles.map((r) => <td key={r} className="sign-box" />)}</tr>
+        {/*
+          * data-sign-role 은 화면에도 종이에도 나오지 않는다. 시험이 "서명란이
+          * 실제로 있는가" 를 셀 수 있게 두는 표시다.
+          *
+          * sign-box 로는 셀 수 없다. 편철 표지의 철 확인란이 같은 클래스를
+          * 쓰기 때문에, 서류가 여덟 줄이면 서명란 3칸이 11칸으로 잡힌다
+          * (4차 자기 검수).
+          */}
+        <tr>{roles.map((r) => <td key={r} data-sign-role={r} className="sign-box" />)}</tr>
       </tbody>
     </table>
   );

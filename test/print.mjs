@@ -196,7 +196,7 @@ let pass = 0; let fail = 0;
 
 function say(line = '') { out.push(line); console.log(line); }
 
-async function sheet(name, formPath, checks) {
+async function sheet(name, formPath, checks, signBoxes) {
   const r = await fetch(`${BASE}${formPath}`, { headers: { cookie } });
   say('');
   say(`${name}   ${formPath}`);
@@ -207,7 +207,27 @@ async function sheet(name, formPath, checks) {
     say(`  ${'실패'}  화면이 열리지 않습니다 (HTTP ${r.status})`);
     return;
   }
-  const text = visibleText(await r.text());
+  const raw = await r.text();
+  const text = visibleText(raw);
+
+  /*
+   * 서명란은 낱말로 못 센다.
+   *
+   * 처음에는 '서명' 이 종이 어딘가에 있는지만 봤다. 그 낱말은 머리글의
+   * "서명 후 정본이 됩니다" 에도 있어 서명란이 통째로 빠져도 통과했다.
+   * 그래서 이름표로 바꿨는데 그것도 약했다 - '작업자' 는 머리표와 공정 기록에도
+   * 나와 종이에 네 번 있다. 역시 서명란 없이 통과한다 (4차 자기 검수).
+   *
+   * 셀 수 있는 것은 빈 칸 자체다. 다만 sign-box 클래스로는 안 된다 - 편철
+   * 표지의 철 확인란이 같은 클래스를 써서, 서류가 여덟 줄이면 서명란 3칸이
+   * 11칸으로 잡힌다. SignRow 만 다는 data-sign-role 을 센다.
+   */
+  const boxes = (raw.match(/data-sign-role="/g) || []).length;
+  if (typeof signBoxes === 'number') {
+    const ok = boxes === signBoxes;
+    ok ? pass++ : fail++;
+    say(`  ${ok ? '일치' : '불일치'}  ${'서명란 칸 수'.padEnd(22)}  ${boxes}칸 (기대 ${signBoxes})`);
+  }
 
   for (const c of checks) {
     const value = c.value === null || c.value === undefined ? '' : String(c.value).trim();
@@ -260,7 +280,7 @@ await sheet('① 작업 지시서', `/print/work-order/${wo.id}`, [
   /* §7 이 이 양식의 핵심 항목으로 "생산·품질 서명란" 을 적어 두었다 */
   { label: '생산 책임자 서명란', value: '생산 책임자' },
   { label: '품질 책임자 서명란', value: '품질 책임자' },
-]);
+], 2);
 
 /* --- 2. 제조기록서 --------------------------------------------------------- */
 
@@ -292,7 +312,7 @@ if (day) {
      */
     { label: '작업자 서명란', value: '작업자' },
     { label: '생산 책임자 서명란', value: '생산 책임자' },
-  ]);
+  ], 2);
 } else {
   say('');
   say('② 제조기록서   건너뜀 - 잠긴 묶음이 없습니다 (열면 이 시험이 잠급니다)');
@@ -315,7 +335,7 @@ await sheet('③ 라벨요청서', `/print/label-request/${wo.id}`, [
   ]),
   { label: '요청자 서명란', value: '요청자' },
   { label: '확인자 서명란', value: '확인자' },
-]);
+], 2);
 
 /* --- 4. 편철 표지 ---------------------------------------------------------- */
 
@@ -349,7 +369,7 @@ await sheet('④ 편철 표지', `/print/cover/${wo.id}`, [
   { label: '생산 책임자 서명란', value: '생산 책임자' },
   { label: '품질 검토 서명란', value: '품질 검토' },
   { label: '품질 책임자 서명란', value: '품질 책임자' },
-]);
+], 3);
 
 /* --- 5. 자재 라벨 ---------------------------------------------------------- */
 

@@ -179,6 +179,8 @@ export default async function Dashboard() {
             order by pr.work_date desc, pr.day_no desc limit 9) x)         as open_records,
 
         (select coalesce(json_agg(x), '[]'::json) from (
+           /* 위에서 센 것과 같은 키로 묶는다. 이름으로 묶으면 동명이인이
+              한 줄로 접혀 숫자와 목록이 갈린다 */
            select wo.batch_no, u.full_name as worker, pr.day_no
              from process_record pr
              join work_order wo on wo.id = pr.work_order_id
@@ -187,7 +189,7 @@ export default async function Dashboard() {
                                where dl.work_order_id = pr.work_order_id
                                  and dl.day_no = pr.day_no
                                  and dl.worker_id = pr.worker_id)
-            group by wo.batch_no, u.full_name, pr.day_no
+            group by pr.work_order_id, pr.worker_id, pr.day_no, wo.batch_no, u.full_name
             order by max(pr.work_date) desc limit 9) x)                    as unprinted_days,
 
         (select coalesce(json_agg(x), '[]'::json) from (
