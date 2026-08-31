@@ -4,6 +4,7 @@ import { withUser } from '@/lib/db';
 import Denied from '@/components/denied';
 import { Empty } from '@/components/ui';
 import { PageShell, StatStrip, type StatItem } from '@/components/shell';
+import { statRows, mono } from '@/components/stat-rows';
 import {
   NewEquipment, EquipCard, type EquipRow, type OpOption,
 } from './equipment-forms';
@@ -90,13 +91,34 @@ export default async function EquipmentPage() {
   const expired = active.filter((e) => e.valid_until === null || (e.days_left ?? -1) < 0);
   const soon = active.filter((e) => e.days_left !== null && e.days_left >= 0 && e.days_left <= 30);
 
+  /*
+   * 숫자에 든 설비를 그대로 적는다. 뜻풀이가 아니라 항목이다 (사용자 지시).
+   * 밸리데이션은 서면 보고서가 근거이므로 보고서 번호가 있으면 함께 보인다.
+   */
+  const valid = active.filter((e) => !expired.includes(e) && !soon.includes(e));
+  const eqRow = (e: EquipRow, right: React.ReactNode) =>
+    ({ left: mono(e.code), sub: e.name, right });
+
   const stats: StatItem[] = [
-    { label: '쓰는 설비', value: active.length, unit: '대' },
-    { label: '밸리데이션 유효', value: active.length - expired.length - soon.length, unit: '대' },
+    { label: '쓰는 설비', value: active.length, unit: '대',
+      detail: statRows(
+        active.map((e) => eqRow(e, `공정 ${e.ops.length}개`)),
+        '등록된 설비가 없습니다') },
+    { label: '밸리데이션 유효', value: valid.length, unit: '대',
+      detail: statRows(
+        valid.map((e) => eqRow(e, `${e.valid_until} 까지`)),
+        '해당 설비가 없습니다') },
     { label: '만료 30일 이내', value: soon.length, unit: '대',
-      tone: soon.length > 0 ? 'warn' : undefined },
+      tone: soon.length > 0 ? 'warn' : undefined,
+      detail: statRows(
+        soon.map((e) => eqRow(e, `${e.days_left}일 남음`)),
+        '해당 설비가 없습니다') },
     { label: '기한 경과 · 기록 없음', value: expired.length, unit: '대',
-      tone: expired.length > 0 ? 'danger' : undefined },
+      tone: expired.length > 0 ? 'danger' : undefined,
+      detail: statRows(
+        expired.map((e) => eqRow(e,
+          e.valid_until === null ? '기록 없음' : `${-(e.days_left ?? 0)}일 지남`)),
+        '해당 설비가 없습니다') },
   ];
 
   return (

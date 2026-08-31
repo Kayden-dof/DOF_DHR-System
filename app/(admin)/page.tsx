@@ -3,10 +3,11 @@ import { requireUser, hasRole } from '@/lib/session';
 import { withUser } from '@/lib/db';
 import { fmtDate, fmtTime } from '@/lib/fmt';
 import {
-  NUMBERING_TARGETS, M1_CRITICAL_TARGETS, WO_STATUS_LABEL, tableLabel,
+  NUMBERING_TARGETS, M1_CRITICAL_TARGETS, WO_STATUS_LABEL, PL_STATUS_LABEL, tableLabel,
 } from '@/lib/forms';
 import { Panel, Empty, Tag } from '@/components/ui';
 import { PageShell, StatStrip, type StatItem } from '@/components/shell';
+import { statRows, mono } from '@/components/stat-rows';
 import { Table, Th, Td, IdCell, TwoLine, ActionTh, RowLink } from '@/components/table';
 import ActionChip from '@/components/action-chip';
 
@@ -34,6 +35,16 @@ interface Counts {
   reorder: number; expiring: number; expired: number;
   eq_due: number; eq_gone: number;
   open_records: number; unprinted_days: number;
+}
+
+interface Lists {
+  wo_open:        { batch_no: string; item_name: string; status: string }[];
+  open_records:   { batch_no: string; op_name: string; worker: string; day_no: number }[];
+  unprinted_days: { batch_no: string; worker: string; day_no: number }[];
+  await_release:  { lot_no: string; item_name: string; status: string }[];
+  expiring:       { lot_no: string; item_name: string; status: string; days_left: number | null }[];
+  reorder:        { code: string; name: string; on_hand: string; min_stock: string }[];
+  eq_due:         { code: string; name: string; valid_until: string | null; days_left: number | null }[];
 }
 
 export default async function Dashboard() {
@@ -139,6 +150,74 @@ export default async function Dashboard() {
         group by 1,2,3,4
         order by max(pr.work_date) desc, wo.batch_no, pr.day_no
         limit 7`),
+    /*
+     * 띠의 숫자에 든 항목. 숫자 옆에 뜻풀이가 아니라 그 숫자를 이루는 것이
+     * 나와야 한다 (사용자 지시). 일곱 칸을 각각 조회하면 왕복이 일곱 번이라
+     * 한 번에 받는다.
+     *
+     * 아홉 줄까지만 받는다. 여덟 줄을 띄우고 남은 수를 적는데, 남은 수는
+     * 위에서 이미 센 값을 쓴다 - 잘라 온 배열의 길이로 세면 잘린 것을 전부인
+     * 줄 안다.
+     */
+    lists: await db.one<Lists>(
+      `select
+        (select coalesce(json_agg(x), '[]'::json) from (
+           select wo.batch_no, i.name as item_name, wo.status::text as status
+             from work_order wo
+             join device_master dm on dm.id = wo.device_master_id
+             join item i on i.id = dm.item_id
+            where wo.status in ('ISSUED','IN_PROCESS','CUT')
+            order by wo.issued_at desc limit 9) x)                         as wo_open,
+
+        (select coalesce(json_agg(x), '[]'::json) from (
+           select wo.batch_no, o.name as op_name, u.full_name as worker, pr.day_no
+             from process_record pr
+             join work_order wo on wo.id = pr.work_order_id
+             join dmr_operation o on o.id = pr.operation_id
+             join app_user u on u.id = pr.worker_id
+            where pr.ended_at is null
+            order by pr.work_date desc, pr.day_no desc limit 9) x)         as open_records,
+
+        (select coalesce(json_agg(x), '[]'::json) from (
+           select wo.batch_no, u.full_name as worker, pr.day_no
+             from process_record pr
+             join work_order wo on wo.id = pr.work_order_id
+             join app_user u on u.id = pr.worker_id
+            where not exists (select 1 from day_lock dl
+                               where dl.work_order_id = pr.work_order_id
+                                 and dl.day_no = pr.day_no
+                                 and dl.worker_id = pr.worker_id)
+            group by wo.batch_no, u.full_name, pr.day_no
+            order by max(pr.work_date) desc limit 9) x)                    as unprinted_days,
+
+        (select coalesce(json_agg(x), '[]'::json) from (
+           select pl.lot_no, i.name as item_name, pl.status::text as status
+             from product_lot pl join item i on i.id = pl.item_id
+            where pl.status in ('PACKED','STERILIZING','TESTED')
+              and pl.release_approved_by is null
+            order by pl.manufactured_on limit 9) x)                        as await_release,
+
+        (select coalesce(json_agg(x), '[]'::json) from (
+           select ml.lot_no, i.name as item_name, ml.status::text as status,
+                  (ml.expiry_date - (timezone('Asia/Seoul', now()))::date) as days_left
+             from material_lot ml join item i on i.id = ml.item_id
+            where ml.status = 'EXPIRED'
+               or (ml.status = 'AVAILABLE' and ml.expiry_date is not null
+                   and ml.expiry_date < (timezone('Asia/Seoul', now()))::date + 30)
+            order by ml.expiry_date nulls last limit 9) x)                 as expiring,
+
+        (select coalesce(json_agg(x), '[]'::json) from (
+           select code, name, on_hand, min_stock
+             from v_reorder_alert order by code limit 9) x)                as reorder,
+
+        (select coalesce(json_agg(x), '[]'::json) from (
+           select code, name, valid_until::text as valid_until,
+                  (valid_until - (timezone('Asia/Seoul', now()))::date) as days_left
+             from v_equipment_status
+            where is_active
+              and (valid_until is null
+                   or valid_until < (timezone('Asia/Seoul', now()))::date + 30)
+            order by valid_until nulls first limit 9) x)                   as eq_due`),
     recent: await db.rows<{
       table_name: string; action: string; acted_at: Date; actor_name: string | null;
     }>(
@@ -171,20 +250,57 @@ export default async function Dashboard() {
    * 항목과 늘 나오는 항목을 섞지 않는다. 0은 흐리게 나오므로 감출 필요가 없고,
    * 감추면 오히려 "그 항목이 어디 갔나" 하고 찾게 된다.
    */
+  const L = d.lists!;
+
+  /* 남은 날을 사람 말로. 지난 것은 지났다고 적는다 */
+  const dLeft = (n: number | null, none: string) =>
+    n === null ? none : n < 0 ? `${-n}일 지남` : `${n}일 남음`;
+
   const stats: StatItem[] = [
-    { label: '진행 중인 배치', value: c.wo_open, unit: '건', href: '/production' },
+    { label: '진행 중인 배치', value: c.wo_open, unit: '건', href: '/production',
+      detail: statRows(L.wo_open.map((r) => ({
+        left: mono(r.batch_no), sub: r.item_name,
+        right: WO_STATUS_LABEL[r.status] ?? r.status,
+      })), '진행 중인 배치가 없습니다', c.wo_open) },
+
     { label: '마감 안 된 공정', value: c.open_records, unit: '건', href: '/production',
-      tone: c.open_records > 0 ? 'info' : undefined },
+      tone: c.open_records > 0 ? 'info' : undefined,
+      detail: statRows(L.open_records.map((r) => ({
+        left: mono(r.batch_no), sub: `${r.op_name} · ${r.worker}`,
+        right: `${r.day_no}일차`,
+      })), '끝나지 않은 공정이 없습니다', c.open_records) },
+
     { label: '미마감 일차', value: c.unprinted_days, unit: '건', href: '/production',
-      tone: c.unprinted_days > 0 ? 'warn' : undefined },
+      tone: c.unprinted_days > 0 ? 'warn' : undefined,
+      detail: statRows(L.unprinted_days.map((r) => ({
+        left: mono(r.batch_no), sub: r.worker, right: `${r.day_no}일차`,
+      })), '마감하지 않은 일차가 없습니다', c.unprinted_days) },
+
     { label: '출하 승인 대기', value: c.lots_await_release, unit: '로트', href: '/shipping',
-      tone: c.lots_await_release > 0 ? 'info' : undefined },
+      tone: c.lots_await_release > 0 ? 'info' : undefined,
+      detail: statRows(L.await_release.map((r) => ({
+        left: mono(r.lot_no), sub: r.item_name, right: PL_STATUS_LABEL[r.status] ?? r.status,
+      })), '승인을 기다리는 로트가 없습니다', c.lots_await_release) },
+
     { label: '기한 임박 자재', value: c.expiring + c.expired, unit: '건', href: '/material',
-      tone: c.expired > 0 ? 'danger' : c.expiring > 0 ? 'warn' : undefined },
+      tone: c.expired > 0 ? 'danger' : c.expiring > 0 ? 'warn' : undefined,
+      detail: statRows(L.expiring.map((r) => ({
+        left: mono(r.lot_no), sub: r.item_name,
+        right: r.status === 'EXPIRED' ? '기한 경과' : dLeft(r.days_left, '기한 없음'),
+      })), '기한이 임박한 자재가 없습니다', c.expiring + c.expired) },
+
     { label: '최소 재고선 아래', value: c.reorder, unit: '종', href: '/material/orders',
-      tone: c.reorder > 0 ? 'warn' : undefined },
+      tone: c.reorder > 0 ? 'warn' : undefined,
+      detail: statRows(L.reorder.map((r) => ({
+        left: mono(r.code), sub: r.name, right: `${r.on_hand} / ${r.min_stock}`,
+      })), '재고선 아래인 품목이 없습니다', c.reorder) },
+
     { label: '설비 밸리데이션', value: c.eq_due, unit: '대', href: '/equipment',
-      tone: c.eq_gone > 0 ? 'danger' : c.eq_due > 0 ? 'warn' : undefined },
+      tone: c.eq_gone > 0 ? 'danger' : c.eq_due > 0 ? 'warn' : undefined,
+      detail: statRows(L.eq_due.map((r) => ({
+        left: mono(r.code), sub: r.name,
+        right: r.valid_until === null ? '기록 없음' : dLeft(r.days_left, '기록 없음'),
+      })), '기한이 다가온 설비가 없습니다', c.eq_due) },
   ];
 
   const hour = Number(new Intl.DateTimeFormat('en-US', {

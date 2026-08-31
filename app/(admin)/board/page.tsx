@@ -3,6 +3,7 @@ import { requireUser } from '@/lib/session';
 import { withUser } from '@/lib/db';
 import { fmtDate } from '@/lib/fmt';
 import { PageShell, StatStrip, type StatItem } from '@/components/shell';
+import { statRows as rows, mono } from '@/components/stat-rows';
 import { Panel, Empty, Tag } from '@/components/ui';
 
 export const dynamic = 'force-dynamic';
@@ -157,24 +158,6 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
    * 사람이 매번 무엇이 나올지 짐작해야 한다 (사용자 지적). 설명은 아래 정의
    * 칸이 맡는다.
    */
-  const rows = (
-    items: { left: React.ReactNode; sub?: React.ReactNode; right: React.ReactNode }[],
-    empty: string,
-  ) =>
-    items.length === 0 ? <span className="text-muted">{empty}</span> : (
-      <ul className="space-y-1">
-        {items.map((r, i) => (
-          <li key={i} className="flex items-baseline justify-between gap-3">
-            <span className="min-w-0">
-              {r.left}
-              {r.sub && <span className="ml-1.5 text-xs text-muted">{r.sub}</span>}
-            </span>
-            <span className="shrink-0 tnum font-semibold">{r.right}</span>
-          </li>
-        ))}
-      </ul>
-    );
-  const mono = (v: string) => <span className="font-mono text-xs">{v}</span>;
 
   const ncOf = (kind: string, from: string) =>
     d.nc.filter((n) => n.outcome === kind && n.made_on >= from);
