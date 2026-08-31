@@ -227,7 +227,9 @@ let same = 0;
 for (const [t, m] of Object.entries(man.tables)) {
   const n = Number((await c.query(`select count(*)::int n from public.${t}`)).rows[0].n);
   const h = createHash('sha256');
-  for (const r of (await c.query(`select to_jsonb(x)::text j from public.${t} x`)).rows) {
+  /* 백업과 같은 차례로 읽는다 (scripts/backup.mjs 의 주석 참고) */
+  for (const r of (await c.query(
+    `select to_jsonb(x)::text j from public.${t} x order by j`)).rows) {
     h.update(r.j).update('\n');
   }
   const hit = n === m.rows && h.digest('hex') === m.sha256;
@@ -278,10 +280,21 @@ try {
 }
 ok(guarded, 'S03 삭제 차단이 되살아났는가');
 
-/* 4-7. 시연 자료 표시. 있으면 삭제 문이 열린 상태다 */
+/* ---------------------------------------------------------------------------
+   4-7. 시연 자료 표시
+
+   전에는 표식이 있으면 "비우기 문이 열려 있습니다" 라고 단정했다. 0051 이 그
+   문을 증명 기반으로 바꾼 뒤(표식이 있고 + 표식 이후 감사추적이 조용할 것)
+   이 줄이 따라오지 않아, 사실이 아닌 것을 말하고 있었다 - 실제로는 닫혀 있었다
+   (2026-09-01 훈련).
+
+   단정하지 않고 물어본다. 답을 아는 함수가 이미 있다.
+--------------------------------------------------------------------------- */
 const demo = (await c.query(`select count(*)::int n from demo_marker`)).rows[0].n;
 if (Number(demo) > 0) {
-  console.log('  주의  시연 자료 표시가 들어 있습니다. 이 복구본에서는 비우기 문이 열려 있습니다');
+  const open = (await c.query(`select only_demo_data() g`)).rows[0].g;
+  console.log(`  주의  시연 자료 표시가 들어 있습니다. 비우기 문은 ${
+    open ? '열려 있습니다' : '닫혀 있습니다 (표식 이후 감사추적이 남아 있음)'}`);
 }
 
 await c.end();

@@ -125,7 +125,22 @@ const dataPath = path.join(outDir, `dhr-${stamp}.ndjson.gz`);
 /* 표마다 한 줄에 한 행. 앞에 어느 표인지 적는 머리줄을 둔다 */
 async function* lines() {
   for (const t of tables) {
-    const rows = (await c.query(`select to_jsonb(x)::text as j from public.${t} x`)).rows;
+    /*
+       * 줄 순서를 못 박는다.
+       *
+       * order by 없이 읽으면 물리적 순서로 나온다. 그 순서는 보장되지 않는다 -
+       * 원본은 오래 쓰면서 갱신과 청소로 자리가 바뀌고, 복구본은 파일에서 차례로
+       * 넣은 그대로다. 그래서 같은 자료인데 해시가 달라진다.
+       *
+       * 실제로 그랬다. 복구 훈련이 audit_log 443행을 두고 "어긋났다" 고 했는데,
+       * 정렬해 대 보니 다른 줄이 0개였다 (2026-09-01). 헛경보를 내는 훈련은 곧
+       * 무시당하고, 그러면 진짜 실패를 놓친다.
+       *
+       * 기본키로 정렬하지 않는다. 표마다 키가 달라 여기서 알 수 없다. 줄 자체를
+       * 정렬하면 어느 표든 한 가지로 정해진다.
+       */
+    const rows = (await c.query(
+      `select to_jsonb(x)::text as j from public.${t} x order by j`)).rows;
     const h = createHash('sha256');
     for (const r of rows) h.update(r.j).update('\n');
 
