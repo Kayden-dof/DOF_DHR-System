@@ -43,7 +43,7 @@ await db.end();
 /* --- 훑을 경로 ------------------------------------------------------------ */
 
 const ADMIN = [
-  '/', '/production', '/production/setup', '/material', '/material/items', '/material/orders', '/material/stock',
+  '/', '/production', '/production/setup', '/production/deviation', '/material', '/material/items', '/material/orders', '/material/stock',
   '/material/movement', '/shipping', '/shipping/steril', '/shipping/ship',
   '/trace', '/trace/verify', '/trace/cost',
   '/settings', '/settings/numbering', '/settings/items', '/settings/suppliers',

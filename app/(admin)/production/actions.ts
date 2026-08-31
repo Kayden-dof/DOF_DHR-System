@@ -13,6 +13,12 @@ async function mgr() {
   return user;
 }
 
+/* 빈 칸은 null 로 둔다. 빈 문자열을 넣으면 "적었는데 비어 있다" 가 된다 */
+const txt = (v: FormDataEntryValue | null) => {
+  const t = String(v ?? '').trim();
+  return t === '' ? null : t;
+};
+
 const bump = (id?: string) => {
   revalidatePath('/production');
   if (id) revalidatePath(`/production/${id}`);
@@ -334,6 +340,76 @@ export async function recordWipNonconformity(
     const label = outcome === 'REWORK' ? '재작업'
       : outcome === 'CONCESSION' ? '특채' : '불량';
     return { ok: true, message: `${label} ${sheets}장을 기록했습니다.` };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   일탈 대장 (§9.1)
+
+   채번 화면이 "일탈 번호" 를 내놓는데 담을 데가 없었다. 번호가 나가고 어디에도
+   남지 않는 상태였다. 사용자 결정으로 대장을 만든다 (2026-08-31).
+
+   시스템은 일탈을 판정하지 않는다 (§1). 무엇이 일탈인지, 얼마나 중대한지,
+   조치가 타당한지는 사람이 서면으로 정한다. 여기 적히는 것은 그 결정의 결과와
+   그것을 가리키는 문서번호다.
+--------------------------------------------------------------------------- */
+export async function openDeviation(_p: FormState, form: FormData): Promise<FormState> {
+  try {
+    const me = await mgr();
+
+    const title = txt(form.get('title'));
+    const occurredOn = txt(form.get('occurred_on'));
+    if (!title) return { error: '무엇이 일어났는지 한 줄로 적어 주십시오' };
+    if (!occurredOn) return { error: '발생일을 적어 주십시오' };
+
+    const no = await withActor(me.id, async (db) => {
+      /* 번호는 반드시 next_number() 를 지난다. 응용에서 조합하지 않는다 (§10) */
+      const devNo = await db.val<string>(`select next_number('DEVIATION')`);
+      await db.rows(
+        `insert into deviation
+           (deviation_no, occurred_on, title, detail,
+            work_order_id, product_lot_id, material_lot_id, equipment_id, registered_by)
+         values ($1, $2::date, $3, $4, $5, $6, $7, $8, $9)`,
+        [devNo, occurredOn, title, txt(form.get('detail')),
+         txt(form.get('work_order_id')), txt(form.get('product_lot_id')),
+         txt(form.get('material_lot_id')), txt(form.get('equipment_id')), me.id]);
+      return devNo;
+    }, { reason: '일탈 등록' });
+
+    revalidatePath('/production/deviation');
+    return { ok: true, message: `일탈 ${no} 를 대장에 올렸습니다` };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
+/*
+ * 종결. 서면 보고서 번호와 승인자 없이는 닫히지 않는다 (DB 의 check 가 막는다).
+ * 그 문서가 판정이고 대장은 그것을 가리킬 뿐이다.
+ *
+ * 한 번 닫으면 되돌릴 수 없다 (0064 의 trg_once_written). 되돌릴 수 있으면
+ * "그때 닫혀 있었다" 가 성립하지 않는다.
+ */
+export async function closeDeviation(_p: FormState, form: FormData): Promise<FormState> {
+  try {
+    const me = await mgr();
+    const id = txt(form.get('id'));
+    if (!id) return { error: '대상 일탈이 없습니다' };
+
+    await withActor(me.id, (db) => db.rows(
+      `update deviation
+          set report_no = $2, outcome = $3, approved_by = $4,
+              approved_on = $5::date, closed_on = $6::date
+        where id = $1`,
+      [id, txt(form.get('report_no')), txt(form.get('outcome')),
+       txt(form.get('approved_by')), txt(form.get('approved_on')),
+       txt(form.get('closed_on'))]),
+      { reason: '일탈 종결' });
+
+    revalidatePath('/production/deviation');
+    return { ok: true, message: '서면 결론을 대장에 옮겨 적었습니다' };
   } catch (e) {
     return { error: dbMessage(e) };
   }

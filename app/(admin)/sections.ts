@@ -13,6 +13,7 @@ import type { NavItem } from './nav';
 export const PRODUCTION_NAV: NavItem[] = [
   { href: '/production', label: '작업 지시' },
   { href: '/production/setup', label: '제품' },
+  { href: '/production/deviation', label: '일탈' },
 ];
 
 export const MATERIAL_NAV: NavItem[] = [
