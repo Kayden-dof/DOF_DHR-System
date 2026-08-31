@@ -46,8 +46,8 @@ export default function DemoBanner({
       <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-x-3 gap-y-1.5 px-5 py-2.5">
         <span className="chip shrink-0 bg-danger text-white">시연 자료</span>
         <p className="min-w-0 flex-1 text-xs leading-relaxed text-ink">
-          <b>지어낸 배치 기록이 들어 있습니다.</b> 실 운영을 시작하기 전에 반드시
-          비우십시오. 이 시스템에는 삭제가 없어, 실 기록이 한 줄이라도 들어간 뒤에는
+          <b>지어낸 배치 기록이 들어 있습니다.</b> 실 운영을 시작하기 전에 DB를 새로
+          올립니다. 이 시스템에는 삭제가 없어, 실 기록이 한 줄이라도 들어간 뒤에는
           지어낸 기록과 갈라낼 수 없습니다.
         </p>
 
@@ -57,8 +57,12 @@ export default function DemoBanner({
             시연 자료 비우기
           </button>
         ) : (
-          /* 시스템관리자만 비울 수 있다. 누구에게 말해야 하는지는 알려 준다 */
-          <span className="shrink-0 text-xs text-muted">시스템관리자가 비웁니다</span>
+          /*
+           * 단추를 늘 걸어 두지 않는다. 비우는 문은 표식 이후 감사추적이 조용할
+           * 때만 열리는데, 이관을 한 번 돌리면 닫힌다. 닫힌 문 앞의 단추는
+           * 누르는 사람만 헛수고하게 만든다.
+           */
+          <span className="shrink-0 text-xs text-muted">착수 절차에서 정리합니다</span>
         )}
       </div>
 

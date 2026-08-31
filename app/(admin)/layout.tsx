@@ -25,8 +25,15 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const user = await requireUser();
 
   /* 시연 자료가 들어 있으면 모든 화면 맨 위에 알린다 (0049) */
-  const demo = await withActor(user.id, (db) =>
-    db.val<string>(`select seeded_at::text from demo_marker limit 1`));
+  /*
+   * 표식과 함께 "지금 비울 수 있는가" 도 묻는다. only_demo_data() 는 표식 이후
+   * 감사추적이 조용할 때만 참이라, 이관을 한 번이라도 돌리면 닫힌다. 닫힌 문
+   * 앞에 단추를 걸어 두면 누르는 사람만 헛수고한다 (2026-08-31 확인).
+   */
+  const demo = await withActor(user.id, async (db) => ({
+    seededAt: await db.val<string>(`select seeded_at::text from demo_marker limit 1`),
+    gateOpen: await db.val<boolean>(`select only_demo_data()`),
+  }));
 
 
   /*
@@ -78,7 +85,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         * 대신 자리를 넉넉히 준다. 44px 에 다 밀어 넣으니 로고도 메뉴도 이름도
         * 전부 작아져서 무엇 하나 서지 못했다. 크기를 키우는 대신 높이를 준다.
         */}
-      <DemoBanner seededAt={demo ?? null} canPurge={hasRole(user, 'SYS_ADMIN')} />
+      <DemoBanner seededAt={demo.seededAt ?? null}
+                  canPurge={hasRole(user, 'SYS_ADMIN') && demo.gateOpen === true} />
 
       <header className="sticky top-0 z-30 border-b border-line bg-surface/90 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-6 px-5 lg:gap-9">
