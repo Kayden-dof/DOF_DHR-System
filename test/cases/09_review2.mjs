@@ -36,9 +36,11 @@ export default [
     await t.setActor(other);
     await t.rejects(() => t.rows(`select lock_day($1,1,$2)`, [wo.id, m.worker]),
       { ...BLOCKED, message: '다른 사람의 기록' });
+    /* 0063 이후 print_day_record 는 "아직 마감되지 않은" 을 이유로 든다.
+       거절하는 자리는 같고 이유를 정확히 말할 뿐이다 */
     await t.rejects(() => t.rows(
       `select print_day_record($1,1,$2,${HASH})`, [wo.id, m.worker]),
-      { ...BLOCKED, message: '다른 사람의 기록' });
+      { ...BLOCKED, message: '아직 마감되지 않은' });
 
     /* 본인은 된다 */
     await t.setActor(m.worker);
@@ -331,4 +333,76 @@ export default [
   },
 },
 
+{
+  id: 'RV2-14', expect: '통과',
+  name: '이미 마감된 묶음은 남이라도 다시 뽑을 수 있다',
+  async run(t) {
+    const m = await master(t);
+    const wo = await newWorkOrder(t, m);
+    const other = await t.newUser({ full_name: '검토자작업' });
+    await t.rows(`insert into user_role (user_id, role) values ($1,'WORKER')`, [other]);
+
+    await t.setActor(m.admin);
+    await t.rows(
+      `insert into process_record (work_order_id, operation_id, day_no, work_date, worker_id)
+       values ($1,$2,1,current_date,$3)`,
+      [wo.id, m.ops['WS-DX2401-01'], m.worker]);
+
+    /* 본인이 마감한다 */
+    await t.setActor(m.worker);
+    const [first] = await t.rows(
+      `select seq from print_day_record($1,1,$2,${HASH})`, [wo.id, m.worker]);
+
+    /*
+     * 남이 다시 뽑는다. 재인쇄는 마감이 아니다 - 이미 잠겨 있어 잠글 것이 없고
+     * 기록도 바뀌지 않는다. 막으면 검토자가 남의 기록지를 볼 길이 없다.
+     */
+    await t.setActor(other);
+    const [again] = await t.rows(
+      `select seq from print_day_record($1,1,$2,${HASH})`, [wo.id, m.worker]);
+
+    if (Number(again.seq) !== Number(first.seq) + 1) {
+      throw new Error(`재인쇄 회차가 오르지 않았습니다 (${first.seq} → ${again.seq})`);
+    }
+
+    /* 잠금은 처음 마감한 사람 것 그대로다. 재인쇄가 잠금을 바꾸지 않는다 */
+    const [lock] = await t.rows(
+      `select locked_by from day_lock
+        where work_order_id=$1 and day_no=1 and worker_id=$2`, [wo.id, m.worker]);
+    if (lock.locked_by !== m.worker) {
+      throw new Error('재인쇄가 잠금 기록을 바꿨습니다');
+    }
+
+    /* 뽑은 사람은 남는다 */
+    const [who] = await t.rows(
+      `select printed_by from record_print
+        where kind='DAY_RECORD' and work_order_id=$1 and day_no=1 and seq=$2`,
+      [wo.id, again.seq]);
+    if (who.printed_by !== other) {
+      throw new Error('누가 뽑았는지가 남지 않았습니다');
+    }
+  },
+},
+
+{
+  id: 'RV2-15', expect: '예외',
+  name: '마감 전에는 여전히 남이 뽑을 수 없다',
+  async run(t) {
+    const m = await master(t);
+    const wo = await newWorkOrder(t, m);
+    const other = await t.newUser({ full_name: '남작업자' });
+    await t.rows(`insert into user_role (user_id, role) values ($1,'WORKER')`, [other]);
+
+    await t.setActor(m.admin);
+    await t.rows(
+      `insert into process_record (work_order_id, operation_id, day_no, work_date, worker_id)
+       values ($1,$2,1,current_date,$3)`,
+      [wo.id, m.ops['WS-DX2401-01'], m.worker]);
+
+    await t.setActor(other);
+    await t.rejects(() => t.rows(
+      `select print_day_record($1,1,$2,${HASH})`, [wo.id, m.worker]),
+      { ...BLOCKED, message: '아직 마감되지 않은' });
+  },
+},
 ];

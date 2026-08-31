@@ -23,6 +23,19 @@ import { pgSsl } from './pgssl.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
+/*
+ * 환경이 이미 준 접속 정보를 먼저 붙잡아 둔다.
+ *
+ * 전에는 .env.deploy 를 읽어 MIGRATION_DATABASE_URL 을 채운 뒤 그것을 먼저
+ * 골랐다. 그래서 --env-file=.env.local 로 불러도 .env.deploy 가 이겨 운영으로
+ * 갔다. 로컬에 올린 줄 알고 운영을 고치는 길이 열려 있었던 셈이고, 실제로
+ * 그렇게 두 번 돌았다 (2026-08-31).
+ *
+ * 사람이 이번 실행에 대고 직접 준 값이 파일보다 세다. 아무것도 주지 않으면
+ * 종전대로 .env.deploy 로 간다.
+ */
+const GIVEN = process.env.MIGRATION_DATABASE_URL || process.env.DATABASE_URL || null;
+
 // .env.deploy 를 먼저 읽는다. 로컬 개발용 .env.local 은 scripts/dev.mjs 가
 // 매번 덮어쓰므로 원격 접속 정보는 따로 둔다. 섞이면 로컬 개발 중에 운영
 // DB를 가리키는 사고가 난다.
@@ -35,7 +48,8 @@ for (const f of ['.env.deploy', '.env.local']) {
   }
 }
 
-const URL_ = process.env.MIGRATION_DATABASE_URL || process.env.DATABASE_URL;
+const URL_ = GIVEN || process.env.MIGRATION_DATABASE_URL || process.env.DATABASE_URL;
+const SOURCE = GIVEN ? '실행할 때 준 값' : '.env.deploy';
 if (!URL_) {
   console.error(
     'DATABASE_URL이 없다.\n' +
@@ -49,6 +63,8 @@ const client = new pg.Client({ connectionString: URL_, ssl: pgSsl(URL_, ROOT) })
 
 const mask = URL_.replace(/\/\/[^@]*@/, '//***@');
 console.log(`대상 : ${mask}`);
+/* 어디에 올리는지를 근거와 함께 말한다. 잘못 짚으면 되돌릴 수 없다 */
+console.log(`근거 : ${SOURCE}`);
 
 await client.connect();
 
