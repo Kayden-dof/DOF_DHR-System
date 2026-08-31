@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useRef, useState } from 'react';
+import { useActionState, useEffect, useRef, useState } from 'react';
 import { changeMyPin } from './actions';
 import { PIN_MIN_LENGTH } from '@/lib/auth-const';
 import type { FormState } from '@/lib/forms';
@@ -9,8 +9,14 @@ import type { FormState } from '@/lib/forms';
    비밀번호 바꾸기 판
 
    로그인 화면과 같은 몸짓이다. 칸을 짚고 번호판을 눌러 채운다. 현장 패드에는
-   키보드가 없으므로 여기도 키보드를 전제하지 않는다. 사무 화면에서는 숫자키가
-   그대로 먹는다.
+   키보드가 없으므로 키보드를 전제하지 않되, 사무 화면에서는 숫자키가 그대로
+   먹는다.
+
+   ── 먹지 않고 있었다 ──────────────────────────────────────────────────────
+   주석에는 "숫자키가 그대로 먹는다" 고 적혀 있었는데 받는 코드가 없었다
+   (사용자 지적 2026-08-31). 칸이 <button> 이고 값은 숨은 칸에 들어가므로
+   키보드가 닿을 곳이 아예 없었다. 로그인 화면에는 있는 규칙이 여기만 빠져
+   있었다 - 같은 몸짓이라고 적어 놓고 한쪽만 구현한 것이다.
 
    세 칸을 한 번에 보여 준다. 지금 비밀번호를 먼저 묻는 이유는, 자리를 비운
    사이 남이 화면을 잡으면 비밀번호를 바꿔 계정을 가져갈 수 있기 때문이다.
@@ -57,8 +63,54 @@ export default function PinForm({ first }: { first: boolean }) {
 
   const ready = v.current.length > 0 && v.next.length > 0 && v.again.length > 0;
 
+  /*
+   * 키보드. 로그인 화면과 같은 규칙이다 (app/login/login-form.tsx).
+   *
+   *   숫자       지금 고른 칸에 들어간다
+   *   Backspace  한 자 지움
+   *   Escape     그 칸 전체 지움
+   *   Enter      다음 칸으로, 마지막 칸에서 셋 다 찼으면 보낸다
+   *
+   * Enter 의 기본 동작을 끊는 이유는 로그인 화면과 같다. 번호판을 마우스로
+   * 누르면 초점이 그 숫자 단추에 남고, 그대로 두면 Enter 가 마지막 숫자를 한
+   * 번 더 누른다.
+   */
+  const SLOTS: Slot[] = ['current', 'next', 'again'];
+  const pressRef = useRef(press);
+  pressRef.current = press;
+  const readyRef = useRef(ready);
+  readyRef.current = ready;
+  const formRef = useRef<HTMLFormElement>(null);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const t = e.target as HTMLElement | null;
+      /* 글자 입력칸에 초점이 있으면 비켜선다. 거기서 치는 숫자는 그 칸의 것이다 */
+      if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      if (/^[0-9]$/.test(e.key)) {
+        e.preventDefault();
+        pressRef.current(e.key);
+      } else if (e.key === 'Backspace') {
+        e.preventDefault();
+        pressRef.current('back');
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        pressRef.current('clear');
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        const i = SLOTS.indexOf(atRef.current);
+        if (i < SLOTS.length - 1) setAt(SLOTS[i + 1]);
+        else if (readyRef.current && !pending) formRef.current?.requestSubmit();
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [pending]);
+
   return (
-    <form action={action} className="w-full">
+    <form ref={formRef} action={action} className="w-full">
       <input type="hidden" name="current" value={v.current} />
       <input type="hidden" name="next" value={v.next} />
       <input type="hidden" name="again" value={v.again} />
@@ -72,6 +124,9 @@ export default function PinForm({ first }: { first: boolean }) {
               key={s}
               type="button"
               onClick={() => setAt(s)}
+              /* Tab 으로 옮겨 와도 그 칸이 받는다. 초점과 받는 칸이 갈리면
+                 어디에 치고 있는지 알 수 없다 */
+              onFocus={() => setAt(s)}
               aria-label={`${LABEL[s]} 입력`}
               aria-current={at === s}
               className={`no-select relative flex w-full items-center gap-4 px-4 py-3.5 text-left transition-colors duration-150 ${
