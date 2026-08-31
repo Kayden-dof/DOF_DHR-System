@@ -54,8 +54,20 @@ const admin = (await setup.query(
    values ($1, '동시시험관리자', '$argon2id$test$') returning id`,
   [`8${String(stamp).slice(-6)}`])).rows[0].id;
 
-// 매 실행마다 새 품목 키를 써서 이전 실행과 카운터가 겹치지 않게 한다.
-const item = (await setup.query('select gen_random_uuid() as id')).rows[0].id;
+/*
+ * 매 실행마다 새 품목을 만들어 이전 실행과 카운터가 겹치지 않게 한다.
+ *
+ * 전에는 gen_random_uuid() 를 그대로 썼는데, numbering_rule.item_id 에는
+ * item 을 가리키는 외래키가 걸려 있어 그 값으로는 규칙을 만들 수 없다.
+ * 그래서 §8.1 이 요구한 "동시 세션 2개에서 각 50회 채번" 시험이 실제로는
+ * 돌지 않고 첫 줄에서 죽고 있었다 (3차 검수 결함 6 · 검증 근거).
+ *
+ * 시험이 돌지 않는 것과 시험이 통과하는 것은 다르다.
+ */
+const item = (await setup.query(
+  `insert into item (code, name, type, purchase_uom, usage_uom)
+   values ($1, '동시시험품목', 'REAGENT', 'EA', 'EA') returning id`,
+  [`CC-${String(stamp).slice(-8)}`])).rows[0].id;
 const rule = (await setup.query(
   `insert into numbering_rule
      (target, item_id, pattern, reset, seq_width, effective_from, registered_by)
@@ -67,7 +79,7 @@ const now = (await setup.query(
 const version = (await setup.query('select version()')).rows[0].version;
 
 say(RULE);
-say(' DOF DHR 지원 시스템 - M0 동시 채번 시험');
+say(' DOF DHR 지원 시스템 - 동시 채번 시험 (OQ §8.1)');
 say(' 근거      : CLAUDE.md §8.1 채번 시험, §9 M0 완료 판정');
 say(` 실행 일시 : ${now} (Asia/Seoul)`);
 say(` 대상 DB   : ${URL_.replace(/\/\/[^@]*@/, '//***@')}`);
@@ -134,7 +146,10 @@ if (dups.length) say(`\n 중복 번호: ${[...new Set(dups)].join(', ')}`);
 // 순번 승계는 "구 규칙 카운터의 커밋된 최대값"을 읽는다. 구 규칙으로 아직
 // 발행 중인 트랜잭션이 있는데 규칙을 내려 버리면 그 증가분이 안 보여 같은
 // 번호가 두 번 나간다. next_number()가 규칙 행에 공유 잠금을 걸어 이를 막는다.
-const item2 = (await setup.query('select gen_random_uuid() as id')).rows[0].id;
+const item2 = (await setup.query(
+  `insert into item (code, name, type, purchase_uom, usage_uom)
+   values ($1, '교체시험품목', 'REAGENT', 'EA', 'EA') returning id`,
+  [`CD-${String(stamp).slice(-8)}`])).rows[0].id;
 const rule2 = (await setup.query(
   `insert into numbering_rule
      (target, item_id, pattern, reset, seq_width, effective_from, registered_by)
@@ -186,7 +201,7 @@ say(RULE);
 
 const dir = path.join(ROOT, 'reports');
 mkdirSync(dir, { recursive: true });
-const file = path.join(dir, `OQ-M0-concurrency-${now.replace(/[-: ]/g, '').slice(0, 15)}.txt`);
+const file = path.join(dir, `OQ-CONCURRENCY-${now.replace(/[-: ]/g, '').slice(0, 15)}.txt`);
 writeFileSync(file, out.join('\n') + '\n', 'utf8');
 console.log(`\n보고서: ${path.relative(ROOT, file)}`);
 

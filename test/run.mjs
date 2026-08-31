@@ -1,5 +1,5 @@
 // =============================================================================
-// run.mjs - M0 적격성 시험 실행기
+// run.mjs - 적격성 시험(OQ) 실행기
 //
 //   node test/run.mjs                     PGlite(메모리)에 마이그레이션을 올려 실행
 //   DATABASE_URL=postgres://... node test/run.mjs   실제 서버에 대고 실행
@@ -88,14 +88,33 @@ async function main() {
 
   const ctx = makeCtx(db, { admin });
 
-  // --- 실행 -----------------------------------------------------------------
+  /*
+   * 이 보고서가 무엇의 근거인지 정확히 적는다.
+   *
+   * M0~M4 배포가 끝난 뒤에도 제목과 범위란이 "M0" 로 남아 있었고, 같은
+   * 보고서가 이관 0001~0061 전부를 적용했다고 적고 있었다 (3차 검수 결함 6).
+   * 범위를 좁게 적은 보고서를 넓은 근거로 쓰면 그건 근거가 아니다.
+   *
+   * 엔진도 함께 적는다. PGlite 는 메모리에서 도는 개발용이고 운영은 별개의
+   * PostgreSQL 이다. 어느 엔진에서 돌았는지가 보고서에 없으면 그 결과가
+   * 운영에 대해 무엇을 말하는지 알 수 없다.
+   */
+  const onPglite = db.target.startsWith('PGlite');
+
   say(RULE);
-  say(' DOF DHR 지원 시스템 - M0 적격성 시험 (OQ)');
-  say(' 범위      : §4.1 사용자·권한 / §4.10 채번 / §5 S03 감사추적 / §8 시험 요건');
+  say(' DOF DHR 지원 시스템 - 적격성 시험 (OQ)');
+  say(' 범위      : S01~S05 · 감사추적 · 채번 · 계보 · 재고 · 검토 지원 ·');
+  say('             불변성 · 인쇄 대장 · 규격 표기 · 기준값 근거');
   say(` 실행 일시 : ${now} (Asia/Seoul)`);
   say(` 대상 DB   : ${db.target}`);
   say(` 엔진      : ${version.split(' on ')[0]}`);
-  say(` 마이그레이션: ${files.join(', ')}`);
+  say(` 마이그레이션: ${files.length}개 (${files[0]} ~ ${files[files.length - 1]})`);
+  if (onPglite) {
+    say('');
+    say(' * 이 실행은 메모리 엔진(PGlite)에서 돌았습니다. 개발 중 회귀 시험입니다.');
+    say('   정본 OQ 는 운영과 같은 PostgreSQL 에 대고 한 번 이상 돌린 것이어야 합니다.');
+    say('     DATABASE_URL=postgres://... node test/run.mjs');
+  }
   say(RULE);
 
   let pass = 0;
@@ -145,7 +164,10 @@ async function main() {
   const stamp = now.replace(/[-: ]/g, '').slice(0, 15);
   const dir = path.join(ROOT, 'reports');
   mkdirSync(dir, { recursive: true });
-  const file = path.join(dir, `OQ-M0-${stamp}.txt`);
+  /* 파일 이름도 범위를 말한다. 엔진이 무엇이었는지가 파일 이름에 있어야 
+     보고서를 모아 놓고도 어느 것이 정본인지 가려낼 수 있다 */
+  const engine = onPglite ? 'PGLITE' : 'PG';
+  const file = path.join(dir, `OQ-${engine}-${stamp}.txt`);
   writeFileSync(file, out.join('\n') + '\n', 'utf8');
   console.log(`\n보고서: ${path.relative(ROOT, file)}`);
 
