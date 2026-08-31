@@ -7,6 +7,8 @@ import { Tag } from '@/components/ui';
 import { PageShell } from '@/components/shell';
 import { SubNav } from '../nav';
 import { SETTINGS_NAV } from '../sections';
+import { APP_VERSION, BUILD_REF } from '@/lib/version';
+import { printKeyPinned } from '@/lib/print';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,6 +47,7 @@ export default async function SettingsHome() {
   }));
 
   const c = d.c!;
+  const keyPinned = printKeyPinned();
   const have = new Set(d.covered.map((r) => r.target));
   const missing = NUMBERING_TARGETS.filter((t) => !have.has(t.code));
   const blocking = missing.filter((t) => M1_CRITICAL_TARGETS.includes(t.code));
@@ -111,6 +114,41 @@ export default async function SettingsHome() {
           </Link>
         ))}
       </div>
+
+      {/*
+        * 무엇이 깔려 있고 그 판이 무엇인가. §8.0 의 IQ 가 묻는 것이고, 종이에 적힌
+        * 기록이 어느 판에서 나왔는지 되짚는 자리다.
+        *
+        * 인쇄 열쇠도 여기서 말한다. 고정되지 않은 상태는 화면 어디에도
+        * 표시가 없어 조용히 지나간다 (lib/print.ts printKeyPinned).
+        */}
+      <section className="card p-4">
+        <h3 className="text-xs font-bold text-ink">이 배포</h3>
+        <dl className="mt-2 grid gap-x-6 gap-y-1.5 text-xs sm:grid-cols-2">
+          <div className="flex justify-between gap-3 sm:justify-start">
+            <dt className="text-muted">프로그램 판</dt>
+            <dd className="tnum font-semibold text-ink sm:ml-auto">v{APP_VERSION}</dd>
+          </div>
+          <div className="flex justify-between gap-3 sm:justify-start">
+            <dt className="text-muted">빌드</dt>
+            <dd className="tnum text-ink sm:ml-auto">{BUILD_REF ?? '로컬 실행'}</dd>
+          </div>
+          <div className="flex items-center justify-between gap-3 sm:col-span-2 sm:justify-start">
+            <dt className="text-muted">인쇄 열쇠</dt>
+            <dd className="sm:ml-auto">
+              {keyPinned
+                ? <span className="text-ink">PRINT_SECRET 으로 고정됨</span>
+                : <Tag tone="warn">고정되지 않음 · 세션 열쇠에서 파생</Tag>}
+            </dd>
+          </div>
+        </dl>
+        {!keyPinned && (
+          <p className="mt-2 text-xs leading-relaxed text-muted">
+            지금 상태로 세션 열쇠를 갈면 같은 자료가 다른 자료 식별자를 냅니다.
+            지금 쓰는 파생 열쇠는 나중에 되찾을 수 없습니다.
+          </p>
+        )}
+      </section>
 
       <section className="card p-4">
         <h3 className="text-xs font-bold text-ink">등록 순서</h3>

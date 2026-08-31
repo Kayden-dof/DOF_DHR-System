@@ -1,6 +1,6 @@
 {
   "name": "dof-dhr",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "description": "DOF DHR 지원 시스템 - M0 (사용자/권한/감사추적/채번)",

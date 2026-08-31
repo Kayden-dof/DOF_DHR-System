@@ -87,6 +87,21 @@ function printKey(): Buffer {
   return createHmac('sha256', session).update('dhr:print:v1').digest();
 }
 
+/**
+ * 인쇄 열쇠가 고정되어 있는가. 값은 내보내지 않는다.
+ *
+ * PRINT_SECRET 이 없으면 위 printKey() 가 세션 열쇠에서 파생해 쓴다. 돌기는
+ * 하지만 그 상태는 조용하다. 화면에도 기록에도 아무 표시가 없다.
+ *
+ * 고정되지 않은 채로 두면 두 가지가 걸린다. 세션 열쇠를 갈면 같은 자료가 다른
+ * 식별자를 내고, 그 파생 열쇠는 나중에 되찾을 수 없다 — Vercel 은 저장한
+ * 비밀을 다시 읽어 주지 않는다 (2026-08-31 확인). 그래서 알려야 한다.
+ */
+export function printKeyPinned(): boolean {
+  const v = process.env.PRINT_SECRET;
+  return !!v && v.length >= 32;
+}
+
 export function dataHash(payload: unknown): string {
   return createHmac('sha256', printKey()).update(JSON.stringify(payload)).digest('hex');
 }

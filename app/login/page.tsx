@@ -3,6 +3,7 @@ import { currentUser } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import { Wordmark, WordmarkOnDark } from '@/components/logo';
 import { yearKST } from '@/lib/kst';
+import { APP_VERSION } from '@/lib/version';
 import LoginForm from './login-form';
 
 export const dynamic = 'force-dynamic';
@@ -93,9 +94,12 @@ export default async function LoginPage() {
           {/*
             * 만든 사람을 남긴다 (사용자 지시). 로그인 화면은 이 시스템에서
             * 누구나 매일 보는 유일한 화면이다.
+            *
+            * 판도 함께 적는다. 종이에 적힌 기록이 어느 판에서 나왔는지 되짚는
+            * 첫 자리이고, §8.0 의 IQ 가 묻는 것이기도 하다.
             */}
-          <p>디자인 &middot; 엔지니어링 &nbsp;기술고도화팀 김병휘</p>
-          <p className="mt-1">&copy; {yearKST()} DOF Inc.</p>
+          <p>Design &amp; Engineering &nbsp;Byunghwi Kim, Technology Advancement Team</p>
+          <p className="mt-1">DOF DHR v{APP_VERSION} &middot; &copy; {yearKST()} DOF Inc.</p>
         </footer>
       </section>
     </main>
