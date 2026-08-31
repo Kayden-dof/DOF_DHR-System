@@ -113,7 +113,29 @@ export async function currentUser(): Promise<SessionUser | null> {
   });
 }
 
+/* ---------------------------------------------------------------------------
+   로그인 확인
+
+   ── 비밀번호 검사를 왜 여기서 하는가 ──────────────────────────────────────
+   처음에는 사무 화면과 현장 화면의 layout 두 곳에 두었다. 그런데 인쇄 화면은
+   그 둘 중 어느 쪽에도 속하지 않아서 검사가 빠졌고, 남이 정해 준 비밀번호로
+   들어온 사람이 정본 종이를 뽑을 수 있었다 (2차 검수 결함 4).
+
+   흩어 두면 새 화면을 만들 때마다 빠뜨린다. 로그인을 확인하는 자리가 하나뿐
+   이므로 여기에 둔다. 앞으로 어떤 화면을 만들어도 지나칠 수 없다.
+
+   /password 자신은 이 검사를 건너뛰어야 한다. 그 화면에서 바꾸는 것이므로
+   여기서 막으면 아무도 바꿀 수 없다. 그쪽은 currentUser() 를 직접 쓴다.
+--------------------------------------------------------------------------- */
 export async function requireUser(): Promise<SessionUser> {
+  const user = await currentUser();
+  if (!user) redirect('/login');
+  if (user.must_change_pin) redirect('/password');
+  return user;
+}
+
+/** 비밀번호 화면 전용. 바꾸기 전이어도 들어와야 하므로 그 검사를 하지 않는다. */
+export async function requireUserForPasswordChange(): Promise<SessionUser> {
   const user = await currentUser();
   if (!user) redirect('/login');
   return user;

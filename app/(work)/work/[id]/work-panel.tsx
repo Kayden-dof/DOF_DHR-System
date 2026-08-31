@@ -275,11 +275,16 @@ export default function WorkPanel({
       </section>
 
       {/* 선택한 공정 --------------------------------------------------------- */}
+      {/*
+        * 회차는 배치 전체에서 센다. 일차와 작업자로 가리면, 어제 한 공정을
+        * 오늘 다시 할 때 회차가 1 로 돌아간다 (2차 검수 결함 7).
+        * 실제 값은 넣을 때 DB 가 정한다 (0055). 여기 값은 미리 보여 주는 것이다.
+        */}
       {op && (
         <OperationCard
           woId={woId} day={day} op={op} rec={rec} lots={lots} people={people}
           productLots={productLots} locked={locked} sheets={sheets}
-          attemptCount={dayRecords.filter((r) => r.operation_id === op.id).length}
+          attemptCount={records.filter((r) => r.operation_id === op.id).length}
           isCut={op.id === cutOpId} finished={finished}
           sampleTiers={sampleTiers} sampleBasis={sampleBasis} band={band}
         />
@@ -953,8 +958,18 @@ function CutPanel({ woId, finished, lots, sampleTiers, sampleBasis, band }: {
             </div>
             <div>
               <label className="label">제조일</label>
+              {/*
+                * 한국 시각으로 오늘이다.
+                *
+                * 전에는 toISOString().slice(0,10) 을 썼는데 그건 UTC 날짜다.
+                * 아침 9시 이전에 재단하면 전날이 기본값으로 들어갔고, 그 값이
+                * 제조일과 유효기한으로 굳었다. 0052 가 둘을 불변으로 만들어
+                * 두어 사후 정정도 안 된다 (2차 검수 결함 8).
+                *
+                * 3인 현장은 8시에 시작한다. 아침 재단은 드문 일이 아니다.
+                */}
               <input name="manufactured_on" type="date"
-                     defaultValue={new Date().toISOString().slice(0, 10)}
+                     defaultValue={todayStr()}
                      className="input tnum" />
             </div>
           </div>

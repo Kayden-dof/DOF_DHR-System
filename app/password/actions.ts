@@ -2,7 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { withActor, dbMessage } from '@/lib/db';
-import { requireUser } from '@/lib/session';
+import { requireUserForPasswordChange } from '@/lib/session';
 import { hashPin, verifyPin } from '@/lib/auth';
 import { PIN_MIN_LENGTH } from '@/lib/auth-const';
 import { homePath } from '@/lib/roles';
@@ -47,7 +47,7 @@ function tooWeak(pin: string): string | null {
 export async function changeMyPin(_prev: FormState, form: FormData): Promise<FormState> {
   let go = '';
   try {
-    const me = await requireUser();
+    const me = await requireUserForPasswordChange();
     const current = String(form.get('current') ?? '');
     const next = String(form.get('next') ?? '');
     const again = String(form.get('again') ?? '');

@@ -1,4 +1,4 @@
-import { requireUser } from '@/lib/session';
+import { requireUserForPasswordChange } from '@/lib/session';
 import { logout } from '@/app/(admin)/actions';
 import { Wordmark } from '@/components/logo';
 import PinForm from './pin-form';
@@ -27,7 +27,7 @@ export const metadata = { title: '비밀번호' };
    안에 두면 관리자가 못 온다.
 --------------------------------------------------------------------------- */
 export default async function PasswordPage() {
-  const user = await requireUser();
+  const user = await requireUserForPasswordChange();
   const first = user.must_change_pin;
 
   return (

@@ -166,8 +166,15 @@ async function closeDay(actor, day) {
       order by o.seq`, [wo.id, day, actor.id]);
   if (payload.length === 0) return;
 
-  const hash = createHash('sha256')
-    .update(JSON.stringify(payload)).digest('hex').slice(0, 12);   // 앱과 같게 소문자로 둔다
+  /*
+   * 자료 식별자는 64자 그대로 넣는다.
+   *
+   * 전에는 12자로 잘라 넣었다. 화면과 종이가 앞 12자만 보여 주니 그걸로 충분해
+   * 보였는데, 그래서 인쇄 대장 한 컬럼에 12 · 32 · 64 자가 섞였다
+   * (2차 검수 결함 3). 보여 주는 길이와 적는 길이는 다른 문제다.
+   * 0054 의 형식 제약이 이제 이걸 막는다.
+   */
+  const hash = createHash('sha256').update(JSON.stringify(payload)).digest('hex');
 
   await as(actor.id, async () => {
     const seq = await val(
@@ -183,7 +190,7 @@ async function closeDay(actor, day) {
        values ($1,$2,$3,$4) on conflict do nothing`,
       [wo.id, day, actor.id, actor.id]);
   });
-  say(`${day}일차 ${actor.full_name} 마감 · 기록서 발행 (자료 식별자 ${hash})`);
+  say(`${day}일차 ${actor.full_name} 마감 · 기록서 발행 (자료 식별자 ${hash.slice(0, 12)})`);
 }
 
 /* --- 1일차. 재단 전 공정 ------------------------------------------------- */

@@ -234,17 +234,31 @@ export async function recordNonconformity(
       return { error: '특채는 기록지 문서 코드와 서면 승인자 · 승인일이 있어야 기록됩니다' };
     }
 
+    /*
+     * 컬럼 목록과 값의 개수를 눈으로 세어 둔다. 열한 개다.
+     *
+     * 0046 이 특채 기록지 문서 코드를, 0047 이 발견 공정을 더할 때 화면과
+     * 위 검사만 고치고 이 목록을 빠뜨렸다. 값은 열 개를 넘기는데 자리는 아홉
+     * 개라 바인드 단계에서 거절당했고, 그래서 재작업 · 특채 · 불량 어느 것도
+     * 저장되지 않았다 (2차 검수 결함 2).
+     *
+     * 타입 검사가 잡지 못한다. DB 시험도 못 잡는다 - 그쪽은 컬럼을 직접 맞춰
+     * 넣기 때문이다. 화면을 지나는 경로만 죽어 있었다. 그래서 test/cases 에
+     * 자리 수를 세는 시험을 따로 두었다 (PH-01).
+     */
     await withActor(me.id, (db) =>
       db.rows(
         `insert into product_nonconformity
            (product_lot_id, qty, outcome, reason_code, reason_detail,
-            approved_by, approved_on, found_at, registered_by)
-         values ($1,$2,$3::nc_outcome,$4,$5,$6,$7::date,
-                 coalesce($8::date, (timezone('Asia/Seoul', now()))::date), $9)`,
+            approved_by, approved_on, concession_doc_no,
+            found_at, registered_by, operation_id)
+         values ($1,$2,$3::nc_outcome,$4,$5,$6,$7::date,$8,
+                 coalesce($9::date, (timezone('Asia/Seoul', now()))::date), $10, $11)`,
         [String(form.get('product_lot_id') ?? ''), qty, outcome, reason,
          String(form.get('reason_detail') ?? '').trim() || null,
          outcome === 'CONCESSION' ? approver : null,
          outcome === 'CONCESSION' ? approvedOn : null,
+         outcome === 'CONCESSION' ? docNo : null,
          String(form.get('found_at') ?? '') || null,
          me.id,
          /* 어디서 발견했나. 재단 이후 공정만 온다 (trg_nc_scope) */

@@ -81,8 +81,8 @@ begin
   delete from steril_batch;
   delete from product_nonconformity;
   delete from wip_nonconformity;
+  delete from stock_movement;      -- material_issue 를 가리킨다 (0056). 먼저 지운다
   delete from material_issue;
-  delete from stock_movement;
   delete from day_lock;
   delete from record_print;
   delete from process_record;

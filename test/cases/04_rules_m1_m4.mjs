@@ -88,7 +88,7 @@ export default [
     const pr = await newRecord(t, m, wo, 'WS-DX2401-01', { day: 1 });
 
     await t.setActor(m.admin);
-    await t.rows(`select print_day_record($1, 1, $2, 'hash-1')`, [wo.id, m.worker]);
+    await t.rows(`select print_day_record($1, 1, $2, md5('day1') || md5('day1'))`, [wo.id, m.worker]);
     await t.setActor(null);
 
     await t.rejects(
@@ -107,7 +107,7 @@ export default [
     const lot = await newMaterialLot(t, m, m.reagent);
 
     await t.setActor(m.admin);
-    await t.rows(`select print_day_record($1, 2, $2, 'hash-2')`, [wo.id, m.worker]);
+    await t.rows(`select print_day_record($1, 2, $2, md5('day2') || md5('day2'))`, [wo.id, m.worker]);
     await t.setActor(null);
 
     await t.rejects(
@@ -127,7 +127,7 @@ export default [
     const pr2 = await newRecord(t, m, wo, 'WS-DX2401-02', { day: 3, worker: m.worker2 });
 
     await t.setActor(m.admin);
-    await t.rows(`select print_day_record($1, 3, $2, 'hash-3')`, [wo.id, m.worker]);
+    await t.rows(`select print_day_record($1, 3, $2, md5('day3') || md5('day3'))`, [wo.id, m.worker]);
     await t.setActor(null);
 
     t.eq(await t.val(`select is_locked($1, 3, $2)`, [wo.id, m.worker]),  true,  '작업자갑');

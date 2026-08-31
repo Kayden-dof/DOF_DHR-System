@@ -115,7 +115,7 @@ export default [
     const wo = await newWorkOrder(t, m);
     await t.setActor(m.admin);
     const p = await t.one(
-      `select id from record_print_log('WORK_ORDER','abc123',$1,null,null,null,null,1,null)`,
+      `select id from record_print_log('WORK_ORDER', md5('wo') || md5('wo'),$1,null,null,null,null,1,null)`,
       [wo.id]);
     const rp = await t.val(
       `select id from record_print where work_order_id = $1 order by seq desc limit 1`, [wo.id]);

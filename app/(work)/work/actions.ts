@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 import { withActor, dbMessage } from '@/lib/db';
 import { requireUser } from '@/lib/session';
 import { isWorker, isAdmin } from '@/lib/roles';
@@ -40,7 +41,10 @@ export async function startRecord(_p: FormState, form: FormData): Promise<FormSt
            day_no, work_date, worker_id, rotation_worker_id, equipment_ref, started_at)
          values ($1,$2,$3,$4,$5, (timezone('Asia/Seoul', now()))::date, $6,$7,$8::uuid, now())`,
         [wo, lot || null, String(form.get('operation_id') ?? ''),
-         Number(form.get('attempt') ?? 1), Number(form.get('day_no') ?? 1),
+         // 회차는 비워 보낸다. DB 가 (배치, 공정, 제품로트) 기준으로 센다 (0055).
+         // 화면이 세면 "오늘 내 기록"만 보게 되어, 어제 한 공정을 오늘 다시
+         // 하면 회차가 1 로 돌아간다 (2차 검수 결함 7).
+         null, Number(form.get('day_no') ?? 1),
          me.id, rotation || null,
          // 설비 대장을 가리키는 참조. 종이에 찍힐 코드는 DB 가 그 시점의
          // 대장에서 떠 온다 (0032). 응용이 두 값을 각각 넣으면 언젠가 어긋난다
@@ -104,40 +108,40 @@ export async function endRecord(_p: FormState, form: FormData): Promise<FormStat
 }
 
 /**
- * 일차 마감과 인쇄 (S04).
- * 인쇄하면 그 (지시서, 일차, 작업자) 묶음이 잠기고 더 고칠 수 없다.
- * 잠금 해제는 없다. 누락은 다음 일차에 정정 기록으로 남긴다.
+ * 일차 마감 (S04).
+ *
+ * (지시서, 일차, 작업자) 묶음이 잠기고 더 고칠 수 없다. 잠금 해제는 없다.
+ * 누락은 다음 일차에 정정 기록으로 남긴다.
+ *
+ * ── 여기서 인쇄 기록을 만들지 않는다 ─────────────────────────────────────
+ * 전에는 이 함수가 print_day_record 를 불러 대장에 1회차를 심었다. 종이는
+ * 한 장도 나오지 않는데 회차만 소비되니, 실제로 프린터에서 나오는 첫 장이
+ * 2회차가 되어 "재발행" 워터마크를 달고 나왔다 (2차 검수 결함 3).
+ *
+ * 마감과 인쇄는 다른 일이다. 마감은 "더 적을 것이 없다" 는 선언이고, 인쇄는
+ * 종이가 나오는 일이다. 대장에는 실제 종이만 남아야 한다.
+ *
+ * 마감이 끝나면 곧바로 인쇄 화면으로 보낸다. 사람이 하는 조작은 전과 같고,
+ * 그 화면이 열릴 때 1회차가 발행된다.
  */
 export async function closeDay(_p: FormState, form: FormData): Promise<FormState> {
+  let go = '';
   try {
     const me = await worker();
     const wo = String(form.get('work_order_id') ?? '');
     const day = Number(form.get('day_no') ?? 1);
 
-    const hash = await withActor(me.id, (db) =>
-      db.val<string>(
-        `select md5(string_agg(x, '|' order by x))
-           from (select pr.id::text || ':' || coalesce(pr.started_at::text,'') || ':' ||
-                        coalesce(pr.ended_at::text,'') || ':' ||
-                        coalesce((select string_agg(mi.material_lot_id::text || '=' || mi.qty::text, ','
-                                    order by mi.material_lot_id)
-                                    from material_issue mi
-                                   where mi.process_record_id = pr.id), '') as x
-                   from process_record pr
-                  where pr.work_order_id = $1 and pr.day_no = $2 and pr.worker_id = $3) s`,
-        [wo, day, me.id]));
-
     await withActor(me.id, (db) =>
-      db.rows(`select print_day_record($1,$2,$3,$4)`, [wo, day, me.id, hash ?? '']));
+      db.rows(`select lock_day($1,$2,$3)`, [wo, day, me.id]));
 
     bump(wo);
-    return {
-      ok: true,
-      message: `${day}일차 기록을 마감했습니다. 이 묶음은 더 이상 수정할 수 없습니다.`,
-    };
+    go = `/print/day-record/${wo}/${day}/${me.id}`;
   } catch (e) {
     return { error: dbMessage(e) };
   }
+
+  /* redirect 는 예외를 던진다. try 안에 두지 않는다 */
+  redirect(go);
 }
 
 /* ---------------------------------------------------------------------------
