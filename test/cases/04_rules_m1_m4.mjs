@@ -422,8 +422,21 @@ export default [
   async run(t) {
     const m = await master(t);
     t.eq(m.generatedCount, 4 * 5 - 3, '크기 4 x 두께 5 - 제외 3');
+
+    /*
+     * 크기는 cm 그대로, 두께만 mm 로 환산한다 (0057 · 3차 검수 결함 1).
+     *
+     * 이 시험은 넉 달 동안 "DX2401 0.5x0.5 0.5~1.0mm" 를 정답으로 못박고
+     * 있었다. 틀린 값을 시험이 지켜 주고 있었던 셈이다. 종이에 찍히는 값을
+     * 시험이 붙들고 있으면 그 시험이 결함의 방패가 된다.
+     */
     t.eq(await t.val(`select name from item where code = 'PD05050510'`),
-         'DX2401 0.5x0.5 0.5~1.0mm', '형명 표기');
+         'DX2401 5x5cm 0.5~1.0mm', '형명 표기 (크기 cm · 두께 mm)');
+    t.eq(await t.val(`select name from item where code = 'PD10150510'`),
+         'DX2401 10x15cm 0.5~1.0mm', '두 자리 크기');
+    t.eq(await t.val(`select spec_label('PD10152025')`),
+         '10x15cm · 두께 2.0~2.5mm', '인쇄물이 쓰는 규격 문구');
+
     t.eq(await t.val(`select count(*)::int from item where code = 'PD10152530'`),
          0, '제외 조합은 생성되지 않는다');
   },

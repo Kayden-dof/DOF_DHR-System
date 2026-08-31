@@ -76,7 +76,7 @@ if (!wo) {
 const lots = await rows(
   `select pl.id, pl.lot_no, pl.qty_produced, pl.qty_sample, pl.qty_available,
           pl.manufactured_on::text as manufactured_on, pl.expiry_date::text as expiry_date,
-          i.code as item_code, i.name as item_name
+          i.code as item_code, i.name as item_name, spec_label(i.code) as spec
      from product_lot pl join item i on i.id = pl.item_id
     where pl.work_order_id = $1 order by pl.lot_no`, [wo.id]);
 
@@ -299,6 +299,9 @@ await sheet('③ 라벨요청서', `/print/label-request/${wo.id}`, [
   ...lots.flatMap((l) => [
     { label: `제조번호 ${l.item_code}`, value: l.lot_no },
     { label: `모델명 ${l.lot_no}`,      value: l.item_code },
+    // 규격은 라벨 업체가 이 종이를 보고 찍는 값이다. 한때 10배 작게 나갔다
+    // (3차 검수 결함 1). §8.2 가 가장 중요하다고 한 대조가 이것이다.
+    { label: `규격 ${l.lot_no}`,        value: l.spec },
     { label: `수량 ${l.lot_no}`,        value: String(l.qty_produced) },
   ]),
 ]);

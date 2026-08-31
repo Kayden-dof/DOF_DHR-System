@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { currentUser } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import { Wordmark, WordmarkOnDark } from '@/components/logo';
+import { yearKST } from '@/lib/kst';
 import LoginForm from './login-form';
 
 export const dynamic = 'force-dynamic';
@@ -89,8 +90,12 @@ export default async function LoginPage() {
         </div>
 
         <footer className="mt-10 w-full max-w-[25rem] border-t border-line pt-4 text-center text-[0.6875rem] leading-relaxed text-faint">
-          <p>Design by 기술고도화팀 &middot; Byunghwi Kim</p>
-          <p className="mt-1">&copy; {new Date().getFullYear()} DOF Inc.</p>
+          {/*
+            * 만든 사람을 남긴다 (사용자 지시). 로그인 화면은 이 시스템에서
+            * 누구나 매일 보는 유일한 화면이다.
+            */}
+          <p>디자인 &middot; 엔지니어링 &nbsp;기술고도화팀 김병휘</p>
+          <p className="mt-1">&copy; {yearKST()} DOF Inc.</p>
         </footer>
       </section>
     </main>

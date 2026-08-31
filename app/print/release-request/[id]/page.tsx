@@ -32,15 +32,10 @@ interface Row {
   id: string; lot_no: string; item_code: string; item_name: string;
   qty_produced: number; qty_sample: number; qty_available: number;
   manufactured_on: string; expiry_date: string;
-  shipped: number; steril_cert: string | null;
+  shipped: number; steril_cert: string | null; spec: string;
 }
 
-function spec(code: string): string {
-  const m = code.match(/^PD(\d{2})(\d{2})(\d{2})(\d{2})$/);
-  if (!m) return '';
-  const mm = (s: string) => (Number(s) / 10).toFixed(1);
-  return `${mm(m[1])}x${mm(m[2])}cm · ${mm(m[3])}~${mm(m[4])}mm`;
-}
+/* 규격 문구는 DB 의 spec_label() 하나에서만 만든다 (0057 · 3차 검수 결함 1) */
 
 /** sel=로트id:수량,로트id:수량 를 푼다. 형식이 어긋난 조각은 버린다. */
 function parseSel(sel: string | undefined): Map<string, number> {
@@ -76,6 +71,7 @@ export default async function ReleaseRequestSheet({
     // 이 배치의 로트만 받는다. 다른 배치 로트가 섞여 들어오면 조용히 떨어진다
     const rows = await db.rows<Row>(
       `select pl.id, pl.lot_no, i.code as item_code, i.name as item_name,
+              spec_label(i.code) as spec,
               pl.qty_produced, pl.qty_sample, pl.qty_available,
               pl.manufactured_on, pl.expiry_date,
               coalesce((select sum(sh.qty)::int from shipment sh
@@ -158,7 +154,7 @@ export default async function ReleaseRequestSheet({
               <td className="font-mono font-bold">{r.lot_no}</td>
               <td>
                 <div className="font-mono font-bold">{r.item_code}</div>
-                <div className="text-[10px]">{spec(r.item_code)}</div>
+                <div className="text-[10px]">{r.spec}</div>
               </td>
               <td className="tnum">{fmtDate(r.manufactured_on)}</td>
               <td className="tnum font-bold">{fmtDate(r.expiry_date)}</td>

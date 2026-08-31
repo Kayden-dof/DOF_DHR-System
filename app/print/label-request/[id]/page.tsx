@@ -20,16 +20,18 @@ interface Head {
 interface LotRow {
   lot_no: string; item_code: string; item_name: string;
   qty_produced: number; qty_sample: number; qty_available: number;
-  manufactured_on: string; expiry_date: string;
+  manufactured_on: string; expiry_date: string; spec: string;
 }
 
-/** 형명 PD 05 05 05 10 을 사람이 읽는 규격으로 되돌린다. */
-function spec(code: string): string {
-  const m = code.match(/^PD(\d{2})(\d{2})(\d{2})(\d{2})$/);
-  if (!m) return '';
-  const mm = (s: string) => (Number(s) / 10).toFixed(1);
-  return `${mm(m[1])} x ${mm(m[2])} cm · 두께 ${mm(m[3])}~${mm(m[4])} mm`;
-}
+/*
+ * 규격 문구는 DB 의 spec_label() 하나에서만 만든다 (0057).
+ *
+ * 전에는 이 파일과 출하 승인 요청서가 각자 같은 함수를 복제해 두었고, 둘 다
+ * 크기 자리까지 10 으로 나눠 10x15cm 제품을 "1.0 x 1.5 cm" 로 찍고 있었다.
+ * 라벨 업체가 이 종이를 보고 라벨을 찍는다 (3차 검수 결함 1).
+ *
+ * 복제는 언젠가 갈라진다. 실제로 두 곳의 띄어쓰기가 이미 갈라져 있었다.
+ */
 
 export default async function LabelRequestSheet({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
@@ -50,7 +52,7 @@ export default async function LabelRequestSheet({ params }: { params: Promise<{ 
       lots: await db.rows<LotRow>(
         `select pl.lot_no, i.code as item_code, i.name as item_name,
                 pl.qty_produced, pl.qty_sample, pl.qty_available,
-                pl.manufactured_on, pl.expiry_date
+                pl.manufactured_on, pl.expiry_date, spec_label(i.code) as spec
            from product_lot pl join item i on i.id = pl.item_id
           where pl.work_order_id = $1 order by i.code`, [id]),
     };
@@ -115,7 +117,7 @@ export default async function LabelRequestSheet({ params }: { params: Promise<{ 
             <tr key={l.lot_no}>
               <td className="font-mono font-bold">{l.lot_no}</td>
               <td className="font-mono">{l.item_code}</td>
-              <td>{spec(l.item_code)}</td>
+              <td>{l.spec}</td>
               <td className="text-right tnum">{l.qty_produced}</td>
               <td className="text-right tnum">{l.qty_sample || ''}</td>
               <td className="text-right tnum font-bold">{l.qty_produced}</td>

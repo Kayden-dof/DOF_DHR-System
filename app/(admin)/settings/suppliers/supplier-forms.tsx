@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState, useState } from 'react';
+import { isPastKST } from '@/lib/kst';
 import { fmtDate } from '@/lib/fmt';
 import { SUPPLIER_STATUS, type FormState } from '@/lib/forms';
 import { Msg, Tag } from '@/components/ui';
@@ -106,7 +107,8 @@ export function SupplierRowView({ s }: { s: SupplierRow }) {
   const [state, action, pending] = useActionState<FormState, FormData>(saveSupplier, {});
   const { open, setOpen } = useDialog(state);
   const st = statusOf(s.status);
-  const expired = s.approved_until && new Date(s.approved_until) < new Date();
+  /* 날짜는 글자끼리 견준다. Date 로 바꾸면 자정 언저리에 하루 어긋난다 (lib/kst) */
+  const expired = isPastKST(s.approved_until);
 
   return (
     <>

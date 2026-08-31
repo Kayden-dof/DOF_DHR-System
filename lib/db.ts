@@ -1,3 +1,4 @@
+import { unstable_rethrow } from 'next/navigation';
 import { Pool, type PoolClient } from 'pg';
 import { isViewerOnly, type RoleCode } from './roles';
 import { pgSsl } from './pgssl';
@@ -150,6 +151,23 @@ const COLUMN_LABEL: Record<string, string> = {
 };
 
 export function dbMessage(e: unknown): string {
+  /*
+   * Next 의 내부 제어 흐름을 먼저 돌려보낸다.
+   *
+   * redirect() 와 notFound() 는 값을 돌려주지 않고 예외를 던져서 흐름을
+   * 끊는다. 그런데 서버 액션 대부분이 requireUser() 를 try 안에서 부르고
+   * catch 에서 이 함수를 쓰므로, 세션이 끊긴 뒤 단추를 누르면 로그인 화면으로
+   * 가는 대신 현장 패드에 "NEXT_REDIRECT" 라는 영문이 뜨고 갇혔다
+   * (3차 검수 결함 4).
+   *
+   * unstable_rethrow 는 그 목적으로 Next 가 내놓은 함수다. Next 의 오류면
+   * 다시 던지고, 아니면 아무것도 하지 않는다. 오류를 다루기 전에 부른다.
+   *
+   * 여기 한 곳에 두면 액션마다 기억할 필요가 없다. 액션은 마흔 개가 넘고,
+   * 새로 만들 때 빠뜨리는 쪽이 늘 이긴다.
+   */
+  unstable_rethrow(e);
+
   const err = e as PgError;
   const code = err?.code;
 

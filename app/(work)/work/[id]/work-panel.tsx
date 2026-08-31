@@ -7,15 +7,12 @@ import { fmtDateTime } from '@/lib/fmt';
 import { Msg, Tag } from '@/components/ui';
 import NumPad, { PresetPicker } from '@/components/num-pad';
 import { Dialog } from '@/components/dialog';
+import { todayKST } from '@/lib/kst';
 import {
   startRecord, issueMaterial, endRecord, closeDay, cutAtField,
   amendIssue, returnIssue,
 } from '../actions';
 
-/** KST 오늘. 만료 비교는 날짜 문자열끼리 한다 */
-function todayStr(): string {
-  return new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Seoul' }).format(new Date());
-}
 
 export interface Op {
   id: string; seq: number; code: string; name: string; after_cutting: boolean;
@@ -520,7 +517,7 @@ function StartCard({ woId, day, op, people, productLots, attempt, done }: {
               * 사실을 보여 준다.
               */}
             {op.equipment.map((q) => {
-              const gone = !q.valid_until || q.valid_until < todayStr();
+              const gone = !q.valid_until || q.valid_until < todayKST();
               return (
                 <button key={q.code} type="button"
                         onClick={() => setEquip((v) => (v === q.id ? '' : q.id))}
@@ -969,7 +966,7 @@ function CutPanel({ woId, finished, lots, sampleTiers, sampleBasis, band }: {
                 * 3인 현장은 8시에 시작한다. 아침 재단은 드문 일이 아니다.
                 */}
               <input name="manufactured_on" type="date"
-                     defaultValue={todayStr()}
+                     defaultValue={todayKST()}
                      className="input tnum" />
             </div>
           </div>
