@@ -13,6 +13,7 @@
     "test": "node scripts/check-sql-params.mjs && node test/run.mjs",
     "check:sql": "node scripts/check-sql-params.mjs",
     "test:print": "node --env-file=.env.local test/print.mjs",
+    "test:mutation": "node test/mutation.mjs",
     "smoke": "node --env-file=.env.local scripts/smoke.mjs",
     "test:pg": "node test/pg.mjs",
     "test:concurrency": "node test/concurrency.mjs",
