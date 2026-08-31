@@ -124,18 +124,18 @@ export default async function SettingsHome() {
         */}
       <section className="card p-4">
         <h3 className="text-xs font-bold text-ink">이 배포</h3>
-        <dl className="mt-2 grid gap-x-6 gap-y-1.5 text-xs sm:grid-cols-2">
-          <div className="flex justify-between gap-3 sm:justify-start">
+        <dl className="mt-2 flex flex-wrap gap-x-10 gap-y-3 text-xs">
+          <div>
             <dt className="text-muted">프로그램 판</dt>
-            <dd className="tnum font-semibold text-ink sm:ml-auto">v{APP_VERSION}</dd>
+            <dd className="tnum mt-0.5 font-semibold text-ink">v{APP_VERSION}</dd>
           </div>
-          <div className="flex justify-between gap-3 sm:justify-start">
+          <div>
             <dt className="text-muted">빌드</dt>
-            <dd className="tnum text-ink sm:ml-auto">{BUILD_REF ?? '로컬 실행'}</dd>
+            <dd className="tnum mt-0.5 text-ink">{BUILD_REF ?? '로컬 실행'}</dd>
           </div>
-          <div className="flex items-center justify-between gap-3 sm:col-span-2 sm:justify-start">
+          <div>
             <dt className="text-muted">인쇄 열쇠</dt>
-            <dd className="sm:ml-auto">
+            <dd className="mt-0.5">
               {keyPinned
                 ? <span className="text-ink">PRINT_SECRET 으로 고정됨</span>
                 : <Tag tone="warn">고정되지 않음 · 세션 열쇠에서 파생</Tag>}
