@@ -265,7 +265,27 @@ const [ready] = await q(`
 check('IQ-16', '활성 채번 규칙', '1 이상', String(ready.rules), ready.rules >= 1);
 check('IQ-17', '서면 대조 확인된 제품표준서', '1 이상', String(ready.dmr), ready.dmr >= 1);
 check('IQ-18', '로그인 가능한 계정', '1 이상', String(ready.users), ready.users >= 1);
-check('IQ-19', '개발 계정이 아닌 시스템관리자', '1 이상', String(ready.admins), ready.admins >= 1);
+/*
+ * "시스템관리자가 없다" 가 아니라 "개발 계정 말고는 없다" 다.
+ *
+ * 첫 계정은 반드시 개발 계정으로 만들어진다 (deploy-db.mjs) - 비밀번호 초기화가
+ * 개발 계정만 할 수 있는 일이라, 첫 계정이 개발 계정이 아니면 아무도 초기화를
+ * 못 한다. 그래서 새로 올린 직후에는 늘 0 이다.
+ *
+ * 전 문구는 "개발 계정이 아닌 시스템관리자 0" 이었는데, 계정이 하나도 없다는
+ * 뜻으로 읽혔다 (2026-08-31). 보고서가 읽는 사람을 헷갈리게 하면 보고서가 아니다.
+ */
+check('IQ-19', '운영용 시스템관리자 (개발 계정 제외)', '1 이상',
+  String(ready.admins), ready.admins >= 1);
+if (ready.admins === 0) {
+  const dev = await q(
+    `select u.login_code, u.full_name from app_user u join user_role r on r.user_id = u.id
+      where r.role = 'SYS_ADMIN' and u.is_developer order by u.login_code`);
+  say(`          └─ 지금 시스템관리자: ${
+    dev.length ? dev.map((r) => `${r.login_code} ${r.full_name} (개발 계정)`).join(', ') : '없음'}`);
+  say('             개발 계정 표시는 켤 수만 있고 끌 수 없다 (0052). 운영용 계정을');
+  say('             새로 만들어야 하며, 기준정보는 그 계정으로 등록한다.');
+}
 check('IQ-20', '시연 자료 표식', '0개', `${ready.demo}개`, ready.demo === 0);
 
 say('');
