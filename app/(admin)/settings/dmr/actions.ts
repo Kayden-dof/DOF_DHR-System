@@ -446,3 +446,40 @@ export async function setDmrNote(_p: FormState, form: FormData): Promise<FormSta
     return { error: dbMessage(e) };
   }
 }
+
+/**
+ * 배치 장입 장수 범위와 멸균 발송 박스 수량 (M5-1 · §2.0).
+ *
+ * 전에는 `check (sheet_count between 1 and 30)` 으로 표 정의에 박혀 있었다.
+ * 30 은 DX2401 의 값이지 프로그램의 성질이 아니다. 다른 품목을 올리려면
+ * 개발자를 다시 불러야 했다.
+ *
+ * DDL 에는 바깥 울타리(`> 0`)만 남기고 실제 범위는 여기서 정한다 (0069).
+ */
+export async function setDmrLimits(_p: FormState, form: FormData): Promise<FormState> {
+  try {
+    const me = await admin();
+    const num = (k: string) => {
+      const v = String(form.get(k) ?? '').trim();
+      if (v === '') return null;
+      const n = Number(v);
+      return Number.isFinite(n) ? Math.trunc(n) : null;
+    };
+    const lo = num('sheet_min');
+    const hi = num('sheet_max');
+    if (lo !== null && hi !== null && lo > hi) {
+      return { error: '하한이 상한보다 클 수 없습니다' };
+    }
+    await withActor(me.id, (db) =>
+      db.rows(
+        `update device_master
+            set sheet_min = $2, sheet_max = $3, steril_box_qty = $4
+          where id = $1`,
+        [String(form.get('id') ?? ''), lo, hi, num('steril_box_qty')]),
+      { reason: '제품표준서 장입 범위 · 멸균 박스 수량 변경' });
+    path();
+    return { ok: true, message: '장입 범위를 저장했습니다.' };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}

@@ -26,8 +26,15 @@ export interface SbRow {
   total: number;
 }
 
-/* 멸균 발송은 50개(25ea 2줄) 박스 단위다. 박스 수를 같이 보여 준다. */
-const BOX = 50;
+/*
+ * 멸균 발송 박스 수량은 제품표준서가 정한다 (M5-1 · §2.0).
+ *
+ * 전에는 `const BOX = 50` 으로 여기 박혀 있었다. 50개(25ea 2줄)는 DX2401 의
+ * 위탁 조건이지 프로그램의 성질이 아니다. 위탁 조건이 바뀌면 코드를 고쳐야
+ * 했다.
+ *
+ * 값이 없으면 박스 수를 세지 않는다. 지어내지 않는다.
+ */
 
 /**
  * 규격별로 몇 개인지 묶는다.
@@ -46,13 +53,15 @@ function bySpec(rows: { item_code: string; item_name: string; qty: number }[]) {
   return [...m.values()].sort((a, b) => a.code.localeCompare(b.code));
 }
 
-export function SterilForm({ lots, today }: { lots: PlOpt[]; today: string }) {
+export function SterilForm({ lots, today, boxQty }: {
+  lots: PlOpt[]; today: string; boxQty: number | null;
+}) {
   const [state, action, pending] = useActionState<FormState, FormData>(createSterilBatch, {});
   const [open, setOpen] = useState(false);
   const [picked, setPicked] = useState<Record<string, number>>({});
 
   const total = Object.values(picked).reduce((s, n) => s + n, 0);
-  const boxes = Math.ceil(total / BOX);
+  const boxes = boxQty && boxQty > 0 ? Math.ceil(total / boxQty) : null;
 
   // 고른 로트를 규격으로 모아 둔다. 발송 전에 규격별 수량이 눈에 보여야
   // 의뢰서에 그대로 옮겨 적을 수 있다.
@@ -133,8 +142,13 @@ export function SterilForm({ lots, today }: { lots: PlOpt[]; today: string }) {
       {total > 0 && (
         <div className="mt-2 rounded-md border border-info/20 bg-info-bg px-3.5 py-3">
           <p className="text-xs text-ink">
-            총 <b className="tnum">{total}</b>개. 50개(25ea 2줄) 박스 기준{' '}
-            <b className="tnum">{boxes}</b>박스입니다.
+            총 <b className="tnum">{total}</b>개.
+            {boxes !== null ? (
+              <> 박스 한 개 <b className="tnum">{boxQty}</b>개 기준{' '}
+                <b className="tnum">{boxes}</b>박스입니다.</>
+            ) : (
+              <> 박스 수량이 제품표준서에 없어 박스 수는 세지 않습니다.</>
+            )}
           </p>
           <dl className="mt-2 grid gap-x-5 gap-y-1 sm:grid-cols-2">
             {specSummary.map((x) => (

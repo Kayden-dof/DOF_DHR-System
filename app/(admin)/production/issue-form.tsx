@@ -9,6 +9,7 @@ import { previewIssue, type IssuePreview } from './preview';
 export interface DmOpt {
   id: string; revision: string; item_code: string; item_name: string;
   product_code: string | null; product_name: string | null;
+  sheet_min: number | null; sheet_max: number | null;
   verified_at: Date | null; op_count: number;
 }
 export interface RawLotOpt {
@@ -38,6 +39,11 @@ export default function IssueForm({ masters, rawLots, finished, users, today }: 
   const [prod, setProd] = useState('');
   const [qa, setQa] = useState('');
   const [pv, setPv] = useState<IssuePreview>({});
+
+  /* 고른 제품표준서가 정한 장입 범위. 고르기 전에는 울타리만 안다 (0069) */
+  const chosen = masters.find((m) => m.id === dm);
+  const lo = chosen?.sheet_min ?? 1;
+  const hi = chosen?.sheet_max ?? null;
 
   /*
    * 예정 형명. 한 배치에서 여러 규격이 나온다 (§3 ③). 두께는 원재료가 정하므로
@@ -120,9 +126,22 @@ export default function IssueForm({ masters, rawLots, finished, users, today }: 
           </select>
         </div>
 
+        {/*
+          * 범위는 제품표준서가 정한다 (M5-1 · §2.0). 전에는 1~30 이 이 화면과
+          * 표 정의 두 곳에 박혀 있었다. 다른 품목을 올리려면 개발자를 불러야
+          * 했다.
+          *
+          * 화면이 막는 것은 예의이고 실제 차단은 DB 다 (0069).
+          */}
         <div>
-          <label className="label">장입 장수 (1~30)</label>
-          <input name="sheet_count" type="number" min={1} max={30} required
+          <label className="label">
+            장입 장수{' '}
+            <span className="text-faint">
+              ({lo}
+              {hi === null ? '장 이상' : `~${hi}`})
+            </span>
+          </label>
+          <input name="sheet_count" type="number" min={lo} max={hi ?? undefined} required
                  value={sheets} onChange={(e) => setSheets(Number(e.target.value))}
                  className="input tnum" />
         </div>

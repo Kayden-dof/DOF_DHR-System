@@ -247,10 +247,62 @@ export default [
 
 {
   id: 'ST-03', expect: '예외',
-  name: 'sheet_count 31로 work_order INSERT',
+  name: '있을 수 없는 장입 장수는 자료가 되지 못한다 (0장)',
   async run(t) {
     const m = await master(t);
-    await t.rejects(() => newWorkOrder(t, m, { sheets: 31 }), { code: '23514' });
+    /*
+     * 트리거가 CHECK 보다 먼저 돈다. 그래서 0장은 하한에서 걸린다.
+     * DDL 의 울타리는 그 뒤에 남아 있고 ST-03c 가 그것을 본다.
+     */
+    await t.rejects(() => newWorkOrder(t, m, { sheets: 0 }),
+      { code: 'P0001', message: '하한' });
+  },
+},
+
+{
+  id: 'ST-03c', expect: '확인',
+  name: '트리거가 물러나도 DDL 울타리는 남는다',
+  async run(t) {
+    /*
+     * 복구할 때는 트리거가 물러난다 (session_replication_role = replica ·
+     * scripts/restore-check.mjs). 그때 남는 것은 CHECK 뿐이다. 상한은 제품
+     * 표준서로 옮겼지만 "0장이나 음수는 자료가 될 수 없다" 는 표에 남아 있어야
+     * 한다 (0069).
+     */
+    const [c] = await t.rows(
+      `select pg_get_constraintdef(oid) as def from pg_constraint
+        where conrelid = 'work_order'::regclass
+          and conname = 'work_order_sheet_count_check'`);
+    if (!c) throw new Error('바깥 울타리가 사라졌습니다');
+    if (!/sheet_count\s*>\s*0/.test(c.def)) {
+      throw new Error(`울타리가 기대와 다릅니다: ${c.def}`);
+    }
+  },
+},
+
+{
+  id: 'ST-03b', expect: '예외',
+  name: '장입 상한은 제품표준서가 정한다',
+  async run(t) {
+    const m = await master(t);
+    await t.setActor(m.admin);
+
+    /* 상한이 없으면 막지 않는다 */
+    await t.rows(`update device_master set sheet_min = null, sheet_max = null where id = $1`,
+      [m.dm]);
+    await t.resolves(() => newWorkOrder(t, m, { sheets: 500 }));
+
+    /* 제품표준서가 정하면 그 값으로 막는다 */
+    await t.rows(`update device_master set sheet_min = 5, sheet_max = 30 where id = $1`, [m.dm]);
+    await t.rejects(() => newWorkOrder(t, m, { sheets: 31 }),
+      { code: 'P0001', message: '상한(30장)' });
+    await t.rejects(() => newWorkOrder(t, m, { sheets: 4 }),
+      { code: 'P0001', message: '하한(5장)' });
+    await t.resolves(() => newWorkOrder(t, m, { sheets: 30 }));
+
+    /* 값을 바꾸면 막는 자리도 함께 움직인다 - 코드를 고치지 않는다 (§2.0) */
+    await t.rows(`update device_master set sheet_max = 40 where id = $1`, [m.dm]);
+    await t.resolves(() => newWorkOrder(t, m, { sheets: 31 }));
   },
 },
 

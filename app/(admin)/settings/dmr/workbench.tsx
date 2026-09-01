@@ -6,7 +6,7 @@ import { Panel, Empty, Tag, Field } from '@/components/ui';
 import {
   NewDeviceMaster, VerifyForm, AddOperationForm, OperationCard, ExpectedUnitsForm,
   SamplePlanForm, type SampleTier,
-  ProductCodeForm, OperationSetForm, DmrNoteForm,
+  ProductCodeForm, OperationSetForm, DmrNoteForm, DmrLimitsForm,
   type OperationRow, type ItemOption,
 } from './dmr-forms';
 
@@ -23,6 +23,7 @@ interface DmRow {
   verified_at: Date | null; verified_by_name: string | null;
   expected_units: number | null; sample_basis: string | null;
   product_code: string | null; product_name: string | null; note: string | null;
+  sheet_min: number | null; sheet_max: number | null; steril_box_qty: number | null;
   item_code: string; item_name: string;
   op_count: number; bom_count: number; wo_count: number;
 }
@@ -42,6 +43,7 @@ export async function DmrWorkbench({
     const masters = await db.rows<DmRow>(
       `select dm.id, dm.revision, dm.status, dm.effective_from, dm.verified_at,
               dm.expected_units, dm.sample_basis, dm.product_code, dm.product_name, dm.note,
+              dm.sheet_min, dm.sheet_max, dm.steril_box_qty,
               u.full_name as verified_by_name, i.code as item_code, i.name as item_name,
               (select count(*)::int from dmr_operation o where o.device_master_id = dm.id) as op_count,
               (select count(*)::int from dmr_bom b
@@ -163,6 +165,8 @@ export async function DmrWorkbench({
                 <ProductCodeForm id={dm.id} code={dm.product_code}
                                  name={dm.product_name} itemCode={dm.item_code} />
                 <DmrNoteForm id={dm.id} note={dm.note} />
+                <DmrLimitsForm id={dm.id} sheetMin={dm.sheet_min}
+                               sheetMax={dm.sheet_max} boxQty={dm.steril_box_qty} />
                 <ExpectedUnitsForm id={dm.id} value={dm.expected_units} />
                 <SamplePlanForm id={dm.id} basis={dm.sample_basis}
                                 tiers={d.sampleTiers} />

@@ -7,7 +7,7 @@ import { Dialog, useDialog } from '@/components/dialog';
 import {
   createDeviceMaster, verifyDeviceMaster, addOperation, addBom, addTier, setExpectedUnits, setProductCode,
   addOperationsBulk, copyDmr, createProduct, addSampleTier, setSampleBasis,
-  setTypicalDay, setDmrNote,
+  setTypicalDay, setDmrNote, setDmrLimits,
 } from './actions';
 import { linkOperation } from '../../equipment/actions';
 
@@ -526,6 +526,50 @@ export function OperationCard({ dm, op, items, editable, equipment = [] }: {
    계획 참고값이다. 실제 수량은 재단에서 정해지고, 배치별 계획은 예정 형명이
    맡는다. 이 값은 그 계획을 세울 때의 출발점이라 발행 후에도 고칠 수 있다.
 --------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------
+   배치 장입 범위 · 멸균 발송 박스 (M5-1 · §2.0)
+
+   전에는 `check (sheet_count between 1 and 30)` 으로 표 정의에 박혀 있었다.
+   30 은 DX2401 의 값이지 프로그램의 성질이 아니다.
+
+   DDL 에는 "0장이나 음수는 자료가 될 수 없다" 는 바깥 울타리만 남기고, 실제
+   범위는 여기서 정한다. 상한을 비우면 상한이 없다.
+--------------------------------------------------------------------------- */
+export function DmrLimitsForm({
+  id, sheetMin, sheetMax, boxQty,
+}: { id: string; sheetMin: number | null; sheetMax: number | null; boxQty: number | null }) {
+  const [state, action, pending] = useActionState<FormState, FormData>(setDmrLimits, {});
+
+  return (
+    <form action={action}
+          className="flex flex-wrap items-end gap-2 border-t border-line-soft px-4 py-3">
+      <input type="hidden" name="id" value={id} />
+      <div className="w-28">
+        <label className="label">장입 하한</label>
+        <input name="sheet_min" type="number" min={1} defaultValue={sheetMin ?? ''}
+               placeholder="1" className="input h-9 tnum text-xs" />
+      </div>
+      <div className="w-28">
+        <label className="label">장입 상한</label>
+        <input name="sheet_max" type="number" min={1} defaultValue={sheetMax ?? ''}
+               placeholder="없음" className="input h-9 tnum text-xs" />
+      </div>
+      <div className="w-40">
+        <label className="label">멸균 박스 한 개 수량</label>
+        <input name="steril_box_qty" type="number" min={1} defaultValue={boxQty ?? ''}
+               placeholder="없음" className="input h-9 tnum text-xs" />
+      </div>
+      <button type="submit" disabled={pending} className="btn-ghost h-9 px-3 text-xs">
+        저장
+      </button>
+      <span className="pb-2 text-xs leading-relaxed text-faint">
+        범위를 벗어난 장수로는 발행되지 않습니다. 상한을 비우면 상한이 없습니다.
+      </span>
+      <Msg state={state} className="w-full" />
+    </form>
+  );
+}
+
 export function ExpectedUnitsForm({ id, value }: { id: string; value: number | null }) {
   const [state, action, pending] = useActionState<FormState, FormData>(setExpectedUnits, {});
 

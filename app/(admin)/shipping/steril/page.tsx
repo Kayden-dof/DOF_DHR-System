@@ -53,6 +53,12 @@ export default async function SterilPage() {
         order by sb.shipped_at desc nulls first, sb.batch_no desc
         limit 100`),
     today: await db.val<string>(`select to_char(timezone('Asia/Seoul', now()),'YYYY-MM-DD')`),
+    /* 박스 수량은 제품표준서가 정한다 (0069). 여러 개정이 있으면 발효된 것 */
+    boxQty: await db.val<number>(
+      `select steril_box_qty from device_master
+        where steril_box_qty is not null
+        order by (status = 'EFFECTIVE') desc, effective_from desc nulls last
+        limit 1`),
   }));
 
   return (
@@ -60,7 +66,7 @@ export default async function SterilPage() {
       section="출하"
       title="멸균 위탁"
       lede="50개(25ea 2줄) 박스 단위로 발송합니다. 한 박스에 여러 제품 로트가 들어갈 수 있습니다."
-      action={<SterilForm lots={d.lots} today={d.today ?? ''} />}
+      action={<SterilForm lots={d.lots} today={d.today ?? ''} boxQty={d.boxQty ?? null} />}
       nav={<SubNav items={SHIPPING_NAV} />}
     >
 
