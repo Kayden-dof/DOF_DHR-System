@@ -21,6 +21,10 @@ export interface Brand {
   brandColor: string;
   hasLogo: boolean;
   logoUpdatedAt: string | null;
+  /* 시스템 이름. 머리줄은 짧은 것, 로그인 화면은 풀어 쓴 것 (0071) */
+  systemName: string;
+  systemNameLong: string;
+  systemTagline: string;
 }
 
 /** 설정이 아직 없거나 읽지 못했을 때. 화면이 비어 보이지 않게만 한다 */
@@ -29,6 +33,9 @@ const FALLBACK: Brand = {
   brandColor: '#562C8D',
   hasLogo: false,
   logoUpdatedAt: null,
+  systemName: '',
+  systemNameLong: '',
+  systemTagline: '',
 };
 
 export const getBrand = cache(async (): Promise<Brand> => {
@@ -37,10 +44,13 @@ export const getBrand = cache(async (): Promise<Brand> => {
       db.one<{
         company_name: string; brand_color: string;
         has_logo: boolean; logo_updated_at: string | null;
+        system_name: string | null; system_name_long: string | null;
+        system_tagline: string | null;
       }>(
         `select company_name, brand_color,
                 (logo_bytes is not null) as has_logo,
-                to_char(updated_at, 'YYYYMMDDHH24MISS') as logo_updated_at
+                to_char(updated_at, 'YYYYMMDDHH24MISS') as logo_updated_at,
+                system_name, system_name_long, system_tagline
            from org_brand limit 1`),
     );
     if (!row) return FALLBACK;
@@ -49,6 +59,9 @@ export const getBrand = cache(async (): Promise<Brand> => {
       brandColor: row.brand_color,
       hasLogo: row.has_logo,
       logoUpdatedAt: row.logo_updated_at,
+      systemName: row.system_name ?? '',
+      systemNameLong: row.system_name_long ?? '',
+      systemTagline: row.system_tagline ?? '',
     };
   } catch {
     /* 설정 표가 아직 없어도 화면이 서 버리면 안 된다 */

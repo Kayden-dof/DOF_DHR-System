@@ -13,7 +13,10 @@ import type { FormState } from '@/lib/forms';
    않고, 고른 색 그대로만 보인다.
 --------------------------------------------------------------------------- */
 
-export function BrandForm({ name, color }: { name: string; color: string }) {
+export function BrandForm({ name, color, sys, sysLong, tagline }: {
+  name: string; color: string;
+  sys: string | null; sysLong: string | null; tagline: string | null;
+}) {
   const [state, action, pending] = useActionState<FormState, FormData>(saveBrand, {});
   const [c, setC] = useState(color);
 
@@ -43,6 +46,31 @@ export function BrandForm({ name, color }: { name: string; color: string }) {
             이 색 하나에서 바탕 · 테두리 · 눌린 상태를 만듭니다. 현장에서 읽히도록
             바탕은 아주 밝게, 글자는 아주 어둡게 고정합니다.
           </p>
+        </div>
+      </div>
+
+      {/*
+        * 시스템 이름도 설정이다 (0071). 다른 제조소가 받아 자기 이름을 넣어도
+        * 옆에 남의 제품 이름이 남아 있으면 안 된다.
+        */}
+      <div className="grid gap-3 border-t border-line-soft pt-3 sm:grid-cols-3">
+        <div>
+          <label className="label">시스템 이름 (짧게)</label>
+          <input name="system_name" defaultValue={sys ?? ''} autoComplete="off"
+                 maxLength={20} placeholder="DHR" className="input" />
+          <p className="mt-1 text-xs text-faint">머리줄에 붙습니다.</p>
+        </div>
+        <div>
+          <label className="label">풀어 쓴 이름</label>
+          <input name="system_name_long" defaultValue={sysLong ?? ''} autoComplete="off"
+                 maxLength={80} placeholder="Device History Record" className="input" />
+          <p className="mt-1 text-xs text-faint">로그인 화면 제목입니다.</p>
+        </div>
+        <div>
+          <label className="label">한 줄 설명</label>
+          <input name="system_tagline" defaultValue={tagline ?? ''} autoComplete="off"
+                 maxLength={80} placeholder="제조기록 지원 시스템" className="input" />
+          <p className="mt-1 text-xs text-faint">제목 아래에 옵니다.</p>
         </div>
       </div>
 

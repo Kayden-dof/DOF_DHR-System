@@ -64,3 +64,10 @@ export async function BrandName({ className }: { className?: string }) {
   if (!b.companyName) return null;
   return <span className={className}>{b.companyName}</span>;
 }
+
+/** 머리줄의 짧은 시스템 이름 (DHR). 비우면 아무것도 그리지 않는다 */
+export async function SystemName({ className }: { className?: string }) {
+  const b = await getBrand();
+  if (!b.systemName) return null;
+  return <span className={className}>{b.systemName}</span>;
+}

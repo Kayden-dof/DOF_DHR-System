@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { requireUser } from '@/lib/session';
 import { isAdmin, isWorker } from '@/lib/roles';
 import { WordmarkOnDark } from '@/components/logo';
-import { BrandCopyright } from '@/components/brand-mark';
+import { BrandCopyright, SystemName } from '@/components/brand-mark';
 import { yearKST } from '@/lib/kst';
 import Watermark, { stamp } from '@/components/watermark';
 import BackFab from '@/components/back-fab';
@@ -56,7 +56,7 @@ export default async function WorkLayout({ children }: { children: React.ReactNo
           <Link href="/work" className="flex shrink-0 items-center gap-3" aria-label="배치 목록으로">
             <WordmarkOnDark className="h-5 w-auto" />
             <span className="h-5 w-px bg-white/25" aria-hidden />
-            <span className="display text-[1.125rem] leading-none text-white">DHR</span>
+            <SystemName className="display text-[1.125rem] leading-none text-white" />
             <span className="chip bg-white/15 text-white">현장</span>
           </Link>
 

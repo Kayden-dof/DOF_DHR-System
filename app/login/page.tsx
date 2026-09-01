@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { currentUser } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import { BrandMark, BrandCopyright, BrandName } from '@/components/brand-mark';
+import { getBrand } from '@/lib/brand';
 import { yearKST } from '@/lib/kst';
 import { APP_VERSION } from '@/lib/version';
 import LoginForm from './login-form';
@@ -26,6 +27,8 @@ export const dynamic = 'force-dynamic';
 
 export default async function LoginPage() {
   if (await currentUser()) redirect('/');
+
+  const brand = await getBrand();
 
   // 비밀번호를 잊었을 때 누구에게 말해야 하는지. 초기화는 개발 계정만 할 수 있다.
   let owners: string[] = [];
@@ -76,22 +79,33 @@ export default async function LoginPage() {
         <div aria-hidden className="brand-rule absolute inset-x-0 top-0 lg:hidden" />
 
         <div className="flex w-full max-w-[25rem] flex-1 flex-col justify-center">
+          {/*
+            * 가운데로 모은다 (사용자 지시 2026-09-01). 제목 · 한 줄 설명 ·
+            * 입력 · 단추가 한 축에 서야 눈이 한 번만 움직인다.
+            */}
           {/* 좁은 화면에서는 여기가 브랜드 자리다 */}
-          <div className="mb-8 lg:hidden">
+          <div className="mb-8 flex justify-center lg:hidden">
             <BrandMark className="h-7 w-auto" />
           </div>
 
           {/*
-            * DHR 을 풀어 쓴다. 줄임말은 아는 사람에게만 이름이다. 이 화면은
+            * 줄임말을 풀어 쓴다. 줄임말은 아는 사람에게만 이름이다. 이 화면은
             * 회사 밖 사람도 보고, 새로 온 사람도 첫날 본다.
+            *
+            * 이름은 설정에서 온다 (0071). 다른 제조소가 받아 자기 이름을 넣어도
+            * 옆에 남의 제품 이름이 남아 있으면 안 된다.
             */}
-          <h1 className="display display-lg text-[1.5rem] leading-[1.35] text-ink">
-            Device History Record
-          </h1>
+          {brand.systemNameLong && (
+            <h1 className="display display-lg text-center text-[1.5rem] leading-[1.35] text-ink">
+              {brand.systemNameLong}
+            </h1>
+          )}
 
-          <p className="mt-2.5 text-sm font-medium tracking-tight text-muted">
-            제조기록 지원 시스템
-          </p>
+          {brand.systemTagline && (
+            <p className="mt-2.5 text-center text-sm font-medium tracking-tight text-muted">
+              {brand.systemTagline}
+            </p>
+          )}
 
           <div aria-hidden className="mt-5 h-px bg-line" />
 

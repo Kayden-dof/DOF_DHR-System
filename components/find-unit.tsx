@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 
 /* ---------------------------------------------------------------------------
@@ -23,6 +24,15 @@ import { useRouter } from 'next/navigation';
    ── 결과는 경영 화면이 그린다 ─────────────────────────────────────────────
    찾은 결과를 여기서 다시 그리지 않는다. /board?sn=… 로 넘긴다. 두 곳이 같은
    것을 그리면 갈라진다 (§10).
+
+   ── 왜 body 로 옮겨 그리는가 ──────────────────────────────────────────────
+   이 단추는 머리줄 안에 있고, 머리줄에는 backdrop-blur 가 걸려 있다.
+   backdrop-filter 는 fixed 자손의 기준 상자를 자기 자신으로 만든다. 그래서
+   inset-0 이 화면 전체가 아니라 머리줄 언저리가 되어, 어두운 베일이 위쪽만
+   덮고 가로로 잘렸다 (사용자 지적 2026-09-01).
+
+   components/stat-detail.tsx 가 같은 함정을 이미 겪고 주석까지 남겨 두었는데
+   여기서 되풀이했다. body 로 옮겨 그리면 어디서 불러도 잘리지 않는다.
 --------------------------------------------------------------------------- */
 
 export default function FindUnit() {
@@ -70,7 +80,7 @@ export default function FindUnit() {
                         text-[0.625rem] leading-none text-muted">Ctrl K</kbd>
       </button>
 
-      {open && (
+      {open && createPortal(
         <div
           role="dialog"
           aria-modal="true"
@@ -101,7 +111,8 @@ export default function FindUnit() {
               Enter 로 찾고 Esc 로 닫습니다.
             </p>
           </form>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );

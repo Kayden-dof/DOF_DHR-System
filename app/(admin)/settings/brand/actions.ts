@@ -44,11 +44,16 @@ export async function saveBrand(_p: FormState, form: FormData): Promise<FormStat
       return { error: '강조색은 #RRGGBB 여섯 자리로 적어 주십시오' };
     }
 
+    const txt = (k: string) => String(form.get(k) ?? '').trim() || null;
+
     await withActor(me.id, (db) =>
       db.rows(
         `update org_brand set company_name = $1, brand_color = $2,
-                              updated_by = $3, updated_at = now()`,
-        [name, color, me.id]),
+                              system_name = $3, system_name_long = $4,
+                              system_tagline = $5,
+                              updated_by = $6, updated_at = now()`,
+        [name, color, txt('system_name'), txt('system_name_long'),
+         txt('system_tagline'), me.id]),
       { reason: '회사 표시 변경' });
 
     bump();

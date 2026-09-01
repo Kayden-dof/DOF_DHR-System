@@ -8,7 +8,7 @@ import Watermark, { stamp } from '@/components/watermark';
 import BackFab from '@/components/back-fab';
 import DemoBanner from '@/components/demo-banner';
 import FindUnit from '@/components/find-unit';
-import { BrandMark, BrandCopyright } from '@/components/brand-mark';
+import { BrandMark, BrandCopyright, SystemName } from '@/components/brand-mark';
 import { yearKST } from '@/lib/kst';
 import IdleLock from '@/components/idle-lock';
 import { logout } from './actions';
@@ -115,7 +115,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <Link href="/" className="flex shrink-0 items-center gap-3" aria-label="현황으로">
             <BrandMark className="h-5 w-auto text-[1.125rem]" />
             <span className="h-5 w-px bg-line-strong" aria-hidden />
-            <span className="display text-[1.125rem] leading-none text-ink">DHR</span>
+            <SystemName className="display text-[1.125rem] leading-none text-ink" />
           </Link>
 
           <div className="flex h-full min-w-0 flex-1 items-stretch">
