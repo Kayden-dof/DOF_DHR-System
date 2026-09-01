@@ -123,8 +123,15 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </div>
 
           <div className="flex shrink-0 items-center gap-3">
-            {/* 지금 몇 시인가. 한국 시각으로 못 박는다 (components/clock.tsx) */}
-            <Clock className="hidden text-xs text-faint lg:inline" />
+            {/*
+              * 오늘 며칠 몇 시인가. 시각만 덩그러니 두면 무엇의 시각인지
+              * 짚이지 않는다 (사용자 지적 2026-09-01). 한국 시각으로 못 박는다
+              * (components/clock.tsx).
+              *
+              * 자리를 많이 먹으므로 넓은 화면에서만 낸다. 좁아지면 차림표가
+              * 먼저다 - 시계는 알아 두면 좋은 것이고 차림표는 일하는 길이다.
+              */}
+            <Clock withDate className="hidden text-xs text-faint xl:inline" />
 
             {/* 어느 화면에서 전화를 받든 바로 부를 수 있어야 한다 */}
             <FindUnit />
