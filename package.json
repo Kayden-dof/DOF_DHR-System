@@ -15,6 +15,7 @@
     "test:print": "node --env-file=.env.local test/print.mjs",
     "test:mutation": "node test/mutation.mjs",
     "smoke": "node --env-file=.env.local scripts/smoke.mjs",
+    "fresh": "node --env-file=.env.local scripts/fresh-check.mjs",
     "test:pg": "node test/pg.mjs",
     "test:concurrency": "node test/concurrency.mjs",
     "deploy:db": "node scripts/deploy-db.mjs",

@@ -9,6 +9,8 @@ import { SubNav } from '../nav';
 import { SETTINGS_NAV } from '../sections';
 import { APP_VERSION, BUILD_REF } from '@/lib/version';
 import { printKeyPinned } from '@/lib/print';
+import { getBrand } from '@/lib/brand';
+import { SetupSteps, type SetupStep } from './setup-steps';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,6 +24,8 @@ export const metadata = { title: '설정' };
 interface Counts {
   items: number; finished: number; suppliers: number; approved: number;
   dmr: number; dmr_verified: number; users: number; rules: number; audit: number;
+  /* 첫 설정 차례표가 보는 것 (M5-3) */
+  supplies: number; equipment: number; dmr_issuable: number; workers: number;
 }
 
 export default async function SettingsHome() {
@@ -40,17 +44,70 @@ export default async function SettingsHome() {
               (select count(*)::int from device_master where verified_at is not null) as dmr_verified,
               (select count(*)::int from app_user where is_active)               as users,
               (select count(*)::int from numbering_rule where is_active)         as rules,
-              (select count(*)::int from audit_log)                              as audit`),
+              (select count(*)::int from audit_log)                              as audit,
+              (select count(*)::int from item where type <> 'FIN')               as supplies,
+              (select count(*)::int from equipment)                              as equipment,
+              (select count(*)::int from user_role where role = 'WORKER')         as workers,
+              /*
+               * 발행할 수 있는 표준서. 세 가지가 모두 서야 한다 (0061).
+               * 화면이 따로 셈하지 않고 DB 가 막는 조건을 그대로 쓴다.
+               */
+              (select count(*)::int from device_master
+                where verified_at is not null and status = 'ACTIVE'
+                  and effective_from is not null
+                  and effective_from <= (timezone('Asia/Seoul', now()))::date) as dmr_issuable`),
     covered: await db.rows<{ target: string }>(
       `select distinct target::text as target from numbering_rule
         where is_active and item_id is null`),
   }));
 
   const c = d.c!;
+  const brand = await getBrand();
   const keyPinned = printKeyPinned();
   const have = new Set(d.covered.map((r) => r.target));
   const missing = NUMBERING_TARGETS.filter((t) => !have.has(t.code));
   const blocking = missing.filter((t) => M1_CRITICAL_TARGETS.includes(t.code));
+
+  /*
+   * 첫 설정 차례. 앞의 것이 없으면 뒤 화면에 고를 것이 없는 순서다.
+   * 설비는 설정 차림표 밖에 있으나 제품표준서가 공정에 거는 것이므로 여기 온다.
+   */
+  const steps: SetupStep[] = [
+    { href: '/settings/brand', title: '회사 표시',
+      fact: [brand.companyName, brand.hasLogo ? '로고 있음' : '로고 없음',
+             brand.brandColor].filter(Boolean).join(' · '),
+      empty: !brand.companyName,
+      blocks: '화면 머리줄과 인쇄물에 나올 이름이 없습니다' },
+    { href: '/settings/numbering', title: '채번 규칙',
+      fact: `${c.rules}건 활성`,
+      empty: blocking.length > 0,
+      blocks: `${blocking.map((t) => t.label).join(' · ')} 규칙이 없어 번호를 만들 수 없습니다` },
+    { href: '/settings/items', title: '품목',
+      fact: `자재 ${c.supplies}종 · 완제품 형명 ${c.finished}종`,
+      empty: c.supplies === 0,
+      blocks: '자재가 없으면 입고도 자재 구성표도 만들 수 없습니다' },
+    { href: '/settings/suppliers', title: '공급자',
+      fact: `${c.suppliers}곳 · 승인 ${c.approved}곳`,
+      empty: c.suppliers === 0,
+      blocks: '입고 등록에서 고를 공급자가 없습니다' },
+    { href: '/equipment', title: '설비',
+      fact: `${c.equipment}대`,
+      empty: c.equipment === 0,
+      blocks: '제품표준서의 공정에 걸 설비가 없습니다' },
+    { href: '/settings/dmr', title: '제품표준서',
+      fact: c.dmr_issuable > 0
+        ? `${c.dmr}개정 · 발행할 수 있는 것 ${c.dmr_issuable}건`
+        : `${c.dmr}개정 · 대조 확인 ${c.dmr_verified}건`,
+      empty: c.dmr_issuable === 0,
+      blocks: c.dmr === 0
+        ? '공정과 자재 구성표를 담을 제품표준서가 없습니다'
+        : '서면 대조 확인 · 발효일 · 상태가 서야 작업 지시를 발행할 수 있습니다',
+      },
+    { href: '/settings/users', title: '사용자',
+      fact: `${c.users}명 · 작업자 ${c.workers}명`,
+      empty: c.workers === 0,
+      blocks: '현장 화면을 쓸 작업자 계정이 없습니다' },
+  ];
 
   const cards = [
     { href: '/settings/numbering', title: '채번 규칙',
@@ -150,16 +207,7 @@ export default async function SettingsHome() {
         )}
       </section>
 
-      <section className="card p-4">
-        <h3 className="text-xs font-bold text-ink">등록 순서</h3>
-        <ol className="mt-2 space-y-1.5 text-xs leading-relaxed text-muted">
-          <li>1. <b className="text-ink">채번 규칙</b>. 자재 입고와 작업 지시가 번호를 여기서 받습니다.</li>
-          <li>2. <b className="text-ink">품목</b>. 자재를 넣고 완제품 형명은 규칙으로 생성합니다.</li>
-          <li>3. <b className="text-ink">공급자</b>와 단가. 자재 입고에서 선택 대상입니다.</li>
-          <li>4. <b className="text-ink">제품표준서</b>. 공정과 자재 구성표를 넣고 서면과 대조 확인합니다.</li>
-          <li>5. <b className="text-ink">사용자</b>. 작업자에게 역할을 부여하면 현장 화면을 씁니다.</li>
-        </ol>
-      </section>
+      <SetupSteps steps={steps} />
     </PageShell>
   );
 }
