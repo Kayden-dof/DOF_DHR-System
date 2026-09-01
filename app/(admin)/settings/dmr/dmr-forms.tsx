@@ -87,7 +87,7 @@ export function NewDeviceMaster({ items }: { items: ItemOption[] }) {
 
       <p className="mt-3 rounded-md bg-canvas px-3 py-2 text-xs leading-relaxed text-muted">
         서면 제품표준서가 정본입니다. 여기에는 개정 표기와 공정 · 자재 구성표,
-        그리고 서면에 적힌 개정 사유만 옮겨 기재합니다. 파일은 올리지 않습니다.
+        그리고 서면에 적힌 개정 사유만 옮겨 기재합니다. 서면 원본은 담지 않고 개정번호로 가리킵니다.
         <br />
         <b className="text-ink">대표 형명</b>은 채번과 소요량 계산이 매이는 자리입니다.
         제품 하나에 형명이 여럿이어도 제품표준서는 제품 코드로 관리합니다.
