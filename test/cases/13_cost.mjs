@@ -167,4 +167,45 @@ export default [
   },
 },
 
+{
+  id: 'LC-06', expect: '확인',
+  name: '상각 정보가 없는 설비는 배치를 가로질러 겹쳐 세지 않는다',
+  async run(t) {
+    const m = await master(t);
+
+    /*
+     * v_batch_cost 의 no_equip_cost 는 "그 배치에서" 상각 정보가 없는 설비
+     * 수다. 배치 안에서는 맞지만 배치를 가로질러 더하면 여러 배치에 쓴 설비가
+     * 겹쳐 세어진다 - 실제로 설비 여섯 대가 여덟 대로 나왔다 (2026-09-01).
+     *
+     * 화면은 더하지 않고 한 번에 센다. 여기서 그 셈이 배치 수에 딸려 늘지
+     * 않는지 확인한다.
+     */
+    await t.rows(
+      `insert into equipment (code, name) values ('LC-EQ-X', '상각 정보 없는 설비')`);
+
+    const today = await t.val(`select (timezone('Asia/Seoul', now()))::date::text`);
+    for (const op of ['WS-DX2401-01', 'WS-DX2401-02']) {
+      const wo = await newWorkOrder(t, m);
+      await t.rows(
+        `insert into process_record
+           (work_order_id, operation_id, day_no, work_date, worker_id, equipment_id,
+            started_at, ended_at)
+         values ($1,$2,1,$3::date,$4,'LC-EQ-X',
+                 ($3 || ' 09:00:00+09')::timestamptz, ($3 || ' 10:00:00+09')::timestamptz)`,
+        [wo.id, m.ops[op], today, m.worker]);
+    }
+
+    /* 배치 둘이 같은 설비 하나를 썼다. 더하면 둘, 한 번에 세면 하나다 */
+    const summed = Number(await t.val(
+      `select sum(no_equip_cost)::int from v_batch_cost`));
+    const counted = Number(await t.val(
+      `select count(distinct equipment_id)::int from v_process_cost
+        where equipment_id is not null and equip_rate is null`));
+
+    t.ok(summed > counted, `더한 값(${summed})이 실제 대수(${counted})보다 커야 이 시험이 뜻을 갖는다`);
+    t.eq(counted >= 1, true, '한 번에 세면 설비 수가 나온다');
+  },
+},
+
 ];

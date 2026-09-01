@@ -71,6 +71,22 @@ export default async function CostPage() {
          join item i on i.id = c.item_id
          join work_order wo on wo.id = c.work_order_id
         order by wo.issued_at desc, i.code limit 100`),
+    /*
+     * 원가에서 빠진 것. 배치별 값을 더하지 않는다.
+     *
+     * v_batch_cost 는 배치마다 "그 배치에서 상각 정보가 없는 설비 몇 대" 를
+     * 낸다. 그건 배치 안에서는 맞는 수인데, 배치를 가로질러 더하면 여러 배치에
+     * 쓴 설비가 겹쳐 세어진다 - 설비 여섯 대가 여덟 대로 나왔다 (2026-09-01).
+     *
+     * 기록 수(시각 없음 · 단가 없음)는 기록이 배치 하나에 속하므로 더해도
+     * 맞지만, 셋을 한 자리에서 세는 편이 다음에 또 헷갈리지 않는다.
+     */
+    gaps: await db.one<{ untimed: number; no_rate: number; no_equip: number }>(
+      `select (select count(*)::int from v_process_cost where not timed) as untimed,
+              (select count(*)::int from v_process_cost
+                where timed and labour_rate is null)                     as no_rate,
+              (select count(distinct equipment_id)::int from v_process_cost
+                where equipment_id is not null and equip_rate is null)   as no_equip`),
     spend: await db.rows<Spend>(
       `select month::text as month, code as item_code, name as item_name,
               type::text as type, qty, amount
@@ -106,13 +122,11 @@ export default async function CostPage() {
         * §8.5 와 같은 규율이다.
         */}
       {(() => {
-        const untimed = d.batches.reduce((a, b) => a + b.untimed_records, 0);
-        const noRate  = d.batches.reduce((a, b) => a + b.no_rate_records, 0);
-        const noEquip = d.batches.reduce((a, b) => a + b.no_equip_cost, 0);
+        const { untimed = 0, no_rate: noRate = 0, no_equip: noEquip = 0 } = d.gaps ?? {};
         if (!untimed && !noRate && !noEquip) return null;
         return (
           <div className="card border-warn/40 bg-warn-bg p-4">
-            <h3 className="text-xs font-bold text-ink">아래 숫자에서 빠진 것</h3>
+            <h3 className="text-xs font-bold text-ink">원가에서 빠진 것</h3>
             <ul className="mt-2 space-y-1 text-xs leading-relaxed text-ink">
               {untimed > 0 && (
                 <li>
