@@ -3,6 +3,7 @@ import Denied from '@/components/denied';
 import { requireUser, blocksReadOnly, hasRole } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import { NUMBERING_TARGETS, M1_CRITICAL_TARGETS } from '@/lib/forms';
+import { ROLE_ORDER } from '@/lib/roles';
 import { Tag } from '@/components/ui';
 import { PageShell } from '@/components/shell';
 import { SubNav } from '../nav';
@@ -136,6 +137,8 @@ export default async function SettingsHome() {
       tone: c.dmr > 0 && c.dmr_verified === 0 ? 'warn' : 'quiet' },
     { href: '/settings/users', title: '사용자',
       value: `${c.users}명`, note: '계정과 역할', tone: 'quiet' },
+    { href: '/settings/access', title: '권한',
+      value: `역할 ${ROLE_ORDER.length}`, note: '어느 역할이 어느 화면을 여는가', tone: 'quiet' },
     { href: '/settings/audit', title: '감사추적',
       value: `${c.audit}건`, note: '등록 · 변경 · 회수 이력', tone: 'quiet' },
   ];

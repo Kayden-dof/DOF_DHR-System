@@ -47,7 +47,7 @@ const ADMIN = [
   '/material/movement', '/shipping', '/shipping/steril', '/shipping/ship',
   '/trace', '/trace/verify', '/board', '/board/cost',
   '/settings', '/settings/brand', '/settings/numbering', '/settings/items', '/settings/suppliers',
-  '/settings/dmr', '/equipment', '/settings/users', '/settings/audit',
+  '/settings/dmr', '/equipment', '/settings/users', '/settings/access', '/settings/audit',
   ids.wo && `/production/${ids.wo}`,
   ids.wo && `/print/work-order/${ids.wo}`,
   ids.wo && `/print/day-record/${ids.wo}/all`,

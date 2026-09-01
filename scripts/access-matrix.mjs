@@ -16,16 +16,29 @@
  *   막힘    권한 없음 안내가 나왔다 (주소로 들어가도 볼 수 없다)
  *   내보냄  로그인이나 다른 화면으로 넘겼다 (307)
  *
+ * ── 화면 안의 표를 여기서 지킨다 (사용자 요청 2026-09-01) ─────────────────
+ * 같은 표가 이제 앱 안에도 있다 (/settings/access · lib/access.ts). 거기 적힌
+ * 것은 **선언**이고 진짜는 각 화면의 판정이라, 둘이 갈라지면 그 화면이
+ * 거짓말을 한다 - 사람이 그것을 믿고 계정을 만들기 때문에 없느니만 못하다.
+ *
+ * 그래서 두드릴 목록을 lib/access.ts 에서 그대로 읽어 온다. 목록이 하나라
+ * "재는 것과 적힌 것이 서로 다른 화면"이 될 수 없고, 한 칸이라도 다르면
+ * 아래에서 멈춘다.
+ *
  * ── 처음 판에서 셋을 틀렸다 (2026-09-01) ──────────────────────────────────
  *   · 로그인할 수 없는 QP 계정을 골라 품질책임자 줄이 전부 "내보냄" 이 됐다.
  *     can_login=false 면 세션 자체가 서지 않는다 (lib/session.ts).
  *   · Denied 문구를 "볼 수 없습니다" 로 찾았는데 실제로는 "권한 없음" 이다.
+ *     그 뒤 낱말로 찾는 것 자체를 그만뒀다 - 설정 > 권한 화면이 범례에서 그
+ *     낱말을 정당하게 쓰자 제가 막힌 것으로 잡혔다. 지금은 Denied 부품에 달린
+ *     data-denied 표를 본다.
  *   · 차림표를 머리줄에서만 찾아, 하위 차림표에 있는 화면이 전부 "차림표 밖"
  *     으로 나왔다.
  *
  * 재는 도구가 틀리면 표가 통째로 거짓말이 된다. 그래서 아래에 스스로 확인하는
  * 줄을 둔다 - 셋 다 열려야 하는 조합과 셋 다 막혀야 하는 조합을 먼저 본다.
  */
+import fs from 'node:fs';
 import pg from 'pg';
 import { sessionCookie } from './session-cookie.mjs';
 
@@ -39,34 +52,36 @@ const ROLES = [
   ['VIEWER',    '경영열람'],
 ];
 
-const SCREENS = [
-  ['현황',        '/'],
-  ['경영 현황',   '/board'],
-  ['원가',        '/board/cost'],
-  ['작업 지시',   '/production'],
-  ['제품',        '/production/setup'],
-  ['일탈',        '/production/deviation'],
-  ['자재 로트',   '/material'],
-  ['품목 (자재)', '/material/items'],
-  ['발주',        '/material/orders'],
-  ['재고',        '/material/stock'],
-  ['증감 · 용액', '/material/movement'],
-  ['설비',        '/equipment'],
-  ['출하 승인',   '/shipping'],
-  ['멸균 위탁',   '/shipping/steril'],
-  ['출고',        '/shipping/ship'],
-  ['계보 추적',   '/trace'],
-  ['인쇄물',      '/trace/verify'],
-  ['설정 개요',   '/settings'],
-  ['회사 표시',   '/settings/brand'],
-  ['채번 규칙',   '/settings/numbering'],
-  ['품목 (설정)', '/settings/items'],
-  ['공급자',      '/settings/suppliers'],
-  ['제품표준서',  '/settings/dmr'],
-  ['사용자',      '/settings/users'],
-  ['감사추적',    '/settings/audit'],
-  ['현장',        '/work'],
-];
+/* --- 화면 목록을 앱에서 읽어 온다 ---------------------------------------- */
+const MARK = { '●': '열림', 'X': '막힘', '-': '내보냄' };
+
+const src = fs.readFileSync(new URL('../lib/access.ts', import.meta.url), 'utf8');
+const SCREENS = [...src.matchAll(
+  /\{\s*group:\s*'([^']*)',\s*label:\s*'([^']*)',\s*path:\s*'([^']*)',\s*marks:\s*'([^']*)'\s*\}/g,
+)].map(([, group, label, path, marks]) => ({ group, label, path, marks }));
+
+/*
+ * 못 읽었는데 조용히 넘어가면 대조가 0건이 되고, 그건 "전부 맞았다" 와 구별이
+ * 안 된다. 이 세션에서 그런 헛도는 확인을 이미 여러 번 만났다 (§8.0.1).
+ */
+if (SCREENS.length < 20) {
+  console.error(`lib/access.ts 에서 화면 목록을 읽지 못했습니다 (${SCREENS.length}건). `
+    + 'ACCESS_ROWS 의 모양이 바뀌었는지 봐 주세요.');
+  process.exit(2);
+}
+const badMarks = SCREENS.filter((s) => s.marks.length !== ROLES.length
+  || [...s.marks].some((ch) => !(ch in MARK)));
+if (badMarks.length) {
+  console.error('marks 가 다섯 글자(● X -)가 아닙니다: '
+    + badMarks.map((s) => s.path).join(' · '));
+  process.exit(2);
+}
+
+/** 표에 적힌 것. 두드려 잰 것과 이것을 견준다 */
+const declared = {};
+for (const [i, [role]] of ROLES.entries()) {
+  declared[role] = Object.fromEntries(SCREENS.map((s) => [s.path, MARK[s.marks[i]]]));
+}
 
 const c = new pg.Client({
   connectionString: process.env.DATABASE_URL,
@@ -102,7 +117,7 @@ async function probe(cookie, path) {
   if (r.status !== 200) return { mark: `오류 ${r.status}`, html: '' };
   const html = await r.text();
   const body = html.replace(/<script[\s\S]*?<\/script>/g, '');
-  return { mark: /권한 없음/.test(body) ? '막힘' : '열림', html };
+  return { mark: /data-denied/.test(body) ? '막힘' : '열림', html };
 }
 
 const result = {};
@@ -110,17 +125,17 @@ const menus = {};
 for (const [role, label] of ROLES) {
   const cookie = sessionCookie(users[role].id);
   result[role] = {};
-  for (const [name, path] of SCREENS) {
-    const { mark, html } = await probe(cookie, path);
-    result[role][name] = mark;
+  for (const s of SCREENS) {
+    const { mark, html } = await probe(cookie, s.path);
+    result[role][s.path] = mark;
     /* 머리줄 차림표는 열린 화면 아무 데서나 한 번만 읽으면 된다 */
     if (mark === '열림' && !menus[role]) {
       const head = html.match(/<header[\s\S]*?<\/header>/)?.[0] ?? '';
       const hits = [...head.matchAll(/href="(\/[^"]*)"/g)].map((m) => m[1]);
       const seen = new Set();
       menus[role] = SCREENS
-        .filter(([, p]) => hits.includes(p) && !seen.has(p) && seen.add(p))
-        .map(([n]) => n);
+        .filter((x) => hits.includes(x.path) && !seen.has(x.path) && seen.add(x.path))
+        .map((x) => x.label);
     }
   }
   console.error(`  ${label}  (${users[role].login_code} ${users[role].full_name})`);
@@ -128,27 +143,47 @@ for (const [role, label] of ROLES) {
 
 /* --- 재는 도구를 먼저 확인한다 ------------------------------------------- */
 const musts = [
-  ['SYS_ADMIN', '사용자',   '열림'],
-  ['WORKER',    '현장',     '열림'],
-  ['WORKER',    '사용자',   '내보냄'],
-  ['VIEWER',    '원가',     '열림'],
-  ['QP',        '원가',     '막힘'],
+  ['SYS_ADMIN', '/settings/users', '열림'],
+  ['WORKER',    '/work',           '열림'],
+  ['WORKER',    '/settings/users', '내보냄'],
+  ['VIEWER',    '/board/cost',     '열림'],
+  ['QP',        '/board/cost',     '막힘'],
 ];
-const wrong = musts.filter(([r, s, want]) => result[r][s] !== want);
+const wrong = musts.filter(([r, p, want]) => result[r][p] !== want);
 if (wrong.length) {
   console.error('\n재는 도구가 틀렸습니다. 아래가 기대와 다릅니다:');
-  for (const [r, s, want] of wrong) {
-    console.error(`  ${r} × ${s} : ${want} 를 기대했으나 ${result[r][s]}`);
+  for (const [r, p, want] of wrong) {
+    console.error(`  ${r} × ${p} : ${want} 를 기대했으나 ${result[r][p]}`);
   }
   process.exit(1);
 }
 
+/* --- 화면 안의 표와 대조한다 --------------------------------------------- */
+const drift = [];
+for (const [role] of ROLES) {
+  for (const s of SCREENS) {
+    if (result[role][s.path] !== declared[role][s.path]) {
+      drift.push([role, s.path, declared[role][s.path], result[role][s.path]]);
+    }
+  }
+}
+if (drift.length) {
+  console.error(`\nlib/access.ts 의 표가 실제와 다릅니다 (${drift.length}칸).`);
+  console.error('설정 > 권한 화면이 이 표를 그대로 그리므로, 고치지 않으면 화면이'
+    + ' 사실과 다른 것을 말합니다.\n');
+  for (const [role, path, want, got] of drift) {
+    console.error(`  ${role} × ${path} : 표에는 ${want}, 실제로는 ${got}`);
+  }
+  process.exit(1);
+}
+console.error(`\n  lib/access.ts 와 대조 · ${ROLES.length * SCREENS.length}칸 일치`);
+
 /* --- 표 ------------------------------------------------------------------ */
 console.log('\n| 화면 | 주소 | ' + ROLES.map(([, k]) => k).join(' | ') + ' |');
 console.log('|---|---|' + ROLES.map(() => '---').join('|') + '|');
-for (const [name, path] of SCREENS) {
-  console.log(`| ${name} | \`${path}\` | `
-    + ROLES.map(([r]) => result[r][name]).join(' | ') + ' |');
+for (const s of SCREENS) {
+  console.log(`| ${s.label} | \`${s.path}\` | `
+    + ROLES.map(([r]) => result[r][s.path]).join(' | ') + ' |');
 }
 
 console.log('\n\n### 역할별 머리줄 차림표\n');
