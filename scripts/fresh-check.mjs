@@ -19,6 +19,15 @@
  * 실제로 이 검사를 만들면서 확인한 것 - 빈 설치에서도 전 화면이 서고, 설정
  * 차례표가 무엇이 비었는지 낱낱이 짚는다 (2026-09-01).
  *
+ * ── 심은 뒤에도 한 번 더 훑는다 ──────────────────────────────────────────
+ * 처음에는 빈 상태만 봤다. 그런데 M5-4 가 형명 체계를 요구하게 만든 뒤로
+ * scripts/seed-demo.mjs 가 빈 DB 에서 멈춰 있었고, 이 검사는 자료를 심지 않아
+ * 그것을 못 봤다 (2026-09-01). 빈 설치가 서는 것과 그 위에 자료를 심을 수
+ * 있는 것은 다른 물음이다.
+ *
+ * 그래서 두 번 훑는다 - 아무것도 없는 상태에서 한 번, 시연 자료를 심은 뒤에
+ * 한 번. 심기가 깨지면 두 번째에서 멈춘다.
+ *
  * ── 안전 ──────────────────────────────────────────────────────────────────
  * DB 를 만들고 지운다. 그래서 **localhost 가 아니면 거부한다.** 이름도
  * dhr_fresh_check 하나로 고정한다 - 다른 DB 를 지울 길을 두지 않는다.
@@ -94,13 +103,36 @@ try {
   if (!up) throw new Error(`서버가 ${PORT} 에 뜨지 않았습니다`);
   console.log(`  서버를 ${PORT} 에 세웠습니다\n`);
 
-  /* --- 4) 전 화면을 두드린다 ---------------------------------------------- */
-  const sm = spawnSync(process.execPath,
-    [path.join(ROOT, 'scripts', 'smoke.mjs'), base],
-    { env, cwd: ROOT, encoding: 'utf8' });
-  process.stdout.write(sm.stdout);
-  if (sm.stderr) process.stderr.write(sm.stderr);
-  bad = sm.status ?? 1;
+  /* --- 4) 빈 상태로 전 화면을 두드린다 ------------------------------------ */
+  const sweep = (label) => {
+    console.log(`\n[${label}]`);
+    const r = spawnSync(process.execPath,
+      [path.join(ROOT, 'scripts', 'smoke.mjs'), base],
+      { env, cwd: ROOT, encoding: 'utf8' });
+    process.stdout.write(r.stdout);
+    if (r.stderr) process.stderr.write(r.stderr);
+    return r.status ?? 1;
+  };
+  bad = sweep('빈 설치');
+
+  /* --- 5) 시연 자료를 심고 다시 두드린다 ----------------------------------- */
+  if (bad === 0) {
+    console.log('\n[시연 자료 심기]');
+    const sd = spawnSync(process.execPath, [path.join(ROOT, 'scripts', 'seed-demo.mjs')],
+      { env, cwd: ROOT, encoding: 'utf8' });
+    if (sd.status !== 0) {
+      process.stdout.write(sd.stdout);
+      process.stderr.write(sd.stderr);
+      console.error('\n  빈 DB 에 시연 자료를 심지 못했습니다.');
+      bad = 1;
+    } else {
+      /* 심은 줄 수만 보인다. 비밀번호는 찍지 않는다 */
+      process.stdout.write(sd.stdout.split('\n')
+        .filter((l) => /^(품목|설비|공수|밸리|자재|형명|배치|제품|기록)/.test(l.trim()))
+        .map((l) => `  ${l.trim()}`).join('\n') + '\n');
+      bad = sweep('시연 자료를 심은 뒤');
+    }
+  }
 } finally {
   if (srv) srv.kill();
   /* 죽는 데 잠깐 걸린다. 붙어 있으면 DB 를 못 지운다 */
@@ -113,6 +145,6 @@ try {
 }
 
 console.log(bad === 0
-  ? '\n아무것도 없는 DB 에서 전 화면이 섭니다. 새로 받은 제조소가 첫날 막히지 않습니다.\n'
-  : '\n빈 설치에서 서지 않는 화면이 있습니다. 위 목록을 보십시오.\n');
+  ? '\n빈 DB 에서도, 자료를 심은 뒤에도 전 화면이 섭니다.\n'
+  : '\n위에서 멈춘 자리를 보십시오.\n');
 process.exit(bad === 0 ? 0 : 1);

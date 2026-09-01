@@ -148,6 +148,30 @@ const pouch   = await item('PM-002', '내포장 파우치', 'PACK', 'EA', 'EA', 
 const label   = await item('PM-003', '제품 라벨', 'PACK', 'EA', 'EA', 1, 500, 14);
 const box     = await item('PM-004', '멸균 박스', 'PACK', 'EA', 'EA', 1, 30, 21);
 
+/*
+ * 형명 체계 (0075). 이관은 PD 형명이 이미 있는 DB 에만 이것을 심는다 - 처음
+ * 받는 제조소에 DOF 의 규칙을 깔지 않기 위해서다. 시연 자료는 "DX2401 을 이미
+ * 셋업한 제조소" 를 흉내내는 것이므로 여기서 스스로 넣는다.
+ *
+ * 이것이 없으면 generate_finished_items 가 거부한다. 실제로 M5-4 뒤에 이 심기가
+ * 빈 DB 에서 멈췄고, npm run fresh 는 자료를 심지 않아 그것을 못 봤다
+ * (2026-09-01). 그래서 fresh 가 심은 뒤에도 한 번 더 훑는다.
+ */
+const scheme = await val(
+  `insert into model_scheme (name, prefix, spec_pattern, name_pattern)
+   select '이종 진피 완제품', 'PD', '{1}x{2}cm · 두께 {3}~{4}mm', '{P} {1}x{2}cm {3}~{4}mm'
+    where not exists (select 1 from model_scheme)
+   returning id`);
+if (scheme) {
+  await c.query(
+    `insert into model_segment (scheme_id, seq, digits, divisor, decimals, label, role)
+     values ($1,1,2,1,0,'가로 (cm)','WIDTH'),
+            ($1,2,2,1,0,'세로 (cm)','HEIGHT'),
+            ($1,3,2,10,1,'두께 하한 (mm)','BAND'),
+            ($1,4,2,10,1,'두께 상한 (mm)','BAND')`, [scheme]);
+  console.log('형명 체계 1 · 자리 4');
+}
+
 const gen = await c.query(
   `select * from generate_finished_items(
      array['0505','0510','1010','1015','1018','1215','1520','2020'],
@@ -278,25 +302,82 @@ if (!dm) {
    * 공정에 걸어 두면 현장 화면이 그 공정에 걸린 것만 타일로 보여 준다.
    * 고르는 것을 강제하지 않는다 - 차단은 S01~S05 뿐이다.
    */
+  /*
+   * 구입 정보와 감가상각도 함께 심는다 (0076). 이것이 없으면 원가 화면의 설비
+   * 몫이 0원이고, 그 화면이 무엇을 하는지 보이지 않는다.
+   *
+   * ── 기준 월 가동시간을 160 으로 두지 않는다 ─────────────────────────────
+   * 사무직 근무시간을 그대로 쓰면 안 된다. 3인 현장에서 배치는 이따금 돌고,
+   * 초임계 장비는 한 배치에 몇 시간만 쓴다. 160 으로 나누면 시간당 상각비가
+   * 실제보다 훨씬 작게 나와 원가가 얇아진다. 설비마다 실제로 도는 시간에
+   * 가깝게 둔다.
+   *
+   * ── 판 곳은 지어낸 이름이다 ─────────────────────────────────────────────
+   * 다른 시연 자료(한국바이오소재 · 대한시약 · 신규포장)와 같은 결이다.
+   * 전화는 자리만 채운 번호이고 주소는 example 도메인이라 실재하지 않는다.
+   * 실무 착수 때 DB 를 새로 올리므로 이 값은 남지 않는다.
+   */
   const eq = {};
-  for (const [code, name, note, at] of [
-    ['SC-01', '초임계 가공 장비',   'CO₂ 초임계', ['WS-DX2401-02']],
-    ['MX-01', '교반기 1호',         null,         ['WS-DX2401-01', 'WS-DX2401-03']],
-    ['MX-02', '교반기 2호',         null,         ['WS-DX2401-04', 'WS-DX2401-05']],
-    ['FD-01', '동결건조기',         null,         ['WS-DX2401-06']],
-    ['CT-01', '재단기',             null,         ['WS-DX2401-07']],
-    ['SL-01', '실링기',             '1·2차 포장', ['WS-DX2401-08']],
+  for (const [code, name, note, at, buy] of [
+    ['SC-01', '초임계 가공 장비',   'CO₂ 초임계', ['WS-DX2401-02'],
+      { on: '2024-03-14', price: 180000000, life: 120, hours: 30,
+        v: ['대성정밀', '이정훈', '02-1234-0101', 'sales@daesung.example',
+            'https://daesung.example', '경기도 화성시 동탄산단로 12'] }],
+    ['MX-01', '교반기 1호',         null,         ['WS-DX2401-01', 'WS-DX2401-03'],
+      { on: '2024-05-02', price: 4200000, life: 60, hours: 50,
+        v: ['태산기계', '최민재', '051-1234-0404', 'info@taesan.example', null,
+            '부산광역시 강서구 녹산산단로 88'] }],
+    ['MX-02', '교반기 2호',         null,         ['WS-DX2401-04', 'WS-DX2401-05'],
+      { on: '2024-05-02', price: 4200000, life: 60, hours: 50,
+        v: ['태산기계', '최민재', '051-1234-0404', 'info@taesan.example', null,
+            '부산광역시 강서구 녹산산단로 88'] }],
+    ['FD-01', '동결건조기',         null,         ['WS-DX2401-06'],
+      { on: '2024-03-14', price: 85000000, life: 120, hours: 40,
+        v: ['한빛열기계', '박서연', '031-1234-0202', 'hanbit@hanbit.example',
+            'https://hanbit.example', '경기도 안성시 공단로 45'] }],
+    ['CT-01', '재단기',             null,         ['WS-DX2401-07'],
+      { on: '2025-01-20', price: 12000000, life: 60, hours: 40,
+        v: ['우진기공', '김도윤', '032-1234-0303', 'woojin@woojin.example', null,
+            '인천광역시 남동구 남동대로 210'] }],
+    ['SL-01', '실링기',             '1·2차 포장', ['WS-DX2401-08'],
+      { on: '2025-01-20', price: 6500000, life: 60, hours: 40,
+        v: ['우진기공', '김도윤', '032-1234-0303', 'woojin@woojin.example', null,
+            '인천광역시 남동구 남동대로 210'] }],
   ]) {
     eq[code] = await val(
-      `insert into equipment (code, name, note) values ($1,$2,$3) returning id`,
-      [code, name, note]);
+      `insert into equipment
+         (code, name, note,
+          purchased_on, purchase_price, useful_life_months, salvage_value, monthly_hours,
+          vendor_name, vendor_contact_name, vendor_phone, vendor_email,
+          vendor_site, vendor_address)
+       values ($1,$2,$3,$4::date,$5,$6,0,$7,$8,$9,$10,$11,$12,$13) returning id`,
+      [code, name, note, buy.on, buy.price, buy.life, buy.hours, ...buy.v]);
     for (const opCode of at) {
       await c.query(
         `insert into operation_equipment (operation_id, equipment_id) values ($1,$2)`,
         [ops[opCode], eq[code]]);
     }
   }
-  console.log('설비 6 · 공정 연결 7');
+  console.log('설비 6 · 공정 연결 7 · 구입 정보 6');
+
+  /*
+   * 공수 단가. 역할별 시간당이다 (0076).
+   *
+   * 적용일을 시연 배치의 작업일보다 앞에 둔다 - 뒤에 두면 그 기록들은 단가가
+   * 없어 공수가 0원으로 잡히고, 원가 화면이 "단가가 없는 기록 N건" 이라고
+   * 적는다. 그건 맞는 표시이지만 시연 자료로는 소음이다.
+   *
+   * 품질책임자는 넣지 않는다. 로그인이 없어 공정 기록을 남기지 않으므로
+   * 단가를 넣어도 쓰이는 자리가 없다.
+   */
+  for (const [role, rate] of [['WORKER', 25000], ['PROD_MGR', 38000]]) {
+    await c.query(
+      `insert into labour_rate (role, hourly_rate, effective_from, note, registered_by)
+       select $1::role_code, $2, date '2026-01-01', '시연용 예시 단가', $3
+        where not exists (select 1 from labour_rate where role = $1::role_code)`,
+      [role, rate, admin]);
+  }
+  console.log('공수 단가 2');
 
   /*
    * 밸리데이션 이력. 서면 보고서 번호가 근거다.
