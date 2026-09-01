@@ -104,62 +104,68 @@ export default async function BackupPage() {
         </>
       }
       nav={<SubNav items={settingsNav(me.roles)} />}
-      action={
-        <a href="/api/backup" download className="btn-primary">
-          백업 내려받기
-        </a>
-      }
     >
       {/*
-        * 마지막이 언제였나. 이 화면에서 가장 먼저 눈에 들어와야 하는 하나다.
+        * 뜨는 것과 넣는 것을 나란히 세운다 (사용자 요청 2026-09-01).
+        *
+        * 위아래로 두면 넣는 자리가 대장에 밀려 아래로 내려가고, 그러면 있는 줄
+        * 모른다. 두 일은 같은 무게이므로 같은 줄에 선다.
         */}
-      <div className={`card p-5 ${stale ? 'border-warn/40 bg-warn-bg' : ''}`}>
-        <div className="flex flex-wrap items-baseline gap-x-8 gap-y-3">
-          <div>
-            <p className="text-[0.6875rem] font-bold tracking-wide text-muted">마지막 백업</p>
-            {last ? (
-              <>
-                <p className="mt-1 text-2xl font-bold tnum text-ink">
-                  {last.days_ago === 0 ? '오늘'
-                    : last.days_ago === 1 ? '어제'
-                    : `${last.days_ago}일 전`}
-                </p>
-                <p className="mt-0.5 text-xs tnum text-muted">
-                  {last.taken_at} · {last.taken_by_name}
-                </p>
-              </>
-            ) : (
-              <p className="mt-1 text-2xl font-bold text-ink">없음</p>
-            )}
-          </div>
-
-          <div>
-            <p className="text-[0.6875rem] font-bold tracking-wide text-muted">지금 담긴 것</p>
-            <p className="mt-1 text-2xl font-bold tnum text-ink">{d.now?.tables ?? 0}개 표</p>
-            <p className="mt-0.5 text-xs tnum text-muted">
-              기록·계보·감사추적 {(d.now?.rows ?? 0).toLocaleString('ko-KR')}행
+      <RestorePanel
+        canRestore
+        left={
+          <section className={`card flex flex-col p-5 ${stale ? 'border-warn/40 bg-warn-bg' : ''}`}>
+            <h3 className="text-[0.875rem] font-bold tracking-tight text-ink">백업 내려받기</h3>
+            <p className="mt-0.5 text-xs leading-relaxed text-muted">
+              지금 담긴 것을 통째로 한 파일에 담습니다. 서버에 사본을 두지 않습니다.
             </p>
-          </div>
-        </div>
 
-        {stale && (
-          <p className="mt-4 text-sm leading-relaxed text-ink">
-            {last
-              ? `마지막으로 백업을 뜬 지 ${last.days_ago}일이 지났습니다.`
-              : '아직 이 화면에서 백업을 뜬 적이 없습니다.'}{' '}
-            <span className="text-muted">
-              기록은 지울 수 없지만 잃을 수는 있습니다. 백업이 없으면 되살릴 것도 없습니다.
-            </span>
-          </p>
-        )}
-      </div>
+            <div className="mt-4 flex flex-wrap items-baseline gap-x-8 gap-y-3">
+              <div>
+                <p className="text-[0.6875rem] font-bold tracking-wide text-muted">마지막 백업</p>
+                {last ? (
+                  <>
+                    <p className="mt-1 text-2xl font-bold tnum text-ink">
+                      {last.days_ago === 0 ? '오늘'
+                        : last.days_ago === 1 ? '어제'
+                        : `${last.days_ago}일 전`}
+                    </p>
+                    <p className="mt-0.5 text-xs tnum text-muted">
+                      {last.taken_at} · {last.taken_by_name}
+                    </p>
+                  </>
+                ) : (
+                  <p className="mt-1 text-2xl font-bold text-ink">없음</p>
+                )}
+              </div>
+              <div>
+                <p className="text-[0.6875rem] font-bold tracking-wide text-muted">지금 담긴 것</p>
+                <p className="mt-1 text-2xl font-bold tnum text-ink">{d.now?.tables ?? 0}개 표</p>
+                <p className="mt-0.5 text-xs tnum text-muted">
+                  기록·계보·감사추적 {(d.now?.rows ?? 0).toLocaleString('ko-KR')}행
+                </p>
+              </div>
+            </div>
 
-      {/*
-        * 전에는 여기서 "파일을 backups/ 에 두고 npm run restore:check 를
-        * 돌리십시오" 라고 안내했다. 그건 기능이 아니다 - 아무도 그렇게 하지
-        * 않는다 (사용자 지적 2026-09-01). 파일을 넣으면 되게 한다.
-        */}
-      <RestorePanel canRestore />
+            {stale && (
+              <p className="mt-4 text-xs leading-relaxed text-ink">
+                {last
+                  ? `마지막으로 백업을 뜬 지 ${last.days_ago}일이 지났습니다.`
+                  : '아직 이 화면에서 백업을 뜬 적이 없습니다.'}{' '}
+                <span className="text-muted">
+                  기록은 지울 수 없지만 잃을 수는 있습니다. 백업이 없으면 되살릴 것도 없습니다.
+                </span>
+              </p>
+            )}
+
+            <div className="mt-auto pt-5">
+              <a href="/api/backup" download className="btn-primary">
+                백업 내려받기
+              </a>
+            </div>
+          </section>
+        }
+      />
 
       <Panel
         title="백업 대장"

@@ -14,6 +14,7 @@
     "check:sql": "node scripts/check-sql-params.mjs",
     "test:print": "node --env-file=.env.local test/print.mjs",
     "test:mutation": "node test/mutation.mjs",
+    "test:restore": "node --env-file=.env.local test/restore-gate.mjs",
     "smoke": "node --env-file=.env.local scripts/smoke.mjs",
     "fresh": "node --env-file=.env.local scripts/fresh-check.mjs",
     "access": "node --env-file=.env.local scripts/access-matrix.mjs",

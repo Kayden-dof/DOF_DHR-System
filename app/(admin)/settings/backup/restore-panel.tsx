@@ -30,7 +30,19 @@ interface Look {
 const kb = (n: number) =>
   n < 1024 * 1024 ? `${(n / 1024).toFixed(0)} KB` : `${(n / 1024 / 1024).toFixed(2)} MB`;
 
-export default function RestorePanel({ canRestore }: { canRestore: boolean }) {
+export default function RestorePanel({ canRestore, left }: {
+  canRestore: boolean;
+  /**
+   * 왼쪽에 설 것. 내려받기 칸이 들어온다 (사용자 요청 2026-09-01).
+   *
+   * 두 일이 나란히 서야 한다 - 뜨는 것과 넣는 것. 위아래로 두면 넣는 자리가
+   * 대장에 밀려 아래로 내려가고, 그러면 있는 줄 모른다.
+   *
+   * 다만 살펴본 결과는 이 격자 밖에서 전폭으로 편다. 표를 마흔 줄 넘게 내는데
+   * 절반 너비에 넣으면 읽을 수가 없다.
+   */
+  left: React.ReactNode;
+}) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [look, setLook] = useState<Look | null>(null);
@@ -84,18 +96,22 @@ export default function RestorePanel({ canRestore }: { canRestore: boolean }) {
   const ready = look && !bad && look.hasFresh && typed === look.fileName;
 
   return (
-    <section className="card overflow-hidden">
-      <header className="section-head">
-        <div className="min-w-0">
-          <h3 className="text-[0.875rem] font-bold tracking-tight text-ink">백업 파일 넣기</h3>
-          <p className="mt-0.5 text-xs leading-relaxed text-muted">
-            넣으면 무엇이 들었는지 먼저 보여 줍니다. 넣는 것만으로는 아무것도 바뀌지 않습니다.
-          </p>
-        </div>
-      </header>
+    <>
+    <div className="grid gap-4 lg:grid-cols-2">
+      {left}
 
-      <div className="border-b border-line-soft p-4">
-        <div className="flex flex-wrap items-center gap-3">
+      <section className="card flex flex-col overflow-hidden">
+        <header className="section-head">
+          <div className="min-w-0">
+            <h3 className="text-[0.875rem] font-bold tracking-tight text-ink">백업 파일 넣기</h3>
+            <p className="mt-0.5 text-xs leading-relaxed text-muted">
+              넣으면 무엇이 들었는지 먼저 보여 줍니다. 넣는 것만으로는 아무것도 바뀌지 않습니다.
+            </p>
+          </div>
+        </header>
+
+        <div className="flex flex-1 flex-col justify-center p-5">
+          <div className="flex flex-wrap items-center gap-3">
           <input
             ref={fileRef}
             type="file"
@@ -108,19 +124,27 @@ export default function RestorePanel({ canRestore }: { canRestore: boolean }) {
                        file:border-0 file:bg-canvas-deep file:px-3 file:py-1.5
                        file:text-xs file:font-semibold file:text-ink"
           />
-          <button
-            onClick={() => send('inspect')}
-            disabled={!file || busy !== ''}
-            className="btn-ghost h-10 px-4 text-xs"
-          >
-            {busy === 'look' ? '읽는 중' : '살펴보기'}
-          </button>
+            <button
+              onClick={() => send('inspect')}
+              disabled={!file || busy !== ''}
+              className="btn-ghost h-10 shrink-0 px-4 text-xs"
+            >
+              {busy === 'look' ? '읽는 중' : '살펴보기'}
+            </button>
+          </div>
+          {err && <p role="alert" className="mt-3 text-sm text-danger">{err}</p>}
+          {!err && !look && (
+            <p className="mt-3 text-xs leading-relaxed text-faint">
+              이 화면에서 내려받은 백업만 넣을 수 있습니다. 넣으면 지금 담긴 것과
+              나란히 놓아 무엇이 바뀌는지 보여 줍니다.
+            </p>
+          )}
         </div>
-        {err && <p role="alert" className="mt-3 text-sm text-danger">{err}</p>}
-      </div>
+      </section>
+    </div>
 
-      {look && (
-        <>
+    {look && (
+      <section className="card overflow-hidden">
           <div className="grid gap-x-8 gap-y-3 border-b border-line-soft p-4 sm:grid-cols-3">
             <Field label="뜬 시각" v={look.takenAt.replace('T', ' ')} />
             <Field label="담긴 행" v={`${look.totalRows.toLocaleString('ko-KR')}행`} />
@@ -240,9 +264,9 @@ export default function RestorePanel({ canRestore }: { canRestore: boolean }) {
               </button>
             </div>
           )}
-        </>
-      )}
-    </section>
+      </section>
+    )}
+    </>
   );
 }
 

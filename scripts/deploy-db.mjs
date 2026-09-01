@@ -50,6 +50,38 @@ for (const f of ['.env.deploy', '.env.local']) {
 
 const URL_ = GIVEN || process.env.MIGRATION_DATABASE_URL || process.env.DATABASE_URL;
 const SOURCE = GIVEN ? '실행할 때 준 값' : '.env.deploy';
+
+/* ---------------------------------------------------------------------------
+   운영을 치려면 그렇다고 말해야 한다 (2026-09-01)
+
+   인자 없이 부르면 .env.deploy 로 갔다. 그러니까 `npm run deploy:db` 한 줄이
+   조용히 운영 DB 를 고쳤다.
+
+   실제로 그것 때문에 화면이 죽었다. 이관 하나를 만들고 무심코 그 명령을
+   돌려 운영에 그것만 올라갔고, 다음 이관은 로컬에만 넣은 채 코드를 배포했다.
+   운영에는 없는 표를 화면이 찾았다 (사용자 발견).
+
+   되돌릴 수 없는 조작 앞에서는 기본값이 안전한 쪽이어야 한다. 이제 운영은
+   --prod 를 붙여야 간다. 빠뜨리면 아무 일도 일어나지 않고, 그래서 빠뜨린 것을
+   그 자리에서 안다.
+
+   이것은 §10 이 금지하는 예외 플래그가 아니다. 무엇을 건너뛰는 것이 아니라
+   어디를 가리키는지 밝히는 것이다.
+--------------------------------------------------------------------------- */
+const PROD = process.argv.includes('--prod');
+const remote = !!URL_ && !/localhost|127\.0\.0\.1/.test(URL_);
+
+if (remote && !PROD) {
+  console.error('이 접속 정보는 운영을 가리킵니다.');
+  console.error(`  ${URL_.replace(/\/\/[^@]*@/, '//***@')}`);
+  console.error('');
+  console.error('운영 DB 에 이관을 올리려면 그렇다고 적어야 합니다:');
+  console.error('  npm run deploy:db -- --prod');
+  console.error('');
+  console.error('로컬에 올리려는 것이었다면:');
+  console.error('  node --env-file=.env.local scripts/deploy-db.mjs');
+  process.exit(2);
+}
 if (!URL_) {
   console.error(
     'DATABASE_URL이 없다.\n' +
