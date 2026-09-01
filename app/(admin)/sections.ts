@@ -38,6 +38,7 @@ export const TRACE_NAV: NavItem[] = [
 
 export const SETTINGS_NAV: NavItem[] = [
   { href: '/settings', label: '개요' },
+  { href: '/settings/brand', label: '회사 표시' },
   { href: '/settings/numbering', label: '채번 규칙' },
   { href: '/settings/items', label: '품목' },
   { href: '/settings/suppliers', label: '공급자' },

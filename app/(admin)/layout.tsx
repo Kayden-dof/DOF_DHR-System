@@ -8,6 +8,8 @@ import Watermark, { stamp } from '@/components/watermark';
 import BackFab from '@/components/back-fab';
 import DemoBanner from '@/components/demo-banner';
 import FindUnit from '@/components/find-unit';
+import { BrandMark, BrandCopyright } from '@/components/brand-mark';
+import { yearKST } from '@/lib/kst';
 import IdleLock from '@/components/idle-lock';
 import { logout } from './actions';
 import Nav, { type NavItem } from './nav';
@@ -111,7 +113,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <header className="sticky top-0 z-30 border-b border-line bg-surface/90 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-6 px-5 lg:gap-9">
           <Link href="/" className="flex shrink-0 items-center gap-3" aria-label="현황으로">
-            <Wordmark className="h-5 w-auto" />
+            <BrandMark className="h-5 w-auto text-[1.125rem]" />
             <span className="h-5 w-px bg-line-strong" aria-hidden />
             <span className="display text-[1.125rem] leading-none text-ink">DHR</span>
           </Link>
@@ -175,7 +177,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <div className="flex items-center justify-between gap-4 border-t border-line pt-4">
           <Wordmark className="h-3.5 w-auto opacity-35" purple="var(--color-faint)"
                     gray="var(--color-faint)" />
-          <p className="text-[0.6875rem] tracking-wide text-faint">&copy; DOF Inc.</p>
+          <p className="text-[0.6875rem] tracking-wide text-faint">
+            <BrandCopyright year={yearKST()} />
+          </p>
         </div>
       </footer>
 

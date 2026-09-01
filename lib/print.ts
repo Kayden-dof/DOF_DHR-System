@@ -1,5 +1,6 @@
 import { createHmac } from 'node:crypto';
 import { withActor } from './db';
+import { getBrand } from './brand';
 import type { PrintMeta } from '@/components/print-frame';
 
 /* ---------------------------------------------------------------------------
@@ -124,6 +125,7 @@ interface LogArgs {
 
 export async function logPrint(a: LogArgs): Promise<PrintMeta> {
   const hash = dataHash(a.payload);
+  const brand = await getBrand();
 
   const row = await withActor(a.actorId, (db) =>
     a.lockDay
@@ -150,5 +152,8 @@ export async function logPrint(a: LogArgs): Promise<PrintMeta> {
     }).format(row?.printed_at ?? new Date()),
     printedBy: a.actorName,
     pages: a.pages ?? 1,
+    /* 종이 머리에 나가는 회사 표시. 설정에서 온다 (§2.0 · 0070) */
+    companyName: brand.companyName,
+    logoUrl: brand.hasLogo ? `/logo?v=${brand.logoUpdatedAt ?? '0'}` : null,
   };
 }

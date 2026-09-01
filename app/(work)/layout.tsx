@@ -4,6 +4,8 @@ import { redirect } from 'next/navigation';
 import { requireUser } from '@/lib/session';
 import { isAdmin, isWorker } from '@/lib/roles';
 import { WordmarkOnDark } from '@/components/logo';
+import { BrandCopyright } from '@/components/brand-mark';
+import { yearKST } from '@/lib/kst';
 import Watermark, { stamp } from '@/components/watermark';
 import BackFab from '@/components/back-fab';
 import DemoBanner from '@/components/demo-banner';
@@ -104,7 +106,9 @@ export default async function WorkLayout({ children }: { children: React.ReactNo
       <footer className="mx-auto w-full max-w-[1400px] px-5 pb-8 pt-4">
         <div className="flex items-center justify-between gap-4 border-t border-white/12 pt-4">
           <WordmarkOnDark className="h-3.5 w-auto opacity-30" />
-          <p className="text-[0.6875rem] tracking-wide text-white/35">&copy; DOF Inc.</p>
+          <p className="text-[0.6875rem] tracking-wide text-white/35">
+            <BrandCopyright year={yearKST()} />
+          </p>
         </div>
       </footer>
 

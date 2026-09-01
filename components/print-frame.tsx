@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { Wordmark } from './logo';
 import Barcode from './barcode';
 import { useEffect, useState } from 'react';
 
@@ -13,6 +12,13 @@ export interface PrintMeta {
   printedAt: string;
   printedBy: string;
   pages: number;
+  /*
+   * 회사 표시. 이 틀은 클라이언트 부품이라 설정을 직접 읽을 수 없다 - 읽으면
+   * DB 드라이버가 브라우저 번들로 딸려 들어간다 (실제로 그랬다). 서버에서
+   * 만들 때 실어 보낸다 (lib/print.ts).
+   */
+  companyName: string;
+  logoUrl: string | null;
 }
 
 /* ---------------------------------------------------------------------------
@@ -108,7 +114,17 @@ export function Sheet({
         <header className="relative mb-4 border-b-2 border-black pb-2">
           <div className="flex items-start justify-between">
             <div>
-              <Wordmark className="h-3.5 w-auto" purple="#000" gray="#666" />
+              {meta.logoUrl
+                ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={meta.logoUrl} alt={meta.companyName}
+                       className="h-3.5 w-auto" style={{ objectFit: 'contain' }} />
+                )
+                : (
+                  <span className="display text-[0.75rem] leading-none text-black">
+                    {meta.companyName}
+                  </span>
+                )}
               <h1 className="mt-1.5 text-lg font-bold text-black">{title}</h1>
               {subtitle && <div className="mt-0.5 text-xs text-black">{subtitle}</div>}
             </div>

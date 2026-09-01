@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import { getBrand, brandVars } from '@/lib/brand';
 
 /* ---------------------------------------------------------------------------
    최상위 틀
@@ -60,9 +61,24 @@ export const viewport: Viewport = {
   themeColor: '#342C68',
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+/* ---------------------------------------------------------------------------
+   회사 강조색을 여기서 심는다 (M5-2 · §2.0)
+
+   전에는 globals.css 에 #562C8D 로 박혀 있었다. 다른 제조소가 받으면 그 파일을
+   고쳐 다시 빌드해야 한다.
+
+   :root 에 이미 있는 값 위에 덮어쓴다. 설정을 못 읽어도 globals.css 의 값이
+   그대로 남아 화면이 무채색이 되지 않는다.
+
+   파생은 lib/brand.ts 한 곳에서만 한다 (§10).
+--------------------------------------------------------------------------- */
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const { brandColor } = await getBrand();
   return (
     <html lang="ko">
+      <head>
+        <style dangerouslySetInnerHTML={{ __html: `:root{${brandVars(brandColor)}}` }} />
+      </head>
       <body>{children}</body>
     </html>
   );

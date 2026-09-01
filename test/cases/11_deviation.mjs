@@ -241,4 +241,84 @@ export default [
   },
 },
 
+/* ---------------------------------------------------------------------------
+   회사 표시 (M5-2 · §2.0)
+--------------------------------------------------------------------------- */
+
+{
+  id: 'BR-01', expect: '예외',
+  name: '회사 표시는 한 줄만 갖는다',
+  async run(t) {
+    const m = await master(t);
+    await t.setActor(m.admin);
+    await t.rejects(() => t.rows(
+      `insert into org_brand (company_name) values ('두 번째 회사')`), { code: '23505' });
+  },
+},
+
+{
+  id: 'BR-02', expect: '예외',
+  name: '강조색은 여섯 자리 16진수만 받는다',
+  async run(t) {
+    const m = await master(t);
+    await t.setActor(m.admin);
+    for (const bad of ['보라색', '#12345', 'rgb(0,0,0)', '562C8D']) {
+      await t.rejects(() => t.rows(
+        `update org_brand set brand_color = $1`, [bad]), { code: '23514' });
+    }
+    await t.resolves(() => t.rows(`update org_brand set brand_color = '#0E7C66'`));
+    await t.rows(`update org_brand set brand_color = '#562C8D'`);
+  },
+},
+
+{
+  id: 'BR-03', expect: '예외',
+  name: '그림과 형식은 함께 있거나 함께 없다',
+  async run(t) {
+    const m = await master(t);
+    await t.setActor(m.admin);
+    /* 형식 없이 그림만 두면 그릴 수 없다 */
+    await t.rejects(() => t.rows(
+      `update org_brand set logo_bytes = decode('3c7376672f3e','hex'), logo_mime = null`),
+      { code: '23514' });
+    await t.rejects(() => t.rows(
+      `update org_brand set logo_bytes = null, logo_mime = 'image/png'`), { code: '23514' });
+  },
+},
+
+{
+  id: 'BR-04', expect: '확인',
+  name: '로고 바이트는 감사추적에 담기지 않는다',
+  async run(t) {
+    const m = await master(t);
+    await t.setActor(m.admin);
+    await t.rows(
+      `update org_brand set logo_bytes = decode('3c7376672f3e','hex'),
+                            logo_mime = 'image/svg+xml'`);
+
+    /*
+     * 감사추적이 답해야 하는 것은 "언제 누가 바꿨는가" 이지 그 그림이 아니다
+     * (§1 · 0060). 담으면 감사추적이 그림 보관소가 된다.
+     */
+    const [a] = await t.rows(
+      `select audit_redact(new_value, table_name)->>'logo_bytes' as v
+         from audit_log where table_name = 'org_brand' order by id desc limit 1`);
+    if (a?.v !== '(감춤)') throw new Error(`로고 바이트가 그대로 남았습니다 (${a?.v})`);
+
+    await t.rows(`update org_brand set logo_bytes = null, logo_mime = null`);
+  },
+},
+
+{
+  id: 'BR-05', expect: '권한 거부',
+  name: '회사 표시도 지울 수 없다',
+  async run(t) {
+    const m = await master(t);
+    await t.setActor(m.admin);
+    await t.asRole('app_role', async () => {
+      await t.rejects(() => t.rows(`delete from org_brand`), { code: '42501' });
+    });
+  },
+},
+
 ];

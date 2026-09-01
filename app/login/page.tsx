@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { currentUser } from '@/lib/session';
 import { withActor } from '@/lib/db';
-import { Wordmark, WordmarkOnDark } from '@/components/logo';
+import { BrandMark, BrandCopyright, BrandName } from '@/components/brand-mark';
 import { yearKST } from '@/lib/kst';
 import { APP_VERSION } from '@/lib/version';
 import LoginForm from './login-form';
@@ -54,8 +54,16 @@ export default async function LoginPage() {
 
         <span aria-hidden className="relative h-px w-16 bg-white/25" />
 
+        {/*
+          * 어두운 면에는 이름을 크게 낸다.
+          *
+          * 로고 한 장으로 밝은 바탕과 어두운 바탕을 둘 다 감당할 수 없다.
+          * 흰 로고를 올리면 머리줄에서 안 보이고, 짙은 로고를 올리면 여기서
+          * 안 보인다. 어두운 바탕용 슬롯을 따로 두는 방법도 있으나, 설정을
+          * 늘리는 것보다 이름을 크게 내는 쪽이 어느 회사에서나 성립한다.
+          */}
         <div className="relative">
-          <WordmarkOnDark className="w-full max-w-[22rem]" />
+          <BrandName className="display text-[3.5rem] leading-none text-white" />
         </div>
 
         <p className="relative text-[0.6875rem] font-medium tracking-[0.18em] text-on-dark-mute">
@@ -70,7 +78,7 @@ export default async function LoginPage() {
         <div className="flex w-full max-w-[25rem] flex-1 flex-col justify-center">
           {/* 좁은 화면에서는 여기가 브랜드 자리다 */}
           <div className="mb-8 lg:hidden">
-            <Wordmark className="h-7 w-auto" />
+            <BrandMark className="h-7 w-auto" />
           </div>
 
           {/*
@@ -99,7 +107,9 @@ export default async function LoginPage() {
             * 첫 자리이고, §8.0 의 IQ 가 묻는 것이기도 하다.
             */}
           <p>Design &amp; Engineering &nbsp;Byunghwi Kim, Technology Advancement Team</p>
-          <p className="mt-1">DOF DHR v{APP_VERSION} &middot; &copy; {yearKST()} DOF Inc.</p>
+          <p className="mt-1">
+            DHR v{APP_VERSION} &middot; <BrandCopyright year={yearKST()} />
+          </p>
         </footer>
       </section>
     </main>
