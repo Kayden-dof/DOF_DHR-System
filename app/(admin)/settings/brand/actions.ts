@@ -89,6 +89,20 @@ export async function saveBrand(_p: FormState, form: FormData): Promise<FormStat
  * 복구하면 로고도 같이 돌아온다.
  */
 export async function uploadLogo(_p: FormState, form: FormData): Promise<FormState> {
+  return putLogo(form, false);
+}
+
+/**
+ * 어두운 바탕용 로고 올리기 (0074).
+ *
+ * 로그인 왼쪽 면과 현장 머리줄은 어둡다. 짙은 로고는 거기서 묻히고 흰 로고는
+ * 밝은 머리줄에서 묻힌다. 한 장으로 두 바탕을 다 감당할 수 없어 칸을 나눈다.
+ */
+export async function uploadDarkLogo(_p: FormState, form: FormData): Promise<FormState> {
+  return putLogo(form, true);
+}
+
+async function putLogo(form: FormData, dark: boolean): Promise<FormState> {
   try {
     const me = await admin();
     const file = form.get('logo');
@@ -115,13 +129,17 @@ export async function uploadLogo(_p: FormState, form: FormData): Promise<FormSta
 
     await withActor(me.id, (db) =>
       db.rows(
-        `update org_brand set logo_bytes = $1, logo_mime = $2, logo_name = $3,
-                              updated_by = $4, updated_at = now()`,
+        dark
+          ? `update org_brand set logo_dark_bytes = $1, logo_dark_mime = $2,
+                                  logo_dark_name = $3,
+                                  updated_by = $4, updated_at = now()`
+          : `update org_brand set logo_bytes = $1, logo_mime = $2, logo_name = $3,
+                                  updated_by = $4, updated_at = now()`,
         [bytes, file.type, file.name, me.id]),
-      { reason: '회사 로고 올림' });
+      { reason: dark ? '어두운 바탕용 로고 올림' : '회사 로고 올림' });
 
     bump();
-    return { ok: true, message: `${file.name} 을 로고로 담았습니다.` };
+    return { ok: true, message: `${file.name} 을 ${dark ? '어두운 바탕용 ' : ''}로고로 담았습니다.` };
   } catch (e) {
     return { error: dbMessage(e) };
   }
@@ -129,16 +147,34 @@ export async function uploadLogo(_p: FormState, form: FormData): Promise<FormSta
 
 /** 로고를 내린다. 내리면 회사 이름을 글자로 낸다 */
 export async function clearLogo(_p: FormState, _form: FormData): Promise<FormState> {
+  return dropLogo(false);
+}
+
+/** 어두운 바탕용 로고를 내린다. 내리면 밝은 판 위에 밝은 바탕용 로고를 얹는다 */
+export async function clearDarkLogo(_p: FormState, _form: FormData): Promise<FormState> {
+  return dropLogo(true);
+}
+
+async function dropLogo(dark: boolean): Promise<FormState> {
   try {
     const me = await admin();
     await withActor(me.id, (db) =>
       db.rows(
-        `update org_brand set logo_bytes = null, logo_mime = null, logo_name = null,
-                              updated_by = $1, updated_at = now()`,
+        dark
+          ? `update org_brand set logo_dark_bytes = null, logo_dark_mime = null,
+                                  logo_dark_name = null,
+                                  updated_by = $1, updated_at = now()`
+          : `update org_brand set logo_bytes = null, logo_mime = null, logo_name = null,
+                                  updated_by = $1, updated_at = now()`,
         [me.id]),
-      { reason: '회사 로고 내림' });
+      { reason: dark ? '어두운 바탕용 로고 내림' : '회사 로고 내림' });
     bump();
-    return { ok: true, message: '로고를 내렸습니다. 회사 이름이 글자로 나옵니다.' };
+    return {
+      ok: true,
+      message: dark
+        ? '어두운 바탕용 로고를 내렸습니다. 밝은 판 위에 로고를 얹습니다.'
+        : '로고를 내렸습니다. 회사 이름이 글자로 나옵니다.',
+    };
   } catch (e) {
     return { error: dbMessage(e) };
   }

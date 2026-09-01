@@ -5,7 +5,7 @@ import { PageShell } from '@/components/shell';
 import { Panel } from '@/components/ui';
 import { SubNav } from '../../nav';
 import { SETTINGS_NAV } from '../../sections';
-import { BrandForm, LogoForm } from './brand-forms';
+import { BrandForm, LogoForm, LogoNote } from './brand-forms';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,6 +25,7 @@ interface Row {
   system_name: string | null; system_name_long: string | null;
   system_tagline: string | null; company_tagline: string | null;
   logo_name: string | null; has_logo: boolean; version: string | null;
+  logo_dark_name: string | null; has_dark_logo: boolean;
   updated_by_name: string | null; updated_at: string | null;
 }
 
@@ -39,6 +40,7 @@ export default async function BrandPage() {
       `select b.company_name, b.brand_color, b.logo_name,
               b.system_name, b.system_name_long, b.system_tagline, b.company_tagline,
               (b.logo_bytes is not null) as has_logo,
+              b.logo_dark_name, (b.logo_dark_bytes is not null) as has_dark_logo,
               to_char(b.updated_at, 'YYYYMMDDHH24MISS') as version,
               u.full_name as updated_by_name,
               to_char(timezone('Asia/Seoul', b.updated_at), 'YYYY-MM-DD HH24:MI') as updated_at
@@ -70,7 +72,10 @@ export default async function BrandPage() {
         <BrandForm name={d.company_name} color={d.brand_color}
                    sys={d.system_name} sysLong={d.system_name_long}
                    tagline={d.system_tagline} companyTagline={d.company_tagline} />
-        <LogoForm hasLogo={d.has_logo} logoName={d.logo_name} version={d.version} />
+        <LogoForm hasLogo={d.has_logo} logoName={d.logo_name}
+                  hasDarkLogo={d.has_dark_logo} darkName={d.logo_dark_name}
+                  version={d.version} />
+        <LogoNote />
       </Panel>
 
       <section className="card p-4">
@@ -80,6 +85,10 @@ export default async function BrandPage() {
           <li>
             · <b className="text-ink">기록이 아니라 표시입니다.</b> 판정에 관여하지 않고,
             이미 발행된 인쇄물의 자료 식별자에도 영향이 없습니다.
+          </li>
+          <li>
+            · 로고는 두 칸입니다. 어두운 바탕용을 올리지 않아도 화면은 빈 곳 없이
+            돕니다 - 밝은 판 위에 위 로고를 얹습니다.
           </li>
           <li>
             · 로고는 담습니다. 밖으로 나가도 회사가 영향을 받지 않는 파일이기 때문입니다.

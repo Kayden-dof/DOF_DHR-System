@@ -1,7 +1,7 @@
 'use client';
 
 import { useActionState, useState } from 'react';
-import { saveBrand, uploadLogo, clearLogo } from './actions';
+import { saveBrand, uploadLogo, clearLogo, uploadDarkLogo, clearDarkLogo } from './actions';
 import { Msg } from '@/components/ui';
 import type { FormState } from '@/lib/forms';
 
@@ -92,59 +92,108 @@ export function BrandForm({ name, color, sys, sysLong, tagline, companyTagline }
   );
 }
 
-export function LogoForm({ hasLogo, logoName, version }: {
-  hasLogo: boolean; logoName: string | null; version: string | null;
+/* ---------------------------------------------------------------------------
+   로고 두 칸 (0074)
+
+   로고 한 장으로 밝은 바탕과 어두운 바탕을 다 감당할 수 없다. 짙은 로고는
+   현장 머리줄에서 묻히고 흰 로고는 관리 머리줄에서 묻힌다.
+
+   어두운 바탕용을 올리지 않아도 화면은 빈 곳 없이 돈다 - 밝은 판을 깔고 밝은
+   바탕용 로고를 얹는다. 그래서 이 칸은 없어도 되는 칸이고, 화면에도 그렇게
+   적는다.
+--------------------------------------------------------------------------- */
+
+export function LogoForm({ hasLogo, logoName, hasDarkLogo, darkName, version }: {
+  hasLogo: boolean; logoName: string | null;
+  hasDarkLogo: boolean; darkName: string | null;
+  version: string | null;
 }) {
-  const [up, upAction, upPending] = useActionState<FormState, FormData>(uploadLogo, {});
-  const [rm, rmAction, rmPending] = useActionState<FormState, FormData>(clearLogo, {});
+  return (
+    <div className="grid gap-0 border-t border-line-soft sm:grid-cols-2 sm:divide-x sm:divide-line-soft">
+      <LogoSlot
+        title="로고" hint="밝은 바탕에 얹힙니다. 관리 머리줄 · 설정 · 인쇄물."
+        has={hasLogo} name={logoName} version={version}
+        upload={uploadLogo} clear={clearLogo}
+        empty="없음 · 이름이 글자로 나옵니다" onDark={false}
+      />
+      <LogoSlot
+        title="어두운 바탕용 로고"
+        hint="로그인 왼쪽 면과 현장 머리줄에 얹힙니다. 흰색 · 밝은 색 로고를 올립니다."
+        has={hasDarkLogo} name={darkName} version={version}
+        upload={uploadDarkLogo} clear={clearDarkLogo}
+        empty="없음 · 밝은 판 위에 위 로고를 얹습니다" onDark
+      />
+    </div>
+  );
+}
+
+function LogoSlot({ title, hint, has, name, version, upload, clear, empty, onDark }: {
+  title: string; hint: string;
+  has: boolean; name: string | null; version: string | null;
+  upload: (p: FormState, f: FormData) => Promise<FormState>;
+  clear: (p: FormState, f: FormData) => Promise<FormState>;
+  empty: string; onDark: boolean;
+}) {
+  const [up, upAction, upPending] = useActionState<FormState, FormData>(upload, {});
+  const [rm, rmAction, rmPending] = useActionState<FormState, FormData>(clear, {});
 
   return (
-    <div className="border-t border-line-soft px-4 py-3">
-      <div className="flex flex-wrap items-start gap-5">
-        <div className="w-48 shrink-0">
-          <span className="label">지금 로고</span>
-          <div className="mt-1 flex h-16 items-center rounded-md border border-line bg-surface px-3">
-            {hasLogo ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={`/logo?v=${version ?? '0'}`} alt="회사 로고"
-                   className="max-h-10 w-auto" style={{ objectFit: 'contain' }} />
-            ) : (
-              <span className="text-xs text-faint">없음 · 이름이 글자로 나옵니다</span>
-            )}
-          </div>
-          {logoName && <p className="mt-1 truncate text-xs text-faint">{logoName}</p>}
+    <div className="space-y-3 px-4 py-3">
+      <div>
+        <span className="label">{title}</span>
+        {/*
+          * 미리보기 바탕을 쓰일 자리와 같게 둔다. 흰 로고를 흰 바탕에 놓고
+          * 보면 아무것도 안 보여서 잘못 올린 줄 안다.
+          */}
+        <div className={`mt-1 flex h-16 items-center rounded-md border border-line px-3 ${
+          onDark ? 'band-dark' : 'bg-surface'}`}>
+          {has ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={`/logo?v=${version ?? '0'}${onDark ? '&dark=1' : ''}`}
+                 alt={title} className="max-h-10 w-auto" style={{ objectFit: 'contain' }} />
+          ) : (
+            <span className={`text-xs ${onDark ? 'text-white/55' : 'text-faint'}`}>{empty}</span>
+          )}
         </div>
+        {name && <p className="mt-1 truncate text-xs text-faint">{name}</p>}
+      </div>
 
-        <form action={upAction} className="min-w-[16rem] flex-1 space-y-2">
-          <label className="label">로고 올리기</label>
-          <input type="file" name="logo" accept="image/png" required
-                 className="block w-full text-xs file:mr-3 file:rounded-md file:border
-                            file:border-line file:bg-surface file:px-3 file:py-1.5
-                            file:text-xs file:text-ink hover:file:bg-surface-sub" />
-          <p className="text-xs leading-relaxed text-faint">
-            <b className="text-ink">PNG</b>, 512 KB 이하. 화면 머리줄과 인쇄물 머리에
-            같은 그림이 나옵니다.
-            <br />
-            <b className="text-ink">가로 600px 이상</b>을 권합니다. 종이에 찍히므로
-            화면에서 멀쩡해도 인쇄에서 흐려집니다.
-            <br />
-            바탕이 비치는(투명) 그림이면 밝은 자리와 어두운 자리 모두에 얹힙니다.
-          </p>
-          <Msg state={up} />
+      <form action={upAction} className="space-y-2">
+        <p className="text-xs leading-relaxed text-faint">{hint}</p>
+        <input type="file" name="logo" accept="image/png" required
+               className="block w-full text-xs file:mr-3 file:rounded-md file:border
+                          file:border-line file:bg-surface file:px-3 file:py-1.5
+                          file:text-xs file:text-ink hover:file:bg-surface-sub" />
+        <Msg state={up} />
+        <div className="flex flex-wrap items-center gap-2">
           <button type="submit" disabled={upPending} className="btn-ghost h-9 px-3 text-xs">
             {upPending ? '올리는 중' : '올리기'}
           </button>
-        </form>
-      </div>
+          {has && (
+            <button type="submit" form={`clear-${onDark ? 'dark' : 'light'}`}
+                    disabled={rmPending} className="btn-quiet h-9 px-3 text-xs">
+              {rmPending ? '내리는 중' : '내리기'}
+            </button>
+          )}
+        </div>
+      </form>
 
-      {hasLogo && (
-        <form action={rmAction} className="mt-3">
+      {has && (
+        <form action={rmAction} id={`clear-${onDark ? 'dark' : 'light'}`}>
           <Msg state={rm} />
-          <button type="submit" disabled={rmPending} className="btn-ghost h-8 px-3 text-xs">
-            {rmPending ? '내리는 중' : '로고 내리기'}
-          </button>
         </form>
       )}
     </div>
+  );
+}
+
+export function LogoNote() {
+  return (
+    <p className="border-t border-line-soft px-4 py-3 text-xs leading-relaxed text-faint">
+      둘 다 <b className="text-ink">PNG</b>, 512 KB 이하.{' '}
+      <b className="text-ink">가로 600px 이상</b>을 권합니다 - 종이에 찍히므로 화면에서
+      멀쩡해도 인쇄에서 흐려집니다. 바탕이 비치는(투명) 그림이면 어느 자리에나
+      얹힙니다.
+    </p>
   );
 }

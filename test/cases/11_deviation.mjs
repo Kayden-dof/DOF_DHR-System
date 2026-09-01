@@ -342,4 +342,38 @@ export default [
   },
 },
 
+{
+  id: 'BR-07', expect: '확인',
+  name: '어두운 바탕용 로고도 같은 규칙을 받는다',
+  async run(t) {
+    const m = await master(t);
+    await t.setActor(m.admin);
+
+    /* 0074 로 늘어난 칸이다. 밝은 바탕용과 같은 제약을 받아야 한다 */
+    await t.rejects(() => t.rows(
+      `update org_brand set logo_dark_bytes = decode('3c7376672f3e','hex'),
+                            logo_dark_mime = 'image/svg+xml'`), { code: '23514' });
+    await t.rejects(() => t.rows(
+      `update org_brand set logo_dark_bytes = decode('89504e470d0a1a0a','hex'),
+                            logo_dark_mime = null`), { code: '23514' });
+
+    await t.rows(
+      `update org_brand set logo_dark_bytes = decode('89504e470d0a1a0a','hex'),
+                            logo_dark_mime = 'image/png'`);
+
+    /*
+     * 감사추적이 답해야 하는 것은 "언제 누가 바꿨는가" 이지 그 그림이 아니다.
+     * 칸이 늘 때마다 여기에 더해 두지 않으면 새 칸만 값이 그대로 남는다.
+     */
+    const [a] = await t.rows(
+      `select audit_redact(new_value, table_name)->>'logo_dark_bytes' as v
+         from audit_log where table_name = 'org_brand' order by id desc limit 1`);
+    if (a?.v !== '(감춤)') {
+      throw new Error(`어두운 바탕용 로고 바이트가 그대로 남았습니다 (${a?.v})`);
+    }
+
+    await t.rows(`update org_brand set logo_dark_bytes = null, logo_dark_mime = null`);
+  },
+},
+
 ];

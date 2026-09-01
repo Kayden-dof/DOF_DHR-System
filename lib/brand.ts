@@ -20,6 +20,7 @@ export interface Brand {
   companyName: string;
   brandColor: string;
   hasLogo: boolean;
+  hasDarkLogo: boolean;
   logoUpdatedAt: string | null;
   /* 시스템 이름. 머리줄은 짧은 것, 로그인 화면은 풀어 쓴 것 (0071) */
   systemName: string;
@@ -33,6 +34,7 @@ const FALLBACK: Brand = {
   companyName: '',
   brandColor: '#562C8D',
   hasLogo: false,
+  hasDarkLogo: false,
   logoUpdatedAt: null,
   systemName: '',
   systemNameLong: '',
@@ -45,12 +47,13 @@ export const getBrand = cache(async (): Promise<Brand> => {
     const row = await withActor(null, (db) =>
       db.one<{
         company_name: string; brand_color: string;
-        has_logo: boolean; logo_updated_at: string | null;
+        has_logo: boolean; has_dark_logo: boolean; logo_updated_at: string | null;
         system_name: string | null; system_name_long: string | null;
         system_tagline: string | null; company_tagline: string | null;
       }>(
         `select company_name, brand_color,
                 (logo_bytes is not null) as has_logo,
+                (logo_dark_bytes is not null) as has_dark_logo,
                 to_char(updated_at, 'YYYYMMDDHH24MISS') as logo_updated_at,
                 system_name, system_name_long, system_tagline, company_tagline
            from org_brand limit 1`),
@@ -60,6 +63,7 @@ export const getBrand = cache(async (): Promise<Brand> => {
       companyName: row.company_name,
       brandColor: row.brand_color,
       hasLogo: row.has_logo,
+      hasDarkLogo: row.has_dark_logo,
       logoUpdatedAt: row.logo_updated_at,
       systemName: row.system_name ?? '',
       systemNameLong: row.system_name_long ?? '',
