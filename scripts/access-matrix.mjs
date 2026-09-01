@@ -36,7 +36,7 @@ const ROLES = [
   ['PROD_MGR',  '생산관리자'],
   ['WORKER',    '작업자'],
   ['QP',        '품질책임자'],
-  ['VIEWER',    '열람자'],
+  ['VIEWER',    '경영열람'],
 ];
 
 const SCREENS = [

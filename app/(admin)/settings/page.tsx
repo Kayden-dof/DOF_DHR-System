@@ -1,12 +1,12 @@
 import Link from 'next/link';
 import Denied from '@/components/denied';
-import { requireUser, blocksReadOnly } from '@/lib/session';
+import { requireUser, blocksReadOnly, hasRole } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import { NUMBERING_TARGETS, M1_CRITICAL_TARGETS } from '@/lib/forms';
 import { Tag } from '@/components/ui';
 import { PageShell } from '@/components/shell';
 import { SubNav } from '../nav';
-import { SETTINGS_NAV } from '../sections';
+import { settingsNav } from '../sections';
 import { APP_VERSION, BUILD_REF } from '@/lib/version';
 import { printKeyPinned } from '@/lib/print';
 import { getBrand } from '@/lib/brand';
@@ -109,6 +109,16 @@ export default async function SettingsHome() {
       blocks: '현장 화면을 쓸 작업자 계정이 없습니다' },
   ];
 
+  /*
+   * 시스템관리자만 여는 자리는 생산관리자에게 보이지 않는다 (사용자 지시
+   * 2026-09-01). 하위 차림표에서 이미 뺐는데(settingsNav) 타일과 차례표에
+   * 남아 있으면 같은 문을 두 곳에서 다르게 말하는 셈이다.
+   */
+  const sysAdmin = hasRole(user, 'SYS_ADMIN');
+  const ADMIN_ONLY = ['/settings/brand', '/settings/numbering', '/settings/users'];
+  const mine = <T extends { href: string }>(xs: T[]) =>
+    sysAdmin ? xs : xs.filter((x) => !ADMIN_ONLY.includes(x.href));
+
   const cards = [
     { href: '/settings/numbering', title: '채번 규칙',
       value: `${c.rules}건 활성`,
@@ -135,7 +145,7 @@ export default async function SettingsHome() {
       section="설정"
       title="기준정보와 계정"
       lede="여기서 정한 것이 생산 화면의 선택지가 됩니다."
-      nav={<SubNav items={SETTINGS_NAV} />}
+      nav={<SubNav items={settingsNav(sysAdmin)} />}
     >
       {blocking.length > 0 && (
         <div className="card border-warn/40 bg-warn-bg p-4">
@@ -157,7 +167,7 @@ export default async function SettingsHome() {
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {cards.map((x) => (
+        {mine(cards).map((x) => (
           <Link key={x.href} href={x.href}
                 className="card-raised group p-4 transition-colors hover:border-brand-line">
             <div className="flex items-center justify-between">
@@ -207,7 +217,7 @@ export default async function SettingsHome() {
         )}
       </section>
 
-      <SetupSteps steps={steps} />
+      <SetupSteps steps={mine(steps)} />
     </PageShell>
   );
 }

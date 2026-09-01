@@ -1,9 +1,9 @@
-import { requireUser, blocksReadOnly } from '@/lib/session';
+import { requireUser, blocksReadOnly, hasRole } from '@/lib/session';
 import Denied from '@/components/denied';
 import { withActor } from '@/lib/db';
 import { PageShell } from '@/components/shell';
 import { SubNav } from '../../nav';
-import { SETTINGS_NAV } from '../../sections';
+import { settingsNav } from '../../sections';
 import { ITEM_TYPES } from '@/lib/forms';
 import { Panel, Empty, Tag } from '@/components/ui';
 import { NewItemForm, GenerateFinished, ItemRowView, type ItemRow } from './item-forms';
@@ -70,7 +70,7 @@ export default async function ItemsPage({ searchParams }: { searchParams: Search
           <NewItemForm />
         </div>
       }
-      nav={<SubNav items={SETTINGS_NAV} />}
+      nav={<SubNav items={settingsNav(hasRole(user, 'SYS_ADMIN'))} />}
     >
 
       <div className="card flex flex-wrap items-center gap-2 p-3">

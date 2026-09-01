@@ -60,3 +60,16 @@ export const SETTINGS_NAV: NavItem[] = [
   { href: '/settings/users', label: '사용자' },
   { href: '/settings/audit', label: '감사추적' },
 ];
+
+/**
+ * 설정 하위 차림표. 시스템관리자만 여는 셋은 생산관리자에게 보이지 않는다.
+ *
+ * 못 여는 자리를 보여 주고 눌렀을 때 막는 것보다 아예 보이지 않는 편이 낫다 -
+ * 경영의 원가 탭을 역할에 따라 낸 것과 같은 규율이다.
+ */
+const ADMIN_ONLY = ['/settings/brand', '/settings/numbering', '/settings/users'];
+
+export function settingsNav(isSysAdmin: boolean): NavItem[] {
+  return isSysAdmin ? SETTINGS_NAV
+    : SETTINGS_NAV.filter((n) => !ADMIN_ONLY.includes(n.href));
+}

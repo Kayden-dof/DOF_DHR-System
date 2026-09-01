@@ -12,6 +12,26 @@ import { TRACE_NAV } from '../../../sections';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * 누가 언제 무엇을 했는가 (사용자 요청 2026-09-01).
+ *
+ * 제품 불만이 들어오면 되짚는 것이 셋이다 - 언제 만들었는가, 누가 작업했는가,
+ * 언제 누구에게 나갔는가. 앞뒤 둘은 이미 이 화면에 있었는데 가운데가 없었다.
+ */
+interface WorkRow {
+  day_no: number;
+  work_date: string;
+  operation_code: string;
+  operation_name: string;
+  attempt: number;
+  worker_name: string;
+  rotation_name: string | null;
+  equipment_id: string | null;
+  started_at: string | null;
+  ended_at: string | null;
+  product_lot_no: string | null;
+}
+
 interface GenRow {
   material_lot_no: string; item_code: string; item_name: string; item_type: string;
   qty: string; issued_at: Date; operation_code: string; operation_name: string;
@@ -238,6 +258,26 @@ async function BatchView({ me, kind, id }: {
                   where sh.product_lot_id = pl.id) as customers
            from product_lot pl join item i on i.id = pl.item_id
           where pl.work_order_id = $1 order by i.code`, [woId]),
+      /*
+       * 공정 기록. 시각은 to_char 로 글자로 받는다 - 화면이 Date 를 받아 자르면
+       * 보는 사람의 시간대로 그려진다 (lib/db.ts · §10).
+       */
+      work: await db.rows<WorkRow>(
+        `select pr.day_no, pr.work_date::text as work_date,
+                o.code as operation_code, o.name as operation_name, pr.attempt,
+                u.full_name as worker_name,
+                r.full_name as rotation_name,
+                pr.equipment_id,
+                to_char(timezone('Asia/Seoul', pr.started_at), 'HH24:MI') as started_at,
+                to_char(timezone('Asia/Seoul', pr.ended_at),   'HH24:MI') as ended_at,
+                pl.lot_no as product_lot_no
+           from process_record pr
+           join dmr_operation o on o.id = pr.operation_id
+           join app_user u on u.id = pr.worker_id
+           left join app_user r on r.id = pr.rotation_worker_id
+           left join product_lot pl on pl.id = pr.product_lot_id
+          where pr.work_order_id = $1
+          order by pr.day_no, o.seq, pr.attempt`, [woId]),
       genealogy: await db.rows<GenRow>(
         `select material_lot_no, item_code, item_name, item_type::text as item_type,
                 qty, issued_at, operation_code, operation_name, after_cutting, product_lot_id
@@ -320,6 +360,66 @@ async function BatchView({ me, kind, id }: {
                     <td className="td tnum text-right text-muted">{l.shipped || ''}</td>
                     <td className="td text-xs text-muted">{l.customers ?? ''}</td>
                     <td className="td tnum text-xs">{fmtDate(l.expiry_date)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Panel>
+
+      {/*
+        * 누가 언제 무엇을 했는가. 불만이 들어왔을 때 되짚는 자리다.
+        *
+        * 순환자는 이름만 적는다 - 서명하지 않고, 얼마나 있었는지도 기록에 없다
+        * (§11). 없는 것을 지어내지 않는다.
+        */}
+      <Panel title="공정 기록" note="누가 언제 무엇을 했는가">
+        {d.work.length === 0 ? (
+          <Empty>기록된 공정이 없습니다.</Empty>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr>
+                  <th className="th">일차</th>
+                  <th className="th">작업일</th>
+                  <th className="th">공정</th>
+                  <th className="th">작업자</th>
+                  <th className="th">설비</th>
+                  <th className="th">시각</th>
+                  <th className="th">제조번호</th>
+                </tr>
+              </thead>
+              <tbody>
+                {d.work.map((w, i) => (
+                  <tr key={i}>
+                    <td className="td tnum text-xs text-muted">
+                      {w.day_no}일차
+                      {w.attempt > 1 && (
+                        <span className="ml-1 text-warn">{w.attempt}회차</span>
+                      )}
+                    </td>
+                    <td className="td tnum text-xs text-muted">{w.work_date}</td>
+                    <td className="td">
+                      <div className="text-sm">{w.operation_name}</div>
+                      <div className="font-mono text-xs text-faint">{w.operation_code}</div>
+                    </td>
+                    <td className="td text-sm">
+                      {w.worker_name}
+                      {w.rotation_name && (
+                        <span className="ml-1.5 text-xs text-muted">
+                          순환 {w.rotation_name}
+                        </span>
+                      )}
+                    </td>
+                    <td className="td font-mono text-xs text-muted">{w.equipment_id}</td>
+                    <td className="td tnum text-xs text-muted whitespace-nowrap">
+                      {w.started_at && w.ended_at
+                        ? `${w.started_at} ~ ${w.ended_at}`
+                        : <span className="text-faint">시각 없음</span>}
+                    </td>
+                    <td className="td font-mono text-xs text-muted">{w.product_lot_no}</td>
                   </tr>
                 ))}
               </tbody>

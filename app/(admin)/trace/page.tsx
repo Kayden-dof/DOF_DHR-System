@@ -37,7 +37,14 @@ interface Hit {
 
 export default async function TracePage({ searchParams }: { searchParams: Search }) {
   const user = await requireUser();
-  if (!hasRole(user, 'SYS_ADMIN', 'PROD_MGR', 'QP')) {
+  /*
+   * 경영열람도 들어온다 (사용자 지시 2026-09-01).
+   *
+   * 제품 불만이 들어오면 그 배치가 언제 만들어졌고 누가 작업했고 언제 누구에게
+   * 나갔는지를 되짚어야 한다. 그 셋이 이 화면에 있다. 쓰기는 DB 가 막는다 -
+   * 읽기 전용 세션은 app_readonly 로 돌아 쓰기 함수의 실행 권한이 없다 (0053).
+   */
+  if (!hasRole(user, 'SYS_ADMIN', 'PROD_MGR', 'QP', 'VIEWER')) {
     return <Denied what="조회" need="생산관리자 또는 시스템관리자" />;
   }
 

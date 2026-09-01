@@ -4,7 +4,7 @@ import { ROLE_LABEL, ROLE_NOTE, ROLE_ORDER } from '@/lib/roles';
 import Denied from '@/components/denied';
 import { PageShell, FilterBar } from '@/components/shell';
 import { SubNav } from '../../nav';
-import { SETTINGS_NAV } from '../../sections';
+import { settingsNav } from '../../sections';
 import NewUserForm from './new-user-form';
 import UserRowView, { type UserRow } from './user-row';
 import { LabourRates, type RateRow } from './labour-rate';
@@ -91,7 +91,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Search
       title="사용자 · 역할"
       lede="계정은 삭제하지 않고 비활성화합니다. 역할 부여와 회수는 모두 감사추적에 남습니다."
       action={<NewUserForm />}
-      nav={<SubNav items={SETTINGS_NAV} />}
+      nav={<SubNav items={settingsNav(hasRole(me, 'SYS_ADMIN'))} />}
     >
 
       <FilterBar

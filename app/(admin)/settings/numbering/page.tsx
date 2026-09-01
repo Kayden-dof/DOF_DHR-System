@@ -4,7 +4,7 @@ import { NUMBERING_TARGETS } from '@/lib/forms';
 import Denied from '@/components/denied';
 import { PageShell } from '@/components/shell';
 import { SubNav } from '../../nav';
-import { SETTINGS_NAV } from '../../sections';
+import { settingsNav } from '../../sections';
 import TargetCard, { type RuleRow } from './target-card';
 
 export const dynamic = 'force-dynamic';
@@ -78,7 +78,7 @@ export default async function NumberingPage() {
           지시서를 취소해도 그 번호는 소멸합니다.
         </>
       }
-      nav={<SubNav items={SETTINGS_NAV} />}
+      nav={<SubNav items={settingsNav(hasRole(user, 'SYS_ADMIN'))} />}
     >
 
       <div className="card p-4">

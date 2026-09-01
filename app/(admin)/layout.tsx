@@ -79,8 +79,14 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       ]
     : viewer
     ? [
+        /*
+         * 경영열람은 대표이사 · 본부장급이 보는 자리다 (사용자 설명 2026-09-01).
+         * 결론이 모인 경영 현황과, 불만이 들어왔을 때 되짚는 조회 두 갈래면 된다.
+         * 조작 화면은 넣지 않는다 - 볼 일이 없고 쓰지도 못한다.
+         */
         { href: '/board', label: '경영 현황' },
         { href: '/production', label: '생산' },
+        { href: '/trace', label: '조회' },
         { href: '/settings/audit', label: '감사추적' },
       ]
     : [
@@ -91,7 +97,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         { href: '/equipment', label: '설비' },
         { href: '/shipping', label: '출하' },
         { href: '/trace', label: '조회' },
-        ...(hasRole(user, 'SYS_ADMIN') ? [{ href: '/settings', label: '설정' }] : []),
+        /*
+         * 설정은 생산관리자에게도 연다 (사용자 지시 2026-09-01). 품목 · 공급자 ·
+         * 제품표준서 · 감사추적이 이미 열려 있었는데 머리줄에 자리가 없어 주소를
+         * 아는 사람만 갔다. 열지 못하는 항목은 하위 차림표에서 빠진다
+         * (settingsNav).
+         */
+        { href: '/settings', label: '설정' },
       ];
 
   const initial = user.full_name.slice(0, 1);

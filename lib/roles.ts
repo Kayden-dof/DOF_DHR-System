@@ -7,7 +7,7 @@ export const ROLE_LABEL: Record<RoleCode, string> = {
   PROD_MGR: '생산관리자',
   QP: '품질책임자',
   SYS_ADMIN: '시스템관리자',
-  VIEWER: '열람자',
+  VIEWER: '경영열람',
 };
 
 export const ROLE_NOTE: Record<RoleCode, string> = {
@@ -15,7 +15,7 @@ export const ROLE_NOTE: Record<RoleCode, string> = {
   PROD_MGR: '작업 지시 발행 · 자재 · 출하 관리',
   QP: '시스템 미사용. 인쇄물에 이름만 나온다',
   SYS_ADMIN: '기준정보 · 계정 · 채번 규칙 관리',
-  VIEWER: '진행 상황 조회만. 기록도 인쇄도 하지 않는다',
+  VIEWER: '경영 현황과 제품 이력 열람. 기록하지 않는다',
 };
 
 export const ROLE_ORDER: RoleCode[] = ['WORKER', 'PROD_MGR', 'QP', 'SYS_ADMIN', 'VIEWER'];

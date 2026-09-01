@@ -4,7 +4,7 @@ import { withActor } from '@/lib/db';
 import { PageShell } from '@/components/shell';
 import { Panel } from '@/components/ui';
 import { SubNav } from '../../nav';
-import { SETTINGS_NAV } from '../../sections';
+import { settingsNav } from '../../sections';
 import { BrandForm, LogoForm, LogoNote } from './brand-forms';
 
 export const dynamic = 'force-dynamic';
@@ -50,7 +50,7 @@ export default async function BrandPage() {
 
   if (!d) {
     return (
-      <PageShell section="설정" title="회사 표시" nav={<SubNav items={SETTINGS_NAV} />}>
+      <PageShell section="설정" title="회사 표시" nav={<SubNav items={settingsNav(hasRole(user, 'SYS_ADMIN'))} />}>
         <Panel>
           <p className="px-4 py-6 text-sm text-muted">
             회사 표시 설정이 아직 없습니다. 이관을 올린 뒤 다시 열어 주십시오.
@@ -65,7 +65,7 @@ export default async function BrandPage() {
       section="설정"
       title="회사 표시"
       lede="이름과 색, 로고를 정합니다. 화면과 인쇄물이 같은 것을 씁니다."
-      nav={<SubNav items={SETTINGS_NAV} />}
+      nav={<SubNav items={settingsNav(hasRole(user, 'SYS_ADMIN'))} />}
     >
       <Panel title="회사"
              note={d.updated_at ? `${d.updated_at} · ${d.updated_by_name ?? ''}` : undefined}>

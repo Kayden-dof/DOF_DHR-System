@@ -1,9 +1,9 @@
-import { requireUser, blocksViewer } from '@/lib/session';
+import { requireUser, blocksViewer, hasRole } from '@/lib/session';
 import Denied from '@/components/denied';
 import { withActor } from '@/lib/db';
 import { PageShell } from '@/components/shell';
 import { SubNav } from '../../nav';
-import { SETTINGS_NAV } from '../../sections';
+import { settingsNav } from '../../sections';
 import { fmtDate } from '@/lib/fmt';
 import { Panel, Empty } from '@/components/ui';
 import {
@@ -71,7 +71,7 @@ export default async function SuppliersPage() {
       title="공급자 · 단가 · 사용기간"
       lede="승인 상태는 경고 표시에만 쓰입니다. 미승인 공급자의 자재도 등록과 사용을 막지 않습니다."
       action={<NewSupplierForm />}
-      nav={<SubNav items={SETTINGS_NAV} />}
+      nav={<SubNav items={settingsNav(hasRole(user, 'SYS_ADMIN'))} />}
     >
 
       <Panel>
