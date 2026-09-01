@@ -6,6 +6,7 @@ import { Panel, TableWrap, Empty, Tag } from '@/components/ui';
 import { SubNav } from '../../nav';
 import { settingsNav } from '../../sections';
 import RestorePanel from './restore-panel';
+import DownloadPanel from './download-panel';
 
 
 export const dynamic = 'force-dynamic';
@@ -114,12 +115,7 @@ export default async function BackupPage() {
       <RestorePanel
         canRestore
         left={
-          <section className={`card flex flex-col p-5 ${stale ? 'border-warn/40 bg-warn-bg' : ''}`}>
-            <h3 className="text-[0.875rem] font-bold tracking-tight text-ink">백업 내려받기</h3>
-            <p className="mt-0.5 text-xs leading-relaxed text-muted">
-              지금 담긴 것을 통째로 한 파일에 담습니다. 서버에 사본을 두지 않습니다.
-            </p>
-
+          <DownloadPanel stale={stale}>
             <div className="mt-4 flex flex-wrap items-baseline gap-x-8 gap-y-3">
               <div>
                 <p className="text-[0.6875rem] font-bold tracking-wide text-muted">마지막 백업</p>
@@ -157,13 +153,7 @@ export default async function BackupPage() {
                 </span>
               </p>
             )}
-
-            <div className="mt-auto pt-5">
-              <a href="/api/backup" download className="btn-primary">
-                백업 내려받기
-              </a>
-            </div>
-          </section>
+          </DownloadPanel>
         }
       />
 

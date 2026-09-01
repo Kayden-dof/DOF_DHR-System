@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { requireUser, hasRole } from '@/lib/session';
+import { requireUser, hasRole, reauth } from '@/lib/session';
+import { unlock, isLocked, LockError } from '@/lib/backup-lock';
 import { rawClient, withActor } from '@/lib/db';
 import {
   parseBackup, verifyBackup, diffAgainstNow, applyRestore, BackupError,
@@ -37,14 +38,33 @@ export async function POST(req: Request) {
   const file = form.get('file');
   const mode = String(form.get('mode') ?? 'inspect');
   const typed = String(form.get('confirm') ?? '').trim();
+  const passphrase = String(form.get('passphrase') ?? '');
+  const pin = String(form.get('pin') ?? '');
 
   if (!(file instanceof File) || file.size === 0) {
     return NextResponse.json({ error: '백업 파일을 고르십시오' }, { status: 400 });
   }
 
+  /*
+   * 자물쇠를 먼저 연다.
+   *
+   * 살펴보기에도 암호가 필요하다. 잠긴 파일은 열지 않으면 안이 무엇인지 알
+   * 길이 없고, 그게 잠근 이유다. 이 서버는 그 암호를 갖고 있지 않으므로
+   * 넣는 사람이 매번 가져와야 한다 (lib/backup-lock.ts).
+   */
+  let raw: Buffer = Buffer.from(await file.arrayBuffer());
+  if (isLocked(raw)) {
+    try {
+      raw = Buffer.from(await unlock(raw, passphrase));
+    } catch (e) {
+      if (e instanceof LockError) return NextResponse.json({ error: e.message }, { status: 400 });
+      throw e;
+    }
+  }
+
   let parsed;
   try {
-    parsed = parseBackup(Buffer.from(await file.arrayBuffer()));
+    parsed = parseBackup(raw);
   } catch (e) {
     if (e instanceof BackupError) return NextResponse.json({ error: e.message }, { status: 400 });
     throw e;
@@ -86,6 +106,13 @@ export async function POST(req: Request) {
   }
 
   /* --- 여기서부터는 실제로 갈아 끼운다 ----------------------------------- */
+
+  /*
+   * 되돌리는 자리에서만 본인을 다시 묻는다. 살펴보기는 아무것도 쓰지 않으므로
+   * 파일 암호만으로 충분하다 - 물을 것을 늘리면 사람이 살펴보기를 건너뛴다.
+   */
+  const who = await reauth(me, pin);
+  if (!who.ok) return NextResponse.json({ error: who.error }, { status: 401 });
 
   if (flaws.length) {
     return NextResponse.json({

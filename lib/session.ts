@@ -183,6 +183,45 @@ export function hasRole(user: SessionUser, ...roles: RoleCode[]): boolean {
    세션이 DB 에서도 읽기 전용이라 (app_readonly · 0043) 여기를 지나쳐도 쓰기는
    일어나지 않는다. 이건 화면을 깔끔히 하려는 것이지 마지막 방어선이 아니다.
 --------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------
+   본인인지 다시 묻는다 (사용자 요청 2026-09-01)
+
+   로그인은 "이 자리에 앉을 자격" 을 확인한다. 그런데 세션이 여덟 시간이라,
+   되돌릴 수 없는 조작 앞에서는 그것만으로 모자란다 - 자리를 비운 사이에
+   누가 눌렀는지 로그인은 답하지 못한다.
+
+   백업 내려받기와 복구가 그런 조작이다. 앞의 것은 이 회사의 기록 전부를 한
+   파일로 내보내고, 뒤의 것은 지금 있는 기록을 통째로 갈아 끼운다.
+
+   ── 무한정 찔러 볼 수 있으면 뜻이 없다 ────────────────────────────────────
+   로그인 화면이 쓰는 잠금을 그대로 쓴다 (0022). 15분 안에 다섯 번 틀리면
+   10분 잠긴다. 여기만 따로 세면 그 문이 곧 자릿수를 알아내는 창구가 된다.
+--------------------------------------------------------------------------- */
+export interface Reauth { ok: boolean; error?: string }
+
+export async function reauth(user: SessionUser, pin: string): Promise<Reauth> {
+  if (!pin) return { ok: false, error: '본인 비밀번호를 입력하십시오' };
+
+  const { withActor } = await import('./db');
+  const { verifyPin } = await import('./auth');
+
+  const locked = await withActor(user.id, (db) =>
+    db.val<number>('select login_lock_seconds($1)', [user.login_code]));
+  if ((locked ?? 0) > 0) {
+    return { ok: false, error: `여러 번 틀렸습니다. ${Math.ceil((locked ?? 0) / 60)}분 뒤에 다시 하십시오` };
+  }
+
+  const hash = await withActor(user.id, (db) =>
+    db.val<string>('select pin_hash from app_user where id = $1', [user.id]));
+
+  if (!await verifyPin(pin, hash ?? null)) {
+    await withActor(user.id, (db) => db.rows('select login_fail($1)', [user.login_code]));
+    return { ok: false, error: '본인 비밀번호가 맞지 않습니다' };
+  }
+  await withActor(user.id, (db) => db.rows('select login_ok($1)', [user.login_code]));
+  return { ok: true };
+}
+
 export function blocksViewer(user: SessionUser): boolean {
   return isViewerOnly(user.roles);
 }

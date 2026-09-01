@@ -23,6 +23,7 @@
  */
 import pg from 'pg';
 import { gzipSync, gunzipSync } from 'node:zlib';
+import { randomBytes, scryptSync, createDecipheriv } from 'node:crypto';
 import { writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { sessionCookie } from '../scripts/session-cookie.mjs';
@@ -44,7 +45,7 @@ const one = async (q, p) => (await c.query(q, p)).rows[0];
 const users = {};
 for (const role of ['SYS_ADMIN', 'PROD_MGR']) {
   users[role] = await one(
-    `select u.id, u.full_name from app_user u
+    `select u.id, u.full_name, u.login_code from app_user u
        join user_role x on x.user_id = u.id
       where x.role = $1::role_code and u.is_active and u.can_login
         and not exists (select 1 from user_role y
@@ -55,6 +56,30 @@ if (!users.SYS_ADMIN || !users.PROD_MGR) {
   console.error('시스템관리자와 생산관리자 계정이 하나씩 필요합니다.');
   process.exit(2);
 }
+
+/*
+ * 시험용 비밀번호를 이 계정에 새로 건다.
+ *
+ * 재인증이 붙으면서 본인 비밀번호 없이는 아무것도 못 하게 됐다. 사람의 진짜
+ * 비밀번호를 시험에 적어 둘 수는 없으므로, 시험이 스스로 하나 걸고 쓴다.
+ * 훈련용 DB 만 가리키므로(위 localhost 확인) 여기서 바꾸는 것은 시연 계정이다.
+ *
+ * **세션을 만들기 전에 건다.** 비밀번호를 바꾸면 그 이전에 발급된 세션이
+ * 무효가 된다 (lib/session.ts · pin_changed_at). 순서를 뒤집었더니 시험이
+ * 만든 세션이 곧바로 죽어 전 항목이 로그인 화면을 보고 있었다. 앱은 옳게
+ * 돌고 있었고 재는 쪽이 틀렸다.
+ */
+const PIN = '918273';
+const PASS = 'dhr-lock-시험-2026';
+{
+  const salt = randomBytes(16);
+  const key = scryptSync(PIN, salt, 32, { N: 1 << 15, r: 8, p: 1, maxmem: 64 * 1024 * 1024 });
+  await c.query(
+    'update app_user set pin_hash = $2, pin_changed_at = null where id = $1',
+    [users.SYS_ADMIN.id,
+     `scrypt$${1 << 15}$8$1$${salt.toString('base64')}$${key.toString('base64')}`]);
+}
+await c.query('select login_ok($1)', [users.SYS_ADMIN.login_code]);
 
 const admin = { cookie: sessionCookie(users.SYS_ADMIN.id) };
 const other = { cookie: sessionCookie(users.PROD_MGR.id) };
@@ -68,6 +93,8 @@ const check = (id, what, cond, detail = '') => {
 async function post(who, file, name, fields = {}) {
   const fd = new FormData();
   fd.set('file', new File([file], name), name);
+  fd.set('passphrase', PASS);
+  fd.set('pin', PIN);
   for (const [k, v] of Object.entries(fields)) fd.set(k, v);
   const r = await fetch(`${BASE}/api/restore`, {
     method: 'POST', headers: { cookie: who.cookie }, body: fd,
@@ -78,7 +105,12 @@ async function post(who, file, name, fields = {}) {
 console.log('\n[문턱]  복구 앞을 지키는 것들\n');
 
 /* --- 0. 성한 백업 하나를 뜬다. 뒤의 시험들이 이것을 비튼다 -------------- */
-const got = await fetch(`${BASE}/api/backup`, { headers: { cookie: admin.cookie } });
+const dl = (who, fields) => {
+  const fd = new FormData();
+  for (const [k, v] of Object.entries(fields)) fd.set(k, v);
+  return fetch(`${BASE}/api/backup`, { method: 'POST', headers: { cookie: who.cookie }, body: fd });
+};
+const got = await dl(admin, { pin: PIN, passphrase: PASS });
 const good = Buffer.from(await got.arrayBuffer());
 const goodName = (got.headers.get('content-disposition') ?? '').match(/filename="([^"]+)"/)?.[1];
 check('RG-00', '시스템관리자가 백업을 뜬다', got.status === 200 && good.length > 0,
@@ -86,7 +118,7 @@ check('RG-00', '시스템관리자가 백업을 뜬다', got.status === 200 && g
 if (got.status !== 200) process.exit(1);
 
 /* --- 1. 누가 부를 수 있는가 -------------------------------------------- */
-const r1 = await fetch(`${BASE}/api/backup`, { headers: { cookie: other.cookie } });
+const r1 = await dl(other, { pin: PIN, passphrase: PASS });
 check('RG-01', '생산관리자는 백업을 뜨지 못한다', r1.status === 403, `${r1.status}`);
 
 const r2 = await post(other, good, goodName, { mode: 'inspect' });
@@ -99,9 +131,9 @@ check('RG-02', '생산관리자는 살펴보지도 못한다', r2.status === 403
  * 200 을 보고 "로그인 없이 백업이 나온다" 고 했다. 재는 도구가 겁을 준 셈이다.
  * 응답 그 자체를 봐야 한다.
  */
-const r3 = await fetch(`${BASE}/api/backup`, { redirect: 'manual' });
+const r3 = await fetch(`${BASE}/api/backup`, { method: 'POST', body: new FormData(), redirect: 'manual' });
 check('RG-03', '로그인 없이 백업을 뜨지 못한다',
-      r3.status === 307 || r3.status === 308 || r3.status === 401 || r3.status === 403,
+      (r3.status >= 300 && r3.status < 400) || r3.status === 401 || r3.status === 403,
       `${r3.status} → ${r3.headers.get('location') ?? ''}`);
 
 /* --- 2. 어떤 파일을 받아들이는가 ---------------------------------------- */
@@ -112,19 +144,61 @@ const noMan = gzipSync(Buffer.from('#table item 0\n'));
 const r5 = await post(admin, noMan, 'noman.gz', { mode: 'inspect' });
 check('RG-05', '목록(#manifest)이 없으면 거부한다', r5.status === 400, r5.body.error ?? '');
 
+/*
+ * 잠긴 파일을 시험이 스스로 연다.
+ *
+ * 앱의 lib/backup-lock.ts 를 부르지 않고 짜임을 다시 짠다. 같은 것을 두 번
+ * 짜서 견주는 것이 시험의 값이다 - 앱이 짜임을 바꾸면 여기가 깨지고, 그것이
+ * 알아야 할 일이다.
+ */
+function openLocked(buf, pass) {
+  const magic = Buffer.from('DHRBAK1', 'ascii');
+  if (!buf.subarray(0, 7).equals(magic)) throw new Error('잠긴 파일이 아니다');
+  const hl = buf.readUInt16BE(7);
+  const head = JSON.parse(buf.subarray(9, 9 + hl).toString('utf8'));
+  const key = scryptSync(pass, Buffer.from(head.salt, 'base64'), 32,
+    { N: head.N, r: head.r, p: head.p, maxmem: 64 * 1024 * 1024 });
+  const d = createDecipheriv('aes-256-gcm', key, Buffer.from(head.iv, 'base64'));
+  d.setAuthTag(buf.subarray(9 + hl, 9 + hl + 16));
+  return Buffer.concat([d.update(buf.subarray(9 + hl + 16)), d.final()]);
+}
+
+let plain;
+try {
+  plain = openLocked(good, PASS);
+  check('RG-16', '정한 암호로 파일이 열린다', plain.length > 0,
+        `${(plain.length / 1024).toFixed(0)}KB`);
+} catch (e) {
+  check('RG-16', '정한 암호로 파일이 열린다', false, e.message);
+  plain = Buffer.alloc(0);
+}
+
+let wrongOk = false;
+try { openLocked(good, PASS + 'x'); wrongOk = true; } catch { /* 열리면 안 된다 */ }
+check('RG-17', '다른 암호로는 열리지 않는다', !wrongOk);
+
+const nicked = Buffer.from(good);
+nicked[nicked.length - 20] ^= 0xff;
+let nickOk = false;
+try { openLocked(nicked, PASS); nickOk = true; } catch { /* 열리면 안 된다 */ }
+check('RG-18', '한 바이트만 건드려도 열리지 않는다', !nickOk);
+
+const r18 = await post(admin, nicked, goodName, { mode: 'inspect' });
+check('RG-19', '손댄 잠금 파일은 서버도 열지 않는다', r18.status === 400, r18.body.error ?? '');
+
 /* 성한 백업의 한 줄을 비튼다. 목록의 해시와 어긋나야 한다 */
-const text = gunzipSync(good).toString('utf8').split('\n');
+const text = gunzipSync(plain).toString('utf8').split('\n');
 const at = text.findIndex((l, i) => i > 1 && l.startsWith('{'));
 const tampered = [...text];
 tampered[at] = tampered[at].replace(/"([^"]{4,})"/, '"손댄값"');
 const bad = gzipSync(Buffer.from(tampered.join('\n'), 'utf8'));
 
-const r6 = await post(admin, bad, goodName, { mode: 'inspect' });
+const r6 = await post(admin, bad, 'tampered.ndjson.gz', { mode: 'inspect' });
 check('RG-06', '손댄 파일은 살펴보기에서 흠으로 잡는다',
       r6.status === 200 && (r6.body.flaws?.length ?? 0) > 0,
       `흠 ${r6.body.flaws?.length ?? 0}건`);
 
-const r7 = await post(admin, bad, goodName, { mode: 'apply', confirm: goodName });
+const r7 = await post(admin, bad, 'tampered.ndjson.gz', { mode: 'apply', confirm: 'tampered.ndjson.gz' });
 check('RG-07', '손댄 파일로는 되돌리지 않는다', r7.status === 400, r7.body.error ?? '');
 
 /* --- 3. 확인 문구 ------------------------------------------------------- */
@@ -133,6 +207,13 @@ check('RG-08', '확인 문구가 비면 되돌리지 않는다', r8.status === 4
 
 const r9 = await post(admin, good, goodName, { mode: 'apply', confirm: '되돌린다' });
 check('RG-09', '확인 문구가 다르면 되돌리지 않는다', r9.status === 400, r9.body.error ?? '');
+
+const r20 = await post(admin, good, goodName, { mode: 'apply', confirm: goodName, pin: '000000' });
+check('RG-20', '본인 비밀번호가 틀리면 되돌리지 않는다', r20.status === 401, r20.body.error ?? '');
+await c.query('select login_ok($1)', [users.SYS_ADMIN.login_code]);
+
+const r21 = await post(admin, good, goodName, { mode: 'inspect', passphrase: 'wrong-pass-9999' });
+check('RG-21', '파일 암호가 틀리면 살펴보지도 못한다', r21.status === 400, r21.body.error ?? '');
 
 /* --- 4. 되돌릴 길이 없으면 막는가 --------------------------------------- */
 /*

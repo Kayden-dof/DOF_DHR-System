@@ -50,6 +50,10 @@ export default function RestorePanel({ canRestore, left }: {
   const [err, setErr] = useState('');
   const [done, setDone] = useState<{ rowsBefore: number; rowsAfter: number; ms: number } | null>(null);
   const [typed, setTyped] = useState('');
+  /* 파일 자물쇠를 여는 암호. 살펴보기부터 필요하다 */
+  const [pass, setPass] = useState('');
+  /* 본인 비밀번호. 되돌리는 자리에서만 묻는다 */
+  const [pin, setPin] = useState('');
 
   async function send(mode: 'inspect' | 'apply') {
     if (!file) return;
@@ -59,7 +63,8 @@ export default function RestorePanel({ canRestore, left }: {
       const fd = new FormData();
       fd.set('file', file);
       fd.set('mode', mode);
-      if (mode === 'apply') fd.set('confirm', typed);
+      fd.set('passphrase', pass);
+      if (mode === 'apply') { fd.set('confirm', typed); fd.set('pin', pin); }
       const r = await fetch('/api/restore', { method: 'POST', body: fd });
       const j = await r.json();
       if (!r.ok) { setErr(j.error ?? '실패했습니다'); return; }
@@ -93,7 +98,7 @@ export default function RestorePanel({ canRestore, left }: {
   }
 
   const bad = (look?.flaws.length ?? 0) > 0;
-  const ready = look && !bad && look.hasFresh && typed === look.fileName;
+  const ready = look && !bad && look.hasFresh && typed === look.fileName && pin.length > 0;
 
   return (
     <>
@@ -118,19 +123,34 @@ export default function RestorePanel({ canRestore, left }: {
             accept=".gz,application/gzip"
             onChange={(e) => {
               setFile(e.target.files?.[0] ?? null);
-              setLook(null); setErr(''); setTyped('');
+              setLook(null); setErr(''); setTyped(''); setPin('');
             }}
             className="input h-10 max-w-md flex-1 py-1.5 text-xs file:mr-3 file:rounded-md
                        file:border-0 file:bg-canvas-deep file:px-3 file:py-1.5
                        file:text-xs file:font-semibold file:text-ink"
           />
-            <button
-              onClick={() => send('inspect')}
-              disabled={!file || busy !== ''}
-              className="btn-ghost h-10 shrink-0 px-4 text-xs"
-            >
-              {busy === 'look' ? '읽는 중' : '살펴보기'}
-            </button>
+          </div>
+
+          <div className="mt-3">
+            <label htmlFor="bk-pass" className="label">파일 암호</label>
+            <div className="mt-1 flex flex-wrap items-center gap-3">
+              <input
+                id="bk-pass"
+                type="password"
+                value={pass}
+                onChange={(e) => setPass(e.target.value)}
+                autoComplete="off"
+                placeholder="내려받을 때 정한 암호"
+                className="input h-10 max-w-xs flex-1 text-xs"
+              />
+              <button
+                onClick={() => send('inspect')}
+                disabled={!file || !pass || busy !== ''}
+                className="btn-ghost h-10 shrink-0 px-4 text-xs"
+              >
+                {busy === 'look' ? '읽는 중' : '살펴보기'}
+              </button>
+            </div>
           </div>
           {err && <p role="alert" className="mt-3 text-sm text-danger">{err}</p>}
           {!err && !look && (
@@ -252,6 +272,24 @@ export default function RestorePanel({ canRestore, left }: {
                     placeholder="파일 이름"
                     className="input mt-2 max-w-md font-mono text-xs"
                   />
+
+                  <label htmlFor="confirm-pin" className="label mt-4 block">
+                    본인 비밀번호
+                  </label>
+                  <input
+                    id="confirm-pin"
+                    type="password"
+                    inputMode="numeric"
+                    value={pin}
+                    onChange={(e) => setPin(e.target.value)}
+                    autoComplete="off"
+                    placeholder="로그인에 쓰는 비밀번호"
+                    className="input mt-1 max-w-xs text-xs"
+                  />
+                  <p className="mt-1 text-xs text-body">
+                    로그인한 지 오래되었을 수 있어 한 번 더 묻습니다.
+                    자리를 비운 사이에 눌린 것이 아님을 확인하는 자리입니다.
+                  </p>
                 </div>
               )}
 
