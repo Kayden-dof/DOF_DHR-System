@@ -51,7 +51,8 @@ export default async function WorkLayout({ children }: { children: React.ReactNo
       <header className="band-solid sticky top-0 z-20">
         <div className="mx-auto flex max-w-[1400px] items-center gap-4 px-5 py-3">
           <Link href="/work" className="flex shrink-0 items-center gap-3" aria-label="배치 목록으로">
-            <BrandMark className="h-5 w-auto text-[1.125rem]" dark />
+            {/* 어두운 바탕용 그림은 여백이 더 넓어 상자를 더 크게 잡는다 */}
+            <BrandMark className="h-9 w-auto text-[1.125rem]" dark />
             <span className="h-5 w-px bg-white/25" aria-hidden />
             <SystemName className="display text-[1.125rem] leading-none text-white" />
             <span className="chip bg-white/15 text-white">현장</span>

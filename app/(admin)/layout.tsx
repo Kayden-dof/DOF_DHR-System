@@ -113,7 +113,18 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <header className="sticky top-0 z-30 border-b border-line bg-surface/90 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-6 px-5 lg:gap-9">
           <Link href="/" className="flex shrink-0 items-center gap-3" aria-label="현황으로">
-            <BrandMark className="h-5 w-auto text-[1.125rem]" />
+            {/*
+              * 로고 상자를 글자보다 크게 잡는다.
+              *
+              * 올라온 PNG 는 둘레에 투명 여백을 두른다. 지금 것은 그림이 상자
+              * 높이의 절반뿐이라, 상자를 글자와 같은 20px 로 두면 실제 그림은
+              * 10px 로 그려져 옆의 DHR 보다 한참 작아 보였다 (사용자 지적).
+              *
+              * 여백은 올린 파일의 성질이라 프로그램이 알 수 없다. 여백을 잘라
+              * 올리면 상자와 그림이 같아져 이 보정이 필요 없다 - 설정 화면이
+              * 그렇게 안내한다.
+              */}
+            <BrandMark className="h-7 w-auto text-[1.125rem]" />
             <span className="h-5 w-px bg-line-strong" aria-hidden />
             <SystemName className="display text-[1.125rem] leading-none text-ink" />
           </Link>
