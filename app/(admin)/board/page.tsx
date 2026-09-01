@@ -229,7 +229,7 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
       title="경영 현황"
       lede="오늘 · 이번 주 · 달별 순서로 놓았습니다. 개체 번호로 그 제품이 어디서 나와 어디로 갔는지 찾을 수 있습니다."
       stats={<StatStrip items={stats} />}
-      nav={<SubNav items={boardNav(hasRole(user, 'SYS_ADMIN', 'PROD_MGR'))} />}
+      nav={<SubNav items={boardNav(hasRole(user, 'SYS_ADMIN', 'PROD_MGR', 'VIEWER'))} />}
     >
 
       {/* ------------------------------------------------------------------

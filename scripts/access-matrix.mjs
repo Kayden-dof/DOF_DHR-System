@@ -131,7 +131,8 @@ const musts = [
   ['SYS_ADMIN', '사용자',   '열림'],
   ['WORKER',    '현장',     '열림'],
   ['WORKER',    '사용자',   '내보냄'],
-  ['VIEWER',    '원가',     '막힘'],
+  ['VIEWER',    '원가',     '열림'],
+  ['QP',        '원가',     '막힘'],
 ];
 const wrong = musts.filter(([r, s, want]) => result[r][s] !== want);
 if (wrong.length) {

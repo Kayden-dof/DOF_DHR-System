@@ -41,8 +41,8 @@ export const TRACE_NAV: NavItem[] = [
 ];
 
 /**
- * 경영. 원가는 생산관리자 이상만 열 수 있으므로 (열람자는 숫자를 보되 원가는
- * 보지 않는다) 못 여는 탭을 보이지 않게 한다 - 눌러서 막히는 것보다 낫다.
+ * 경영. 원가는 품질책임자에게만 막힌다 - 그쪽이 보는 것은 돈이 아니라 기준이다.
+ * 못 여는 탭을 보이지 않게 한다 - 눌러서 막히는 것보다 낫다.
  */
 export function boardNav(canSeeCost: boolean): NavItem[] {
   return canSeeCost
