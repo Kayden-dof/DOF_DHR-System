@@ -109,6 +109,19 @@ create trigger shipment_apply after insert
 
 -- 배치에 들어간 자재 원가. 재단 전 공정은 배치 전체에 걸리므로
 -- 제품 로트로 나눌 때는 생산 수량 비율로 배분한다.
+/*
+ * 뒤 이관이 이 뷰에 열을 더한다 (0076 이 공수 · 설비를 붙였다). 그러면 다음
+ * 배포에서 이 파일이 다시 돌 때 `create or replace` 가 "cannot drop columns
+ * from view" 로 멈춘다 - 열을 줄이는 replace 는 허용되지 않는다.
+ *
+ * 이관은 매 배포에 처음부터 다시 도는 구조다 (적용 이력을 따로 두지 않는다).
+ * 그러니 열이 늘 수 있는 뷰는 만들기 전에 떨군다. 뷰는 자료를 갖지 않으므로
+ * 떨궈도 잃는 것이 없고, 뒤 이관이 제 모양으로 다시 세운다.
+ */
+drop view if exists v_item_cost cascade;
+drop view if exists v_product_lot_cost cascade;
+drop view if exists v_batch_cost cascade;
+
 create or replace view v_batch_cost as
 select wo.id as work_order_id, wo.batch_no,
        -- 원재료: 배치에 지정된 로트에서 장입 장수만큼

@@ -9,7 +9,8 @@ import { Panel, Empty, Tag } from '@/components/ui';
 import { PageShell, StatStrip, type StatItem } from '@/components/shell';
 import { statRows, mono } from '@/components/stat-rows';
 import { Table, Th, Td, IdCell, TwoLine, ActionTh, RowLink } from '@/components/table';
-import ActionChip from '@/components/action-chip';
+import AuditTable from '@/components/audit-table';
+import { type AuditEntry } from './settings/audit/entry';
 
 export const dynamic = 'force-dynamic';
 
@@ -220,12 +221,16 @@ export default async function Dashboard() {
               and (valid_until is null
                    or valid_until < (timezone('Asia/Seoul', now()))::date + 30)
             order by valid_until nulls first limit 9) x)                   as eq_due`),
-    recent: await db.rows<{
-      table_name: string; action: string; acted_at: Date; actor_name: string | null;
-    }>(
-      `select a.table_name, a.action, a.acted_at, u.full_name as actor_name
-         from audit_log a left join app_user u on u.id = a.actor_id
-        order by a.id desc limit 7`),
+    /*
+     * 감사추적 화면과 같은 자료를 같은 뷰에서 읽는다 (0077). 전에는 표 이름과
+     * 시각만 한 줄로 냈고, 무엇이 바뀌었는지는 감사추적으로 건너가야 보였다.
+     *
+     * 스무 줄을 받아 열 줄만 펼쳐 둔다 - 접는 것은 화면이 한다.
+     */
+    recent: await db.rows<AuditEntry>(
+      `select id::text as id, table_name, record_id::text as record_id, action,
+              acted_at, reason, actor_name, old_value, new_value, label
+         from v_audit_entry order by id desc limit 20`),
   }));
 
   const c = d.c!;
@@ -504,23 +509,8 @@ export default async function Dashboard() {
             ? <Link href="/settings/audit" className="text-xs font-bold text-brand hover:underline">감사추적</Link>
             : null}
         >
-          {d.recent.length === 0 ? (
-            <Empty>기록이 없습니다.</Empty>
-          ) : (
-            <ul className="divide-y divide-line-soft">
-              {d.recent.map((r, i) => (
-                <li key={i} className="flex items-center gap-2.5 px-4 py-2.5">
-                  <ActionChip action={r.action} />
-                  <span className="min-w-0 flex-1 truncate text-[0.8125rem] text-ink">
-                    {tableLabel(r.table_name)}
-                  </span>
-                  <span className="shrink-0 tnum text-xs text-faint">
-                    {fmtTime(r.acted_at)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
+          {/* 감사추적 화면과 같은 표다 (components/audit-table.tsx) */}
+          <AuditTable entries={d.recent} collapseTo={10} />
         </Panel>
       </div>
     </PageShell>

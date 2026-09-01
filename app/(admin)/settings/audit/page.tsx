@@ -7,7 +7,8 @@ import { PageShell } from '@/components/shell';
 import { SubNav } from '../../nav';
 import { SETTINGS_NAV } from '../../sections';
 import { tableLabel } from '@/lib/forms';
-import Entry, { type AuditEntry } from './entry';
+import AuditTable from '@/components/audit-table';
+import { type AuditEntry } from './entry';
 
 export const dynamic = 'force-dynamic';
 
@@ -69,42 +70,18 @@ export default async function AuditPage({ searchParams }: { searchParams: Search
        * 값이 없다. 그 전에 쌓인 행은 audit_log 를 고칠 수 없어 그대로 있는데,
        * 여기서 떼어 내면 화면으로는 나가지 않는다.
        */
-      `select a.id::text as id, a.table_name, a.record_id::text as record_id, a.action,
-              a.acted_at, a.reason, u.full_name as actor_name,
-              audit_redact(a.old_value, a.table_name) as old_value,
-              audit_redact(a.new_value, a.table_name) as new_value,
-              coalesce(
-                a.new_value->>'lot_no',      a.old_value->>'lot_no',
-                a.new_value->>'batch_no',    a.old_value->>'batch_no',
-                a.new_value->>'wo_no',       a.old_value->>'wo_no',
-                a.new_value->>'po_no',       a.old_value->>'po_no',
-                a.new_value->>'code',        a.old_value->>'code',
-                a.new_value->>'coa_no',      a.old_value->>'coa_no',
-                a.new_value->>'login_code',  a.old_value->>'login_code',
-                a.new_value->>'full_name',   a.old_value->>'full_name',
-                a.new_value->>'name',        a.old_value->>'name',
-                -- 제 번호가 없는 표(인쇄 · 잠금 · 공정 기록 · 자재 투입 · 재고
-                -- 증감)는 가리키는 쪽의 번호를 따라간다. 그게 사람이 아는 값이다
-                (select wo.batch_no from work_order wo
-                  where wo.id = coalesce(a.new_value->>'work_order_id',
-                                         a.old_value->>'work_order_id')::uuid),
-                (select pl.lot_no from product_lot pl
-                  where pl.id = coalesce(a.new_value->>'product_lot_id',
-                                         a.old_value->>'product_lot_id')::uuid),
-                (select ml.lot_no from material_lot ml
-                  where ml.id = coalesce(a.new_value->>'material_lot_id',
-                                         a.old_value->>'material_lot_id')::uuid),
-                (select wo.batch_no from process_record pr
-                   join work_order wo on wo.id = pr.work_order_id
-                  where pr.id = coalesce(a.new_value->>'process_record_id',
-                                         a.old_value->>'process_record_id')::uuid)
-              ) as label
-         from audit_log a
-         left join app_user u on u.id = a.actor_id
-        where ($1::text is null or a.table_name = $1)
-          and ($2::text is null or a.action = $2)
-          and ($3::uuid is null or a.actor_id = $3)
-        order by a.id desc
+      /*
+       * 사람이 아는 번호를 찾아내는 셈은 v_audit_entry 가 갖는다 (0077).
+       * 여기와 현황 화면이 각자 찾으면 갈라진다 (§10). 비밀도 그 뷰에서
+       * 이미 떼어 내므로 화면으로는 나가지 않는다.
+       */
+      `select id::text as id, table_name, record_id::text as record_id, action,
+              acted_at, reason, actor_name, old_value, new_value, label
+         from v_audit_entry
+        where ($1::text is null or table_name = $1)
+          and ($2::text is null or action = $2)
+          and ($3::uuid is null or actor_id = $3)
+        order by id desc
         limit $4 offset $5`,
       [table, action, actor, PER_PAGE, (page - 1) * PER_PAGE],
     ),
@@ -206,25 +183,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Search
         {data.entries.length === 0 ? (
           <p className="px-4 py-8 text-center text-sm text-faint">해당하는 기록이 없습니다.</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr>
-                  <th className="th">일시</th>
-                  <th className="th">표</th>
-                  <th className="th">작업</th>
-                  <th className="th">대상</th>
-                  <th className="th">수행자</th>
-                  <th className="th" />
-                </tr>
-              </thead>
-              <tbody>
-                {data.entries.map((e) => (
-                  <Entry key={e.id} e={e} />
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <AuditTable entries={data.entries} />
         )}
       </div>
 
