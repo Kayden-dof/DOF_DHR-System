@@ -3,7 +3,6 @@ import { withActor } from '@/lib/db';
 import { redirect } from 'next/navigation';
 import { requireUser, hasRole, ROLE_LABEL } from '@/lib/session';
 import { isAdmin, isWorker, isViewerOnly, isQpOnly } from '@/lib/roles';
-import { Wordmark } from '@/components/logo';
 import Watermark, { stamp } from '@/components/watermark';
 import BackFab from '@/components/back-fab';
 import DemoBanner from '@/components/demo-banner';
@@ -175,8 +174,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
       <footer className="mx-auto w-full max-w-[1400px] px-5 pb-10 pt-6">
         <div className="flex items-center justify-between gap-4 border-t border-line pt-4">
-          <Wordmark className="h-3.5 w-auto opacity-35" purple="var(--color-faint)"
-                    gray="var(--color-faint)" />
+          {/* 바닥글은 눈을 끌 자리가 아니다. 흐리게 얹는다 */}
+          <span className="opacity-35">
+            <BrandMark className="h-3.5 w-auto text-[0.8125rem]" />
+          </span>
           <p className="text-[0.6875rem] tracking-wide text-faint">
             <BrandCopyright year={yearKST()} />
           </p>

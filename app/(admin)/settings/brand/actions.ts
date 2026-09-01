@@ -14,10 +14,26 @@ import type { FormState } from '@/lib/forms';
 --------------------------------------------------------------------------- */
 
 const MAX_BYTES = 512 * 1024;
+/* ---------------------------------------------------------------------------
+   PNG 만 받는다 (사용자 지시 2026-09-01)
+
+   전에는 SVG 도 받았다. SVG 는 글자 파일이라 두 가지가 따라온다.
+
+   1) 글꼴을 참조한다. 로고를 내보낼 때 글자를 외곽선으로 바꾸지 않으면 그
+      글꼴이 없는 기계에서 다른 모양으로 그려지거나 아예 사라진다. 회사 이름이
+      든 로고가 그렇게 되면 종이에 틀린 것이 찍힌다.
+   2) 스크립트와 바깥 그림을 품을 수 있다. app/logo/route.ts 가 머리로 막고
+      여기서 한 번 더 보지만, 막을 것이 없는 형식을 쓰는 편이 낫다.
+
+   PNG 는 픽셀이라 어디서 열어도 같은 그림이다. 대신 확대하면 흐려지므로
+   화면에서 안내하는 최소 너비를 지킨다 (LOGO_MIN_WIDTH).
+--------------------------------------------------------------------------- */
 const KINDS: Record<string, string> = {
-  'image/svg+xml': 'svg',
   'image/png': 'png',
 };
+
+/** PNG 는 이 여덟 바이트로 시작한다. 이름만 .png 인 파일을 걸러 낸다 */
+const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 async function admin() {
   const user = await requireUser();
@@ -81,7 +97,7 @@ export async function uploadLogo(_p: FormState, form: FormData): Promise<FormSta
       return { error: '올릴 그림을 골라 주십시오' };
     }
     if (!KINDS[file.type]) {
-      return { error: 'SVG 또는 PNG 만 올릴 수 있습니다' };
+      return { error: 'PNG 만 올릴 수 있습니다' };
     }
     if (file.size > MAX_BYTES) {
       return { error: `그림이 큽니다 (${Math.round(file.size / 1024)} KB). 512 KB 이하로 줄여 주십시오` };
@@ -90,15 +106,11 @@ export async function uploadLogo(_p: FormState, form: FormData): Promise<FormSta
     const bytes = Buffer.from(await file.arrayBuffer());
 
     /*
-     * SVG 는 글자 파일이라 스크립트를 품을 수 있다. 내보낼 때 스크립트를 막는
-     * 머리를 붙이지만(app/logo/route.ts), 담기 전에 한 번 더 본다. 밖에서 받은
-     * 파일을 그대로 믿지 않는다.
+     * 붙은 이름이 아니라 속을 본다. 밖에서 받은 파일을 그대로 믿지 않는다 -
+     * 확장자만 바꾼 파일이 들어오면 브라우저가 무엇으로 해석할지 알 수 없다.
      */
-    if (file.type === 'image/svg+xml') {
-      const text = bytes.toString('utf8');
-      if (/<script|javascript:|\son\w+\s*=/i.test(text)) {
-        return { error: 'SVG 안에 스크립트가 들어 있습니다. 그림만 담긴 파일로 올려 주십시오' };
-      }
+    if (!bytes.subarray(0, 8).equals(PNG_MAGIC)) {
+      return { error: '알맹이가 PNG 가 아닙니다. 이름만 .png 인 파일일 수 있습니다' };
     }
 
     await withActor(me.id, (db) =>

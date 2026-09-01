@@ -1,12 +1,14 @@
 import Link from 'next/link';
-import { Wordmark } from '@/components/logo';
+import { BrandMark } from '@/components/brand-mark';
 
 /* 없는 번호를 눌렀을 때. 무엇을 찾으려 했는지 다시 물어볼 길을 준다. */
-export default function NotFound() {
+export default async function NotFound() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-canvas px-5 py-12">
       <div className="w-full max-w-md text-center">
-        <Wordmark className="mx-auto h-6 w-auto" />
+        <span className="inline-flex justify-center">
+          <BrandMark className="h-6 w-auto text-[1.25rem]" />
+        </span>
         <h1 className="mt-7 text-[1.375rem] font-bold text-ink">
           그 번호로는 찾을 수 없습니다
         </h1>

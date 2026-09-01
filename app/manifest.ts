@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next';
+import { getBrand, darkTone } from '@/lib/brand';
 
 /* ---------------------------------------------------------------------------
    앱 설치 정보 (PWA)
@@ -28,13 +29,32 @@ import type { MetadataRoute } from 'next';
 
    설치는 서비스 워커 없이도 된다. 크롬 계열은 manifest 와 아이콘만으로 설치를
    허용하고, iOS 는 원래 apple-touch-icon 과 메타 태그로만 홈 화면에 걸린다.
+
+   ── 이름 · 색 · 아이콘은 설정에서 온다 (§2.0) ─────────────────────────────
+   전에는 'DOF DHR' 과 남보라 #342C68, DOF 아이콘 파일 셋이 여기 박혀 있었다.
+   다른 제조소가 받아 홈 화면에 걸면 남의 회사 아이콘이 걸린다.
+
+   로고를 올리지 않았으면 아이콘을 아예 내지 않는다. 그러면 설치 단추가 안 뜨는
+   기기가 있는데, 남의 로고를 걸어 두는 것보다 낫다. 지어내지 않는다.
 --------------------------------------------------------------------------- */
 
-export default function manifest(): MetadataRoute.Manifest {
+/*
+ * 설정을 읽으므로 미리 구우면 안 된다. 빌드하던 때의 설정이 그대로 굳어
+ * 로고를 나중에 올려도 홈 화면 아이콘이 비어 있었다 (2026-09-01 확인).
+ */
+export const dynamic = 'force-dynamic';
+
+export default async function manifest(): Promise<MetadataRoute.Manifest> {
+  const b = await getBrand();
+  const short = [b.companyName, b.systemName].filter(Boolean).join(' ') || 'DHR';
+  const long = b.systemTagline ? `${short} \u00b7 ${b.systemTagline}` : short;
+  const dark = darkTone(b.brandColor);
+  const logo = b.hasLogo ? `/logo?v=${b.logoUpdatedAt ?? '0'}` : null;
+
   return {
-    name: 'DOF DHR · 제조기록 지원',
-    short_name: 'DOF DHR',
-    description: '제조기록 지원 시스템. 정본은 서명된 종이다.',
+    name: long,
+    short_name: short,
+    description: b.systemTagline || undefined,
 
     /*
      * 현장 화면으로 들어간다. 패드를 드는 사람은 작업자이고, 관리 화면은
@@ -48,15 +68,18 @@ export default function manifest(): MetadataRoute.Manifest {
     lang: 'ko',
     dir: 'ltr',
 
-    background_color: '#342C68', // 뜨는 동안의 바탕. 현장 화면의 남보라와 같다
-    theme_color: '#342C68',
+    /* 뜨는 동안의 바탕. 현장 화면의 머리띠와 같은 톤이라야 이어져 보인다 */
+    background_color: dark,
+    theme_color: dark,
 
-    icons: [
-      { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
-      { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
-      /* 안드로이드가 잘라 내는 아이콘. 안쪽 80% 안에 글자가 들어 있다 */
-      { src: '/icons/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
-    ],
+    /*
+     * 올린 로고를 그대로 건다. 크기는 브라우저가 맞춘다. maskable 은 내지
+     * 않는다 - 안쪽 80% 로 잘려도 읽히도록 만든 그림이라야 하는데, 올라온
+     * 로고가 그렇다고 볼 수 없다. 잘못 잘리는 것보다 안 자르는 편이 낫다.
+     */
+    icons: logo
+      ? [{ src: logo, sizes: '512x512', type: 'image/png', purpose: 'any' }]
+      : [],
 
     /* 홈 화면 아이콘을 길게 눌렀을 때 나오는 바로가기 */
     shortcuts: [

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Wordmark } from '@/components/logo';
+import { BrandMarkClient } from '@/components/brand-mark-client';
 
 /* ---------------------------------------------------------------------------
    오류 화면
@@ -23,7 +23,7 @@ export default function ErrorScreen({
      */
     <main className="flex min-h-screen flex-col items-center justify-center bg-canvas px-5 py-12">
       <div className="w-full max-w-lg">
-        <Wordmark className="h-6 w-auto" />
+        <BrandMarkClient className="text-[1.25rem]" />
 
         <h1 className="mt-7 text-[1.375rem] font-bold text-ink">
           화면을 그리지 못했습니다

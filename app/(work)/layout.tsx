@@ -3,7 +3,7 @@ import { withActor } from '@/lib/db';
 import { redirect } from 'next/navigation';
 import { requireUser } from '@/lib/session';
 import { isAdmin, isWorker } from '@/lib/roles';
-import { WordmarkOnDark } from '@/components/logo';
+import { BrandMark } from '@/components/brand-mark';
 import { BrandCopyright, SystemName } from '@/components/brand-mark';
 import { yearKST } from '@/lib/kst';
 import Watermark, { stamp } from '@/components/watermark';
@@ -54,7 +54,7 @@ export default async function WorkLayout({ children }: { children: React.ReactNo
       <header className="band-solid sticky top-0 z-20">
         <div className="mx-auto flex max-w-[1400px] items-center gap-4 px-5 py-3">
           <Link href="/work" className="flex shrink-0 items-center gap-3" aria-label="배치 목록으로">
-            <WordmarkOnDark className="h-5 w-auto" />
+            <BrandMark className="h-5 w-auto text-[1.125rem]" dark />
             <span className="h-5 w-px bg-white/25" aria-hidden />
             <SystemName className="display text-[1.125rem] leading-none text-white" />
             <span className="chip bg-white/15 text-white">현장</span>
@@ -105,7 +105,9 @@ export default async function WorkLayout({ children }: { children: React.ReactNo
 
       <footer className="mx-auto w-full max-w-[1400px] px-5 pb-8 pt-4">
         <div className="flex items-center justify-between gap-4 border-t border-white/12 pt-4">
-          <WordmarkOnDark className="h-3.5 w-auto opacity-30" />
+          <span className="opacity-30">
+            <BrandMark className="h-3.5 w-auto text-[0.8125rem]" dark />
+          </span>
           <p className="text-[0.6875rem] tracking-wide text-white/35">
             <BrandCopyright year={yearKST()} />
           </p>

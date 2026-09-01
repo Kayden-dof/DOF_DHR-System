@@ -108,6 +108,36 @@ const lighten = ([r, g, b]: [number, number, number], t: number) =>
 const darken = ([r, g, b]: [number, number, number], t: number) =>
   hex(r * (1 - t), g * (1 - t), b * (1 - t));
 
+/* ---------------------------------------------------------------------------
+   클라이언트 부품이 쓸 회사 표시
+
+   `app/error.tsx` 는 클라이언트 부품이어야 해서 설정을 읽지 못한다. 뿌리 배치가
+   :root 로 한 줄 내려보내면 그 화면도 회사 표시를 낼 수 있다.
+
+   값은 CSS `content` 에 그대로 들어간다. 로고가 있으면 url(...) 이라 그림으로
+   바뀌고, 없으면 따옴표 안의 글이라 이름이 나온다. 갈래를 자바스크립트로 나누지
+   않으므로 첫 HTML 에서 이미 맞다.
+
+   둘 다 없으면 아무것도 내려보내지 않는다 - 지어내지 않는다.
+--------------------------------------------------------------------------- */
+export function brandMarkVar(
+  b: { hasLogo: boolean; logoUpdatedAt: string | null; companyName: string },
+): string {
+  if (b.hasLogo) return `--brand-mark:url("/logo?v=${b.logoUpdatedAt ?? '0'}")`;
+  if (!b.companyName) return '';
+  /* CSS 글에 들어가므로 역슬래시와 따옴표를 막는다 */
+  const safe = b.companyName.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  return `--brand-mark:"${safe}"`;
+}
+
+/**
+ * 어두운 면의 색. 현장 머리띠 · 주소창 · 설치 화면 바탕이 같은 값을 쓴다.
+ * brandVars 의 --color-indigo 와 같은 계산이다 - 두 곳에서 만들면 갈라진다.
+ */
+export function darkTone(color: string): string {
+  return darken(toRgb(color), 0.38);
+}
+
 export function brandVars(color: string): string {
   const rgb = toRgb(color);
   return [
@@ -118,5 +148,13 @@ export function brandVars(color: string): string {
     `--color-brand-tint:${lighten(rgb, 0.91)}`,
     `--color-brand-line:${lighten(rgb, 0.7)}`,
     `--color-brand-pale:${lighten(rgb, 0.45)}`,
+    /*
+     * 어두운 면. 현장 화면의 머리띠와 바닥이 이 색이다. 전에는 DOF 법인
+     * 남보라(#342C68)가 globals.css 에 박혀 있었다 - 다른 제조소가 받으면
+     * 자기 로고 옆에 남의 회사 색이 깔린다.
+     */
+    `--color-indigo:${darkTone(color)}`,
+    `--color-indigo-deep:${darken(rgb, 0.58)}`,
+    `--color-indigo-soft:${darken(rgb, 0.18)}`,
   ].join(';');
 }

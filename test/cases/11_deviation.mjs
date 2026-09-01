@@ -292,9 +292,10 @@ export default [
   async run(t) {
     const m = await master(t);
     await t.setActor(m.admin);
+    /* PNG 머리 여덟 바이트. 0072 가 image/png 만 받는다 */
     await t.rows(
-      `update org_brand set logo_bytes = decode('3c7376672f3e','hex'),
-                            logo_mime = 'image/svg+xml'`);
+      `update org_brand set logo_bytes = decode('89504e470d0a1a0a','hex'),
+                            logo_mime = 'image/png'`);
 
     /*
      * 감사추적이 답해야 하는 것은 "언제 누가 바꿨는가" 이지 그 그림이 아니다
@@ -318,6 +319,26 @@ export default [
     await t.asRole('app_role', async () => {
       await t.rejects(() => t.rows(`delete from org_brand`), { code: '42501' });
     });
+  },
+},
+
+{
+  id: 'BR-06', expect: '예외',
+  name: '로고는 PNG 만 담긴다',
+  async run(t) {
+    const m = await master(t);
+    await t.setActor(m.admin);
+    /*
+     * SVG 는 글꼴을 참조한다. 글자를 외곽선으로 바꾸지 않은 로고는 그 글꼴이
+     * 없는 기계에서 다른 모양이 되거나 사라진다 - 종이에 틀린 것이 찍힌다
+     * (사용자 지시 2026-09-01 · 0072). 응용에서만 막은 건 검증이 아니다.
+     */
+    await t.rejects(() => t.rows(
+      `update org_brand set logo_bytes = decode('3c7376672f3e','hex'),
+                            logo_mime = 'image/svg+xml'`), { code: '23514' });
+    await t.rejects(() => t.rows(
+      `update org_brand set logo_bytes = decode('ffd8ff','hex'),
+                            logo_mime = 'image/jpeg'`), { code: '23514' });
   },
 },
 

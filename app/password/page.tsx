@@ -1,6 +1,6 @@
 import { requireUserForPasswordChange } from '@/lib/session';
 import { logout } from '@/app/(admin)/actions';
-import { Wordmark } from '@/components/logo';
+import { BrandMark } from '@/components/brand-mark';
 import PinForm from './pin-form';
 
 export const dynamic = 'force-dynamic';
@@ -33,7 +33,7 @@ export default async function PasswordPage() {
   return (
     <main className="flex min-h-screen items-center justify-center px-4 py-10">
       <div className="w-full max-w-sm">
-        <Wordmark className="h-7 w-auto" />
+        <BrandMark className="h-7 w-auto text-[1.375rem]" />
 
         <h1 className="mt-6 text-xl font-bold text-ink">
           {first ? '비밀번호를 정해 주십시오' : '비밀번호 바꾸기'}

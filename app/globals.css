@@ -1,6 +1,26 @@
 @import "tailwindcss";
 
 /* ---------------------------------------------------------------------------
+   클라이언트 부품이 쓰는 회사 표시
+
+   `app/error.tsx` 는 클라이언트 부품이라 설정을 읽지 못한다. 뿌리 배치가
+   :root 에 --brand-mark 를 내려보낸다 (lib/brand.ts · brandMarkVar).
+
+   로고가 있으면 그 값이 url(...) 이라 ::before 가 그림으로 바뀌고, height 가
+   먹는다. 없으면 따옴표 안의 글이라 이름이 글자로 나오고 height 는 무시된다
+   (글자에는 height 가 적용되지 않는다). 한 줄로 두 갈래가 다 선다.
+
+   둘 다 없으면 --brand-mark 자체가 없어 아무것도 그리지 않는다.
+--------------------------------------------------------------------------- */
+.brand-css::before {
+  content: var(--brand-mark, "");
+  height: 1em;
+  width: auto;
+  color: var(--color-brand);
+  vertical-align: middle;
+}
+
+/* ---------------------------------------------------------------------------
    글꼴
 
    Pretendard 를 저장소에 넣고 앱과 같은 출처에서 함께 내보낸다. 바깥 CDN을
@@ -88,7 +108,8 @@
   --color-brand-line:  #D9C8EC;
   --color-brand-pale:  #B8A2D0;
 
-  /* 법인 남보라. 상단 밴드와 어두운 면 */
+  /* 어두운 면. 상단 밴드와 바닥. 설정의 강조색에서 파생해 덮어쓴다
+     (lib/brand.ts · brandVars). 여기 값은 설정을 못 읽었을 때의 바닥이다 */
   --color-indigo:      #342C68;
   --color-indigo-deep: #241E47;
   --color-indigo-soft: #4A3470;

@@ -107,13 +107,18 @@ export function LogoForm({ hasLogo, logoName, version }: {
 
         <form action={upAction} className="min-w-[16rem] flex-1 space-y-2">
           <label className="label">로고 올리기</label>
-          <input type="file" name="logo" accept="image/svg+xml,image/png" required
+          <input type="file" name="logo" accept="image/png" required
                  className="block w-full text-xs file:mr-3 file:rounded-md file:border
                             file:border-line file:bg-surface file:px-3 file:py-1.5
                             file:text-xs file:text-ink hover:file:bg-surface-sub" />
           <p className="text-xs leading-relaxed text-faint">
-            SVG 또는 PNG, 512 KB 이하. 화면 머리줄과 인쇄물 머리에 같은 그림이 나옵니다.
-            벡터(SVG)가 어느 배율에서도 깨지지 않습니다.
+            <b className="text-ink">PNG</b>, 512 KB 이하. 화면 머리줄과 인쇄물 머리에
+            같은 그림이 나옵니다.
+            <br />
+            <b className="text-ink">가로 600px 이상</b>을 권합니다. 종이에 찍히므로
+            화면에서 멀쩡해도 인쇄에서 흐려집니다.
+            <br />
+            바탕이 비치는(투명) 그림이면 밝은 자리와 어두운 자리 모두에 얹힙니다.
           </p>
           <Msg state={up} />
           <button type="submit" disabled={upPending} className="btn-ghost h-9 px-3 text-xs">
