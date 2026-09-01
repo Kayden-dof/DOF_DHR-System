@@ -5,6 +5,7 @@ import { PageShell } from '@/components/shell';
 import { Panel, TableWrap, Empty, Tag } from '@/components/ui';
 import { SubNav } from '../../nav';
 import { settingsNav } from '../../sections';
+import RestorePanel from './restore-panel';
 
 
 export const dynamic = 'force-dynamic';
@@ -36,6 +37,17 @@ interface LogRow {
   days_ago: number;
 }
 
+interface RestoreRow {
+  id: string;
+  restored_at: string;
+  restored_by_name: string;
+  restored_by_code: string;
+  file_name: string;
+  rows_before: number;
+  rows_after: number;
+  elapsed_ms: number;
+}
+
 const mb = (b: string | number) => {
   const n = Number(b);
   return n < 1024 * 1024
@@ -61,6 +73,11 @@ export default async function BackupPage() {
               (current_date - (timezone('Asia/Seoul', b.taken_at))::date) as days_ago
          from backup_log b join app_user u on u.id = b.taken_by
         order by b.taken_at desc limit 20`),
+    restores: await db.rows<RestoreRow>(
+      `select r.id, r.restored_by_name, r.restored_by_code, r.file_name,
+              r.rows_before, r.rows_after, r.elapsed_ms,
+              to_char(timezone('Asia/Seoul', r.restored_at), 'YYYY-MM-DD HH24:MI') as restored_at
+         from restore_log r order by r.restored_at desc limit 20`),
     /* 지금 담겨 있는 것. 백업이 얼마만 한 일인지 사람이 가늠하게 한다 */
     now: await db.one<{ rows: number; tables: number }>(
       `select (select count(*)::int from process_record)
@@ -82,7 +99,7 @@ export default async function BackupPage() {
       lede={
         <>
           지금 담긴 것을 통째로 한 파일에 담아 내려받습니다.{' '}
-          <b className="text-ink">서버에 사본을 두지 않습니다</b> — 받은 파일을
+          <b className="text-ink">서버에 사본을 두지 않습니다</b>. 받은 파일을
           사내 규정대로 보관하십시오.
         </>
       }
@@ -137,37 +154,12 @@ export default async function BackupPage() {
         )}
       </div>
 
-      <Panel
-        title="받은 파일로 무엇을 하는가"
-        note="내려받는 것으로 끝나지 않습니다. 되살아나는지 확인해야 백업입니다."
-      >
-        <div className="space-y-4 p-4 text-sm leading-relaxed">
-          <div>
-            <p className="font-semibold text-ink">① 사외 · 별도 매체에 보관합니다</p>
-            <p className="mt-1 text-muted">
-              같은 계정 안에만 두면 계정이 통째로 잘못될 때 원본과 백업을 같이
-              잃습니다. 받은 파일은 다른 곳에 둡니다.
-            </p>
-          </div>
-          <div>
-            <p className="font-semibold text-ink">② 되살아나는지 확인합니다</p>
-            <p className="mt-1 text-muted">
-              백업이 떠 있다는 것과 되살릴 수 있다는 것은 다른 말입니다. 받은
-              파일을 <code className="text-body">backups/</code> 에 두고 아래를
-              돌리면, 빈 DB 를 만들어 되살리고 원본과 대조한 뒤 지웁니다.
-            </p>
-            <pre className="mt-2 overflow-x-auto rounded-md border border-line-soft
-                            bg-canvas px-3 py-2 text-xs text-body">npm run restore:check</pre>
-          </div>
-          <div>
-            <p className="font-semibold text-ink">③ 파일 지문을 대조합니다</p>
-            <p className="mt-1 text-muted">
-              아래 대장에 각 백업의 지문(sha256)이 남아 있습니다. 보관해 둔 파일이
-              그때 그 파일인지 이것으로 확인합니다.
-            </p>
-          </div>
-        </div>
-      </Panel>
+      {/*
+        * 전에는 여기서 "파일을 backups/ 에 두고 npm run restore:check 를
+        * 돌리십시오" 라고 안내했다. 그건 기능이 아니다 - 아무도 그렇게 하지
+        * 않는다 (사용자 지적 2026-09-01). 파일을 넣으면 되게 한다.
+        */}
+      <RestorePanel canRestore />
 
       <Panel
         title="백업 대장"
@@ -214,11 +206,46 @@ export default async function BackupPage() {
         )}
       </Panel>
 
-      <p className="text-xs leading-relaxed text-faint">
-        복구는 이 화면에 없습니다. 되살리는 일은 지금 있는 기록을 통째로 덮어쓰는
-        일이라 단추로 두지 않았습니다 — 절차는{' '}
-        <code className="text-muted">사내문서/백업과 복구.md</code> 에 있습니다.
-      </p>
+      <Panel
+        title="복구 대장"
+        note="되돌린 사실은 복구가 덮지 않습니다. 이 표만은 그대로 쌓입니다."
+      >
+        {d.restores.length === 0 ? (
+          <Empty>되돌린 적이 없습니다.</Empty>
+        ) : (
+          <TableWrap>
+            <table className="w-full min-w-[44rem]">
+              <thead>
+                <tr>
+                  <th className="th">되돌린 시각</th>
+                  <th className="th">한 사람</th>
+                  <th className="th">쓴 파일</th>
+                  <th className="th text-right">덮기 전</th>
+                  <th className="th text-right">덮은 뒤</th>
+                  <th className="th text-right">걸린 시간</th>
+                </tr>
+              </thead>
+              <tbody>
+                {d.restores.map((r) => (
+                  <tr key={r.id}>
+                    <td className="td tnum whitespace-nowrap">{r.restored_at}</td>
+                    <td className="td whitespace-nowrap">
+                      {r.restored_by_name}
+                      <span className="ml-1.5 tnum text-xs text-faint">{r.restored_by_code}</span>
+                    </td>
+                    <td className="td font-mono text-xs text-muted">{r.file_name}</td>
+                    <td className="td tnum text-right">{r.rows_before.toLocaleString('ko-KR')}</td>
+                    <td className="td tnum text-right">{r.rows_after.toLocaleString('ko-KR')}</td>
+                    <td className="td tnum text-right whitespace-nowrap">
+                      {(r.elapsed_ms / 1000).toFixed(1)}초
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </TableWrap>
+        )}
+      </Panel>
     </PageShell>
   );
 }

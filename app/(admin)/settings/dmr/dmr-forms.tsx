@@ -243,14 +243,14 @@ function verifyRows(s: VerifySheet) {
     const eq = s.equipmentByOp[op.id] ?? [];
     rows.push({
       key: `op-${op.id}`, group: `공정 ${op.seq}`,
-      label: `${op.name} — 순서 · 코드 · 재단 전후 · 설비가 서면과 같습니까?`,
+      label: `${op.name} · 순서 · 코드 · 재단 전후 · 설비가 서면과 같습니까?`,
       value: [op.code, op.after_cutting ? '재단 이후' : '재단 이전',
               eq.length ? eq.join(' · ') : '설비 없음'].join(' · '),
     });
     for (const b of op.bom) {
       rows.push({
         key: `bom-${b.id}`, group: `공정 ${op.seq} 자재`,
-        label: `${b.item_name} — 소요량 기준과 수량이 서면과 같습니까?`,
+        label: `${b.item_name} · 소요량 기준과 수량이 서면과 같습니까?`,
         value: b.basis === 'PER_UNIT'
           ? `제품 1개당 ${Number(b.qty_per_unit)} ${b.usage_uom}`
           : b.tiers.length
