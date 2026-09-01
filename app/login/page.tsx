@@ -45,7 +45,13 @@ export default async function LoginPage() {
   return (
     <main className="grid min-h-screen lg:grid-cols-[1.1fr_minmax(29rem,0.9fr)]">
       {/* 로고 면. 좁은 화면에서는 접힌다 */}
-      <section className="band-dark relative hidden flex-col justify-between overflow-hidden p-14 lg:flex">
+      {/*
+        * justify-between 을 쓰지 않는다. 그러면 로고 자리가 아래에 무엇이
+        * 있느냐에 딸려 다닌다 - 슬로건을 비웠더니 로고가 바닥으로 내려갔다
+        * (사용자 지적 2026-09-01). 로고는 남는 자리 한가운데 두고, 슬로건 줄은
+        * 글이 없어도 자리를 지킨다.
+        */}
+      <section className="band-dark relative hidden flex-col overflow-hidden p-14 lg:flex">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0"
@@ -67,7 +73,7 @@ export default async function LoginPage() {
           * 로고가 없는 제조소에서는 BrandMark 가 이름을 흰 글자로 낸다. 여기서
           * 갈래를 따로 쓰지 않는다 - 두 곳에서 정하면 갈라진다 (§10).
           */}
-        <div className="relative">
+        <div className="relative flex flex-1 items-center">
           {/*
             * 여기서는 높이가 아니라 폭으로 잡는다. 로고마다 가로세로 비가
             * 달라, 높이를 맞추면 납작한 로고는 이 넓은 면에서 작아 보인다.
@@ -81,15 +87,18 @@ export default async function LoginPage() {
         </div>
 
         {/*
-          * 회사 한 줄 문구도 설정에서 온다 (0073). 전에는 DOF 문구가 박혀
+          * 회사 슬로건도 설정에서 온다 (0073). 전에는 DOF 문구가 박혀
           * 있어, 다른 제조소가 받으면 자기 로고 아래에 남의 회사 설명이 붙었다.
           * 적어 두지 않은 제조소에서는 아무것도 나오지 않는다 - 지어내지 않는다.
           */}
-        {brand.companyTagline && (
-          <p className="relative text-[0.6875rem] font-medium tracking-[0.18em] text-on-dark-mute">
-            {brand.companyTagline}
-          </p>
-        )}
+        {/*
+          * 비어 있어도 줄을 그린다. 없애면 로고가 그만큼 내려앉는다. 높이는
+          * 글자 크기와 줄 간격에서 그대로 셈한다.
+          */}
+        <p className="relative min-h-[calc(1.5*0.6875rem)] text-[0.6875rem]
+                      font-medium tracking-[0.18em] text-on-dark-mute">
+          {brand.companyTagline}
+        </p>
       </section>
 
       {/* 입력 면 */}

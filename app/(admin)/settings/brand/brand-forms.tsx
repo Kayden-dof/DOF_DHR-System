@@ -32,13 +32,14 @@ export function BrandForm({ name, color, sys, sysLong, tagline, companyTagline }
             화면 바닥글과 인쇄물에 나옵니다. 로고가 없으면 이 이름이 글자로 나옵니다.
           </p>
 
-          <label className="label mt-3">회사 한 줄 문구</label>
+          <label className="label mt-3">회사 슬로건</label>
           <input name="company_tagline" defaultValue={companyTagline ?? ''} autoComplete="off"
                  maxLength={80} placeholder="REGENERATIVE HEALTHCARE PLATFORM"
                  className="input" />
           <p className="mt-1 text-xs leading-relaxed text-faint">
-            로그인 화면 로고 아래에 옵니다. 무엇을 하는 회사인지 한 줄입니다.
-            비워 두면 아무것도 나오지 않습니다.
+            로그인 화면 로고 아래에 옵니다.{' '}
+            <b className="text-ink">비워 두면 아무것도 나오지 않습니다.</b>{' '}
+            로고 그림에 슬로건이 이미 들어 있으면 비워 두십시오 - 두 번 나옵니다.
           </p>
         </div>
 

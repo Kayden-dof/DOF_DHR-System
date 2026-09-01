@@ -76,6 +76,25 @@ async function seedMasterData(t) {
   const pouch = await mkItem('PM-002', '파우치', 'PACK', 'EA', 'EA');
   const label = await mkItem('PM-003', '라벨', 'PACK', 'EA', 'EA');
 
+  /*
+   * 형명 체계 (0075). 빈 설치에는 이관이 심어 주지 않는다 - 처음 받는
+   * 제조소에 DOF 의 규칙을 깔면 안 되기 때문이다. 그래서 시험도 스스로 넣는다.
+   *
+   * 값은 DX2401 의 규칙 그대로다. 12_model_scheme.mjs 가 이 값과 무관하게
+   * 사양의 규칙을 JS 로 다시 셈해 견주므로, 여기를 잘못 적으면 그쪽이 잡는다.
+   */
+  const scheme = await t.val(
+    `insert into model_scheme (name, prefix, spec_pattern, name_pattern)
+     values ('이종 진피 완제품', 'PD',
+             '{1}x{2}cm · 두께 {3}~{4}mm', '{P} {1}x{2}cm {3}~{4}mm')
+     returning id`);
+  await t.rows(
+    `insert into model_segment (scheme_id, seq, digits, divisor, decimals, label, role)
+     values ($1,1,2,1,0,'가로 (cm)','WIDTH'),
+            ($1,2,2,1,0,'세로 (cm)','HEIGHT'),
+            ($1,3,2,10,1,'두께 하한 (mm)','BAND'),
+            ($1,4,2,10,1,'두께 상한 (mm)','BAND')`, [scheme]);
+
   // 완제품 형명. 규칙으로 생성한다 (§4.2 "62개를 손으로 등록하지 말 것").
   const generated = await t.rows(
     `select * from generate_finished_items(

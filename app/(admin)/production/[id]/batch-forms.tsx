@@ -18,7 +18,11 @@ export interface LotRow {
   location: string | null; shelf_months: number | null; shipped: number;
   rework: number; concession: number; scrap: number;
 }
-export interface FinOpt { id: string; code: string; name: string }
+export interface FinOpt {
+  id: string; code: string; name: string;
+  /** 형명의 두께 구간. 체계가 정한다 (0075). 체계 밖 코드면 null */
+  band: string | null;
+}
 
 /* ---------------------------------------------------------------------------
    재단 분할
@@ -45,13 +49,16 @@ export function CutForm({ woId, options, today, used, band }: {
   const [sample, setSample] = useState('0');
   const pool = options.filter((o) => !used.has(o.id));
 
-  // 형명 뒤 4 자리가 두께 구간이다 (PD + 가로2 + 세로2 + 두께하한2 + 두께상한2)
-  const ofBand = band ? pool.filter((o) => o.code.slice(-4) === band) : [];
-  const others = band ? pool.filter((o) => o.code.slice(-4) !== band) : pool;
+  /*
+   * 두께 구간은 형명 체계가 정한다 (0075). 전에는 여기서 뒤 네 자리를 잘라
+   * 썼는데, 그러면 자리 수가 다른 제조소에서 이 화면만 조용히 틀린다.
+   */
+  const ofBand = band ? pool.filter((o) => o.band === band) : [];
+  const others = band ? pool.filter((o) => o.band !== band) : pool;
 
   const [itemId, setItemId] = useState('');
   const picked = pool.find((o) => o.id === itemId) ?? ofBand[0] ?? others[0];
-  const offBand = !!band && !!picked && picked.code.slice(-4) !== band;
+  const offBand = !!band && !!picked && picked.band !== band;
 
   const avail = Math.max(0, Number(produced || 0) - Number(sample || 0));
 
@@ -103,7 +110,7 @@ export function CutForm({ woId, options, today, used, band }: {
       {offBand && (
         <Caution>
           이 배치의 원재료 두께 구간은 {band} 인데 고른 형명 {picked!.code} 의
-          두께 구간은 {picked!.code.slice(-4)} 입니다.
+          두께 구간은 {picked!.band ?? '알 수 없음'} 입니다.
         </Caution>
       )}
 

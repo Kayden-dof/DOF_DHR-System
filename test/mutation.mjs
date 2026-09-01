@@ -109,13 +109,40 @@ const MUTATIONS = [
   { id: 'M-DVDATE', rule: '일탈 미래 날짜 금지',
     sql: `drop trigger if exists deviation_dates on deviation`,
     cases: ['DV-10'] },
+
+  /*
+   * 규격 표기는 규칙이 아니라 셈이다. 그래서 없애는 것이 아니라 **틀리게**
+   * 만든다 - 크기 두 자리까지 10 으로 나눈다. 정확히 0057 이 고친 결함이고,
+   * 그 값이 라벨 업체가 보는 종이로 나갔다.
+   *
+   * M5-4 가 이 함수를 통째로 갈아 끼운다. 그때 시험이 눈을 감고 있으면
+   * 10배 틀린 치수가 다시 종이로 나간다.
+   */
+  { id: 'M-SPEC', rule: '규격 표기 (크기는 cm 그대로)',
+    sql: `create or replace function spec_label(p_code text) returns text
+          language sql immutable as $fn$
+            select case
+              when p_code ~ '^PD[0-9]{8}$' then
+                format('%sx%scm · 두께 %s~%smm',
+                  mm_label(substr(p_code, 3, 2)), mm_label(substr(p_code, 5, 2)),
+                  mm_label(substr(p_code, 7, 2)), mm_label(substr(p_code, 9, 2)))
+              else ''
+            end
+          $fn$`,
+    cases: ['MS-01', 'MS-02', 'RV3-01'] },
+
+  /* 넓이는 원가를 배치 안에서 가르는 데 쓴다. 뒤집으면 배분이 뒤집힌다 */
+  { id: 'M-AREA', rule: '형명에서 넓이를 셈한다',
+    sql: `create or replace function item_area_cm2(p_code text) returns numeric
+          language sql immutable as $fn$ select null::numeric $fn$`,
+    cases: ['MS-01', 'MS-02'] },
 ];
 
 /* --- 시험을 모은다 --------------------------------------------------------- */
 const FILES = [
   '01_users.mjs', '02_s03_audit.mjs', '03_numbering.mjs', '04_rules_m1_m4.mjs',
   '05_genealogy.mjs', '06_review.mjs', '07_immutable.mjs',
-  '09_review2.mjs', '10_review3.mjs', '11_deviation.mjs',
+  '09_review2.mjs', '10_review3.mjs', '11_deviation.mjs', '12_model_scheme.mjs',
 ];
 
 const byId = new Map();

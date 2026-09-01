@@ -148,7 +148,10 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
         `select id, code, name, after_cutting from dmr_operation
           where device_master_id = $1 order by seq`, [wo.device_master_id]),
       finished: await db.rows<FinOpt>(
-        `select id, code, name from item where type = 'FIN' and is_active order by code`),
+        /* 두께 구간은 형명 체계가 정한다 (0075). 화면이 뒤 네 자리를 잘라
+           쓰던 것을 DB 로 옮겼다 - 자리 수가 바뀌면 그 화면만 조용히 틀린다 */
+        `select id, code, name, model_band(code) as band
+           from item where type = 'FIN' and is_active order by code`),
       today: await db.val<string>(`select to_char(timezone('Asia/Seoul', now()),'YYYY-MM-DD')`),
       /*
        * 검토 지원 (§8.5). 산술로 판정되는 것만 돌아온다.
