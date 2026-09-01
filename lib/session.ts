@@ -45,14 +45,24 @@ function sign(payload: string): string {
   return b64(createHmac('sha256', secret()).update(payload).digest());
 }
 
+/*
+ * i(발급 시각)를 함께 봉한다. 비밀번호가 바뀐 시각보다 먼저 발급된 세션을
+ * 거부하기 위해서다 (0068). 세션 표를 만들지 않고 같은 일을 한다.
+ *
+ * 옛 쿠키에는 i 가 없다. 그때는 e 에서 유효 시간을 빼 발급 시각으로 삼는다 -
+ * 이 변경으로 지금 일하는 사람이 튕겨 나가면 안 된다.
+ */
 function seal(userId: string): string {
+  const now = Date.now();
   const payload = b64(
-    Buffer.from(JSON.stringify({ v: 1, u: userId, e: Date.now() + MAX_AGE_SEC * 1000 })),
+    Buffer.from(JSON.stringify({ v: 1, u: userId, i: now, e: now + MAX_AGE_SEC * 1000 })),
   );
   return `${payload}.${sign(payload)}`;
 }
 
-function unseal(token: string | undefined): string | null {
+interface Claim { userId: string; issuedAt: number }
+
+function unseal(token: string | undefined): Claim | null {
   if (!token) return null;
   const [payload, sig] = token.split('.');
   if (!payload || !sig) return null;
@@ -63,11 +73,13 @@ function unseal(token: string | undefined): string | null {
 
   try {
     const data = JSON.parse(Buffer.from(payload, 'base64url').toString()) as {
-      v: number; u: string; e: number;
+      v: number; u: string; e: number; i?: number;
     };
     if (data.v !== 1 || typeof data.u !== 'string') return null;
     if (!Number.isFinite(data.e) || data.e < Date.now()) return null;
-    return data.u;
+    const issuedAt = Number.isFinite(data.i) ? (data.i as number)
+      : data.e - MAX_AGE_SEC * 1000;
+    return { userId: data.u, issuedAt };
   } catch {
     return null;
   }
@@ -92,23 +104,37 @@ export async function endSession(): Promise<void> {
 /** 로그인 상태면 계정을, 아니면 null. 매 요청 DB를 다시 읽는다. */
 export async function currentUser(): Promise<SessionUser | null> {
   const jar = await cookies();
-  const userId = unseal(jar.get(COOKIE)?.value);
-  if (!userId) return null;
+  const claim = unseal(jar.get(COOKIE)?.value);
+  if (!claim) return null;
 
   return withActor(null, async (db) => {
     const row = await db.one<{
       id: string; login_code: string; full_name: string;
       is_developer: boolean; must_change_pin: boolean; roles: RoleCode[] | null;
+      pin_changed_at: Date | null;
     }>(
       `select u.id, u.login_code, u.full_name, u.is_developer, u.must_change_pin,
+              u.pin_changed_at,
               array_remove(array_agg(r.role::text order by r.role), null)::text[] as roles
          from app_user u
          left join user_role r on r.user_id = u.id
         where u.id = $1 and u.is_active and u.can_login
         group by u.id`,
-      [userId],
+      [claim.userId],
     );
     if (!row) return null;
+
+    /*
+     * 비밀번호가 바뀐 뒤에 발급된 세션만 살린다 (0068).
+     *
+     * 어깨너머로 여섯 자리를 본 사람이 있을 때, "비밀번호를 바꾸세요" 가 실제로
+     * 그 사람을 끊어야 한다. 전에는 그가 쥔 세션이 여덟 시간 더 살아 있었다.
+     *
+     * pin_changed_at 이 null 이면 언제 바꿨는지 모르는 것이므로 거부하지 않는다.
+     * 이 열이 생기기 전부터 있던 계정이다.
+     */
+    if (row.pin_changed_at && claim.issuedAt < row.pin_changed_at.getTime()) return null;
+
     return { ...row, roles: row.roles ?? [] };
   });
 }

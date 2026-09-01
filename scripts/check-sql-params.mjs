@@ -107,7 +107,18 @@ for (const file of DIRS.flatMap((d) => walk(path.join(ROOT, d)))) {
     const sql = src.slice(i + 1, j);
     i = j;
 
-    const nums = [...sql.matchAll(/\$(\d+)/g)].map((m) => Number(m[1]));
+    /*
+     * 홑따옴표 안은 자료다. 거기 든 $N 은 자리표시자가 아니다.
+     *
+     * scrypt 해시가 'scrypt$32768$8$1$…' 모양이라, 그 값을 질의문에 그대로
+     * 적었더니 검사기가 $32768 을 자리표시자로 읽고 "값이 모자란다" 고 했다.
+     * 오탐이다 (적대적 검증 2026-09-01).
+     *
+     * 반대 방향이 더 무섭다 - 값 안의 큰 $N 이 최대값을 밀어 올리면, 진짜
+     * 어긋난 질의문이 그 뒤에 숨는다. 확인해 주는 도구가 틀리면 확인이 아니다.
+     */
+    const bare = sql.replace(/'(?:[^']|'')*'/g, "''");
+    const nums = [...bare.matchAll(/\$(\d+)/g)].map((m) => Number(m[1]));
     if (nums.length === 0) continue;
     /* 템플릿 보간이 섞인 질의문은 자리 수를 확신할 수 없다 */
     if (sql.includes('${')) continue;

@@ -105,7 +105,7 @@ export default [
 },
 
 {
-  id: 'U-10', expect: '확인',
+  id: 'U-22', expect: '확인',
   name: 'current_user_id(): app.user_id 미설정 시 null',
   async run(t) {
     await t.setActor(null);
@@ -235,6 +235,49 @@ export default [
     const code = 'thr-d';
     for (let i = 0; i < 6; i += 1) await t.rows(`select login_fail($1)`, [code]);
     t.eq(await t.val(`select coalesce(login_lock_seconds($1), 0)`, ['thr-e']), 0, '다른 사번');
+  },
+},
+
+{
+  id: 'U-23', expect: '확인',
+  name: '비밀번호를 바꾸면 그 시각이 찍힌다 (세션을 끊는 근거)',
+  async run(t) {
+    const id = await t.newUser({ full_name: '세션시험', pin_hash: 'scrypt$32768$8$1$aa$bb' });
+
+    const before = (await t.rows(
+      `select pin_changed_at from app_user where id = $1`, [id]))[0].pin_changed_at;
+    if (before !== null) throw new Error('만들 때는 찍히지 않아야 합니다');
+
+    /*
+     * 전자서명이 없으므로 기록의 귀속은 오직 로그인에 달려 있다 (§1). 비밀번호가
+     * 새면 "바꾸세요" 가 실제로 그 세션을 끊어야 하는데, 전에는 여덟 시간 더
+     * 살아 있었다 (적대적 검증 2026-09-01).
+     */
+    await t.rows(`update app_user set pin_hash = 'scrypt$32768$8$1$cc$dd' where id = $1`, [id]);
+    const after = (await t.rows(
+      `select pin_changed_at from app_user where id = $1`, [id]))[0].pin_changed_at;
+    if (!after) throw new Error('비밀번호를 바꾸면 찍혀야 합니다');
+  },
+},
+
+{
+  id: 'U-24', expect: '확인',
+  name: '다른 값만 바꾸면 남의 세션을 끊지 않는다',
+  async run(t) {
+    const id = await t.newUser({ full_name: '세션시험2', pin_hash: 'scrypt$32768$8$1$ee$ff' });
+    await t.rows(`update app_user set pin_hash = 'scrypt$32768$8$1$gg$hh' where id = $1`, [id]);
+    const first = (await t.rows(
+      `select pin_changed_at from app_user where id = $1`, [id]))[0].pin_changed_at;
+
+    /* 이름을 고치거나 같은 해시를 다시 써 넣는 것은 바꾼 것이 아니다 */
+    await t.rows(`update app_user set full_name = '세션시험2b' where id = $1`, [id]);
+    await t.rows(`update app_user set pin_hash = 'scrypt$32768$8$1$gg$hh' where id = $1`, [id]);
+    const same = (await t.rows(
+      `select pin_changed_at from app_user where id = $1`, [id]))[0].pin_changed_at;
+
+    if (String(same) !== String(first)) {
+      throw new Error('비밀번호가 그대로인데 시각이 바뀌었습니다');
+    }
   },
 },
 

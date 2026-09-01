@@ -17,3 +17,4 @@ next-env.d.ts
 
 # 백업 산출물. 자료가 통째로 들어 있으므로 저장소에 올리지 않는다
 backups/
+.audit-tmp/
