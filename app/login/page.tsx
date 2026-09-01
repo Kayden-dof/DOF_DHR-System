@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { currentUser } from '@/lib/session';
 import { withActor } from '@/lib/db';
-import { BrandMark, BrandCopyright, BrandName } from '@/components/brand-mark';
+import { BrandMark, BrandCopyright } from '@/components/brand-mark';
 import { getBrand } from '@/lib/brand';
 import { yearKST } from '@/lib/kst';
 import { APP_VERSION } from '@/lib/version';
@@ -58,20 +58,34 @@ export default async function LoginPage() {
         <span aria-hidden className="relative h-px w-16 bg-white/25" />
 
         {/*
-          * 어두운 면에는 이름을 크게 낸다.
+          * 어두운 면에도 로고를 낸다 (사용자 요청 2026-09-01).
           *
-          * 로고 한 장으로 밝은 바탕과 어두운 바탕을 둘 다 감당할 수 없다.
-          * 흰 로고를 올리면 머리줄에서 안 보이고, 짙은 로고를 올리면 여기서
-          * 안 보인다. 어두운 바탕용 슬롯을 따로 두는 방법도 있으나, 설정을
-          * 늘리는 것보다 이름을 크게 내는 쪽이 어느 회사에서나 성립한다.
+          * 전에는 이름을 글자로 냈다. 로고 한 장으로 밝은 바탕과 어두운 바탕을
+          * 둘 다 감당할 수 없다는 이유였는데, 어두운 자리에서는 로고 뒤에 밝은
+          * 판을 깔기로 하면서 그 이유가 없어졌다 (components/brand-mark.tsx).
+          *
+          * 로고가 없는 제조소에서는 BrandMark 가 이름을 흰 글자로 낸다. 여기서
+          * 갈래를 따로 쓰지 않는다 - 두 곳에서 정하면 갈라진다 (§10).
           */}
         <div className="relative">
-          <BrandName className="display text-[3.5rem] leading-none text-white" />
+          {/*
+            * 여기서는 높이가 아니라 폭으로 잡는다. 로고마다 가로세로 비가
+            * 달라, 높이를 맞추면 납작한 로고는 이 넓은 면에서 작아 보인다.
+            * 글자로 떨어질 때는 폭이 먹지 않으므로(inline) 글자 크기가 잡는다.
+            */}
+          <BrandMark className="w-60 text-[3.5rem]" dark />
         </div>
 
-        <p className="relative text-[0.6875rem] font-medium tracking-[0.18em] text-on-dark-mute">
-          REGENERATIVE HEALTHCARE PLATFORM
-        </p>
+        {/*
+          * 회사 한 줄 문구도 설정에서 온다 (0073). 전에는 DOF 문구가 박혀
+          * 있어, 다른 제조소가 받으면 자기 로고 아래에 남의 회사 설명이 붙었다.
+          * 적어 두지 않은 제조소에서는 아무것도 나오지 않는다 - 지어내지 않는다.
+          */}
+        {brand.companyTagline && (
+          <p className="relative text-[0.6875rem] font-medium tracking-[0.18em] text-on-dark-mute">
+            {brand.companyTagline}
+          </p>
+        )}
       </section>
 
       {/* 입력 면 */}

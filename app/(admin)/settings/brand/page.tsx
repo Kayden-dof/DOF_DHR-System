@@ -22,7 +22,8 @@ export const metadata = { title: '회사 표시' };
 
 interface Row {
   company_name: string; brand_color: string;
-  system_name: string | null; system_name_long: string | null; system_tagline: string | null;
+  system_name: string | null; system_name_long: string | null;
+  system_tagline: string | null; company_tagline: string | null;
   logo_name: string | null; has_logo: boolean; version: string | null;
   updated_by_name: string | null; updated_at: string | null;
 }
@@ -36,7 +37,7 @@ export default async function BrandPage() {
   const d = await withActor(user.id, (db) =>
     db.one<Row>(
       `select b.company_name, b.brand_color, b.logo_name,
-              b.system_name, b.system_name_long, b.system_tagline,
+              b.system_name, b.system_name_long, b.system_tagline, b.company_tagline,
               (b.logo_bytes is not null) as has_logo,
               to_char(b.updated_at, 'YYYYMMDDHH24MISS') as version,
               u.full_name as updated_by_name,
@@ -68,7 +69,7 @@ export default async function BrandPage() {
              note={d.updated_at ? `${d.updated_at} · ${d.updated_by_name ?? ''}` : undefined}>
         <BrandForm name={d.company_name} color={d.brand_color}
                    sys={d.system_name} sysLong={d.system_name_long}
-                   tagline={d.system_tagline} />
+                   tagline={d.system_tagline} companyTagline={d.company_tagline} />
         <LogoForm hasLogo={d.has_logo} logoName={d.logo_name} version={d.version} />
       </Panel>
 

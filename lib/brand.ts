@@ -25,6 +25,7 @@ export interface Brand {
   systemName: string;
   systemNameLong: string;
   systemTagline: string;
+  companyTagline: string;
 }
 
 /** 설정이 아직 없거나 읽지 못했을 때. 화면이 비어 보이지 않게만 한다 */
@@ -36,6 +37,7 @@ const FALLBACK: Brand = {
   systemName: '',
   systemNameLong: '',
   systemTagline: '',
+  companyTagline: '',
 };
 
 export const getBrand = cache(async (): Promise<Brand> => {
@@ -45,12 +47,12 @@ export const getBrand = cache(async (): Promise<Brand> => {
         company_name: string; brand_color: string;
         has_logo: boolean; logo_updated_at: string | null;
         system_name: string | null; system_name_long: string | null;
-        system_tagline: string | null;
+        system_tagline: string | null; company_tagline: string | null;
       }>(
         `select company_name, brand_color,
                 (logo_bytes is not null) as has_logo,
                 to_char(updated_at, 'YYYYMMDDHH24MISS') as logo_updated_at,
-                system_name, system_name_long, system_tagline
+                system_name, system_name_long, system_tagline, company_tagline
            from org_brand limit 1`),
     );
     if (!row) return FALLBACK;
@@ -62,6 +64,7 @@ export const getBrand = cache(async (): Promise<Brand> => {
       systemName: row.system_name ?? '',
       systemNameLong: row.system_name_long ?? '',
       systemTagline: row.system_tagline ?? '',
+      companyTagline: row.company_tagline ?? '',
     };
   } catch {
     /* 설정 표가 아직 없어도 화면이 서 버리면 안 된다 */

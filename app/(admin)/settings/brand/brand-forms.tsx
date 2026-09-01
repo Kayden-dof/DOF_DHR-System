@@ -13,9 +13,10 @@ import type { FormState } from '@/lib/forms';
    않고, 고른 색 그대로만 보인다.
 --------------------------------------------------------------------------- */
 
-export function BrandForm({ name, color, sys, sysLong, tagline }: {
+export function BrandForm({ name, color, sys, sysLong, tagline, companyTagline }: {
   name: string; color: string;
-  sys: string | null; sysLong: string | null; tagline: string | null;
+  sys: string | null; sysLong: string | null;
+  tagline: string | null; companyTagline: string | null;
 }) {
   const [state, action, pending] = useActionState<FormState, FormData>(saveBrand, {});
   const [c, setC] = useState(color);
@@ -29,6 +30,15 @@ export function BrandForm({ name, color, sys, sysLong, tagline }: {
                  maxLength={80} className="input" />
           <p className="mt-1 text-xs leading-relaxed text-faint">
             화면 바닥글과 인쇄물에 나옵니다. 로고가 없으면 이 이름이 글자로 나옵니다.
+          </p>
+
+          <label className="label mt-3">회사 한 줄 문구</label>
+          <input name="company_tagline" defaultValue={companyTagline ?? ''} autoComplete="off"
+                 maxLength={80} placeholder="REGENERATIVE HEALTHCARE PLATFORM"
+                 className="input" />
+          <p className="mt-1 text-xs leading-relaxed text-faint">
+            로그인 화면 로고 아래에 옵니다. 무엇을 하는 회사인지 한 줄입니다.
+            비워 두면 아무것도 나오지 않습니다.
           </p>
         </div>
 

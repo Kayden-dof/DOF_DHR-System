@@ -66,10 +66,10 @@ export async function saveBrand(_p: FormState, form: FormData): Promise<FormStat
       db.rows(
         `update org_brand set company_name = $1, brand_color = $2,
                               system_name = $3, system_name_long = $4,
-                              system_tagline = $5,
-                              updated_by = $6, updated_at = now()`,
+                              system_tagline = $5, company_tagline = $6,
+                              updated_by = $7, updated_at = now()`,
         [name, color, txt('system_name'), txt('system_name_long'),
-         txt('system_tagline'), me.id]),
+         txt('system_tagline'), txt('company_tagline'), me.id]),
       { reason: '회사 표시 변경' });
 
     bump();

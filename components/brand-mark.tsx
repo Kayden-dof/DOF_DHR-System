@@ -48,7 +48,7 @@ export async function BrandMark({
     );
     if (!dark) return img;
     return (
-      <span className="inline-flex items-center rounded-[0.3rem] bg-white/92 px-1.5 py-1">
+      <span className="inline-flex items-center rounded-md bg-white/92 px-2 py-1.5">
         {img}
       </span>
     );
@@ -75,12 +75,6 @@ export async function BrandCopyright({ year }: { year: number | string }) {
   return <>&copy; {year}{b.companyName ? ` ${b.companyName}` : ''}</>;
 }
 
-/** 이름만 낸다. 어두운 면처럼 로고가 감당하지 못하는 자리에 쓴다 */
-export async function BrandName({ className }: { className?: string }) {
-  const b = await getBrand();
-  if (!b.companyName) return null;
-  return <span className={className}>{b.companyName}</span>;
-}
 
 /** 머리줄의 짧은 시스템 이름 (DHR). 비우면 아무것도 그리지 않는다 */
 export async function SystemName({ className }: { className?: string }) {
