@@ -71,9 +71,13 @@ export default async function LoginPage() {
           {/*
             * 여기서는 높이가 아니라 폭으로 잡는다. 로고마다 가로세로 비가
             * 달라, 높이를 맞추면 납작한 로고는 이 넓은 면에서 작아 보인다.
+            *
+            * 면 너비를 따라가되 위아래로 못을 박는다. 창을 좁히면 면도 좁아지는데
+            * 로고가 고정 폭이면 여백을 먹고 넘친다.
+            *
             * 글자로 떨어질 때는 폭이 먹지 않으므로(inline) 글자 크기가 잡는다.
             */}
-          <BrandMark className="w-60 text-[3.5rem]" dark />
+          <BrandMark className="w-[clamp(18rem,30vw,26rem)] text-[3.5rem]" dark />
         </div>
 
         {/*
