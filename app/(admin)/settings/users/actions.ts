@@ -201,3 +201,45 @@ export async function revokeRole(_prev: FormState, form: FormData): Promise<Form
     return { error: dbMessage(e) };
   }
 }
+
+/* ---------------------------------------------------------------------------
+   공수 단가 (사용자 요청 2026-09-01 · 0076)
+
+   역할별 시간당 단가다. 개인 급여가 DB 에 들어오지 않아 보안상 안전하고,
+   사람이 드나들어도 단가는 그대로다 (사용자 선택).
+
+   ── 고쳐 쓰지 않는다 ──────────────────────────────────────────────────────
+   바꾸려면 새 줄을 넣는다. 채번 규칙과 같은 규율이다 (§4.10 "규칙 변경은 신규
+   행 추가로 한다"). DB 에서 update 와 delete 를 거둬 두었으므로 여기서 막는
+   것이 아니라 그쪽으로는 길이 없다.
+
+   잘못 넣었으면 바로잡는 줄을 하나 더 넣는다. 같은 날짜면 나중에 넣은 것이
+   이기고, 두 줄이 다 남아 무엇을 고쳤는지 보인다.
+--------------------------------------------------------------------------- */
+export async function addLabourRate(_prev: FormState, form: FormData): Promise<FormState> {
+  try {
+    const me = await requireUser();
+    if (!hasRole(me, 'SYS_ADMIN')) return { error: '시스템관리자만 할 수 있습니다' };
+
+    const role = String(form.get('role') ?? '').trim();
+    const rate = String(form.get('hourly_rate') ?? '').trim().replace(/,/g, '');
+    const from = String(form.get('effective_from') ?? '').trim();
+
+    if (!role) return { error: '역할을 고르십시오' };
+    if (!/^\d+(\.\d+)?$/.test(rate)) return { error: '시간당 단가를 숫자로 적으십시오' };
+    if (!from) return { error: '적용일을 고르십시오' };
+
+    await withActor(me.id, (db) =>
+      db.rows(
+        `insert into labour_rate (role, hourly_rate, effective_from, note, registered_by)
+         values ($1::role_code, $2, $3::date, $4, $5)`,
+        [role, Number(rate), from, String(form.get('note') ?? '').trim() || null, me.id]),
+      { reason: '공수 단가 등록' });
+
+    revalidatePath('/settings/users');
+    revalidatePath('/trace/cost');
+    return { ok: true, message: '공수 단가를 등록했습니다.' };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}

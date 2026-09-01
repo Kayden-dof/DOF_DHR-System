@@ -7,6 +7,7 @@ import { SubNav } from '../../nav';
 import { SETTINGS_NAV } from '../../sections';
 import NewUserForm from './new-user-form';
 import UserRowView, { type UserRow } from './user-row';
+import { LabourRates, type RateRow } from './labour-rate';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,6 +36,26 @@ export default async function UsersPage({ searchParams }: { searchParams: Search
   const role = ROLE_ORDER.includes(sp.role as never) ? sp.role! : null;
 
   const d = await withActor(me.id, async (db) => ({
+    /*
+     * 공수 단가 (0076). 역할에 매기는 값이라 역할을 다루는 이 화면에 둔다.
+     * current 는 그 역할에서 지금 쓰이는 줄인가 - 화면이 따로 셈하지 않는다.
+     */
+    rates: await db.rows<RateRow>(
+      `select r.id, r.role::text as role, r.hourly_rate,
+              r.effective_from::text as effective_from, r.note,
+              u.full_name as registered_by_name,
+              to_char(timezone('Asia/Seoul', r.registered_at), 'YYYY-MM-DD') as registered_at,
+              (r.hourly_rate = labour_rate_at(r.role, (timezone('Asia/Seoul', now()))::date)
+               and r.effective_from <= (timezone('Asia/Seoul', now()))::date
+               and r.id = (select r2.id from labour_rate r2
+                            where r2.role = r.role
+                              and r2.effective_from <= (timezone('Asia/Seoul', now()))::date
+                            order by r2.effective_from desc, r2.registered_at desc
+                            limit 1)) as current
+         from labour_rate r join app_user u on u.id = r.registered_by
+        order by r.role, r.effective_from desc, r.registered_at desc`),
+    rateToday: await db.val<string>(
+      `select to_char(timezone('Asia/Seoul', now()), 'YYYY-MM-DD')`),
     users: await db.rows<UserRow>(
       `select u.id, u.login_code, u.full_name, u.is_active, u.is_developer, u.can_login,
               (u.pin_hash is not null) as has_pin,
@@ -117,6 +138,8 @@ export default async function UsersPage({ searchParams }: { searchParams: Search
           </table>
         </div>
       </div>
+
+      <LabourRates rows={d.rates} today={d.rateToday ?? ''} />
 
       <section className="card p-4">
         <h2 className="text-xs font-bold text-ink">역할</h2>

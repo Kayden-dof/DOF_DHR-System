@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { tableLabel } from '@/lib/forms';
+import { tableLabel, fieldLabel, valueLabel } from '@/lib/forms';
 import { fmtDateTime, shortId } from '@/lib/fmt';
 import ActionChip from '@/components/action-chip';
 
@@ -24,31 +24,21 @@ export interface AuditEntry {
    것이지 저장된 비밀을 열람하는 창구가 아니다. */
 const REDACTED = new Set(['pin_hash']);
 
-const FIELD_LABEL: Record<string, string> = {
-  login_code: '로그인 번호',
-  full_name: '이름',
-  is_active: '활성',
-  is_developer: '개발 계정',
-  can_login: '로그인 사용',
-  pin_hash: '비밀번호',
-  role: '역할',
-  user_id: '대상 계정',
-  pattern: '패턴',
-  reset: '초기화 주기',
-  seq_width: '순번 자릿수',
-  target: '채번 대상',
-  item_id: '품목',
-  effective_from: '시행일',
-  registered_by: '등록자',
-  registered_at: '등록 일시',
-  is_active_rule: '활성',
-};
 
-function show(key: string, v: unknown): string {
+/**
+ * 값 하나를 사람 말로.
+ *
+ * 열 이름만 옮기고 값을 그대로 두면 `ISSUED` `SHEET_TIER` 가 뜬다. 읽는 사람은
+ * 여전히 코드를 알아야 한다 (사용자 요청 2026-09-01).
+ *
+ * 옮길 말이 없으면 값을 그대로 낸다 - 지어내지 않는다. 로트번호 · 성적서 번호
+ * 처럼 옮길 것이 아닌 값이 대부분이다.
+ */
+function show(table: string, key: string, v: unknown): string {
   if (REDACTED.has(key)) return v == null ? '없음' : '●●●●●●';
   if (v === null || v === undefined) return '-';
   if (typeof v === 'boolean') return v ? '예' : '아니오';
-  return String(v);
+  return valueLabel(table, key, v) ?? String(v);
 }
 
 function diff(
@@ -111,14 +101,14 @@ export default function Entry({ e }: { e: AuditEntry }) {
                   {changes.map((c) => (
                     <tr key={c.key}>
                       <td className="w-40 py-1 pr-3 align-top text-xs font-semibold text-muted">
-                        {FIELD_LABEL[c.key] ?? c.key}
+                        {fieldLabel(c.key)}
                       </td>
                       <td className="py-1 pr-3 align-top text-xs text-danger line-through">
-                        {e.action === 'INSERT' ? '' : show(c.key, c.from)}
+                        {e.action === 'INSERT' ? '' : show(e.table_name, c.key, c.from)}
                       </td>
                       <td className="w-6 py-1 text-center align-top text-xs text-faint">→</td>
                       <td className="py-1 align-top text-xs font-semibold text-ink">
-                        {e.action === 'DELETE' ? '삭제됨' : show(c.key, c.to)}
+                        {e.action === 'DELETE' ? '삭제됨' : show(e.table_name, c.key, c.to)}
                       </td>
                     </tr>
                   ))}

@@ -109,7 +109,12 @@ export default async function AuditPage({ searchParams }: { searchParams: Search
       [table, action, actor, PER_PAGE, (page - 1) * PER_PAGE],
     ),
     tables: await db.rows<{ table_name: string }>(
-      `select distinct table_name from audit_log order by table_name`,
+      /*
+       * 화면에는 한글 이름이 뜨는데 목록은 영문 순으로 늘어서 있었다. 자재
+       * 로트가 '자'가 아니라 'm' 자리에 있으면 눈으로 찾지 못한다.
+       * 정렬은 화면에서 한다 - 옮긴 말이 lib/forms.ts 에 있다.
+       */
+      `select distinct table_name from audit_log`,
     ),
     actors: await db.rows<{ id: string; full_name: string }>(
       `select distinct u.id, u.full_name
@@ -161,7 +166,9 @@ export default async function AuditPage({ searchParams }: { searchParams: Search
           <select id="tbl" name="table" defaultValue={table ?? ''}
                   className="input h-8 w-44 text-xs">
             <option value="">전체</option>
-            {data.tables.map((t) => (
+            {[...data.tables].sort((a, b) =>
+              tableLabel(a.table_name).localeCompare(tableLabel(b.table_name), 'ko')
+            ).map((t) => (
               <option key={t.table_name} value={t.table_name}>
                 {tableLabel(t.table_name)}
               </option>

@@ -8,7 +8,24 @@ import Link from 'next/link';
 import { fmtDate } from '@/lib/fmt';
 import { saveEquipment, linkOperation, saveValidation } from './actions';
 
-export interface EquipRow {
+/** 구입 정보와 감가상각. 원가에만 쓰이고 기록에는 나가지 않는다 */
+export interface EquipBuy {
+  purchased_on: string | null;
+  purchase_price: string | number | null;
+  useful_life_months: number | null;
+  salvage_value: string | number | null;
+  monthly_hours: string | number | null;
+  vendor_name: string | null;
+  vendor_contact_name: string | null;
+  vendor_phone: string | null;
+  vendor_email: string | null;
+  vendor_site: string | null;
+  vendor_address: string | null;
+  /** 시간당 감가상각비. 셋 중 하나라도 비면 null */
+  hourly_cost: string | number | null;
+}
+
+export interface EquipRow extends EquipBuy {
   id: string; code: string; name: string; note: string | null; is_active: boolean;
   ops: { operation_id: string; code: string; name: string }[];
   used: number;
@@ -17,6 +34,119 @@ export interface EquipRow {
   days_left: number | null;
   history: { performed_on: string; valid_until: string; report_no: string;
              note: string | null; registered_by_name: string }[];
+}
+
+/* ---------------------------------------------------------------------------
+   구입과 감가상각 (사용자 요청 2026-09-01)
+
+   생산 단가에 설비 몫을 얹으려면 얼마에 사서 몇 년 쓰는지가 있어야 한다.
+
+   ── 비워 두어도 된다 ──────────────────────────────────────────────────────
+   막지 않는다. 취득원가 · 내용연수 · 기준 월 가동시간 셋이 다 있어야 시간당
+   상각비가 나오고, 하나라도 비면 그 설비 몫을 원가에 얹지 않는다. 0 으로
+   채우지 않는다 - 0 은 "공짜" 라는 뜻이고 빈 칸은 "아직 모른다" 다.
+
+   ── 판 곳은 자재 공급자와 다른 자리다 ─────────────────────────────────────
+   supplier 표에 넣지 않는다. 그쪽은 자재 입고 화면의 선택지가 되고 승인 상태가
+   경고에 쓰인다. 설비를 판 곳이 그 목록에 뜰 이유가 없다.
+--------------------------------------------------------------------------- */
+
+function BuyFields({ e }: { e?: EquipBuy }) {
+  const v = (k: keyof EquipBuy) => (e?.[k] ?? '') as string;
+
+  return (
+    <>
+      <div className="mt-4 border-t border-line-soft pt-3">
+        <h4 className="text-xs font-bold text-ink">구입과 감가상각</h4>
+        <p className="mt-1 text-xs leading-relaxed text-muted">
+          생산 단가에 설비 몫을 얹는 데 씁니다. 기록에는 나가지 않습니다.
+          <b className="text-ink"> 취득원가 · 내용연수 · 기준 월 가동시간</b> 이 다
+          있어야 시간당 상각비가 나옵니다. 비워 두면 얹지 않습니다.
+        </p>
+
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div>
+            <label className="label">구입일</label>
+            <input type="date" name="purchased_on" defaultValue={v('purchased_on')}
+                   className="input tnum" />
+          </div>
+          <div>
+            <label className="label">취득원가 (원)</label>
+            <input name="purchase_price" inputMode="numeric" autoComplete="off"
+                   defaultValue={v('purchase_price')} placeholder="12000000"
+                   className="input tnum" />
+          </div>
+          <div>
+            <label className="label">내용연수 (개월)</label>
+            <input name="useful_life_months" inputMode="numeric" autoComplete="off"
+                   defaultValue={v('useful_life_months')} placeholder="60"
+                   className="input tnum" />
+          </div>
+          <div>
+            <label className="label">잔존가치 (원)</label>
+            <input name="salvage_value" inputMode="numeric" autoComplete="off"
+                   defaultValue={v('salvage_value')} placeholder="0"
+                   className="input tnum" />
+          </div>
+          <div>
+            <label className="label">기준 월 가동시간</label>
+            <input name="monthly_hours" inputMode="decimal" autoComplete="off"
+                   defaultValue={v('monthly_hours')} placeholder="160"
+                   className="input tnum" />
+          </div>
+        </div>
+
+        {e?.hourly_cost != null && (
+          <p className="mt-2 text-xs text-muted">
+            지금 값으로 시간당{' '}
+            <b className="tnum text-ink">{won(e.hourly_cost)}</b> 원입니다.
+          </p>
+        )}
+      </div>
+
+      <div className="mt-4 border-t border-line-soft pt-3">
+        <h4 className="text-xs font-bold text-ink">판 곳</h4>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div>
+            <label className="label">업체명</label>
+            <input name="vendor_name" autoComplete="off" defaultValue={v('vendor_name')}
+                   className="input" />
+          </div>
+          <div>
+            <label className="label">담당자</label>
+            <input name="vendor_contact_name" autoComplete="off"
+                   defaultValue={v('vendor_contact_name')} className="input" />
+          </div>
+          <div>
+            <label className="label">연락처</label>
+            <input name="vendor_phone" autoComplete="off" defaultValue={v('vendor_phone')}
+                   className="input tnum" />
+          </div>
+          <div>
+            <label className="label">이메일</label>
+            <input type="email" name="vendor_email" autoComplete="off"
+                   defaultValue={v('vendor_email')} className="input" />
+          </div>
+          <div>
+            <label className="label">사이트 <span className="text-faint">(선택)</span></label>
+            <input type="url" name="vendor_site" autoComplete="off" placeholder="https://"
+                   defaultValue={v('vendor_site')} className="input" />
+          </div>
+          <div>
+            <label className="label">주소 <span className="text-faint">(선택)</span></label>
+            <input name="vendor_address" autoComplete="off"
+                   defaultValue={v('vendor_address')} className="input" />
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/** 원 단위 숫자를 세 자리마다 끊는다. 소수 넷째 자리까지 남는 값이라 반올림한다 */
+function won(v: string | number) {
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.round(n).toLocaleString('ko-KR') : String(v);
 }
 
 export interface OpOption {
@@ -61,6 +191,8 @@ export function NewEquipment() {
       <p className="mt-2 text-xs leading-relaxed text-muted">
         코드는 등록 후 수정할 수 없습니다. 제조기록서에 이 값이 그대로 기재됩니다.
       </p>
+
+      <BuyFields />
       <Msg state={state} />
       <div className="mt-3 flex gap-2">
         <button type="submit" disabled={pending} className="btn-primary h-9 px-4 text-xs">
@@ -151,6 +283,9 @@ export function EquipCard({ e, ops }: { e: EquipRow; ops: OpOption[] }) {
               </label>
             </div>
           </div>
+
+          <BuyFields e={e} />
+
           <Msg state={state} />
           <div className="mt-3 flex gap-2">
             <button type="submit" disabled={pending} className="btn-primary h-9 px-4 text-xs">

@@ -136,6 +136,25 @@ const MUTATIONS = [
     sql: `create or replace function item_area_cm2(p_code text) returns numeric
           language sql immutable as $fn$ select null::numeric $fn$`,
     cases: ['MS-01', 'MS-02'] },
+
+  /* 공수 단가를 고쳐 쓰는 길이 열리면 지난 원가가 조용히 바뀐다 */
+  { id: 'M-RATE', rule: '공수 단가는 고쳐 쓸 수 없다',
+    sql: `grant update, delete on labour_rate to app_role`,
+    cases: ['LC-04'] },
+
+  /* 빠진 건수를 세지 않으면 원가가 적게 나온 줄 모른다 */
+  { id: 'M-GAP', rule: '시각이 빈 기록을 센다',
+    sql: `create or replace view v_process_cost as
+          select pr.id as process_record_id, pr.work_order_id, pr.product_lot_id,
+                 pr.worker_id, pr.equipment_id, pr.work_date,
+                 true as timed,
+                 coalesce(round(extract(epoch from pr.ended_at - pr.started_at)
+                                / 3600.0, 4), 0) as hours,
+                 (select max(labour_rate_at(ur.role, pr.work_date))
+                    from user_role ur where ur.user_id = pr.worker_id) as labour_rate,
+                 equipment_hourly_cost(pr.equipment_id) as equip_rate
+            from process_record pr`,
+    cases: ['LC-05'] },
 ];
 
 /* --- 시험을 모은다 --------------------------------------------------------- */
@@ -143,6 +162,7 @@ const FILES = [
   '01_users.mjs', '02_s03_audit.mjs', '03_numbering.mjs', '04_rules_m1_m4.mjs',
   '05_genealogy.mjs', '06_review.mjs', '07_immutable.mjs',
   '09_review2.mjs', '10_review3.mjs', '11_deviation.mjs', '12_model_scheme.mjs',
+  '13_cost.mjs',
 ];
 
 const byId = new Map();

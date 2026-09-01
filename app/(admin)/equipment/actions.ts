@@ -25,6 +25,34 @@ const txt = (v: FormDataEntryValue | null) => {
   return s === '' ? null : s;
 };
 
+/*
+ * 숫자 칸. 비어 있으면 null 이다 - 0 으로 채우지 않는다.
+ *
+ * 0 은 "공짜" 라는 뜻이고 null 은 "모른다" 다. 취득원가가 비었는데 0 으로
+ * 넣으면 그 설비는 감가상각이 0원인 것으로 계산되어 원가가 조용히 적게 나온다.
+ * 비어 있으면 상각비를 얹지 않고, 화면이 몇 대가 비었는지 적는다.
+ */
+const num = (v: FormDataEntryValue | null) => {
+  const s = String(v ?? '').trim().replace(/,/g, '');
+  if (s === '') return null;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+};
+
+/* 구입 정보와 판 곳. 등록과 수정이 같은 목록을 쓴다 */
+const BUY = [
+  'purchased_on', 'purchase_price', 'useful_life_months', 'salvage_value',
+  'monthly_hours', 'vendor_name', 'vendor_contact_name', 'vendor_phone',
+  'vendor_email', 'vendor_site', 'vendor_address',
+] as const;
+
+const NUMERIC = new Set<string>([
+  'purchase_price', 'useful_life_months', 'salvage_value', 'monthly_hours']);
+
+function buyValues(form: FormData) {
+  return BUY.map((k) => (NUMERIC.has(k) ? num(form.get(k)) : txt(form.get(k))));
+}
+
 export async function saveEquipment(_p: FormState, form: FormData): Promise<FormState> {
   try {
     const me = await admin();
@@ -43,13 +71,22 @@ export async function saveEquipment(_p: FormState, form: FormData): Promise<Form
         await db.rows(
           `update equipment
               set code = coalesce(nullif($5,''), code),
-                  name = $2, note = $3, is_active = $4
+                  name = $2, note = $3, is_active = $4,
+                  purchased_on = $6::date, purchase_price = $7,
+                  useful_life_months = $8, salvage_value = $9, monthly_hours = $10,
+                  vendor_name = $11, vendor_contact_name = $12, vendor_phone = $13,
+                  vendor_email = $14, vendor_site = $15, vendor_address = $16
             where id = $1`,
-          [id, name, note, form.get('is_active') === 'on', code]);
+          [id, name, note, form.get('is_active') === 'on', code, ...buyValues(form)]);
       } else {
         await db.rows(
-          `insert into equipment (code, name, note) values ($1, $2, $3)`,
-          [txt(form.get('code')), name, note]);
+          `insert into equipment
+             (code, name, note,
+              purchased_on, purchase_price, useful_life_months, salvage_value,
+              monthly_hours, vendor_name, vendor_contact_name, vendor_phone,
+              vendor_email, vendor_site, vendor_address)
+           values ($1, $2, $3, $4::date, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+          [txt(form.get('code')), name, note, ...buyValues(form)]);
       }
     });
 

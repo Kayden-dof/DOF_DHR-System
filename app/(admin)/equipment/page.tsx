@@ -41,6 +41,12 @@ export default async function EquipmentPage() {
   const d = await withUser(user, async (db) => ({
     equipment: await db.rows<EquipRow>(
       `select e.id, e.code, e.name, e.note, e.is_active,
+              /* 구입과 감가상각 (0076). 원가에만 쓰이고 기록에는 나가지 않는다 */
+              e.purchased_on::text as purchased_on,
+              e.purchase_price, e.useful_life_months, e.salvage_value, e.monthly_hours,
+              e.vendor_name, e.vendor_contact_name, e.vendor_phone,
+              e.vendor_email, e.vendor_site, e.vendor_address,
+              equipment_hourly_cost(e.code) as hourly_cost,
               v.performed_on::text as performed_on,
               v.valid_until::text as valid_until,
               v.report_no,
