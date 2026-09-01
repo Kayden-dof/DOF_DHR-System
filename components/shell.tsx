@@ -55,8 +55,17 @@ export function PageShell({
             * 자체에서 잡는다.
             */}
           <div className="min-w-0 flex-1">
-            {section && <p className="crumb">{section}</p>}
-            <h1 className={`text-[1.625rem] font-bold leading-tight text-ink ${section ? 'mt-2' : ''}`}>
+            {/*
+              * 제목 위에 구역 이름을 적지 않는다.
+              *
+              * 머리줄이 이미 어느 구역인지 밝히고, 하위 차림표가 있으면 그것이
+              * 어느 화면인지 밝힌다. 그 아래 다시 "설정" 을 적으면 같은 말이 세
+              * 번이고, 제목 앞에 줄이 하나 더 생겨 화면이 무거워진다.
+              *
+              * section 은 남겨 둔다 - 화면이 어느 구역에 속하는지는 여전히
+              * 사실이고, 나중에 다른 자리에서 쓸 수 있다.
+              */}
+            <h1 className="text-[1.375rem] font-bold leading-tight text-ink">
               {title}
             </h1>
             {/*

@@ -63,7 +63,6 @@ export default function BackFab() {
            strokeLinecap="round" strokeLinejoin="round">
         <path d="M15 5 L8 12 L15 19" />
       </svg>
-      <span className="back-fab-label">뒤로</span>
     </button>
   );
 }

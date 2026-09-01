@@ -18,3 +18,6 @@ next-env.d.ts
 # 백업 산출물. 자료가 통째로 들어 있으므로 저장소에 올리지 않는다
 backups/
 .audit-tmp/
+
+# 바깥에서 받은 스킬. 도구이지 이 제품이 아니다 (impeccable Apache-2.0 · taste-skill MIT)
+.claude/skills/

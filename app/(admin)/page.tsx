@@ -434,7 +434,16 @@ export default async function Dashboard() {
         )}
       </div>
 
-      <div className="grid items-start gap-5 lg:grid-cols-3">
+      {/*
+        * 마감 대기와 최근 활동을 위아래로 쌓는다 (사용자 지시 2026-09-01).
+        *
+        * 전에는 2 : 1 로 나란히 두었다. 그런데 왼쪽은 표이고 오른쪽은 목록이라
+        * 높이가 서로 맞지 않아, 한쪽이 길면 다른 쪽 옆에 빈 자리가 남았다.
+        * 그리고 마감 대기 표가 좁은 칸에 눌려 열이 붙었다.
+        *
+        * 쌓으면 표가 폭을 다 쓰고 최근 활동은 옆의 빈 자리를 만들지 않는다.
+        */}
+      <div className="space-y-5">
         {/*
           * 마감 대기. 위 숫자 띠의 "미마감 일차"가 무엇으로 이루어졌는지가
           * 여기 있다. 숫자를 띄워 놓고 그 안을 볼 자리를 주지 않으면 그 숫자는
@@ -444,7 +453,6 @@ export default async function Dashboard() {
           * 없고, 되돌릴 수 없는 조작은 배치를 열어 놓고 해야 한다.
           */}
         <Panel
-          className="lg:col-span-2"
           title="마감 대기"
           action={
             <Link href="/production" className="text-xs font-bold text-brand hover:underline">
