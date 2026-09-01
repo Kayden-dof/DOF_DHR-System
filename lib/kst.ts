@@ -52,6 +52,19 @@ export function isPastKST(date: string | null | undefined): boolean {
 }
 
 /** 오늘부터 며칠 안인가. 유효기한 임박 표시에 쓴다 */
+/**
+ * 오늘부터 그 날짜까지 며칠인가. 지난 날짜는 음수다.
+ *
+ * 여기서도 Date 산술을 쓰지 않는다. 'YYYY-MM-DD' 를 Date 로 만들면 UTC 자정이
+ * 되어 한국 시각과 아홉 시간 어긋나고, 자정 언저리에서 하루가 밀린다. 두 날짜를
+ * 각각 UTC 정오로 놓고 빼면 시간대가 상쇄되어 날수만 남는다.
+ */
+export function daysUntilKST(date: string | null | undefined): number | null {
+  if (!date) return null;
+  const at = (d: string) => Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10), 12);
+  return Math.round((at(date.slice(0, 10)) - at(todayKST())) / 86_400_000);
+}
+
 export function withinDaysKST(date: string | null | undefined, days: number): boolean {
   if (!date) return false;
   const limit = new Intl.DateTimeFormat('sv-SE', { timeZone: KST })

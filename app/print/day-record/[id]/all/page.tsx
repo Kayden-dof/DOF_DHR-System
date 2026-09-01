@@ -70,6 +70,7 @@ export default async function DayRecordBundle({ params }: {
       <>
         <PrintBar back={`/production/${id}`} label="제조기록서 묶음" />
         <div className="mx-auto max-w-[210mm] px-2">
+          <h1 className="mb-2 text-lg font-bold text-ink">제조기록서 묶음</h1>
           <p className="rounded-lg border border-warn/40 bg-warn-bg px-4 py-3 text-sm leading-relaxed text-ink">
             마감된 일차가 없습니다. 묶음 발행은 이미 마감된 기록지만 냅니다.
             아직 작성 중인 일차는 낱장으로 발행하며, 그때 그 묶음이 잠깁니다 (S04).

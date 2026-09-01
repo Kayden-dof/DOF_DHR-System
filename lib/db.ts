@@ -1,5 +1,5 @@
 import { unstable_rethrow } from 'next/navigation';
-import { Pool, type PoolClient } from 'pg';
+import { Pool, types, type PoolClient } from 'pg';
 import { isReadOnly, type RoleCode } from './roles';
 import { pgSsl } from './pgssl';
 
@@ -17,6 +17,31 @@ import { pgSsl } from './pgssl';
       차단은 DB 계층에 있고(S01~S05, 채번 불변식), 응용은 예외를 받아 그대로
       보여준다. 응용에서 한 번 더 막으면 두 곳이 어긋나는 순간 검증이 깨진다.
 --------------------------------------------------------------------------- */
+
+/* ---------------------------------------------------------------------------
+   날짜는 글자로 받는다
+
+   node-postgres 는 date 열(OID 1082)을 기본으로 JS Date 로 바꿔 준다. 그 Date
+   는 자정 기준이라 표시하는 자리의 시간대에 따라 하루가 밀린다 - §10 이
+   `toISOString()` 을 금지하는 것과 같은 함정이고, 이 시스템에서 하루가 밀리면
+   유효기한과 승인 만료가 밀린다.
+
+   그리고 이 앱의 날짜는 처음부터 끝까지 'YYYY-MM-DD' 글자다. lib/kst.ts 가
+   글자끼리 견주고, 화면이 글자를 자르고, 인쇄가 글자를 찍는다. 그 사이에
+   Date 하나가 섞이면 그 자리에서 던진다.
+
+   실제로 그렇게 났다 (2026-09-01) - 공급자 화면이 `select s.*` 로 받은
+   approved_until 이 Date 였고, isPastKST 가 .slice 를 부르다 하이드레이션이
+   통째로 죽었다. 로컬 시연 자료는 그 열이 전부 비어 있어 드러나지 않았다.
+
+   화면마다 to_char 를 부르는 것으로는 못 닫는다 - 한 곳만 빠뜨리면 그 화면이
+   죽고, `select *` 은 새 열이 늘 때마다 다시 열린다. 들어오는 자리에서 닫는다.
+
+   timestamptz(1184) 는 건드리지 않는다. 그건 시각이고 Date 가 맞다.
+--------------------------------------------------------------------------- */
+types.setTypeParser(1082, (v) => v);          // date
+types.setTypeParser(1083, (v) => v);          // time
+types.setTypeParser(1266, (v) => v);          // timetz
 
 declare global {
   // eslint-disable-next-line no-var

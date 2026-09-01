@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import './fonts.css';   // 글꼴 조각. scripts/subset-font.py 가 만든다
 import { getBrand, brandVars } from '@/lib/brand';
 
 /* ---------------------------------------------------------------------------

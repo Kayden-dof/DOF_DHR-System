@@ -6,6 +6,7 @@ import { PageShell, FilterBar } from '@/components/shell';
 import { SubNav } from '../nav';
 import { MATERIAL_NAV } from '../sections';
 import { fmtDate } from '@/lib/fmt';
+import { daysUntilKST } from '@/lib/kst';
 import { MATERIAL_STATUS_LABEL } from '@/lib/forms';
 import { Panel, Empty, Truncated, Tag } from '@/components/ui';
 import { Table, Th, Td, IdCell, TwoLine } from '@/components/table';
@@ -139,8 +140,9 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
             </thead>
             <tbody>
               {d.lots.map((l) => {
-                const soon = l.expiry_date &&
-                  new Date(l.expiry_date).getTime() - Date.now() < 30 * 864e5;
+                /* 날짜는 글자다. Date 산술은 자정 언저리에서 하루 밀린다 (lib/kst) */
+                const left = daysUntilKST(l.expiry_date);
+                const soon = left !== null && left < 30;
                 /*
                  * 상태를 행마다 색 조각으로 찍지 않는다. 열한 줄이 모두 "사용 가능"
                  * 이면 그 열은 아무것도 말하지 않으면서 눈만 잡는다. 손대야 할

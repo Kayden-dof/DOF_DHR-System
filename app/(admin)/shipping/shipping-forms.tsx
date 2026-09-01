@@ -4,6 +4,7 @@ import { Fragment, useActionState, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { fmtDate } from '@/lib/fmt';
+import { daysUntilKST } from '@/lib/kst';
 import type { FormState } from '@/lib/forms';
 import { Msg, Tag, Caution } from '@/components/ui';
 import { createSterilBatch, updateSterilBatch, approveRelease, ship } from './actions';
@@ -414,8 +415,7 @@ export function ShipList({ lots, today }: { lots: PlOpt[]; today: string }) {
         <tbody>
           {lots.map((l) => {
             const open = openId === l.id;
-            const days = Math.round(
-              (new Date(l.expiry_date).getTime() - Date.now()) / 864e5);
+            const days = daysUntilKST(l.expiry_date) ?? 0;
             return (
               <Fragment key={l.id}>
                 <tr
