@@ -12,6 +12,7 @@ import { yearKST } from '@/lib/kst';
 import IdleLock from '@/components/idle-lock';
 import { logout } from './actions';
 import Nav, { type NavItem } from './nav';
+import Clock from '@/components/clock';
 
 /* ---------------------------------------------------------------------------
    관리 화면
@@ -122,6 +123,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </div>
 
           <div className="flex shrink-0 items-center gap-3">
+            {/* 지금 몇 시인가. 한국 시각으로 못 박는다 (components/clock.tsx) */}
+            <Clock className="hidden text-xs text-faint lg:inline" />
+
             {/* 어느 화면에서 전화를 받든 바로 부를 수 있어야 한다 */}
             <FindUnit />
 

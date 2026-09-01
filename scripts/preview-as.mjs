@@ -43,7 +43,7 @@ if (!u) {
 
 const cookie = sessionCookie(u.id);
 
-http.createServer((req, res) => {
+const srv = http.createServer((req, res) => {
   const p = http.request({
     host: '127.0.0.1', port: Number(from), path: req.url, method: req.method,
     headers: { ...req.headers, host: `localhost:${from}`, cookie },
@@ -53,7 +53,39 @@ http.createServer((req, res) => {
   });
   p.on('error', (e) => { res.writeHead(502); res.end(String(e)); });
   req.pipe(p);
-}).listen(Number(to), '127.0.0.1', () => {
+});
+
+/*
+ * WebSocket 도 넘긴다.
+ *
+ * 이것이 없으면 next dev 의 HMR 소켓이 계속 실패하고, 그 뒤로 하이드레이션이
+ * 붙지 않는다. 화면은 서버가 그린 그대로 보이는데 아무것도 눌리지 않는다 -
+ * 팝업이 안 열리고, 접힌 것이 안 펴지고, 시계가 멈춰 있다.
+ *
+ * 그것을 앱의 고장으로 읽고 한참을 헤맸다 (2026-09-01). 확인하는 도구가
+ * 확인되지 않은 채로 있었다.
+ */
+const CRLF = String.fromCharCode(13, 10);
+
+srv.on('upgrade', (req, socket, head) => {
+  const up = http.request({
+    host: '127.0.0.1', port: Number(from), path: req.url, method: req.method,
+    headers: { ...req.headers, host: `localhost:${from}`, cookie },
+  });
+  up.on('upgrade', (r, upSocket, upHead) => {
+    const head101 = ['HTTP/1.1 101 Switching Protocols']
+      .concat(Object.entries(r.headers).map(([k, v]) => `${k}: ${v}`))
+      .join(CRLF) + CRLF + CRLF;
+    socket.write(head101);
+    if (upHead?.length) socket.unshift(upHead);
+    upSocket.pipe(socket).pipe(upSocket);
+  });
+  up.on('error', () => socket.destroy());
+  if (head?.length) up.write(head);
+  up.end();
+});
+
+srv.listen(Number(to), '127.0.0.1', () => {
   console.log(`  ${u.full_name} (${code}) · ${u.roles}`);
   console.log(`  http://localhost:${to}  →  :${from}`);
 });

@@ -128,6 +128,8 @@ export function LogoForm({ hasLogo, logoName, hasDarkLogo, darkName, version }: 
   );
 }
 
+let slotSeq = 0;
+
 function LogoSlot({ title, hint, has, name, version, upload, clear, empty, onDark }: {
   title: string; hint: string;
   has: boolean; name: string | null; version: string | null;
@@ -141,6 +143,7 @@ function LogoSlot({ title, hint, has, name, version, upload, clear, empty, onDar
   return (
     <div className="space-y-3 px-4 py-3">
       <div>
+        {/* 미리보기 상자의 이름표. 파일 고르는 칸의 이름은 아래 label 이 갖는다 */}
         <span className="label">{title}</span>
         {/*
           * 미리보기 바탕을 쓰일 자리와 같게 둔다. 흰 로고를 흰 바탕에 놓고
@@ -161,7 +164,12 @@ function LogoSlot({ title, hint, has, name, version, upload, clear, empty, onDar
 
       <form action={upAction} className="space-y-2">
         <p className="text-xs leading-relaxed text-faint">{hint}</p>
+        {/*
+          * 파일 고르는 칸에 이름을 붙인다. 위의 미리보기 이름표는 span 이라
+          * 칸과 묶이지 않는다 - 읽어 주는 도구에는 "파일 선택" 만 들린다.
+          */}
         <input type="file" name="logo" accept="image/png" required
+               aria-label={`${title} 파일 고르기`}
                className="block w-full text-xs file:mr-3 file:rounded-md file:border
                           file:border-line file:bg-surface file:px-3 file:py-1.5
                           file:text-xs file:text-ink hover:file:bg-surface-sub" />

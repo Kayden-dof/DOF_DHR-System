@@ -117,7 +117,12 @@ export function SterilForm({ lots, today, boxQty }: {
             {lots.map((l) => (
               <tr key={l.id}>
                 <td className="td">
+                  {/*
+                    * 표 안의 칸에는 제 이름표가 없다. 어느 줄의 것인지 이름에
+                    * 담지 않으면 읽어 주는 도구에는 "체크박스" 만 스무 번 들린다.
+                    */}
                   <input type="checkbox" name={`lot_${l.id}`}
+                         aria-label={`${l.lot_no} 고르기`}
                          className="size-4 accent-brand"
                          onChange={(e) => setPicked((p) => ({
                            ...p, [l.id]: e.target.checked ? (p[l.id] || l.qty_available) : 0,
@@ -128,6 +133,7 @@ export function SterilForm({ lots, today, boxQty }: {
                 <td className="td tnum text-right text-muted">{l.qty_available}</td>
                 <td className="td text-right">
                   <input name={`qty_${l.id}`} type="number" min={1} max={l.qty_available}
+                         aria-label={`${l.lot_no} 수량`}
                          defaultValue={l.qty_available}
                          onChange={(e) => setPicked((p) => ({
                            ...p, [l.id]: p[l.id] ? Number(e.target.value) : 0,

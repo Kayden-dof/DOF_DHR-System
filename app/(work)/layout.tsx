@@ -11,6 +11,7 @@ import BackFab from '@/components/back-fab';
 import DemoBanner from '@/components/demo-banner';
 import { logout } from './actions';
 import IdleLock from '@/components/idle-lock';
+import Clock from '@/components/clock';
 
 /* ---------------------------------------------------------------------------
    현장 화면
@@ -39,10 +40,6 @@ export default async function WorkLayout({ children }: { children: React.ReactNo
 
   if (!isWorker(user.roles) && !isAdmin(user.roles)) redirect('/no-role');
 
-  const today = new Intl.DateTimeFormat('ko-KR', {
-    timeZone: 'Asia/Seoul', month: 'long', day: 'numeric', weekday: 'short',
-  }).format(new Date());
-
   return (
     <div className="touch flex min-h-screen flex-col bg-canvas">
       {/*
@@ -60,7 +57,12 @@ export default async function WorkLayout({ children }: { children: React.ReactNo
             <span className="chip bg-white/15 text-white">현장</span>
           </Link>
 
-          <span className="hidden text-sm text-on-dark-mute sm:inline tnum">{today}</span>
+          {/*
+            * 날짜와 시각. 공정을 시작하고 끝낼 때 이 값을 종이에 적으므로
+            * 화면이 말하는 시각과 기록에 남는 시각이 같아야 한다
+            * (components/clock.tsx).
+            */}
+          <Clock withDate className="hidden text-sm text-on-dark-mute sm:inline" />
 
           <div className="ml-auto flex items-center gap-3">
             <div className="flex items-center gap-2.5">

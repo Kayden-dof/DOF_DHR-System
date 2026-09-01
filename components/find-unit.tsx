@@ -96,11 +96,16 @@ export default function FindUnit() {
             </p>
 
             <div className="mt-3 flex gap-2">
+              {/*
+                * 자리 글씨는 이름이 아니다. 치기 시작하면 사라져, 읽어 주는
+                * 도구에도 화면에도 무엇을 넣는 칸인지 남지 않는다.
+                */}
               <input
                 ref={inputRef}
                 value={sn}
                 onChange={(e) => setSn(e.target.value)}
                 autoComplete="off"
+                aria-label="개체 번호"
                 placeholder="P2608-0004-007 또는 P2608-0004"
                 className="input flex-1 font-mono"
               />

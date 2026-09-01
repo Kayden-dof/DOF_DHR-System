@@ -58,7 +58,12 @@ export default function Watermark({ text }: { text: string }) {
     <div
       aria-hidden
       className="watermark"
-      style={{ backgroundImage: `${tile('#1F1F23', text)}, ${tile('#FFFFFF', text)}` }}
+      /*
+       * 어두운 글씨 한 벌과 밝은 글씨 한 벌을 겹쳐 어느 바탕에서나 읽히게 한다.
+       * 값은 팔레트에서 온다 - 여기에 박아 두면 회사 색을 바꿔도 따라오지 않는다.
+       */
+      style={{ backgroundImage:
+        `${tile('var(--color-ink)', text)}, ${tile('var(--color-surface)', text)}` }}
     />
   );
 }
