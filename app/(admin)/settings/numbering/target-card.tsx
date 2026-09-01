@@ -25,7 +25,7 @@ export interface RuleRow {
 const cycleLabel = (c: string) => RESET_CYCLES.find((r) => r.code === c)?.label ?? c;
 
 export default function TargetCard({
-  code, label, note, rules, items, today,
+  code, label, note, rules, items, today, writable = true,
 }: {
   code: string;
   label: string;
@@ -33,6 +33,8 @@ export default function TargetCard({
   rules: RuleRow[];
   items: ItemOption[];
   today: string;
+  /** 이 세션이 쓸 수 있는가. 못 쓰면 등록 · 교체 · 내림을 아예 그리지 않는다 */
+  writable?: boolean;
 }) {
   /*
    * 두 길을 갈라 둔다.
@@ -70,17 +72,17 @@ export default function TargetCard({
           <span className="chip bg-warn-bg text-warn">규칙 없음 · 채번 불가</span>
         )}
         <div className="ml-auto flex gap-2">
-          {!open && items.length > 0 && active && (
+          {writable && !open && items.length > 0 && active && (
             <button onClick={() => setOpen('item')} className="btn-ghost h-8 px-3 text-xs">
               품목별 규칙
             </button>
           )}
-          {!open && (
+          {writable && !open && (
             <button onClick={() => setOpen('replace')} className="btn-ghost h-8 px-3 text-xs">
               {active ? '규칙 교체' : '규칙 등록'}
             </button>
           )}
-          {active && !open && !confirming && (
+          {writable && active && !open && !confirming && (
             <button
               onClick={() => setConfirming(true)}
               className="btn-ghost h-8 px-3 text-xs text-muted"
@@ -135,13 +137,15 @@ export default function TargetCard({
                 <span className="min-w-0 flex-1 truncate text-xs text-muted">{r.item_name}</span>
                 <code className="font-mono text-xs text-body">{r.pattern}</code>
                 <span className="font-mono text-xs tnum text-brand">{r.sample}</span>
-                <form action={retireAction}>
-                  <input type="hidden" name="id" value={r.id} />
-                  <button type="submit" disabled={retiring}
-                          className="btn-quiet h-7 px-2 text-xs">
-                    내리기
-                  </button>
-                </form>
+                {writable && (
+                  <form action={retireAction}>
+                    <input type="hidden" name="id" value={r.id} />
+                    <button type="submit" disabled={retiring}
+                            className="btn-quiet h-7 px-2 text-xs">
+                      내리기
+                    </button>
+                  </form>
+                )}
               </li>
             ))}
           </ul>

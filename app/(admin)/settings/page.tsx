@@ -1,9 +1,10 @@
 import Link from 'next/link';
 import Denied from '@/components/denied';
-import { requireUser, blocksReadOnly, hasRole } from '@/lib/session';
+import { requireUser, blocksViewer, canWrite } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import { NUMBERING_TARGETS, M1_CRITICAL_TARGETS } from '@/lib/forms';
 import { ROLE_ORDER } from '@/lib/roles';
+import { canOpen } from '@/lib/access';
 import { Tag } from '@/components/ui';
 import { PageShell } from '@/components/shell';
 import { SubNav } from '../nav';
@@ -31,8 +32,14 @@ interface Counts {
 
 export default async function SettingsHome() {
   const user = await requireUser();
-  /* 열람자에게 열어 둔 화면이 아니다. 주소를 직접 쳐도 들어가지 못한다 */
-  if (blocksReadOnly(user)) return <Denied what="이 화면" need="생산관리자 또는 시스템관리자" />;
+  /*
+   * 경영열람에게 열어 둔 화면이 아니다. 주소를 직접 쳐도 들어가지 못한다.
+   *
+   * 품질책임자는 들어온다 (사용자 지시 2026-09-01) - 채번 규칙 · 공급자 ·
+   * 제품표준서 · 사용자 · 감사추적이 이 아래에 있고, 그것이 기준을 보는 자리다.
+   */
+  if (blocksViewer(user)) return <Denied what="이 화면" need="생산관리자 또는 시스템관리자" />;
+  const writable = canWrite(user);
 
 
   const d = await withActor(user.id, async (db) => ({
@@ -111,14 +118,15 @@ export default async function SettingsHome() {
   ];
 
   /*
-   * 시스템관리자만 여는 자리는 생산관리자에게 보이지 않는다 (사용자 지시
-   * 2026-09-01). 하위 차림표에서 이미 뺐는데(settingsNav) 타일과 차례표에
-   * 남아 있으면 같은 문을 두 곳에서 다르게 말하는 셈이다.
+   * 못 여는 자리는 타일에도 차례표에도 내지 않는다. 하위 차림표에서 이미
+   * 뺐는데(settingsNav) 여기 남아 있으면 같은 문을 두 곳에서 다르게 말하는
+   * 셈이다.
+   *
+   * 판정은 권한 매트릭스 하나에서 온다 (lib/access.ts). 전에는 여기에 목록을
+   * 손으로 하나 더 들고 있었고, 역할이 늘 때마다 세 곳을 따로 고쳐야 했다.
    */
-  const sysAdmin = hasRole(user, 'SYS_ADMIN');
-  const ADMIN_ONLY = ['/settings/brand', '/settings/numbering', '/settings/users'];
   const mine = <T extends { href: string }>(xs: T[]) =>
-    sysAdmin ? xs : xs.filter((x) => !ADMIN_ONLY.includes(x.href));
+    xs.filter((x) => canOpen(x.href, user.roles));
 
   const cards = [
     { href: '/settings/numbering', title: '채번 규칙',
@@ -148,9 +156,9 @@ export default async function SettingsHome() {
       section="설정"
       title="기준정보와 계정"
       lede="여기서 정한 것이 생산 화면의 선택지가 됩니다."
-      nav={<SubNav items={settingsNav(sysAdmin)} />}
+      nav={<SubNav items={settingsNav(user.roles)} />}
     >
-      {blocking.length > 0 && (
+      {writable && blocking.length > 0 && (
         <div className="card border-warn/40 bg-warn-bg p-4">
           <div className="flex items-start gap-3">
             <Tag tone="warn">먼저 할 일</Tag>
@@ -220,7 +228,11 @@ export default async function SettingsHome() {
         )}
       </section>
 
-      <SetupSteps steps={mine(steps)} />
+      {/*
+        * 첫 설정 차례표는 손을 쓰는 사람의 것이다. 읽기 전용 세션에는 내지
+        * 않는다 - 누를 수 없는 할 일 목록은 재촉일 뿐이다.
+        */}
+      {writable && <SetupSteps steps={mine(steps)} />}
     </PageShell>
   );
 }

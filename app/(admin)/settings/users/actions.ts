@@ -16,9 +16,23 @@ import type { FormState } from '@/lib/forms';
    마지막 시스템관리자가 스스로를 내리면 DB에 직접 붙지 않고는 복구할 수 없다.
 --------------------------------------------------------------------------- */
 
+/* ---------------------------------------------------------------------------
+   생산관리자도 계정을 관리한다 (사용자 지시 2026-09-01)
+
+   ── 다만 한 자리는 남긴다 ─────────────────────────────────────────────────
+   시스템관리자 역할을 주고받는 것은 시스템관리자만 한다. 이것을 열면
+   생산관리자가 스스로에게 시스템관리자를 얹을 수 있고, 그 순간 두 역할을
+   가른 것이 아무 뜻도 없게 된다 - 화면을 열어 달라는 말은 그 화면을 쓰겠다는
+   뜻이지 두 역할을 하나로 합치자는 뜻이 아니다.
+
+   개발 계정 표시도 같다. 비밀번호 초기화 권한이 거기 매여 있어(setPin),
+   그것을 켤 수 있으면 남의 이름으로 기록을 남길 수 있게 된다.
+--------------------------------------------------------------------------- */
 async function admin() {
   const user = await requireUser();
-  if (!hasRole(user, 'SYS_ADMIN')) throw new Error('시스템관리자만 계정을 관리할 수 있습니다');
+  if (!hasRole(user, 'SYS_ADMIN', 'PROD_MGR')) {
+    throw new Error('생산관리자 또는 시스템관리자만 계정을 관리할 수 있습니다');
+  }
   return user;
 }
 
@@ -129,6 +143,10 @@ export async function setActive(_prev: FormState, form: FormData): Promise<FormS
 export async function setDeveloper(_prev: FormState, form: FormData): Promise<FormState> {
   try {
     const me = await admin();
+    /* 비밀번호 초기화 권한이 이 표시에 매여 있다 (setPin). 시스템관리자만 켠다 */
+    if (!hasRole(me, 'SYS_ADMIN')) {
+      return { error: '개발 계정 표시는 시스템관리자만 바꿀 수 있습니다' };
+    }
     const id = String(form.get('id') ?? '');
     const next = form.get('next') === 'true';
 
@@ -148,11 +166,22 @@ export async function setDeveloper(_prev: FormState, form: FormData): Promise<Fo
   }
 }
 
+/** 시스템관리자 역할은 시스템관리자만 다룬다 (권한 상승을 막는다) */
+function guardSysAdminRole(me: { roles: string[] }, role: string): string | null {
+  if (role !== 'SYS_ADMIN') return null;
+  return me.roles.includes('SYS_ADMIN')
+    ? null
+    : '시스템관리자 역할은 시스템관리자만 주고받을 수 있습니다';
+}
+
 export async function grantRole(_prev: FormState, form: FormData): Promise<FormState> {
   try {
     const me = await admin();
     const id = String(form.get('id') ?? '');
     const role = String(form.get('role') ?? '');
+
+    const blocked = guardSysAdminRole(me, role);
+    if (blocked) return { error: blocked };
 
     await withActor(me.id, (db) =>
       db.rows(
@@ -174,6 +203,9 @@ export async function revokeRole(_prev: FormState, form: FormData): Promise<Form
     const me = await admin();
     const id = String(form.get('id') ?? '');
     const role = String(form.get('role') ?? '');
+
+    const blocked = guardSysAdminRole(me, role);
+    if (blocked) return { error: blocked };
 
     if (id === me.id && role === 'SYS_ADMIN') {
       return { error: '자기 계정의 시스템관리자 역할은 회수할 수 없습니다' };
@@ -219,7 +251,10 @@ export async function revokeRole(_prev: FormState, form: FormData): Promise<Form
 export async function addLabourRate(_prev: FormState, form: FormData): Promise<FormState> {
   try {
     const me = await requireUser();
-    if (!hasRole(me, 'SYS_ADMIN')) return { error: '시스템관리자만 할 수 있습니다' };
+    /* 원가를 보는 사람이 그 값을 넣는다. 품질책임자와 경영열람은 쓰지 못한다 */
+    if (!hasRole(me, 'SYS_ADMIN', 'PROD_MGR')) {
+      return { error: '생산관리자 또는 시스템관리자만 할 수 있습니다' };
+    }
 
     const role = String(form.get('role') ?? '').trim();
     const rate = String(form.get('hourly_rate') ?? '').trim().replace(/,/g, '');

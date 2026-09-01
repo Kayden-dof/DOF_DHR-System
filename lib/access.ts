@@ -73,13 +73,13 @@ export const ACCESS_ROWS: AccessRow[] = [
   { group: '조회', label: '계보 추적',   path: '/trace',                 marks: '●●-●●' },
   { group: '조회', label: '인쇄물',      path: '/trace/verify',          marks: '●●-●X' },
 
-  { group: '설정', label: '개요',        path: '/settings',              marks: '●●-XX' },
+  { group: '설정', label: '개요',        path: '/settings',              marks: '●●-●X' },
   { group: '설정', label: '회사 표시',   path: '/settings/brand',        marks: '●X-XX' },
-  { group: '설정', label: '채번 규칙',   path: '/settings/numbering',    marks: '●X-XX' },
+  { group: '설정', label: '채번 규칙',   path: '/settings/numbering',    marks: '●●-●X' },
   { group: '설정', label: '품목',        path: '/settings/items',        marks: '●●-XX' },
   { group: '설정', label: '공급자',      path: '/settings/suppliers',    marks: '●●-●X' },
   { group: '설정', label: '제품표준서',  path: '/settings/dmr',          marks: '●●-●X' },
-  { group: '설정', label: '사용자',      path: '/settings/users',        marks: '●X-XX' },
+  { group: '설정', label: '사용자',      path: '/settings/users',        marks: '●●-●X' },
   { group: '설정', label: '권한',        path: '/settings/access',       marks: '●●-XX' },
   { group: '설정', label: '감사추적',    path: '/settings/audit',        marks: '●●-●●' },
 
@@ -90,6 +90,18 @@ export const ACCESS_ROWS: AccessRow[] = [
 export function accessOf(row: AccessRow, role: RoleCode): Access {
   const i = ACCESS_ROLES.indexOf(role);
   return M[row.marks[i]] ?? 'away';
+}
+
+/**
+ * 이 사람이 이 주소를 열 수 있는가. 역할이 둘이면 여는 쪽을 따른다.
+ *
+ * 차림표와 타일이 이것을 쓴다 - 못 여는 자리를 내놓고 눌렀을 때 막는 것보다
+ * 아예 보이지 않는 편이 낫다. 표에 없는 주소는 막지 않는다 (기본 열림).
+ */
+export function canOpen(path: string, roles: RoleCode[]): boolean {
+  const row = ACCESS_ROWS.find((r) => r.path === path);
+  if (!row) return true;
+  return roles.some((r) => accessOf(row, r) === 'open');
 }
 
 /** 화면 하나가 열리는 역할들. 화면 설명에 쓴다 */

@@ -19,7 +19,17 @@ export interface UserRow {
 }
 
 export default function UserRowView(
-  { u, meId, meIsDeveloper }: { u: UserRow; meId: string; meIsDeveloper: boolean },
+  { u, meId, meIsDeveloper, meIsSysAdmin, writable = true }: {
+    u: UserRow; meId: string; meIsDeveloper: boolean;
+    /**
+     * 시스템관리자인가. 시스템관리자 역할을 주고받는 것과 개발 계정 표시는
+     * 시스템관리자만 한다 (actions.ts). 화면도 같은 경계를 그린다 - 눌러서
+     * 거절당하는 자리를 만들지 않는다.
+     */
+    meIsSysAdmin: boolean;
+    /** 이 세션이 쓸 수 있는가. 못 쓰면 관리 단추와 그 안의 조작을 그리지 않는다 */
+    writable?: boolean;
+  },
 ) {
   const [open, setOpen] = useState(false);
   const isMe = u.id === meId;
@@ -54,11 +64,13 @@ export default function UserRowView(
             )}
           </div>
         </td>
-        <td className="td text-right">
-          <button onClick={() => setOpen(true)} className="btn-ghost h-8 px-3 text-xs">
-            관리
-          </button>
-        </td>
+        {writable && (
+          <td className="td text-right">
+            <button onClick={() => setOpen(true)} className="btn-ghost h-8 px-3 text-xs">
+              관리
+            </button>
+          </td>
+        )}
       </tr>
 
       {/*
@@ -74,9 +86,9 @@ export default function UserRowView(
               note={<><span className="tnum">{u.login_code}</span>
                 {u.is_developer && <span className="ml-1.5 font-bold text-warn">개발 계정</span>}</>}>
         <div className="grid gap-5 lg:grid-cols-3">
-          <RolePanel u={u} isMe={isMe} />
+          <RolePanel u={u} isMe={isMe} sysAdmin={meIsSysAdmin} />
           <PinPanel u={u} isMe={isMe} canReset={meIsDeveloper} />
-          <FlagPanel u={u} isMe={isMe} />
+          <FlagPanel u={u} isMe={isMe} sysAdmin={meIsSysAdmin} />
         </div>
       </Dialog>
     </>
@@ -85,10 +97,14 @@ export default function UserRowView(
 
 /* -------------------------------------------------------------------------- */
 
-function RolePanel({ u, isMe }: { u: UserRow; isMe: boolean }) {
+function RolePanel({ u, isMe, sysAdmin }: {
+  u: UserRow; isMe: boolean; sysAdmin: boolean;
+}) {
   const [grantState, grantAction, granting] = useActionState<FormState, FormData>(grantRole, {});
   const [revokeState, revokeAction, revoking] = useActionState<FormState, FormData>(revokeRole, {});
-  const missing = ROLE_ORDER.filter((r) => !u.roles.includes(r));
+  /* 시스템관리자 역할은 시스템관리자만 준다. 고를 수 없으면 목록에 내지 않는다 */
+  const missing = ROLE_ORDER.filter(
+    (r) => !u.roles.includes(r) && (sysAdmin || r !== 'SYS_ADMIN'));
 
   return (
     <Panel title="역할">
@@ -101,9 +117,11 @@ function RolePanel({ u, isMe }: { u: UserRow; isMe: boolean }) {
               <span className="flex-1 text-sm text-ink">{ROLE_LABEL[r]}</span>
               <button
                 type="submit"
-                disabled={revoking || (isMe && r === 'SYS_ADMIN')}
+                disabled={revoking || (r === 'SYS_ADMIN' && (isMe || !sysAdmin))}
                 className="btn-ghost h-7 px-2 text-xs text-muted"
-                title={isMe && r === 'SYS_ADMIN' ? '자기 계정의 시스템관리자는 회수할 수 없습니다' : ''}
+                title={r !== 'SYS_ADMIN' ? ''
+                  : !sysAdmin ? '시스템관리자 역할은 시스템관리자만 회수할 수 있습니다'
+                  : isMe ? '자기 계정의 시스템관리자는 회수할 수 없습니다' : ''}
               >
                 회수
               </button>
@@ -194,7 +212,7 @@ function PinPanel({ u, isMe, canReset }: { u: UserRow; isMe: boolean; canReset: 
   );
 }
 
-function FlagPanel({ u, isMe }: { u: UserRow; isMe: boolean }) {
+function FlagPanel({ u, isMe, sysAdmin }: { u: UserRow; isMe: boolean; sysAdmin: boolean }) {
   const [activeState, activeAction, a1] = useActionState<FormState, FormData>(setActive, {});
   const [devState, devAction, a2] = useActionState<FormState, FormData>(setDeveloper, {});
 
@@ -217,6 +235,7 @@ function FlagPanel({ u, isMe }: { u: UserRow; isMe: boolean }) {
           </button>
         </form>
 
+        {sysAdmin && (
         <form action={devAction} className="flex items-center gap-2">
           <input type="hidden" name="id" value={u.id} />
           <input type="hidden" name="next" value={String(!u.is_developer)} />
@@ -227,6 +246,7 @@ function FlagPanel({ u, isMe }: { u: UserRow; isMe: boolean }) {
             {u.is_developer ? '해제' : '개발 계정으로'}
           </button>
         </form>
+        )}
       </div>
       <p className="mt-2 text-xs leading-relaxed text-faint">
         계정은 삭제하지 않습니다. 쓰지 않는 계정은 비활성화합니다 - 기록을 남긴 계정을

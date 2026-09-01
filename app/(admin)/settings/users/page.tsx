@@ -1,4 +1,4 @@
-import { requireUser, hasRole } from '@/lib/session';
+import { requireUser, hasRole, canWrite } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import { ROLE_LABEL, ROLE_NOTE, ROLE_ORDER } from '@/lib/roles';
 import Denied from '@/components/denied';
@@ -22,9 +22,28 @@ type Search = Promise<{ q?: string; role?: string }>;
 
 export default async function UsersPage({ searchParams }: { searchParams: Search }) {
   const me = await requireUser();
-  if (!hasRole(me, 'SYS_ADMIN')) {
-    return <Denied what="사용자 · 역할 관리" need="시스템관리자" />;
+  /*
+   * 생산관리자와 품질책임자에게도 연다 (사용자 지시 2026-09-01).
+   *
+   * 누가 어느 역할을 들고 있는지는 기록에 이름으로 남는 사실이다. 제조기록서에
+   * 찍힌 작업자가 그때 무슨 역할이었는지 되짚으려면 이 화면이 보여야 한다.
+   *
+   * 품질책임자는 읽기 전용 세션이라 계정을 만들거나 역할을 주고받는 단추가
+   * 그려지지 않는다.
+   */
+  if (!hasRole(me, 'SYS_ADMIN', 'PROD_MGR', 'QP')) {
+    return <Denied what="사용자 · 역할" need="생산관리자 · 시스템관리자 또는 품질책임자" />;
   }
+  const writable = canWrite(me);
+
+  /*
+   * 공수 단가는 이 화면에 얹혀 있을 뿐 계정 이야기가 아니다 (0076). 역할에
+   * 매기는 값이라 역할을 다루는 자리에 두었다.
+   *
+   * 품질책임자에게는 내지 않는다. 원가를 막아 둔 것과 같은 이유다 - 그쪽이
+   * 보는 것은 돈이 아니라 기준이다. 계정과 역할은 보되 사람 값은 보지 않는다.
+   */
+  const showRates = hasRole(me, 'SYS_ADMIN', 'PROD_MGR');
 
   /*
    * 사람이 늘면 표를 눈으로 훑어 찾게 된다. 이름이나 번호로 걸러 내고 역할로
@@ -90,8 +109,8 @@ export default async function UsersPage({ searchParams }: { searchParams: Search
       section="설정"
       title="사용자 · 역할"
       lede="계정은 삭제하지 않고 비활성화합니다. 역할 부여와 회수는 모두 감사추적에 남습니다."
-      action={<NewUserForm />}
-      nav={<SubNav items={settingsNav(hasRole(me, 'SYS_ADMIN'))} />}
+      action={writable ? <NewUserForm /> : null}
+      nav={<SubNav items={settingsNav(me.roles)} />}
     >
 
       <FilterBar
@@ -120,26 +139,28 @@ export default async function UsersPage({ searchParams }: { searchParams: Search
                 <th className="th">이름</th>
                 <th className="th">역할</th>
                 <th className="th">상태</th>
-                <th className="th" />
+                {writable && <th className="th" />}
               </tr>
             </thead>
             <tbody>
               {users.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="td text-center text-xs text-faint">
+                  <td colSpan={writable ? 5 : 4} className="td text-center text-xs text-faint">
                     해당하는 계정이 없습니다.
                   </td>
                 </tr>
               ) : users.map((u) => (
                 <UserRowView key={u.id} u={{ ...u, roles: u.roles ?? [] }}
-                             meId={me.id} meIsDeveloper={me.is_developer} />
+                             meId={me.id} meIsDeveloper={me.is_developer}
+                             meIsSysAdmin={hasRole(me, 'SYS_ADMIN')}
+                             writable={writable} />
               ))}
             </tbody>
           </table>
         </div>
       </div>
 
-      <LabourRates rows={d.rates} today={d.rateToday ?? ''} />
+      {showRates && <LabourRates rows={d.rates} today={d.rateToday ?? ''} writable={writable} />}
 
       <section className="card p-4">
         <h2 className="text-xs font-bold text-ink">역할</h2>

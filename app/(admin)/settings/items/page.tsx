@@ -70,7 +70,7 @@ export default async function ItemsPage({ searchParams }: { searchParams: Search
           <NewItemForm />
         </div>
       }
-      nav={<SubNav items={settingsNav(hasRole(user, 'SYS_ADMIN'))} />}
+      nav={<SubNav items={settingsNav(user.roles)} />}
     >
 
       <div className="card flex flex-wrap items-center gap-2 p-3">

@@ -1,4 +1,6 @@
 import type { NavItem } from './nav';
+import type { RoleCode } from '@/lib/roles';
+import { canOpen } from '@/lib/access';
 
 /* ---------------------------------------------------------------------------
    구역별 하위 메뉴
@@ -63,14 +65,19 @@ export const SETTINGS_NAV: NavItem[] = [
 ];
 
 /**
- * 설정 하위 차림표. 시스템관리자만 여는 셋은 생산관리자에게 보이지 않는다.
+ * 설정 하위 차림표. 그 사람이 못 여는 자리는 빼고 낸다.
  *
  * 못 여는 자리를 보여 주고 눌렀을 때 막는 것보다 아예 보이지 않는 편이 낫다 -
  * 경영의 원가 탭을 역할에 따라 낸 것과 같은 규율이다.
+ *
+ * ── 목록을 손으로 들지 않는다 ─────────────────────────────────────────────
+ * 전에는 "시스템관리자만 여는 셋" 을 여기에 따로 적어 두었다. 역할마다 여는
+ * 자리가 달라지자(생산관리자 · 품질책임자) 그 목록으로는 더 이상 답할 수 없고,
+ * 무엇보다 **화면의 판정과 여기의 목록이 서로 모르는 사이**였다.
+ *
+ * 이제 권한 매트릭스(lib/access.ts)에서 그대로 읽는다. 그 표는 npm run access
+ * 가 실제로 두드려 대조하므로, 차림표가 화면의 판정과 갈라질 수 없다.
  */
-const ADMIN_ONLY = ['/settings/brand', '/settings/numbering', '/settings/users'];
-
-export function settingsNav(isSysAdmin: boolean): NavItem[] {
-  return isSysAdmin ? SETTINGS_NAV
-    : SETTINGS_NAV.filter((n) => !ADMIN_ONLY.includes(n.href));
+export function settingsNav(roles: RoleCode[]): NavItem[] {
+  return SETTINGS_NAV.filter((n) => canOpen(n.href, roles));
 }

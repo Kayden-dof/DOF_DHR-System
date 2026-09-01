@@ -1,5 +1,4 @@
-import { requireUser, hasRole } from '@/lib/session';
-import { isViewerOnly } from '@/lib/roles';
+import { requireUser, hasRole, canWrite } from '@/lib/session';
 import { withUser } from '@/lib/db';
 import Denied from '@/components/denied';
 import { Empty } from '@/components/ui';
@@ -35,8 +34,13 @@ export default async function EquipmentPage() {
     return <Denied what="설비 관리" need="생산관리자 또는 시스템관리자" />;
   }
 
-  /* 순수 열람자면 쓰기 단추를 아예 그리지 않는다 */
-  const viewer = isViewerOnly(user.roles);
+  /*
+   * 쓰지 못하는 세션이면 쓰기 단추를 아예 그리지 않는다.
+   *
+   * 전에는 순수 열람자만 보고 있어 품질책임자에게는 "설비 등록" 이 그대로
+   * 보였다. 눌러도 DB 가 막아 아무 일도 일어나지 않는다 - 죽은 단추다.
+   */
+  const writable = canWrite(user);
 
   const d = await withUser(user, async (db) => ({
     equipment: await db.rows<EquipRow>(
@@ -132,7 +136,7 @@ export default async function EquipmentPage() {
       section="설비"
       title="설비"
       lede="공정에 걸어 두면 현장에서 타일로 선택하고, 고른 값이 제조기록서에 기재됩니다. 밸리데이션은 서면 보고서 번호로 등록하며, 기한이 지나도 막지 않고 발행 화면과 검토 지원에 표시됩니다."
-      action={viewer ? null : (<NewEquipment />)}
+      action={writable ? <NewEquipment /> : null}
       stats={<StatStrip items={stats} />}
     >
       {d.ops.length === 0 && (

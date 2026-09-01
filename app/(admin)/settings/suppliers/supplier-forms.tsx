@@ -121,7 +121,11 @@ export function NewSupplierForm() {
   );
 }
 
-export function SupplierRowView({ s }: { s: SupplierRow }) {
+export function SupplierRowView({ s, writable = true }: {
+  s: SupplierRow;
+  /** 이 세션이 쓸 수 있는가. 못 쓰면 수정 단추를 그리지 않는다 */
+  writable?: boolean;
+}) {
   const [state, action, pending] = useActionState<FormState, FormData>(saveSupplier, {});
   const { open, setOpen } = useDialog(state);
   const st = statusOf(s.status);
@@ -143,11 +147,13 @@ export function SupplierRowView({ s }: { s: SupplierRow }) {
           {s.contact_phone ? ` · ${s.contact_phone}` : ''}
         </td>
         <td className="td tnum text-right text-muted">{s.lot_count || ''}</td>
-        <td className="td text-right">
-          <button onClick={() => setOpen(true)} className="btn-quiet h-8 px-2 text-xs">
-            수정
-          </button>
-        </td>
+        {writable && (
+          <td className="td text-right">
+            <button onClick={() => setOpen(true)} className="btn-quiet h-8 px-2 text-xs">
+              수정
+            </button>
+          </td>
+        )}
       </tr>
       <Dialog open={open} onClose={() => setOpen(false)} wide
               title="공급자 수정"

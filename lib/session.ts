@@ -203,3 +203,19 @@ export function blocksViewer(user: SessionUser): boolean {
 export function blocksReadOnly(user: SessionUser): boolean {
   return isReadOnly(user.roles);
 }
+
+/* ---------------------------------------------------------------------------
+   이 세션이 쓸 수 있는가
+
+   막느냐 마느냐가 아니라, 화면에 쓰기 단추를 그릴 것이냐를 묻는다.
+
+   열람자와 품질책임자가 같이 보는 화면이 늘면서(설비 · 공급자 · 사용자 ·
+   채번 규칙) 화면마다 다른 잣대를 쓰고 있었다. isViewerOnly 로 가린 곳은
+   품질책임자에게 단추가 그대로 보였고, 눌러도 DB 에서 막혀 아무 일도
+   일어나지 않았다. 죽은 단추는 없느니만 못하다.
+
+   잣대를 하나로 둔다 - 쓰지 못하는 세션이면 그리지 않는다.
+--------------------------------------------------------------------------- */
+export function canWrite(user: SessionUser): boolean {
+  return !isReadOnly(user.roles);
+}

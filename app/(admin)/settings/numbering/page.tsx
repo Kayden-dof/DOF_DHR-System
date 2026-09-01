@@ -1,4 +1,4 @@
-import { requireUser, hasRole } from '@/lib/session';
+import { requireUser, hasRole, canWrite } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import { NUMBERING_TARGETS } from '@/lib/forms';
 import Denied from '@/components/denied';
@@ -28,9 +28,19 @@ const PER_ITEM_TARGETS = ['PRODUCT_LOT', 'BATCH', 'WORK_ORDER'];
 
 export default async function NumberingPage() {
   const user = await requireUser();
-  if (!hasRole(user, 'SYS_ADMIN')) {
-    return <Denied what="채번 규칙 관리" need="시스템관리자" />;
+  /*
+   * 생산관리자와 품질책임자에게도 연다 (사용자 지시 2026-09-01).
+   *
+   * 번호 형식은 종이에 찍히는 값이다. 지시서 · 배치 · 제조번호가 어떤 규칙으로
+   * 만들어졌는지는 발행하는 사람과 검토하는 사람이 함께 봐야 하는 것이지,
+   * 계정을 만드는 사람만 아는 것이 아니다.
+   *
+   * 품질책임자는 읽기 전용 세션이라 등록 · 교체 단추가 그려지지 않는다.
+   */
+  if (!hasRole(user, 'SYS_ADMIN', 'PROD_MGR', 'QP')) {
+    return <Denied what="채번 규칙" need="생산관리자 · 시스템관리자 또는 품질책임자" />;
   }
+  const writable = canWrite(user);
 
   const { rules, items, today } = await withActor(user.id, async (db) => ({
     rules: await db.rows<RuleRow>(
@@ -78,7 +88,7 @@ export default async function NumberingPage() {
           지시서를 취소해도 그 번호는 소멸합니다.
         </>
       }
-      nav={<SubNav items={settingsNav(hasRole(user, 'SYS_ADMIN'))} />}
+      nav={<SubNav items={settingsNav(user.roles)} />}
     >
 
       <div className="card p-4">
@@ -115,6 +125,7 @@ export default async function NumberingPage() {
             // 품목별로 갈리는 것만. 자재 로트번호는 품목을 가리지 않는다
             items={PER_ITEM_TARGETS.includes(t.code) ? items : []}
             today={today ?? ''}
+            writable={writable}
           />
         ))}
       </div>

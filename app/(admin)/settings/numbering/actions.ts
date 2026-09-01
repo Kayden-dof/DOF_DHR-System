@@ -25,7 +25,7 @@ export async function previewPattern(
   pattern: string, seqWidth: number, itemCode?: string | null,
 ): Promise<Preview> {
   const user = await requireUser();
-  if (!hasRole(user, 'SYS_ADMIN')) return { error: '권한이 없습니다' };
+  if (!hasRole(user, 'SYS_ADMIN', 'PROD_MGR')) return { error: '권한이 없습니다' };
   if (!pattern.trim()) return {};
 
   try {
@@ -44,7 +44,9 @@ export async function previewPattern(
 
 export async function saveRule(_prev: FormState, form: FormData): Promise<FormState> {
   const user = await requireUser();
-  if (!hasRole(user, 'SYS_ADMIN')) return { error: '시스템관리자만 채번 규칙을 등록할 수 있습니다' };
+  if (!hasRole(user, 'SYS_ADMIN', 'PROD_MGR')) {
+    return { error: '생산관리자 또는 시스템관리자만 채번 규칙을 등록할 수 있습니다' };
+  }
 
   const target = String(form.get('target') ?? '');
   const pattern = String(form.get('pattern') ?? '').trim();
@@ -87,7 +89,9 @@ export async function saveRule(_prev: FormState, form: FormData): Promise<FormSt
 
 export async function retireRule(_prev: FormState, form: FormData): Promise<FormState> {
   const user = await requireUser();
-  if (!hasRole(user, 'SYS_ADMIN')) return { error: '시스템관리자만 채번 규칙을 내릴 수 있습니다' };
+  if (!hasRole(user, 'SYS_ADMIN', 'PROD_MGR')) {
+    return { error: '생산관리자 또는 시스템관리자만 채번 규칙을 내릴 수 있습니다' };
+  }
 
   const id = String(form.get('id') ?? '');
   try {

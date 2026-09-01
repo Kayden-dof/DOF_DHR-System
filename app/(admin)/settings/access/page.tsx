@@ -78,7 +78,7 @@ export default async function AccessPage() {
       title="역할이 여는 문"
       lede="역할 다섯이 화면 스물일곱에 각각 어떻게 닿는지 한 장에 둔 것입니다.
             계정에 역할을 붙이기 전에 무엇이 열리는지 여기서 봅니다."
-      nav={<SubNav items={settingsNav(sysAdmin)} />}
+      nav={<SubNav items={settingsNav(user.roles)} />}
     >
       <Panel
         title="권한 매트릭스"

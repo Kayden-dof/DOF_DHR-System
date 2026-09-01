@@ -71,11 +71,23 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const items: NavItem[] = qp
     ? [
         { href: '/production', label: '생산' },
+        /*
+         * 제품표준서는 머리줄에 남긴다. 품질책임자가 매일 여는 자리라 한 칸
+         * 안으로 들이면 그만큼 매번 멀어진다.
+         */
         { href: '/settings/dmr', label: '제품표준서' },
         { href: '/equipment', label: '설비' },
         { href: '/material', label: '자재' },
         { href: '/trace', label: '조회' },
-        { href: '/settings/audit', label: '감사추적' },
+        /*
+         * 감사추적이 있던 자리에 설정을 둔다 (사용자 지시 2026-09-01).
+         *
+         * 채번 규칙과 사용자가 새로 열리면서 머리줄에 자리가 없는 화면이
+         * 둘 생겼다. 낱낱이 올리면 일곱 칸이 되고, 그 일곱이 서로를 가린다.
+         * 감사추적 · 공급자 · 채번 규칙 · 사용자는 전부 설정 아래에 있으므로
+         * 문 하나로 모은다. 하위 차림표는 이 사람이 여는 것만 낸다.
+         */
+        { href: '/settings', label: '설정' },
       ]
     : viewer
     ? [

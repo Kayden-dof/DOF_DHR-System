@@ -38,7 +38,11 @@ export interface RateRow {
 
 const won = (v: string | number) => Number(v).toLocaleString('ko-KR');
 
-export function LabourRates({ rows, today }: { rows: RateRow[]; today: string }) {
+export function LabourRates({ rows, today, writable = true }: {
+  rows: RateRow[]; today: string;
+  /** 이 세션이 쓸 수 있는가. 못 쓰면 등록 칸을 그리지 않는다 */
+  writable?: boolean;
+}) {
   const [state, action, pending] = useActionState<FormState, FormData>(addLabourRate, {});
 
   /* 단가가 아직 없는 역할. 있는 것만 적고 없으면 아무것도 적지 않는다 */
@@ -56,6 +60,7 @@ export function LabourRates({ rows, today }: { rows: RateRow[]; today: string })
         </p>
       </div>
 
+      {writable && (
       <form action={action} className="grid gap-3 border-b border-line-soft px-4 py-3
                                        sm:grid-cols-2 lg:grid-cols-5">
         <div>
@@ -88,6 +93,7 @@ export function LabourRates({ rows, today }: { rows: RateRow[]; today: string })
           </button>
         </div>
       </form>
+      )}
 
       {missing.length > 0 && (
         <p className="border-b border-line-soft px-4 py-2.5 text-xs leading-relaxed text-muted">

@@ -1,4 +1,4 @@
-import { requireUser, blocksViewer, hasRole } from '@/lib/session';
+import { requireUser, blocksViewer, canWrite } from '@/lib/session';
 import Denied from '@/components/denied';
 import { withActor } from '@/lib/db';
 import { PageShell } from '@/components/shell';
@@ -35,6 +35,12 @@ export default async function SuppliersPage() {
   /* 열람자에게 열어 둔 화면이 아니다. 주소를 직접 쳐도 들어가지 못한다 */
   if (blocksViewer(user)) return <Denied what="이 화면" need="생산관리자 또는 시스템관리자" />;
 
+  /*
+   * 품질책임자는 공급자를 보되 고치지 않는다. 전에는 등록 · 수정 · 단가 칸이
+   * 그대로 보였고, 눌러도 DB 가 막아 아무 일도 일어나지 않았다.
+   */
+  const writable = canWrite(user);
+
 
   const d = await withActor(user.id, async (db) => ({
     suppliers: await db.rows<SupplierRow>(
@@ -70,8 +76,8 @@ export default async function SuppliersPage() {
       section="설정"
       title="공급자 · 단가 · 사용기간"
       lede="승인 상태는 경고 표시에만 쓰입니다. 미승인 공급자의 자재도 등록과 사용을 막지 않습니다."
-      action={<NewSupplierForm />}
-      nav={<SubNav items={settingsNav(hasRole(user, 'SYS_ADMIN'))} />}
+      action={writable ? <NewSupplierForm /> : null}
+      nav={<SubNav items={settingsNav(user.roles)} />}
     >
 
       <Panel>
@@ -88,11 +94,11 @@ export default async function SuppliersPage() {
                   <th className="th">만료일</th>
                   <th className="th">담당</th>
                   <th className="th text-right">자재 로트</th>
-                  <th className="th" />
+                  {writable && <th className="th" />}
                 </tr>
               </thead>
               <tbody>
-                {d.suppliers.map((s) => <SupplierRowView key={s.id} s={s} />)}
+                {d.suppliers.map((s) => <SupplierRowView key={s.id} s={s} writable={writable} />)}
               </tbody>
             </table>
           </div>
@@ -101,7 +107,7 @@ export default async function SuppliersPage() {
 
       <div className="grid gap-5 lg:grid-cols-2">
         <Panel title="단가 등록" note="사용 단위 기준 공급가액">
-          <PriceForm items={d.items} suppliers={d.suppliers} today={d.today ?? ''} />
+          {writable && <PriceForm items={d.items} suppliers={d.suppliers} today={d.today ?? ''} />}
           {d.prices.length > 0 && (
             <div className="overflow-x-auto border-t border-line">
               <table className="w-full">
@@ -127,7 +133,7 @@ export default async function SuppliersPage() {
         </Panel>
 
         <Panel title="사용기간 등록" note="완제품 유효기한의 근거입니다. 안정성 시험 보고서 번호가 필요합니다.">
-          <ShelfLifeForm items={d.items} today={d.today ?? ''} />
+          {writable && <ShelfLifeForm items={d.items} today={d.today ?? ''} />}
           {d.shelf.length > 0 && (
             <div className="overflow-x-auto border-t border-line">
               <table className="w-full">

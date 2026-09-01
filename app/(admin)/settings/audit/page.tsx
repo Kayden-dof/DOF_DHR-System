@@ -120,7 +120,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Search
       title="감사추적"
       lede="기록은 삭제되지 않습니다 (S03). 등록 · 변경 · 역할 회수가 모두 이전 값과 함께 남으며, 이 기록 자체도 수정하거나 지울 수 없습니다."
       /* 열람자에게는 설정 하위 메뉴를 보이지 않는다. 들어갈 수 없는 곳이다 */
-      nav={isViewerOnly(user.roles) ? undefined : <SubNav items={settingsNav(hasRole(user, 'SYS_ADMIN'))} />}
+      nav={isViewerOnly(user.roles) ? undefined : <SubNav items={settingsNav(user.roles)} />}
     >
 
       {/* ---------------------------------------------------------------------
