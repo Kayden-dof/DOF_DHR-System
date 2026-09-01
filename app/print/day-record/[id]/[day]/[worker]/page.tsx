@@ -52,9 +52,26 @@ function sheetsFor(rows: number): number {
 export default async function DayRecordSheet({ params }: {
   params: Promise<{ id: string; day: string; worker: string }>;
 }) {
-  const user = await requireUser();
   const { id, day, worker } = await params;
-  const dayNo = Number(day);
+  return <DayRecordDoc id={id} dayNo={Number(day)} worker={worker} />;
+}
+
+/* ---------------------------------------------------------------------------
+   제조기록서 한 묶음
+
+   낱장 발행과 묶음 발행이 같은 것을 그린다. 두 곳이 각자 그리면 갈라지고,
+   종이가 정본인 시스템에서 그 어긋남은 되돌릴 수 없다 (§10).
+
+   묶음 발행은 bare 로 부른다 - 인쇄 막대를 양식마다 내지 않는다.
+
+   logPrint 는 여기서 부른다. **묶음 한 번에 대장 한 줄이 아니라 묶음마다 한
+   줄**이 남아야 회차가 성립한다 (§7). 열 일차를 한 번에 뽑으면 열 줄이 남고
+   각자 제 회차를 갖는다.
+--------------------------------------------------------------------------- */
+export async function DayRecordDoc({ id, dayNo, worker, bare = false }: {
+  id: string; dayNo: number; worker: string; bare?: boolean;
+}) {
+  const user = await requireUser();
 
   /*
    * 자료는 lib/print-payload 에서 온다. 인쇄물 조회가 같은 것을 읽어
@@ -107,6 +124,7 @@ export default async function DayRecordSheet({ params }: {
 
   return (
     <PrintFrame
+      bare={bare}
       meta={meta}
       title="제조기록서"
       subtitle={<>배치 {head.batch_no} · {dayNo}일차 · {head.worker_name}</>}

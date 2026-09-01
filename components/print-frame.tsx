@@ -28,7 +28,7 @@ export interface PrintMeta {
    화면에서만 보이는 조작 막대는 인쇄에서 사라진다.
 --------------------------------------------------------------------------- */
 export default function PrintFrame({
-  meta, title, subtitle, back, children, after,
+  meta, title, subtitle, back, children, after, bare = false,
 }: {
   meta: PrintMeta;
   title: string;
@@ -37,28 +37,21 @@ export default function PrintFrame({
   children: React.ReactNode;
   /** 뒤에 이어 붙는 장. Sheet 로 만든다. */
   after?: React.ReactNode;
+  /** 묶음 문서에 끼워 넣을 때. 인쇄 막대를 내지 않는다 */
+  bare?: boolean;
 }) {
-  const [ready, setReady] = useState(false);
-  useEffect(() => setReady(true), []);
 
   return (
     <>
-      <div className="no-print sticky top-0 z-20 mb-5 border-b border-line bg-canvas/90 backdrop-blur">
-        <div className="mx-auto flex max-w-[210mm] flex-wrap items-center gap-3 px-2 py-3">
-          {back && <Link href={back} className="btn-ghost h-9">돌아가기</Link>}
-          <div className="leading-tight">
-            <div className="text-[0.8125rem] font-bold text-ink">{meta.kindLabel}</div>
-            <div className="text-xs text-muted">
-              인쇄 회차 <b className="tnum text-ink">{meta.seq}</b>
-              {meta.seq > 1 && <span className="ml-1.5 font-bold text-warn">재발행</span>}
-            </div>
-          </div>
-          <button onClick={() => window.print()} disabled={!ready}
-                  className="btn-primary ml-auto h-9">
-            인쇄
-          </button>
-        </div>
-      </div>
+      {!bare && (
+        <PrintBar back={back} label={meta.kindLabel}
+                  right={
+                    <>
+                      인쇄 회차 <b className="tnum text-ink">{meta.seq}</b>
+                      {meta.seq > 1 && <span className="ml-1.5 font-bold text-warn">재발행</span>}
+                    </>
+                  } />
+      )}
 
       <Sheet meta={meta} title={title} subtitle={subtitle} page={1}>
         {children}
@@ -66,6 +59,37 @@ export default function PrintFrame({
 
       {after}
     </>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   인쇄 막대
+
+   종이에는 나오지 않는다. 돌아갈 곳과 인쇄 단추만 있는 자리다.
+
+   묶음 발행 화면이 여러 양식을 한 문서로 내므로, 막대를 양식에서 떼어 둔다.
+   떼지 않으면 묶음 문서에 막대가 여러 번 나온다.
+--------------------------------------------------------------------------- */
+export function PrintBar({ back, label, right }: {
+  back?: string; label: string; right?: React.ReactNode;
+}) {
+  const [ready, setReady] = useState(false);
+  useEffect(() => setReady(true), []);
+
+  return (
+    <div className="no-print sticky top-0 z-20 mb-5 border-b border-line bg-canvas/90 backdrop-blur">
+      <div className="mx-auto flex max-w-[210mm] flex-wrap items-center gap-3 px-2 py-3">
+        {back && <Link href={back} className="btn-ghost h-9">돌아가기</Link>}
+        <div className="leading-tight">
+          <div className="text-[0.8125rem] font-bold text-ink">{label}</div>
+          {right && <div className="text-xs text-muted">{right}</div>}
+        </div>
+        <button onClick={() => window.print()} disabled={!ready}
+                className="btn-primary ml-auto h-9">
+          인쇄
+        </button>
+      </div>
+    </div>
   );
 }
 

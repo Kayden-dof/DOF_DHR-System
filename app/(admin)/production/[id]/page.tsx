@@ -409,7 +409,28 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
         )}
       </Panel>
 
-      <Panel title="일차별 기록지" note="인쇄하면 그 묶음이 잠깁니다 (S04)">
+      {/*
+        * 묶음 발행 (사용자 요청 2026-09-01).
+        *
+        * 일차가 여럿인 배치를 한 장씩 뽑으면 여는 횟수만큼 손이 간다. 편철할
+        * 때는 어차피 전부 필요하다.
+        *
+        * **이미 마감된 묶음만 낸다.** 제조기록서는 여는 것이 곧 마감이라
+        * (S04), 묶음 발행이 작성 중인 일차까지 끌고 가면 단추 한 번에 여러
+        * 날이 한꺼번에 잠긴다. 잠금을 푸는 방법은 없다.
+        *
+        * 그래서 마감된 것이 하나도 없으면 단추를 내지 않는다. 눌러도 아무것도
+        * 안 나오는 단추는 내걸지 않는다.
+        */}
+      <Panel
+        title="일차별 기록지"
+        note="인쇄하면 그 묶음이 잠깁니다 (S04)"
+        action={!viewer && d.days.some((r) => r.locked) ? (
+          <Link href={`/print/day-record/${wo.id}/all`} className="btn-ghost h-8 px-3 text-xs">
+            묶음 발행 ({d.days.filter((r) => r.locked).length}건)
+          </Link>
+        ) : undefined}
+      >
         {d.days.length === 0 ? (
           <Empty>아직 공정 기록이 없습니다. 현장 화면에서 작성합니다.</Empty>
         ) : (

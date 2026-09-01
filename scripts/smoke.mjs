@@ -50,6 +50,7 @@ const ADMIN = [
   '/settings/dmr', '/equipment', '/settings/users', '/settings/audit',
   ids.wo && `/production/${ids.wo}`,
   ids.wo && `/print/work-order/${ids.wo}`,
+  ids.wo && `/print/day-record/${ids.wo}/all`,
   ids.wo && `/print/label-request/${ids.wo}`,
   ids.wo && `/print/cover/${ids.wo}`,
   ids.mat && `/print/label/${ids.mat}`,

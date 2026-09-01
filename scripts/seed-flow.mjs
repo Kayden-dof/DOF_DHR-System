@@ -135,14 +135,25 @@ async function runOp(actor, opCode, { day, lot = null, attempt = 1, units = 0, r
    *
    * 앱은 이 함정이 없다 - work_date 와 started_at 을 같은 순간에서 뽑는다
    * (work_date = KST 오늘, started_at = now()). 여기만 손으로 조립한다.
+   *
+   * ── 일차마다 다른 날을 준다 ─────────────────────────────────────────────
+   * 전에는 전부 오늘 날짜를 찍어서, 1~4일차가 모두 같은 작업일로 나왔다
+   * (사용자 지적 2026-09-01). day_no 는 "지시서별 실작업일 순번" 인데
+   * (§4.6 · §11) 실작업일이 하루뿐인데 일차가 넷이면 뜻이 어긋난다.
+   *
+   * 일차 하나에 하루씩 물린다. 같은 일차의 두 작업자는 같은 날이다 - 그건
+   * 맞는 모양이고, 그래서 기록지가 두 장 나온다 (§4.9).
    */
   const prId = await as(actor.id, async () => {
     const id = await val(
       `insert into process_record (work_order_id, product_lot_id, operation_id, attempt,
          day_no, work_date, worker_id, rotation_worker_id, equipment_ref, started_at)
-       values ($1,$2,$3,$4,$5,(timezone('Asia/Seoul', now()))::date,$6,$7,$9,
+       values ($1,$2,$3,$4,$5,
+               (timezone('Asia/Seoul', now()))::date - (30 - $5),
+               $6,$7,$9,
                timezone('Asia/Seoul',
-                 (timezone('Asia/Seoul', now()))::date + ($8 || ' minutes')::interval))
+                 ((timezone('Asia/Seoul', now()))::date - (30 - $5))
+                 + ($8 || ' minutes')::interval))
        returning id`,
       [wo.id, lot, op.id, attempt, day, actor.id, rotation, startMin, equip]);
     return id;
