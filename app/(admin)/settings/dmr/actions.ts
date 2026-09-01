@@ -75,12 +75,25 @@ export async function createDeviceMaster(_p: FormState, form: FormData): Promise
   try {
     const me = await admin();
     const revision = String(form.get('revision') ?? '').trim();
+    const txt = (k: string) => String(form.get(k) ?? '').trim() || null;
+
+    /*
+     * 제품 코드를 만들 때 함께 받는다 (사용자 요청 2026-09-01).
+     *
+     * 전에는 "대상 형명"(PD05050510)만 묻고 제품 코드는 만든 뒤 따로 넣게 되어
+     * 있었다. 그런데 제품은 DX2401 이고 형명은 그 아래 규격이다 (0031). 묻는
+     * 순서가 뒤집혀 있었던 셈이다.
+     *
+     * 형명은 그대로 받는다. 채번과 소요량이 거기 매여 있다 (0031).
+     */
     await withActor(me.id, (db) =>
       db.rows(
-        `insert into device_master (item_id, revision, status, effective_from)
-         values ($1,$2,'DRAFT',$3::date)`,
+        `insert into device_master
+           (item_id, revision, status, effective_from, product_code, product_name, note)
+         values ($1,$2,'DRAFT',$3::date,$4,$5,$6)`,
         [String(form.get('item_id') ?? ''), revision,
-         String(form.get('effective_from') ?? '') || null]));
+         String(form.get('effective_from') ?? '') || null,
+         txt('product_code'), txt('product_name'), txt('note')]));
     path();
     return { ok: true, message: `${revision} 개정을 등록했습니다. 공정과 자재 구성표를 입력하십시오.` };
   } catch (e) {
@@ -407,6 +420,28 @@ export async function addTier(_p: FormState, form: FormData): Promise<FormState>
          max === '' ? null : Number(max), Number(form.get('qty') ?? 1)]));
     path(dm);
     return { ok: true, message: '장입 구간을 추가했습니다.' };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
+/**
+ * 개정 사유 (비고).
+ *
+ * 서면 제품표준서에 적힌 개정 사유를 옮겨 적는다. 시스템이 무엇이 바뀌었는지
+ * 계산하지 않는다 (§1). 서명이 든 값이 아니므로 고쳐 쓸 수 있고, 고친 사실은
+ * 감사추적에 남는다.
+ */
+export async function setDmrNote(_p: FormState, form: FormData): Promise<FormState> {
+  try {
+    const me = await admin();
+    const note = String(form.get('note') ?? '').trim() || null;
+    await withActor(me.id, (db) =>
+      db.rows(`update device_master set note = $2 where id = $1`,
+        [String(form.get('id') ?? ''), note]),
+      { reason: '제품표준서 개정 사유 기재' });
+    path();
+    return { ok: true, message: note ? '개정 사유를 적었습니다.' : '개정 사유를 비웠습니다.' };
   } catch (e) {
     return { error: dbMessage(e) };
   }

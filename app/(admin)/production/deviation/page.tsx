@@ -1,4 +1,4 @@
-import { requireUser, blocksViewer } from '@/lib/session';
+import { requireUser, blocksReadOnly } from '@/lib/session';
 import Denied from '@/components/denied';
 import { withActor } from '@/lib/db';
 import { PageShell, StatStrip, type StatItem } from '@/components/shell';
@@ -28,7 +28,7 @@ export const metadata = { title: '일탈 대장' };
 
 export default async function DeviationPage() {
   const user = await requireUser();
-  if (blocksViewer(user)) return <Denied what="이 화면" need="생산관리자 또는 시스템관리자" />;
+  if (blocksReadOnly(user)) return <Denied what="이 화면" need="생산관리자 또는 시스템관리자" />;
 
   const d = await withActor(user.id, async (db) => ({
     rows: await db.rows<DevRow>(

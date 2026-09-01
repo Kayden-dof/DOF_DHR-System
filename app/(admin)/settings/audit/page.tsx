@@ -30,7 +30,7 @@ type Search = Promise<{ table?: string; action?: string; actor?: string; page?: 
 
 export default async function AuditPage({ searchParams }: { searchParams: Search }) {
   const user = await requireUser();
-  if (!hasRole(user, 'SYS_ADMIN', 'PROD_MGR', 'VIEWER')) {
+  if (!hasRole(user, 'SYS_ADMIN', 'PROD_MGR', 'VIEWER', 'QP')) {
     return <Denied what="감사추적 조회" need="시스템관리자 또는 생산관리자" />;
   }
 

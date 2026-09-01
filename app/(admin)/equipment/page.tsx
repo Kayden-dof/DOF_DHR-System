@@ -31,7 +31,7 @@ export const metadata = { title: '설비' };
 
 export default async function EquipmentPage() {
   const user = await requireUser();
-  if (!hasRole(user, 'SYS_ADMIN', 'PROD_MGR')) {
+  if (!hasRole(user, 'SYS_ADMIN', 'PROD_MGR', 'QP')) {
     return <Denied what="설비 관리" need="생산관리자 또는 시스템관리자" />;
   }
 

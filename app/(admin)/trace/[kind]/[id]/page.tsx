@@ -42,7 +42,7 @@ export default async function TraceDetail({ params }: {
   params: Promise<{ kind: string; id: string }>;
 }) {
   const user = await requireUser();
-  if (!hasRole(user, 'SYS_ADMIN', 'PROD_MGR', 'VIEWER')) {
+  if (!hasRole(user, 'SYS_ADMIN', 'PROD_MGR', 'VIEWER', 'QP')) {
     return <Denied what="조회" need="생산관리자 또는 시스템관리자" />;
   }
   const { kind, id } = await params;

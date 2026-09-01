@@ -3,7 +3,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { withActor } from './db';
 import type { RoleCode } from './roles';
-import { isViewerOnly } from './roles';
+import { isViewerOnly, isReadOnly } from './roles';
 
 /* ---------------------------------------------------------------------------
    세션
@@ -159,4 +159,21 @@ export function hasRole(user: SessionUser, ...roles: RoleCode[]): boolean {
 --------------------------------------------------------------------------- */
 export function blocksViewer(user: SessionUser): boolean {
   return isViewerOnly(user.roles);
+}
+
+/* ---------------------------------------------------------------------------
+   쓰기 화면을 막는다
+
+   열람자와 품질책임자 둘 다 아무것도 쓰지 않는다. 자재 입고 · 출하 · 일탈
+   등록처럼 조작이 있는 화면은 둘 다 막는다.
+
+   기준정보 조회 화면(제품표준서 · 품목 · 공급자)은 blocksViewer 를 그대로 쓴다.
+   품질책임자는 들어가고 열람자는 막힌다 - 대표가 볼 것은 숫자이지 기준이
+   아니다 (사용자 지시).
+
+   막는 것은 화면의 예의이고, 실제 차단은 DB 다. 읽기 전용 세션은 app_readonly
+   로 돌아 쓰기 함수의 실행 권한이 없다 (0053).
+--------------------------------------------------------------------------- */
+export function blocksReadOnly(user: SessionUser): boolean {
+  return isReadOnly(user.roles);
 }

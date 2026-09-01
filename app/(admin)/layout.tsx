@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { withActor } from '@/lib/db';
 import { redirect } from 'next/navigation';
 import { requireUser, hasRole, ROLE_LABEL } from '@/lib/session';
-import { isAdmin, isWorker, isViewerOnly } from '@/lib/roles';
+import { isAdmin, isWorker, isViewerOnly, isQpOnly } from '@/lib/roles';
 import { Wordmark } from '@/components/logo';
 import Watermark, { stamp } from '@/components/watermark';
 import BackFab from '@/components/back-fab';
@@ -42,7 +42,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
    * 이 화면들에 있고, 쓰는 단추는 화면마다 감춘다.
    */
   const viewer = isViewerOnly(user.roles);
-  if (!isAdmin(user.roles) && !viewer) {
+  /*
+   * 품질책임자도 들인다 (사용자 결정 2026-09-01). 판정하려면 지금 무엇을
+   * 기준으로 돌고 있는지를 봐야 한다. 세션은 읽기 전용이다 (lib/roles.ts).
+   */
+  const qp = isQpOnly(user.roles);
+  if (!isAdmin(user.roles) && !viewer && !qp) {
     redirect(isWorker(user.roles) ? '/work' : '/no-role');
   }
 
@@ -56,7 +61,21 @@ export default async function AdminLayout({ children }: { children: React.ReactN
    * 자재 · 설비 · 출하 · 조회는 운영하는 사람의 화면이다. 볼 것이 없어서가
    * 아니라, 볼 것을 넷으로 줄여야 그 넷이 눈에 들어오기 때문이다.
    */
-  const items: NavItem[] = viewer
+  /*
+   * 품질책임자 메뉴는 열람자와 다르다. 열람자(대표)는 숫자를 보고, 품질책임자는
+   * 기준을 본다 - 어느 제품표준서 개정이 발효 중인지, 자재 구성표에 무엇이
+   * 걸려 있는지, 설비 밸리데이션이 언제까지인지.
+   */
+  const items: NavItem[] = qp
+    ? [
+        { href: '/production', label: '생산' },
+        { href: '/settings/dmr', label: '제품표준서' },
+        { href: '/equipment', label: '설비' },
+        { href: '/material', label: '자재' },
+        { href: '/trace', label: '조회' },
+        { href: '/settings/audit', label: '감사추적' },
+      ]
+    : viewer
     ? [
         { href: '/board', label: '경영 현황' },
         { href: '/production', label: '생산' },

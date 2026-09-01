@@ -37,7 +37,7 @@ interface Hit {
 
 export default async function TracePage({ searchParams }: { searchParams: Search }) {
   const user = await requireUser();
-  if (!hasRole(user, 'SYS_ADMIN', 'PROD_MGR')) {
+  if (!hasRole(user, 'SYS_ADMIN', 'PROD_MGR', 'QP')) {
     return <Denied what="조회" need="생산관리자 또는 시스템관리자" />;
   }
 

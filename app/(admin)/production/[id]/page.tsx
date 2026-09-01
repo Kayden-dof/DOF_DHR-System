@@ -64,7 +64,7 @@ interface RecRow {
 
 export default async function BatchPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
-  if (!hasRole(user, 'SYS_ADMIN', 'PROD_MGR', 'VIEWER')) {
+  if (!hasRole(user, 'SYS_ADMIN', 'PROD_MGR', 'VIEWER', 'QP')) {
     return <Denied what="배치 상세" need="생산관리자 또는 시스템관리자" />;
   }
   const { id } = await params;

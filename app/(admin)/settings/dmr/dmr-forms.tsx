@@ -7,7 +7,7 @@ import { Dialog, useDialog } from '@/components/dialog';
 import {
   createDeviceMaster, verifyDeviceMaster, addOperation, addBom, addTier, setExpectedUnits, setProductCode,
   addOperationsBulk, copyDmr, createProduct, addSampleTier, setSampleBasis,
-  setTypicalDay,
+  setTypicalDay, setDmrNote,
 } from './actions';
 import { linkOperation } from '../../equipment/actions';
 
@@ -36,13 +36,28 @@ export function NewDeviceMaster({ items }: { items: ItemOption[] }) {
       <Dialog open={open} onClose={() => setOpen(false)} wide title="제품표준서 개정 추가">
         <form action={action}>
       <h3 className="mb-3 text-sm font-bold text-ink">새 개정</h3>
-      <div className="grid gap-3 sm:grid-cols-3">
+
+      {/*
+        * 제품이 먼저다.
+        *
+        * 전에는 "대상 형명"(PD05050510)만 묻고 제품 코드는 만든 뒤 따로 넣게
+        * 되어 있었다. 그런데 제품은 DX2401 이고 형명은 그 아래 규격이다
+        * (62종). 묻는 순서가 뒤집혀 있었다 (사용자 지적 2026-09-01).
+        */}
+      <div className="grid gap-3 sm:grid-cols-2">
         <div>
-          <label className="label">대상 형명</label>
-          <select name="item_id" required className="input">
-            {fin.map((i) => <option key={i.id} value={i.id}>{i.code} · {i.name}</option>)}
-          </select>
+          <label className="label">제품 코드</label>
+          <input name="product_code" required placeholder="DX2401" autoComplete="off"
+                 className="input font-mono" />
         </div>
+        <div>
+          <label className="label">제품명</label>
+          <input name="product_name" placeholder="돈피 진피" autoComplete="off"
+                 className="input" />
+        </div>
+      </div>
+
+      <div className="mt-3 grid gap-3 sm:grid-cols-3">
         <div>
           <label className="label">개정 표기</label>
           <input name="revision" required placeholder="Rev.02" autoComplete="off"
@@ -52,10 +67,30 @@ export function NewDeviceMaster({ items }: { items: ItemOption[] }) {
           <label className="label">시행일</label>
           <input name="effective_from" type="date" className="input tnum" />
         </div>
+        <div>
+          <label className="label">
+            대표 형명 <span className="text-faint">(채번 · 소요량 기준)</span>
+          </label>
+          <select name="item_id" required className="input">
+            {fin.map((i) => <option key={i.id} value={i.id}>{i.code} · {i.name}</option>)}
+          </select>
+        </div>
       </div>
+
+      <div className="mt-3">
+        <label className="label">
+          개정 사유 <span className="text-faint">(비고)</span>
+        </label>
+        <input name="note" autoComplete="off" maxLength={300} className="input"
+               placeholder="서면 제품표준서에 적힌 개정 사유를 그대로 옮깁니다" />
+      </div>
+
       <p className="mt-3 rounded-md bg-canvas px-3 py-2 text-xs leading-relaxed text-muted">
-        서면 제품표준서가 정본입니다. 여기에는 개정 표기와 공정 · 자재 구성표만 옮겨 기재합니다.
-        파일은 올리지 않습니다.
+        서면 제품표준서가 정본입니다. 여기에는 개정 표기와 공정 · 자재 구성표,
+        그리고 서면에 적힌 개정 사유만 옮겨 기재합니다. 파일은 올리지 않습니다.
+        <br />
+        <b className="text-ink">대표 형명</b>은 채번과 소요량 계산이 매이는 자리입니다.
+        제품 하나에 형명이 여럿이어도 제품표준서는 제품 코드로 관리합니다.
       </p>
       <Msg state={state} />
       <div className="mt-4 flex gap-2">
@@ -644,6 +679,40 @@ export function SamplePlanForm({ id, tiers, basis }: {
    최상위 관리 코드다 (DX2401). 완제품 형명(PD05050510)은 그 아래의 규격이므로
    화면과 인쇄물의 "제품" 자리에는 이 값이 나가야 한다.
 --------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------
+   개정 사유 (비고)
+
+   개정 표기(Rev.03)만으로는 무엇이 왜 바뀌었는지 알 수 없다. 나중에 이력을
+   훑어도 번호만 나란히 있을 뿐이라, 서면 제품표준서 두 벌을 꺼내 견줘야 한다.
+
+   서면에 적힌 개정 사유를 한 줄로 옮긴다. 시스템이 무엇이 바뀌었는지 계산하지
+   않는다 (§1). 서명이 든 값이 아니므로 나중에 고칠 수 있고, 고친 사실은
+   감사추적에 남는다.
+--------------------------------------------------------------------------- */
+export function DmrNoteForm({ id, note }: { id: string; note: string | null }) {
+  const [state, action, pending] = useActionState<FormState, FormData>(setDmrNote, {});
+
+  return (
+    <form action={action}
+          className="flex flex-wrap items-end gap-2 border-t border-line-soft px-4 py-3">
+      <input type="hidden" name="id" value={id} />
+      <div className="min-w-[18rem] flex-1">
+        <label className="label">개정 사유 (비고)</label>
+        <input name="note" defaultValue={note ?? ''} autoComplete="off" maxLength={300}
+               placeholder="예: WS-05 세척 시간 변경 · 형명 12종 추가"
+               className="input h-9 text-xs" />
+      </div>
+      <button type="submit" disabled={pending} className="btn-ghost h-9 px-3 text-xs">
+        저장
+      </button>
+      <span className="pb-2 text-xs leading-relaxed text-faint">
+        서면 제품표준서에 적힌 사유를 그대로 옮깁니다.
+      </span>
+      <Msg state={state} className="w-full" />
+    </form>
+  );
+}
+
 export function ProductCodeForm({
   id, code, name, itemCode,
 }: { id: string; code: string | null; name: string | null; itemCode: string }) {

@@ -1,6 +1,6 @@
 import { unstable_rethrow } from 'next/navigation';
 import { Pool, type PoolClient } from 'pg';
-import { isViewerOnly, type RoleCode } from './roles';
+import { isReadOnly, type RoleCode } from './roles';
 import { pgSsl } from './pgssl';
 
 /* ---------------------------------------------------------------------------
@@ -120,7 +120,7 @@ export async function withUser<T>(
   user: { id: string; roles: RoleCode[] },
   fn: (db: Db) => Promise<T>,
 ): Promise<T> {
-  return withActor(user.id, fn, { readOnly: isViewerOnly(user.roles) });
+  return withActor(user.id, fn, { readOnly: isReadOnly(user.roles) });
 }
 
 /* ---------------------------------------------------------------------------
