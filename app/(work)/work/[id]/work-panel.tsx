@@ -346,7 +346,11 @@ function OpTile({
           */}
         {o.typical_day !== null && ` · 보통 ${o.typical_day}일차`}
         {o.after_cutting && ' · 제품 로트별'}
-        {o.bom.length > 0 && ` · 자재 ${o.bom.length}종`}
+        {/*
+          * 착수 전에도 무엇이 들어가는지 이름으로 보인다. "자재 3종" 만으로는
+          * 준비를 못 한다 - 무엇 셋인지 알아야 미리 꺼내 온다 (사용자 요청).
+          */}
+        {o.bom.length > 0 && ` · 자재 ${o.bom.map((b) => b.item_name).join(' · ')}`}
       </div>
 
       {others && state === 'none' && (
@@ -649,11 +653,69 @@ function MaterialForm({ woId, rec, op, lots, sheets }: {
   const bom = op.bom.find((b) => b.item_id === lot?.item_id);
   const need = bom?.required ? Number(bom.required) : null;
 
+  /*
+   * 이 공정에 무엇이 들어가는지 먼저 보인다 (사용자 요청 2026-09-01).
+   *
+   * 전에는 머리줄에 "자재 3종" 이라는 숫자만 있었다. 무엇 셋인지는 공정 마감을
+   * 눌러 막혀야 알았다. 작업자가 종이 제조기록서를 따로 펴 놓고 대조하고 있었던
+   * 셈이다.
+   *
+   * 기록된 것과 아직인 것을 함께 표시하되 **판정하지 않는다** (§1). "빠졌다"
+   * 가 아니라 "아직 기록되지 않았다" 이고, S05 는 해당없음 사유를 적으면
+   * 넘어간다 - 정말 안 쓰는 경우가 있기 때문이다.
+   *
+   * 원재료는 여기 없다. 지시서에 이미 지정되어 있어 자재 구성표에 넣지 않는다 (§5).
+   */
+  const recordedItems = new Set(rec.issues.map((x) => x.item_id));
+
+  const guide = op.bom.length === 0 ? (
+    <p className="rounded-lg border border-line bg-surface-sub px-3.5 py-3 text-sm leading-relaxed text-muted">
+      이 공정은 자재 구성표에 등록된 자재가 없습니다. 원재료는 작업 지시서에
+      이미 지정되어 있습니다.
+    </p>
+  ) : (
+    <div className="rounded-lg border border-line bg-surface-sub p-3">
+      <p className="text-xs font-bold tracking-wide text-muted">이 공정에 들어가는 자재</p>
+      <ul className="mt-2 space-y-1.5">
+        {op.bom.map((b) => {
+          const done = recordedItems.has(b.item_id);
+          return (
+            <li key={b.item_id} className="flex items-baseline justify-between gap-3 text-sm">
+              <span className="min-w-0">
+                <span className={done ? 'text-muted line-through' : 'font-semibold text-ink'}>
+                  {b.item_name}
+                </span>
+                <span className="ml-1.5 font-mono text-xs text-faint">{b.item_code}</span>
+              </span>
+              <span className="shrink-0 text-xs tnum">
+                {b.required !== null && b.required !== undefined && (
+                  <span className="text-muted">
+                    예상 {Number(b.required)} {b.usage_uom}
+                  </span>
+                )}
+                <span className={`ml-2 font-semibold ${done ? 'text-brand' : 'text-warn'}`}>
+                  {done ? '기록함' : '아직'}
+                </span>
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="mt-2 text-xs leading-relaxed text-faint">
+        예상 수량은 자재 구성표와 장입 {sheets}장으로 계산한 값입니다. 실제로 넣은
+        양이 다르면 그대로 적으십시오.
+      </p>
+    </div>
+  );
+
   if (pool.length === 0) {
     return (
-      <p className="px-4 py-6 text-sm text-muted">
-        이 공정에 넣을 수 있는 자재 로트가 없습니다. 관리자에게 입고를 요청하십시오.
-      </p>
+      <div className="space-y-4 p-4">
+        {guide}
+        <p className="text-sm leading-relaxed text-muted">
+          이 공정에 넣을 수 있는 자재 로트가 없습니다. 관리자에게 입고를 요청하십시오.
+        </p>
+      </div>
     );
   }
 
@@ -662,6 +724,8 @@ function MaterialForm({ woId, rec, op, lots, sheets }: {
       <input type="hidden" name="work_order_id" value={woId} />
       <input type="hidden" name="process_record_id" value={rec.id} />
       <input type="hidden" name="material_lot_id" value={lotId} />
+
+      {guide}
 
       <div>
         <span className="label">자재 로트</span>
