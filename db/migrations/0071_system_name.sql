@@ -24,8 +24,22 @@ comment on column org_brand.system_name_long is
 comment on column org_brand.system_tagline is
   '그 아래 한 줄 (제조기록 지원 시스템)';
 
-/* 지금 화면에 나오는 값을 그대로 옮긴다 */
+/*
+ * 지금 화면에 나오는 값을 그대로 옮긴다.
+ *
+ * where 절이 없으면 배포마다 이 줄이 다시 쓰인다. 값은 그대로인데 감사
+ * 트리거는 UPDATE 를 잡으므로, 감사추적에 "이관 계정이 회사 표시를 바꿨다" 가
+ * 배포 횟수만큼 쌓인다 - 아무도 바꾸지 않았는데 바꿨다고 적힌다.
+ *
+ * 감사추적이 답해야 하는 것은 "무엇이 언제 누구에 의해 바뀌었는가" 다 (§1).
+ * 바뀌지 않은 것을 적으면 그 대장을 읽는 사람이 진짜 변경을 찾지 못한다.
+ *
+ * 채울 것이 있을 때만 쓴다.
+ */
 update org_brand
    set system_name      = coalesce(system_name, 'DHR'),
        system_name_long = coalesce(system_name_long, 'Device History Record'),
-       system_tagline   = coalesce(system_tagline, '제조기록 지원 시스템');
+       system_tagline   = coalesce(system_tagline, '제조기록 지원 시스템')
+ where system_name is null
+    or system_name_long is null
+    or system_tagline is null;

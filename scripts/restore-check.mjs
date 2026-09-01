@@ -113,9 +113,39 @@ for (const f of here) {
 }
 console.log('  올렸다');
 
+
 /* --- 3. 자료 --------------------------------------------------------- */
 step('자료를 넣는다 (트리거는 잠시 물러난다)');
 await c.query(`set session_replication_role = 'replica'`);
+
+/*
+ * 그릇을 비운다.
+ *
+ * 이관은 스키마만 세우지 않는다. 몇 줄을 심는다 - 회사 표시 기본값, 이관용
+ * 계정, 그 계정의 역할. 그리고 그 심는 행위가 감사 트리거를 건드려 audit_log
+ * 에도 줄이 생긴다.
+ *
+ * 복구는 "백업에 든 것이 그대로 되살아나는 것" 이다. 그릇에 남의 것이 먼저
+ * 들어 있으면 번호가 부딪힌다 - 실제로 audit_log 1번에서 막혔다 (2026-09-01).
+ * 백업에도 그 시절의 같은 줄들이 들어 있으므로 잃는 것은 없다.
+ *
+ * 지우는 것이 아니라 빈 그릇을 만드는 것이다. 이 DB 는 훈련용으로 방금
+ * 만들어졌고 여기서 비워지는 줄은 어떤 기록도 아니다 (§1 의 대상이 아니다).
+ *
+ * 표를 낱낱이 적지 않고 있는 대로 쓸어 담는다. 앞으로 어떤 이관이 무엇을 더
+ * 심어도 같은 자리에서 막히지 않는다.
+ *
+ * 트리거가 물러난 뒤에 해야 한다. S03 의 삭제 금지 트리거가 truncate 까지
+ * 막기 때문이다 - 규칙이 제대로 서 있다는 뜻이므로 비켜서 지나간다.
+ */
+const vessel = (await c.query(`
+  select cl.relname from pg_class cl
+    join pg_namespace n on n.oid = cl.relnamespace
+   where n.nspname = 'public' and cl.relkind = 'r'
+   order by cl.relname`)).rows.map((r) => r.relname);
+const planted = (await c.query('select count(*)::int n from audit_log')).rows[0].n;
+await c.query(`truncate table ${vessel.map((t) => `public.${t}`).join(', ')} cascade`);
+console.log(`  그릇을 비웠다 (표 ${vessel.length}개 · 이관이 심어 둔 감사행 ${planted}건 포함)`);
 
 /*
  * NOT VALID 검사 제약을 잠시 걷는다.
@@ -151,6 +181,21 @@ if (relaxed.length) {
 let table = null;
 let batch = [];
 const loaded = {};
+
+/*
+ * 백업이 그 표에 어떤 열을 담고 있었는지 적어 둔다.
+ *
+ * 백업 뒤에 이관이 열을 더하면, 되살린 행에는 그 열이 기본값으로 붙는다. 행은
+ * 정확히 되살아났는데 to_jsonb 해시는 달라진다 - 원본에 없던 열이 끼어들기
+ * 때문이다.
+ *
+ * 그것을 "어긋남" 이라고 부르면 스키마를 고칠 때마다 훈련이 헛경보를 낸다.
+ * 헛경보를 내는 확인 도구는 없느니만 못하다 - 사람이 곧 무시하게 되고 진짜
+ * 어긋남이 그 속에 묻힌다.
+ *
+ * 그래서 대조는 백업이 담고 있던 열로만 하고, 늘어난 열은 따로 말한다.
+ */
+const backupCols = {};
 
 async function flush() {
   if (!table || batch.length === 0) return;
@@ -190,6 +235,7 @@ for await (const line of rl) {
     continue;
   }
   if (!line) continue;
+  if (!backupCols[table]) backupCols[table] = Object.keys(JSON.parse(line));
   hashes[table].update(line).update('\n');
   batch.push(line);
   if (batch.length >= 500) await flush();
@@ -224,17 +270,31 @@ const ok = (cond, label, detail = '') => {
 
 /* 4-1. 표마다 행 수와 내용 해시 */
 let same = 0;
+const widened = [];
 for (const [t, m] of Object.entries(man.tables)) {
   const n = Number((await c.query(`select count(*)::int n from public.${t}`)).rows[0].n);
+
+  /* 백업 이후 이 표에 늘어난 열. 대조에서 뺀다 */
+  const now = (await c.query(
+    `select column_name from information_schema.columns
+      where table_schema = 'public' and table_name = $1`, [t])).rows.map((r) => r.column_name);
+  const extra = now.filter((x) => !(backupCols[t] ?? now).includes(x));
+  if (extra.length) widened.push(`${t}: ${extra.join(', ')}`);
+
   const h = createHash('sha256');
   /* 백업과 같은 차례로 읽는다 (scripts/backup.mjs 의 주석 참고) */
   for (const r of (await c.query(
-    `select to_jsonb(x)::text j from public.${t} x order by j`)).rows) {
+    `select (to_jsonb(x) - $1::text[])::text j from public.${t} x
+      order by (to_jsonb(x) - $1::text[])::text`, [extra])).rows) {
     h.update(r.j).update('\n');
   }
   const hit = n === m.rows && h.digest('hex') === m.sha256;
   if (hit) same += 1;
   else fail.push(`${t} (원본 ${m.rows}행 · 복구 ${n}행)`);
+}
+if (widened.length) {
+  console.log('  참고  백업 이후 늘어난 열은 대조에서 뺐습니다');
+  for (const w of widened) console.log(`          ${w}`);
 }
 ok(same === Object.keys(man.tables).length,
    `표 ${Object.keys(man.tables).length}개의 행 수와 내용 해시`,
