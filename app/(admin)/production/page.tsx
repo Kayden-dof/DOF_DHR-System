@@ -111,23 +111,26 @@ export default async function ProductionPage({ searchParams }: { searchParams: S
       </>}
       action={viewer ? null : (<IssueForm masters={d.masters} rawLots={d.rawLots} finished={d.finished}
                          users={d.users} today={d.today ?? ''} />)}
-      nav={
-        <div className="flex flex-wrap items-center gap-3">
-          <SubNav items={PRODUCTION_NAV} />
-          <FilterBar
-            items={[
-              { href: '/production', label: '전체', count: total, on: !status },
-              ...Object.entries(WO_STATUS_LABEL).map(([code, label]) => ({
-                href: `/production?status=${code}`,
-                label,
-                count: byStatus.get(code) ?? 0,
-                on: status === code,
-              })),
-            ]}
-          />
-        </div>
-      }
+      nav={<SubNav items={PRODUCTION_NAV} />}
     >
+      {/*
+        * 상태 거르개는 차림표 줄에 얹지 않는다. 그 줄은 "어느 화면인가" 를
+        * 말하는 자리이고, 이것은 "그 화면의 무엇을 보는가" 다. 전에는 둘이
+        * 한 줄에 붙어 있어, 자재 화면에서는 본문에 있던 것이 생산 화면에서만
+        * 위에 있었다 (사용자 지적 2026-09-01).
+        */}
+      <FilterBar
+        items={[
+          { href: '/production', label: '전체', count: total, on: !status },
+          ...Object.entries(WO_STATUS_LABEL).map(([code, label]) => ({
+            href: `/production?status=${code}`,
+            label,
+            count: byStatus.get(code) ?? 0,
+            on: status === code,
+          })),
+        ]}
+      />
+
       <Panel>
         {d.orders.length === 0 ? (
           <Empty hint="위의 작업 지시 발행에서 시작합니다.">

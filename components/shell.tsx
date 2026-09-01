@@ -35,6 +35,18 @@ export function PageShell({
   return (
     <div className="space-y-6">
       <header className="space-y-5">
+        {/*
+          * 하위 차림표가 제목 위에 온다.
+          *
+          * 아래에 두면 그 자리가 제목과 설명의 높이에 딸려 다닌다. 설명이 한
+          * 줄인 화면과 두 줄인 화면을 오갈 때 차림표가 위아래로 뛰었다 - 같은
+          * 구역 안을 오가는데 방금 누른 것이 움직인다 (사용자 지적 2026-09-01).
+          *
+          * 위로 올리면 그 자리는 머리줄 바로 아래로 고정된다. 무엇을 누르든
+          * 차림표는 같은 곳에 있고, 화면마다 달라지는 것은 그 아래뿐이다.
+          */}
+        {nav}
+
         <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
           {/*
             * 제목 칸에 max-w 를 주면 설명이 길 때 칸이 그 너비까지 벌어져 주
@@ -47,8 +59,16 @@ export function PageShell({
             <h1 className={`text-[1.625rem] font-bold leading-tight text-ink ${section ? 'mt-2' : ''}`}>
               {title}
             </h1>
+            {/*
+              * 설명은 늘 두 줄 자리를 차지한다. 한 줄짜리 화면과 두 줄짜리
+              * 화면을 오갈 때 아래가 통째로 뛰던 것을 막는다.
+              *
+              * 높이는 글자 크기와 줄 간격에서 그대로 셈한다 - 어림수를 박아
+              * 두면 글자 크기를 고칠 때 어긋난다.
+              */}
             {lede && (
-              <p className="mt-2 max-w-2xl text-[0.9375rem] leading-relaxed text-muted">{lede}</p>
+              <p className="mt-2 max-w-2xl min-h-[calc(2*1.625*0.9375rem)] text-[0.9375rem]
+                            leading-relaxed text-muted">{lede}</p>
             )}
           </div>
           {/*
@@ -68,7 +88,6 @@ export function PageShell({
         </div>
 
         {stats}
-        {nav}
       </header>
 
       {children}
