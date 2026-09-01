@@ -64,12 +64,20 @@ export default async function SettingsHome() {
                 where verified_at is not null and status = 'ACTIVE'
                   and effective_from is not null
                   and effective_from <= (timezone('Asia/Seoul', now()))::date) as dmr_issuable`),
+    backup: await db.one<{ n: number; days: number; who: string }>(
+      `select count(*)::int as n,
+              coalesce(min(current_date - (timezone('Asia/Seoul', b.taken_at))::date), 0) as days,
+              coalesce((select u.full_name from backup_log b2
+                          join app_user u on u.id = b2.taken_by
+                         order by b2.taken_at desc limit 1), '') as who
+         from backup_log b`),
     covered: await db.rows<{ target: string }>(
       `select distinct target::text as target from numbering_rule
         where is_active and item_id is null`),
   }));
 
   const c = d.c!;
+  const backup = d.backup ?? { n: 0, days: 0, who: '' };
   const brand = await getBrand();
   const keyPinned = printKeyPinned();
   const have = new Set(d.covered.map((r) => r.target));
@@ -145,6 +153,10 @@ export default async function SettingsHome() {
       tone: c.dmr > 0 && c.dmr_verified === 0 ? 'warn' : 'quiet' },
     { href: '/settings/users', title: '사용자',
       value: `${c.users}명`, note: '계정과 역할', tone: 'quiet' },
+    { href: '/settings/backup', title: '백업',
+      value: backup.n > 0 ? `${backup.days}일 전` : '없음',
+      note: backup.n > 0 ? `${backup.n}회 · 마지막 ${backup.who}` : '한 번도 뜨지 않았습니다',
+      tone: backup.n === 0 || backup.days >= 7 ? 'warn' : 'quiet' },
     { href: '/settings/access', title: '권한',
       value: `역할 ${ROLE_ORDER.length}`, note: '어느 역할이 어느 화면을 여는가', tone: 'quiet' },
     { href: '/settings/audit', title: '감사추적',

@@ -28,7 +28,7 @@
 --------------------------------------------------------------------------- */
 import { createHash } from 'node:crypto';
 import { createReadStream, readFileSync, readdirSync, existsSync } from 'node:fs';
-import { createGunzip } from 'node:zlib';
+import { createGunzip, gunzipSync } from 'node:zlib';
 import { createInterface } from 'node:readline';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -54,12 +54,38 @@ if (!name) {
 }
 const dataPath = path.join(BACKUPS, path.basename(name));
 const manPath = dataPath.replace(/\.ndjson\.gz$/, '.manifest.json');
-if (!existsSync(dataPath) || !existsSync(manPath)) {
-  console.error(`백업이나 목록을 찾지 못했습니다: ${dataPath}`);
+if (!existsSync(dataPath)) {
+  console.error(`백업을 찾지 못했습니다: ${dataPath}`);
   process.exit(2);
 }
 
-const man = JSON.parse(readFileSync(manPath, 'utf8'));
+/*
+ * 목록을 어디서 읽는가.
+ *
+ * CLI 백업(scripts/backup.mjs)은 `.manifest.json` 을 옆에 따로 쓴다.
+ * 화면 백업(/api/backup)은 파일 첫 줄에 `#manifest` 로 넣는다 - 브라우저로
+ * 두 파일을 받게 하면 둘이 갈라져 보관될 수 있고, 목록 없는 백업은 대조할 수
+ * 없어 반쪽이 되기 때문이다.
+ *
+ * 옆에 있으면 그것을, 없으면 파일 안의 것을 읽는다. 둘 다 없으면 멈춘다 -
+ * 무엇과 대조해야 하는지 모르는 채로 "되살렸다" 고 말하지 않는다.
+ */
+function readEmbeddedManifest(file) {
+  const buf = gunzipSync(readFileSync(file));
+  const head = buf.subarray(0, Math.min(buf.length, 1 << 20)).toString('utf8');
+  const line = head.split('\n', 1)[0];
+  return line.startsWith('#manifest ') ? JSON.parse(line.slice(10)) : null;
+}
+
+const man = existsSync(manPath)
+  ? JSON.parse(readFileSync(manPath, 'utf8'))
+  : readEmbeddedManifest(dataPath);
+
+if (!man) {
+  console.error(`목록을 찾지 못했습니다. 옆에 .manifest.json 이 없고 파일 안에도`
+    + ` #manifest 줄이 없습니다: ${path.basename(dataPath)}`);
+  process.exit(2);
+}
 const RULE = '='.repeat(78);
 
 console.log(RULE);
@@ -234,7 +260,7 @@ for await (const line of rl) {
     hashes[table] = createHash('sha256');
     continue;
   }
-  if (!line) continue;
+  if (!line || line.startsWith('#manifest ')) continue;
   if (!backupCols[table]) backupCols[table] = Object.keys(JSON.parse(line));
   hashes[table].update(line).update('\n');
   batch.push(line);

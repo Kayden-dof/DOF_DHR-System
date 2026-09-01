@@ -67,6 +67,23 @@ function pool(): Pool {
   return globalThis.__dhrPool;
 }
 
+/**
+ * 역할을 걸지 않은 날 연결.
+ *
+ * 백업은 전 표를 한 트랜잭션에서 읽으므로 withActor 의 트랜잭션 안에 들어갈
+ * 수 없다 (스스로 begin 을 건다). 그래서 클라이언트만 빌려 준다.
+ *
+ * **이 문으로 들어오는 것은 스스로 역할을 정해야 한다.** 정하지 않으면 소유자
+ * (postgres) 로 돈다 - 이 앱의 접속이 원래 소유자이고, 매 트랜잭션의
+ * `set local role` 이 그것을 묶는 유일한 줄이기 때문이다.
+ *
+ * 부르는 자리를 늘리지 않는다. 지금은 백업과 복구 둘뿐이고, 둘 다 그 자리에서
+ * 왜 소유자여야 하는지 적어 두었다.
+ */
+export async function rawClient() {
+  return pool().connect();
+}
+
 export interface Db {
   rows<T = Record<string, unknown>>(sql: string, params?: unknown[]): Promise<T[]>;
   one<T = Record<string, unknown>>(sql: string, params?: unknown[]): Promise<T | undefined>;

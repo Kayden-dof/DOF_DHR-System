@@ -80,6 +80,7 @@ export const ACCESS_ROWS: AccessRow[] = [
   { group: '설정', label: '공급자',      path: '/settings/suppliers',    marks: '●●-●X' },
   { group: '설정', label: '제품표준서',  path: '/settings/dmr',          marks: '●●-●X' },
   { group: '설정', label: '사용자',      path: '/settings/users',        marks: '●●-●X' },
+  { group: '설정', label: '백업',        path: '/settings/backup',       marks: '●X-XX' },
   { group: '설정', label: '권한',        path: '/settings/access',       marks: '●●-XX' },
   { group: '설정', label: '감사추적',    path: '/settings/audit',        marks: '●●-●●' },
 
