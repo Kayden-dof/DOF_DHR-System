@@ -7,7 +7,7 @@ import Denied from '@/components/denied';
 import { Panel, Empty } from '@/components/ui';
 import { PageShell } from '@/components/shell';
 import { SubNav } from '../../nav';
-import { TRACE_NAV } from '../../sections';
+import { boardNav } from '../../sections';
 
 export const dynamic = 'force-dynamic';
 
@@ -82,7 +82,7 @@ export default async function CostPage() {
 
   return (
     <PageShell
-      section="조회"
+      section="경영"
       title="원가"
       lede={
         <>
@@ -92,7 +92,7 @@ export default async function CostPage() {
           어디에 쓰였는지와 무관합니다.
         </>
       }
-      nav={<SubNav items={TRACE_NAV} />}
+      nav={<SubNav items={boardNav(true)} />}
     >
 
       {/*

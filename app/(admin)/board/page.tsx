@@ -1,10 +1,12 @@
 import Link from 'next/link';
-import { requireUser } from '@/lib/session';
+import { requireUser, hasRole } from '@/lib/session';
 import { withUser } from '@/lib/db';
 import { fmtDate } from '@/lib/fmt';
 import { PageShell, StatStrip, type StatItem } from '@/components/shell';
 import { statRows as rows, mono } from '@/components/stat-rows';
 import { Panel, Empty, Tag } from '@/components/ui';
+import { SubNav } from '../nav';
+import { boardNav } from '../sections';
 
 export const dynamic = 'force-dynamic';
 
@@ -227,6 +229,7 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
       title="경영 현황"
       lede="오늘 · 이번 주 · 달별 순서로 놓았습니다. 개체 번호로 그 제품이 어디서 나와 어디로 갔는지 찾을 수 있습니다."
       stats={<StatStrip items={stats} />}
+      nav={<SubNav items={boardNav(hasRole(user, 'SYS_ADMIN', 'PROD_MGR'))} />}
     >
 
       {/* ------------------------------------------------------------------

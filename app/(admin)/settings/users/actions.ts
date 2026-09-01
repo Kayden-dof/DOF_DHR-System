@@ -237,7 +237,7 @@ export async function addLabourRate(_prev: FormState, form: FormData): Promise<F
       { reason: '공수 단가 등록' });
 
     revalidatePath('/settings/users');
-    revalidatePath('/trace/cost');
+    revalidatePath('/board/cost');
     return { ok: true, message: '공수 단가를 등록했습니다.' };
   } catch (e) {
     return { error: dbMessage(e) };

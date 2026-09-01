@@ -45,7 +45,7 @@ await db.end();
 const ADMIN = [
   '/', '/production', '/production/setup', '/production/deviation', '/material', '/material/items', '/material/orders', '/material/stock',
   '/material/movement', '/shipping', '/shipping/steril', '/shipping/ship',
-  '/trace', '/trace/verify', '/trace/cost',
+  '/trace', '/trace/verify', '/board', '/board/cost',
   '/settings', '/settings/brand', '/settings/numbering', '/settings/items', '/settings/suppliers',
   '/settings/dmr', '/equipment', '/settings/users', '/settings/audit',
   ids.wo && `/production/${ids.wo}`,

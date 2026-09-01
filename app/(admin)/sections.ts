@@ -30,11 +30,25 @@ export const SHIPPING_NAV: NavItem[] = [
   { href: '/shipping/ship', label: '출고' },
 ];
 
+/*
+ * 조회는 추적을 위한 자리만 둔다 (사용자 지시 2026-09-01). 원가는 돈 이야기라
+ * 경영으로 옮겼다 - 계보를 되짚는 일과 얼마가 드는지 보는 일은 같은 물음이
+ * 아니다.
+ */
 export const TRACE_NAV: NavItem[] = [
   { href: '/trace', label: '계보 추적' },
   { href: '/trace/verify', label: '인쇄물' },
-  { href: '/trace/cost', label: '원가' },
 ];
+
+/**
+ * 경영. 원가는 생산관리자 이상만 열 수 있으므로 (열람자는 숫자를 보되 원가는
+ * 보지 않는다) 못 여는 탭을 보이지 않게 한다 - 눌러서 막히는 것보다 낫다.
+ */
+export function boardNav(canSeeCost: boolean): NavItem[] {
+  return canSeeCost
+    ? [{ href: '/board', label: '경영 현황' }, { href: '/board/cost', label: '원가' }]
+    : [{ href: '/board', label: '경영 현황' }];
+}
 
 export const SETTINGS_NAV: NavItem[] = [
   { href: '/settings', label: '개요' },
