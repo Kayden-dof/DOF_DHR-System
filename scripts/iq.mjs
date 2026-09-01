@@ -310,7 +310,7 @@ say('');
 say(' 이 보고서가 답하지 않는 것');
 say('   · 규칙이 실제로 막는가        →  test/run.mjs   (OQ · 같은 서버에 대고 한 번)');
 say('   · 종이가 자료와 같은가        →  test/print.mjs (OQ §8.2)');
-say('   · 배치 1건이 끝까지 흐르는가  →  PQ. 아직 문서로 정의되어 있지 않다 (§8.0)');
+say('   · 배치 1건이 끝까지 흐르는가  →  사내문서/PQ 프로토콜.md');
 say(RULE);
 
 const dir = path.join(ROOT, 'reports');
