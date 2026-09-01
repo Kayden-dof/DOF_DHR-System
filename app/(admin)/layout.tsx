@@ -7,6 +7,7 @@ import { Wordmark } from '@/components/logo';
 import Watermark, { stamp } from '@/components/watermark';
 import BackFab from '@/components/back-fab';
 import DemoBanner from '@/components/demo-banner';
+import FindUnit from '@/components/find-unit';
 import IdleLock from '@/components/idle-lock';
 import { logout } from './actions';
 import Nav, { type NavItem } from './nav';
@@ -101,6 +102,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </div>
 
           <div className="flex shrink-0 items-center gap-3">
+            {/* 어느 화면에서 전화를 받든 바로 부를 수 있어야 한다 */}
+            <FindUnit />
+
             {isWorker(user.roles) && (
               <Link href="/work" className="btn-ghost h-9">현장 화면</Link>
             )}

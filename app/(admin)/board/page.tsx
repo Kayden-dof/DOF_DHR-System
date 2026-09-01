@@ -64,6 +64,11 @@ interface Unit {
 
 type Search = Promise<{ sn?: string }>;
 
+interface ItemCost {
+  item_code: string; item_name: string; spec: string;
+  qty: number; shared_cost: string; own_cost: string;
+}
+
 export default async function BoardPage({ searchParams }: { searchParams: Search }) {
   const user = await requireUser();
   const sn = ((await searchParams).sn || '').trim();
@@ -132,6 +137,18 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
         order by amount desc limit 8`),
 
     unit: sn ? await db.rows<Unit>(`select * from find_unit($1)`, [sn]) : [],
+    /*
+     * 제품코드별 자재 원가 (사용자 요청). 배분과 반올림은 v_item_cost 가
+     * 한 번만 한다 - 화면이 각자 나누면 갈라진다 (§10).
+     */
+    itemCost: await db.rows<ItemCost>(
+      `select item_code, item_name, spec_label(item_code) as spec,
+              sum(qty)::int                as qty,
+              sum(shared_cost)::numeric    as shared_cost,
+              sum(own_cost)::numeric       as own_cost
+         from v_item_cost
+        group by 1, 2, 3
+        order by 1`),
   }));
 
   const today = d.today ?? '';
@@ -212,17 +229,20 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
       stats={<StatStrip items={stats} />}
     >
 
-      {/* 개체 번호 찾기 ---------------------------------------------------- */}
+      {/* ------------------------------------------------------------------
+        * 개체 번호 찾기 결과
+        *
+        * 입력 칸은 머리줄로 옮겼다 (components/find-unit.tsx). 여기 큰 판으로
+        * 두었더니 평소에는 빈 칸 하나만 덩그러니 떠 있었고, 자리를 많이 먹으면서
+        * 하는 일이 없었다 (사용자 지적 2026-09-01).
+        *
+        * 결과는 여기서만 그린다. 두 곳이 같은 것을 그리면 갈라진다 (§10).
+        * 찾은 것이 없으면 이 판 자체가 나오지 않는다.
+        * ---------------------------------------------------------------- */}
+      {sn && (
       <Panel title="개체 번호 찾기"
-             note="라벨의 번호를 그대로 적으십시오. 제조번호만 적어도 됩니다">
-        <form className="flex flex-wrap gap-2 px-4 py-3">
-          <input name="sn" defaultValue={sn} autoComplete="off"
-                 placeholder="P2608-0004-007 또는 P2608-0004"
-                 className="input w-72 font-mono" />
-          <button className="btn-primary">찾기</button>
-        </form>
-
-        {sn && (
+             note={<span className="font-mono">{sn}</span>}>
+        {(
           d.unit.length === 0 ? (
             <p className="border-t border-line-soft px-4 py-3 text-sm text-muted">
               <span className="font-mono text-ink">{sn}</span> 에 해당하는 제조번호가 없습니다.
@@ -276,6 +296,7 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
           )
         )}
       </Panel>
+      )}
 
       {/* 오늘 ── 무엇이 나왔나 --------------------------------------------- */}
       <Panel title="오늘" note={fmtDate(today)}>
@@ -349,6 +370,69 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
             발생 수량은 재작업 · 특채 · 불량의 합입니다. 한 개체는 셋 중 하나로만
             끝나므로 재작업이나 특채로 살아난 만큼 불량은 줄어듭니다.
             시스템이 무엇을 불량으로 볼지 정하지 않습니다. 서면으로 정해진 결과를 셀 뿐입니다.
+          </p>
+        </div>
+      </Panel>
+
+      {/* ------------------------------------------------------------------
+        * 제품코드별 자재 원가
+        *
+        * 배치 공통분과 형명 자체 자재를 한 줄로 합치지 않는다 (사용자 결정
+        * 2026-09-01). 합쳐 놓으면 어디서 온 값인지 알 수 없고, 배분 기준을
+        * 나중에 되짚을 수도 없다.
+        * ---------------------------------------------------------------- */}
+      <Panel title="제품코드별 자재 원가"
+             note="배치 공통분은 면적으로 나눕니다">
+        {d.itemCost.length === 0 ? (
+          <Empty>원가를 낼 자료가 없습니다.</Empty>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr>
+                  <th className="th">형명</th>
+                  <th className="th">규격</th>
+                  <th className="th text-right">생산</th>
+                  <th className="th text-right">배치 공통</th>
+                  <th className="th text-right">형명 자체</th>
+                  <th className="th text-right">한 장</th>
+                </tr>
+              </thead>
+              <tbody>
+                {d.itemCost.map((r) => {
+                  const per = (Number(r.shared_cost) + Number(r.own_cost)) / (r.qty || 1);
+                  return (
+                    <tr key={r.item_code}>
+                      <td className="td font-mono font-bold">{r.item_code}</td>
+                      <td className="td text-xs text-muted">{r.spec}</td>
+                      <td className="td text-right tnum">{r.qty}</td>
+                      <td className="td text-right tnum">{won(r.shared_cost)}</td>
+                      <td className="td text-right tnum">{won(r.own_cost)}</td>
+                      <td className="td text-right tnum font-bold">{won(String(per))}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <div className="border-t border-line-soft bg-canvas px-4 py-3">
+          <dl className="grid gap-x-6 gap-y-1.5 text-xs leading-relaxed sm:grid-cols-2">
+            <Def term="배치 공통">
+              원재료와 재단 전 공정 자재입니다. 배치 안에서 <b className="text-ink">조각
+              면적에 비례해</b> 나눕니다. 개수로 나누면 5x5 한 장과 10x10 한 장이
+              같은 값을 집니다.
+            </Def>
+            <Def term="형명 자체">
+              재단 뒤에 이 형명에만 들어간 자재입니다. 포장재와 라벨이 여기 옵니다.
+            </Def>
+          </dl>
+          <p className="mt-2.5 text-xs leading-relaxed text-faint">
+            <b className="text-ink">자재 원가입니다. 제조원가가 아닙니다.</b>{' '}
+            인건비 · 전기 · 멸균 위탁비가 들어 있지 않습니다. 가죽 한 장에서 조각을
+            떼고 남는 자투리의 면적은 기록되지 않아, 그 몫이 나온 조각들에 비례해
+            얹혀 있습니다.
           </p>
         </div>
       </Panel>
