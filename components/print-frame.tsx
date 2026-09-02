@@ -18,6 +18,8 @@ export interface PrintMeta {
    * 만들 때 실어 보낸다 (lib/print.ts).
    */
   companyName: string;
+  /** 소재지 · 사업자등록번호 · 대표자를 이어 붙인 한 줄. 비면 안 나온다 */
+  orgLine?: string;
   logoUrl: string | null;
 }
 
@@ -159,6 +161,16 @@ export function Sheet({
                     {meta.companyName}
                   </span>
                 )}
+              {/*
+                * 제조소가 누구인지 (5차 감사 D1). 이 시스템의 종이는 미리
+                * 인쇄된 양식에 얹는 것이 아니라 통째로 만들어 내므로, 그
+                * 자리가 여기다. 설정이 비면 아무것도 나오지 않는다.
+                */}
+              {meta.orgLine && (
+                <div className="mt-0.5 text-[9px] leading-tight text-black">
+                  {meta.orgLine}
+                </div>
+              )}
               <h1 className="mt-1.5 text-lg font-bold text-black">{title}</h1>
               {subtitle && <div className="mt-0.5 text-xs text-black">{subtitle}</div>}
             </div>

@@ -417,8 +417,21 @@ async function sheet(name, formPath, checks, signBoxes, register) {
 
    이제 대장(record_print)에서 실제 값을 읽어 종이와 견준다.
 --------------------------------------------------------------------------- */
+const org = await one(
+  `select coalesce(company_name,'') as name, coalesce(address,'') as address,
+          coalesce(biz_no,'') as biz_no, coalesce(ceo_name,'') as ceo_name
+     from org_brand limit 1`);
+
+/*
+ * 제조소 표시는 설정에 적힌 것만 종이에 나간다 (5차 감사 D1). 비어 있으면
+ * 종이에도 없는 것이 맞으므로 건너뛴다 - 대조는 충실성을 묻지 완결성을 묻지
+ * 않는다. 적혀 있는데 안 나오는 것만 잡는다.
+ */
 const common = (kindLabel) => [
   { label: '양식 이름', value: kindLabel, anywhere: true },
+  { label: '제조소 소재지',   value: org?.address ?? '',  anywhere: true },
+  { label: '사업자등록번호',  value: org?.biz_no ?? '',   anywhere: true },
+  { label: '대표자',          value: org?.ceo_name ?? '', anywhere: true },
 ];
 
 /** 종이를 뽑은 뒤 대장에 남은 줄. 그 값이 종이에 그대로 찍혔는지 본다 */

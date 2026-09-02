@@ -172,6 +172,20 @@ export async function logPrint(a: LogArgs): Promise<PrintMeta> {
     pages: a.pages ?? 1,
     /* 종이 머리에 나가는 회사 표시. 설정에서 온다 (§2.0 · 0070) */
     companyName: brand.companyName,
+    /*
+     * 제조소를 가리키는 한 줄 (5차 감사 D1). 소재지 · 사업자등록번호 ·
+     * 대표자 중 적힌 것만 이어 붙인다. 셋 다 비면 빈 문자열이고 종이에
+     * 아무것도 나오지 않는다 - 서면 양식이 이미 갖고 있으면 시스템이 낼
+     * 이유가 없다.
+     *
+     * 만드는 자리를 여기 하나로 둔다. 양식마다 각자 이어 붙이면 갈라진다
+     * (§10 복제는 갈라진다).
+     */
+    orgLine: [
+      brand.address,
+      brand.bizNo ? `사업자등록번호 ${brand.bizNo}` : '',
+      brand.ceoName ? `대표자 ${brand.ceoName}` : '',
+    ].filter(Boolean).join(' · '),
     logoUrl: brand.hasLogo ? `/logo?v=${brand.logoUpdatedAt ?? '0'}` : null,
   };
 }

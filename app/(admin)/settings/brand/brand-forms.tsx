@@ -13,10 +13,13 @@ import type { FormState } from '@/lib/forms';
    않고, 고른 색 그대로만 보인다.
 --------------------------------------------------------------------------- */
 
-export function BrandForm({ name, color, sys, sysLong, tagline, companyTagline }: {
+export function BrandForm({
+  name, color, sys, sysLong, tagline, companyTagline, address, bizNo, ceoName,
+}: {
   name: string; color: string;
   sys: string | null; sysLong: string | null;
   tagline: string | null; companyTagline: string | null;
+  address: string | null; bizNo: string | null; ceoName: string | null;
 }) {
   /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
   const uid = useId();
@@ -86,6 +89,43 @@ export function BrandForm({ name, color, sys, sysLong, tagline, companyTagline }
                  maxLength={80} placeholder="제조기록 지원 시스템" className="input" />
           <p className="mt-1 text-xs text-faint">제목 아래에 옵니다.</p>
         </div>
+      </div>
+
+      {/*
+        * 제조소를 가리키는 값 (5차 감사 D1 · 사용자 결정 2026-09-02).
+        *
+        * 이 시스템의 종이는 미리 인쇄된 양식에 얹는 것이 아니라 통째로 만들어
+        * 낸다. 그러니 제조소가 누구인지 적을 자리가 설정에 있어야 다른
+        * 제조소가 코드를 안 고치고 받아 쓸 수 있다 (§2.0).
+        *
+        * 셋 다 선택이다. 비우면 종이에 아무것도 나오지 않는다 - 서면 양식이
+        * 이미 갖고 있으면 시스템이 낼 이유가 없다 (§1).
+        */}
+      <div className="border-t border-line-soft pt-3">
+        <p className="label mb-2">제조소 표시 (인쇄물 머리)</p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <label className="label" htmlFor={`${uid}-address`}>소재지</label>
+            <input id={`${uid}-address`} name="address" defaultValue={address ?? ''}
+                   autoComplete="off" maxLength={120}
+                   placeholder="예: 서울특별시 ..." className="input" />
+          </div>
+          <div>
+            <label className="label" htmlFor={`${uid}-biz_no`}>사업자등록번호</label>
+            <input id={`${uid}-biz_no`} name="biz_no" defaultValue={bizNo ?? ''}
+                   autoComplete="off" maxLength={40} className="input font-mono" />
+          </div>
+          <div>
+            <label className="label" htmlFor={`${uid}-ceo_name`}>대표자</label>
+            <input id={`${uid}-ceo_name`} name="ceo_name" defaultValue={ceoName ?? ''}
+                   autoComplete="off" maxLength={40} className="input" />
+          </div>
+        </div>
+        <p className="mt-1.5 text-xs leading-relaxed text-faint">
+          적힌 것만 인쇄물 머리에 회사 이름 아래로 한 줄에 이어 나옵니다.
+          <b className="text-ink"> 비워 두면 아무것도 나오지 않습니다.</b>{' '}
+          미리 인쇄된 양식이 이미 갖고 있으면 비워 두십시오.
+        </p>
       </div>
 
       <Msg state={state} />

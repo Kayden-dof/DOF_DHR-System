@@ -27,6 +27,14 @@ export interface Brand {
   systemNameLong: string;
   systemTagline: string;
   companyTagline: string;
+  /*
+   * 제조소를 가리키는 값 (5차 감사 D1). 인쇄물 머리에 회사 이름과 함께
+   * 나온다. 비어 있으면 아무것도 나오지 않는다 - 서면 양식이 이미 갖고
+   * 있으면 시스템이 낼 이유가 없다.
+   */
+  address: string;
+  bizNo: string;
+  ceoName: string;
 }
 
 /** 설정이 아직 없거나 읽지 못했을 때. 화면이 비어 보이지 않게만 한다 */
@@ -40,6 +48,9 @@ const FALLBACK: Brand = {
   systemNameLong: '',
   systemTagline: '',
   companyTagline: '',
+  address: '',
+  bizNo: '',
+  ceoName: '',
 };
 
 export const getBrand = cache(async (): Promise<Brand> => {
@@ -50,12 +61,14 @@ export const getBrand = cache(async (): Promise<Brand> => {
         has_logo: boolean; has_dark_logo: boolean; logo_updated_at: string | null;
         system_name: string | null; system_name_long: string | null;
         system_tagline: string | null; company_tagline: string | null;
+        address: string | null; biz_no: string | null; ceo_name: string | null;
       }>(
         `select company_name, brand_color,
                 (logo_bytes is not null) as has_logo,
                 (logo_dark_bytes is not null) as has_dark_logo,
                 to_char(updated_at, 'YYYYMMDDHH24MISS') as logo_updated_at,
-                system_name, system_name_long, system_tagline, company_tagline
+                system_name, system_name_long, system_tagline, company_tagline,
+                address, biz_no, ceo_name
            from org_brand limit 1`),
     );
     if (!row) return FALLBACK;
@@ -69,6 +82,9 @@ export const getBrand = cache(async (): Promise<Brand> => {
       systemNameLong: row.system_name_long ?? '',
       systemTagline: row.system_tagline ?? '',
       companyTagline: row.company_tagline ?? '',
+      address: row.address ?? '',
+      bizNo: row.biz_no ?? '',
+      ceoName: row.ceo_name ?? '',
     };
   } catch {
     /* 설정 표가 아직 없어도 화면이 서 버리면 안 된다 */
