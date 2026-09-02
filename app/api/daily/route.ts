@@ -34,10 +34,12 @@ export async function GET(req: Request) {
    * 열쇠를 빠뜨린 것이 조용히 열린 문이 되어서는 안 된다. 빠뜨리면 닫힌다.
    */
   const secret = process.env.CRON_SECRET;
+  let trusted = false;
   if (secret) {
     if (req.headers.get('authorization') !== `Bearer ${secret}`) {
       return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
     }
+    trusted = true;
   } else {
     /*
      * 열쇠가 없으면 이 문은 인증 없이 열린다.
@@ -66,7 +68,19 @@ export async function GET(req: Request) {
      * 죽는다. 유효기한 표시가 멈추는 쪽이 더 나쁘므로 그것을 먼저 끝낸다.
      * 그리고 백업 실패가 이 응답을 실패로 만들지 않는다.
      */
-    const backup = await dailyBackup();
+    /*
+     * 백업은 **믿을 수 있는 부름일 때만** 뜬다 (5차 감사 C3).
+     *
+     * 열쇠가 없으면 이 문은 인증 없이 열려 있다 (위 참고). 유지보수는 멱등해서
+     * 몇 번을 불러도 같지만, 백업은 DB 를 통째로 읽고 파일을 올린다. 바깥에서
+     * 아무나 되풀이해 부를 수 있는 자리에 그것을 두지 않는다.
+     *
+     * 열쇠를 세우면 그날부터 뜬다. 안 세우면 왜 안 뜨는지 그대로 적힌다 -
+     * 조용히 안 하는 것과 못 하는 것을 가려야 한다.
+     */
+    const backup = trusted
+      ? await dailyBackup()
+      : { done: false, why: 'CRON_SECRET 이 없어 백업은 뜨지 않습니다' };
     console.log('[daily]', JSON.stringify({ ...out, backup }));
     return NextResponse.json({ ok: true, ...out, backup });
   } catch (e) {
