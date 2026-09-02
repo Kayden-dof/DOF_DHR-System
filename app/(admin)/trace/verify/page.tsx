@@ -4,7 +4,7 @@ import { requireUser, blocksViewer } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import { fmtDateTime } from '@/lib/fmt';
 import { KIND_LABEL, dataHash } from '@/lib/print';
-import { dayRecordPayload } from '@/lib/print-payload';
+import { dayRecordPayload, hashable } from '@/lib/print-payload';
 import { Panel, Empty, Tag, Field } from '@/components/ui';
 import { PageShell } from '@/components/shell';
 import { SubNav } from '../../nav';
@@ -83,7 +83,7 @@ export default async function VerifyPage({
         `select worker_id::text from record_print where id = $1`, [h.id]);
       if (!worker) continue;
       const payload = await dayRecordPayload(db, h.work_order_id, h.day_no, worker);
-      h.recomputed = payload ? dataHash(payload) : null;
+      h.recomputed = payload ? dataHash(hashable(payload)) : null;
     }
   });
 

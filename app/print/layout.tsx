@@ -1,5 +1,4 @@
-import { requireUser } from '@/lib/session';
-import { isViewerOnly } from '@/lib/roles';
+import { requireUser, blocksReadOnly } from '@/lib/session';
 import Denied from '@/components/denied';
 import BackFab from '@/components/back-fab';
 
@@ -27,7 +26,14 @@ export default async function PrintLayout({ children }: { children: React.ReactN
    * 종이가 필요하면 생산관리자가 뽑는다. 열람자 세션은 DB 에서도 읽기 전용이라
    * 여기를 지나쳐도 인쇄 기록 자체가 남지 않는다 (0043).
    */
-  if (isViewerOnly(user.roles)) {
+  /*
+   * 읽기 전용 세션은 전부 막는다 (4차 감사 B3).
+   *
+   * 전에는 순수 열람자만 걸렀다. 품질책임자도 읽기 전용인데 인쇄 화면에
+   * 닿았고, 화면을 여는 것만으로 record_print 에 회차가 박혔다. 다음에
+   * 실제로 뽑는 첫 종이가 2회차가 되어 재발행 워터마크를 달고 나갔다.
+   */
+  if (blocksReadOnly(user)) {
     return (
       <Denied what="인쇄" need="생산관리자 또는 시스템관리자">
         인쇄물을 뽑으면 인쇄 기록이 남고 제조기록서는 그 묶음이 잠깁니다.

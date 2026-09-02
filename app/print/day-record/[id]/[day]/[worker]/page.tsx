@@ -4,7 +4,7 @@ import { withActor } from '@/lib/db';
 import { fmtDate, fmtDateTime } from '@/lib/fmt';
 import { logPrint } from '@/lib/print';
 import PrintFrame, { Sheet, SignRow } from '@/components/print-frame';
-import { dayRecordPayload, type RecRow } from '@/lib/print-payload';
+import { dayRecordPayload, hashable, type RecRow } from '@/lib/print-payload';
 import { chunkRows } from '@/lib/print-pages';
 
 export const dynamic = 'force-dynamic';
@@ -230,7 +230,7 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false }: {
   const meta = await logPrint({
     actorId: user.id, actorName: user.full_name, kind: 'DAY_RECORD',
     workOrderId: id, dayNo, workerId: worker,
-    payload: { head, records },
+    payload: hashable({ head, records }),
     pages: sheetCount,
     lockDay: true,
   });

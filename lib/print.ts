@@ -1,5 +1,7 @@
 import { createHmac } from 'node:crypto';
 import { withActor } from './db';
+import { requireUser } from './session';
+import { isReadOnly } from './roles';
 import { getBrand } from './brand';
 import type { PrintMeta } from '@/components/print-frame';
 
@@ -121,11 +123,26 @@ interface LogArgs {
   pages?: number;
   /** 제조기록서는 인쇄와 동시에 그 묶음이 잠긴다 (S04). */
   lockDay?: boolean;
+
 }
 
 export async function logPrint(a: LogArgs): Promise<PrintMeta> {
   const hash = dataHash(a.payload);
   const brand = await getBrand();
+
+  /* -------------------------------------------------------------------------
+     읽기 전용 세션은 대장에 쓰지 못한다 (4차 감사 B3)
+
+     전에는 withActor 를 그냥 불러 readOnly 를 주지 않았다. 그래서 품질책임자
+     세션도 이 경로에서만은 쓰기 역할(app_role)로 돌았다. 화면 문지기를
+     고쳐 두었지만 응용에만 두면 검증이 아니다 (§1-2) - 화면에 구멍이 생겨도
+     DB 에서 거부되어야 한다.
+
+     부르는 자리마다 넘기게 하면 빠뜨린다. 여기서 세션을 직접 읽어 정한다 -
+     인쇄 화면은 전부 로그인 뒤에 있으므로 세션이 늘 있다.
+  ------------------------------------------------------------------------- */
+  const me = await requireUser();
+  const readOnly = isReadOnly(me.roles);
 
   const row = await withActor(a.actorId, (db) =>
     a.lockDay
@@ -138,6 +155,7 @@ export async function logPrint(a: LogArgs): Promise<PrintMeta> {
           [a.kind, hash, a.workOrderId ?? null, a.productLotId ?? null,
            a.dayNo ?? null, a.workerId ?? null, a.materialLotId ?? null,
            a.pages ?? 1, a.equipmentId ?? null]),
+    { readOnly, reason: '인쇄' },
   );
 
   return {
