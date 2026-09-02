@@ -7,7 +7,7 @@ import type { FormState } from '@/lib/forms';
 import { createUser } from './actions';
 import { Msg } from './user-row';
 
-export default function NewUserForm() {
+export default function NewUserForm({ sysAdmin }: { sysAdmin: boolean }) {
   const [state, action, pending] = useActionState<FormState, FormData>(createUser, {});
   const { open, setOpen } = useDialog(state);
   const [canLogin, setCanLogin] = useState(true);
@@ -62,10 +62,17 @@ export default function NewUserForm() {
             />
             로그인 사용
           </label>
-          <label className="flex items-center gap-2 text-sm text-ink">
-            <input type="checkbox" name="is_developer" className="size-4 accent-brand" />
-            개발 계정
-          </label>
+          {/*
+            * 개발 계정 표시는 시스템관리자만 켠다 (4차 감사 D1). 서버가 이미
+            * 막지만, 못 누르는 자리를 내놓고 눌렀을 때 막는 것보다 아예
+            * 보이지 않는 편이 낫다.
+            */}
+          {sysAdmin && (
+            <label className="flex items-center gap-2 text-sm text-ink">
+              <input type="checkbox" name="is_developer" className="size-4 accent-brand" />
+              개발 계정
+            </label>
+          )}
         </div>
       </div>
 

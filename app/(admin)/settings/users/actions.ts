@@ -42,7 +42,23 @@ export async function createUser(_prev: FormState, form: FormData): Promise<Form
     const loginCode = String(form.get('login_code') ?? '').trim();
     const fullName = String(form.get('full_name') ?? '').trim();
     const canLogin = form.get('can_login') === 'on';
-    const isDeveloper = form.get('is_developer') === 'on';
+    /*
+     * 개발 계정 표시는 시스템관리자만 켠다 (4차 감사 D1).
+     *
+     * setDeveloper 에는 이 검사가 있는데 **새 계정을 만드는 자리에는 없었다.**
+     * 생산관리자 하나가 화면만으로 완주했다 - 개발 계정을 만들며 초기
+     * 비밀번호를 스스로 정하고, 그 계정으로 들어가 임의 계정의 비밀번호를
+     * 초기화한다 (setPin 의 유일한 문턱이 is_developer 다).
+     *
+     * 전자서명이 없어 기록의 귀속이 로그인 하나에 달려 있다 (§1). 그 뒤
+     * 남의 이름으로 공정 기록이 남고 그 이름이 박힌 제조기록서가 인쇄되어
+     * S04 로 잠긴다. 되돌릴 수 없다.
+     */
+    const wantDeveloper = form.get('is_developer') === 'on';
+    if (wantDeveloper && !hasRole(me, 'SYS_ADMIN')) {
+      return { error: '개발 계정은 시스템관리자만 만들 수 있습니다' };
+    }
+    const isDeveloper = wantDeveloper;
     const pin = String(form.get('pin') ?? '');
 
     if (canLogin && !pin) return { error: '로그인을 사용하는 계정은 비밀번호가 필요합니다' };

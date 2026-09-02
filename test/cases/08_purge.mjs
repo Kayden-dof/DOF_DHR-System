@@ -12,11 +12,21 @@
 
 const NIL = '00000000-0000-0000-0000-000000000000';
 
-/** 표시를 지금 시각으로 새로 남긴다. 시드 스크립트가 하는 일과 같다. */
-async function mark(t) {
-  await t.rows(`insert into demo_marker (id, seeded_at, note)
-                values (true, now(), '시험')
-                on conflict (id) do update set seeded_at = now()`);
+/**
+ * 표시를 지금 시각으로 새로 남긴다. 시드 스크립트가 하는 일과 같다.
+ *
+ * 기준선(audit_before)도 함께 적는다 (4차 감사 D2). 그것이 없으면 증명이
+ * 서지 않는다 - 표시 **앞에** 무엇이 있었는지 모르기 때문이다.
+ *
+ * 여기서는 "이 DB 에는 시연 자료 말고 없다" 를 만들어야 하므로 0 을 적는다.
+ * 실제 시드 스크립트는 심기 직전의 max(audit_log.id) 를 적는다.
+ */
+async function mark(t, auditBefore = 0) {
+  await t.rows(`insert into demo_marker (id, seeded_at, note, audit_before)
+                values (true, now(), '시험', $1)
+                on conflict (id) do update
+                  set seeded_at = now(), audit_before = excluded.audit_before`,
+               [auditBefore]);
 }
 
 export default [
@@ -180,6 +190,41 @@ export default [
     await t.asRole('app_role', () =>
       t.rejects(() => t.val(`select purge_demo_data()`),
         { code: 'P0001', message: '시연 자료 표시가 없습니다' }));
+  },
+},
+
+{
+  id: 'PRG-11', expect: '통과',
+  name: '표시 앞에 기록이 있으면 증명이 서지 않는다 (4차 감사 D2)',
+  async run(t) {
+    /*
+     * 전에는 증명이 "표시 뒤로 감사추적이 조용한가" 만 봤다. 표시가 자료보다
+     * 뒤에 찍히므로 **실기록이 든 DB 에 표식을 찍으면 통과했고**, 그 순간
+     * audit_log 를 뺀 전 표에서 DELETE 가 열렸다.
+     *
+     * 기준선보다 앞선 감사 줄이 하나라도 있으면 이 DB 에는 시연 이전의
+     * 무언가가 있었다는 뜻이다.
+     */
+    const maxId = Number(await t.val(`select coalesce(max(id), 0) from audit_log`));
+    /* 기준선을 지금 최대값으로 잡으면, 이미 있는 줄들이 전부 그 앞이 된다 */
+    await mark(t, maxId);
+    t.eq(await t.val(`select only_demo_data()`), false,
+         '표시 앞에 기록이 있으면 증명이 서지 않아야 한다');
+    await t.rejects(() => t.rows(`select purge_demo_data()`));
+  },
+},
+
+{
+  id: 'PRG-12', expect: '통과',
+  name: '기준선이 없는 옛 표식으로는 증명이 서지 않는다',
+  async run(t) {
+    await t.rows(`insert into demo_marker (id, seeded_at, note, audit_before)
+                  values (true, now(), '기준선 없음', null)
+                  on conflict (id) do update
+                    set seeded_at = now(), audit_before = null`);
+    t.eq(await t.val(`select only_demo_data()`), false,
+         '모르면 증명하지 않는다. 문은 닫히는 쪽이 안전하다');
+    await t.rejects(() => t.rows(`select purge_demo_data()`));
   },
 },
 

@@ -11,7 +11,7 @@ import { PageShell } from '@/components/shell';
 import { SubNav } from '../nav';
 import { settingsNav } from '../sections';
 import { APP_VERSION, BUILD_REF } from '@/lib/version';
-import { printKeyPinned } from '@/lib/print';
+import { printKeyPinned, cronKeyPinned } from '@/lib/print';
 import { getBrand } from '@/lib/brand';
 import { SetupSteps, type SetupStep } from './setup-steps';
 
@@ -82,6 +82,7 @@ export default async function SettingsHome() {
   const backup = d.backup ?? { n: 0, days: 0, who: '' };
   const brand = await getBrand();
   const keyPinned = printKeyPinned();
+  const cronPinned = cronKeyPinned();
   const have = new Set(d.covered.map((r) => r.target));
   const missing = NUMBERING_TARGETS.filter((t) => !have.has(t.code));
   const blocking = missing.filter((t) => M1_CRITICAL_TARGETS.includes(t.code));
@@ -268,6 +269,14 @@ export default async function SettingsHome() {
             </dd>
           </div>
           <div>
+            <dt className="text-muted">일 1회 배치</dt>
+            <dd className="mt-0.5">
+              {cronPinned
+                ? <span className="text-ink">CRON_SECRET 으로 잠김</span>
+                : <Tag tone="warn">인증 없이 열려 있음</Tag>}
+            </dd>
+          </div>
+          <div>
             <dt className="text-muted">인쇄 열쇠</dt>
             <dd className="mt-0.5">
               {keyPinned
@@ -276,6 +285,14 @@ export default async function SettingsHome() {
             </dd>
           </div>
         </dl>
+        {!cronPinned && (
+          <p className="mt-2 text-xs leading-relaxed text-muted">
+            일 1회 배치(<code>/api/daily</code>)가 인증 없이 열려 있습니다.
+            바깥에서 부를 수 있으나 하는 일은 유효기한 표시와 로그인 실패 청소뿐이라
+            같은 결과가 몇 시간 일찍 날 뿐입니다. 배포 환경에
+            <code> CRON_SECRET </code>을 넣으면 잠깁니다.
+          </p>
+        )}
         {!keyPinned && (
           <p className="mt-2 text-xs leading-relaxed text-muted">
             지금 상태로 세션 열쇠를 갈면 같은 자료가 다른 자료 식별자를 냅니다.

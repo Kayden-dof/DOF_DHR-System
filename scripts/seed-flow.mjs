@@ -17,6 +17,15 @@ if (!url) throw new Error('DATABASE_URL이 없습니다');
 const client = new pg.Client({ connectionString: url, ssl: pgSsl(url, process.cwd()) });
 await client.connect();
 
+/*
+ * 자료를 심기 전의 감사추적 마지막 번호를 잡아 둔다 (4차 감사 D2).
+ *
+ * 표식이 자료보다 뒤에 찍히므로, 그 앞에 무엇이 있었는지 나중에는 알 수
+ * 없다. 지금 잡아 두어야 "이 DB 에는 시연 자료 말고 없다" 가 증명이 된다.
+ */
+const auditBefore = Number(
+  (await client.query('select coalesce(max(id), 0)::bigint b from audit_log')).rows[0].b);
+
 /** 화면과 같은 방식으로 행위자를 심는다. */
 async function as(userId, fn) {
   await client.query('begin');
@@ -622,9 +631,10 @@ await history('2026-08-26', 16, [['PD05050510', 60, 3]],
    표시는 응용이 지우지 못한다. scripts/reset-db.mjs 가 자료와 함께 비운다.
 --------------------------------------------------------------------------- */
 await client.query(
-  `insert into demo_marker (id, note) values (true, $1)
-   on conflict (id) do update set seeded_at = now(), note = excluded.note`,
-  ['scripts/seed-flow.mjs 로 넣은 시연 배치 기록']);
+  `insert into demo_marker (id, note, audit_before) values (true, $1, $2)
+   on conflict (id) do update
+     set seeded_at = now(), note = excluded.note, audit_before = excluded.audit_before`,
+  ['scripts/seed-flow.mjs 로 넣은 시연 배치 기록', auditBefore]);
 say('시연 자료 표시를 남겼습니다 - 화면 맨 위에 띠가 뜹니다');
 
 await client.end();

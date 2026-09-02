@@ -175,3 +175,13 @@ export async function logPrint(a: LogArgs): Promise<PrintMeta> {
     logoUrl: brand.hasLogo ? `/logo?v=${brand.logoUpdatedAt ?? '0'}` : null,
   };
 }
+
+/**
+ * 일 1회 배치의 문이 잠겨 있는가 (4차 감사 D5).
+ *
+ * CRON_SECRET 이 없으면 /api/daily 가 인증 없이 열린다. 닫아 버리면 유효기한
+ * 만료 표시가 멈추므로 열어 두되, 그 상태가 화면에 보여야 한다.
+ */
+export function cronKeyPinned(): boolean {
+  return !!process.env.CRON_SECRET;
+}

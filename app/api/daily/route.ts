@@ -21,12 +21,33 @@ export const dynamic = 'force-dynamic';
 --------------------------------------------------------------------------- */
 
 export async function GET(req: Request) {
+  /*
+   * 열쇠가 없으면 아예 닫는다 (4차 감사 D5).
+   *
+   * 전에는 `if (secret)` 이라 CRON_SECRET 을 안 세우면 인증 없이 열렸다.
+   * 개발노트가 그것을 "선택" 이라 적어 배포 점검에서 빠졌다.
+   *
+   * 실제 노출은 "멱등한 유지보수를 몇 시간 일찍 돌릴 수 있다" 에 그치지만,
+   * 열쇠를 빠뜨린 것이 조용히 열린 문이 되어서는 안 된다. 빠뜨리면 닫힌다.
+   */
   const secret = process.env.CRON_SECRET;
   if (secret) {
-    const auth = req.headers.get('authorization');
-    if (auth !== `Bearer ${secret}`) {
+    if (req.headers.get('authorization') !== `Bearer ${secret}`) {
       return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
     }
+  } else {
+    /*
+     * 열쇠가 없으면 이 문은 인증 없이 열린다.
+     *
+     * 닫아 버리면 유효기한 만료 표시가 멈춘다 - 그쪽이 더 나쁘다. 대신
+     * **조용히 열려 있지 않게** 한다. 서버 로그에 남기고, 설정 > 개요가
+     * 그 상태를 화면에 적는다 (PRINT_SECRET 을 다루는 방식과 같다).
+     *
+     * 실제 노출은 "멱등한 유지보수를 몇 시간 일찍 돌릴 수 있다" 에 그친다.
+     * 문제는 크기가 아니라 개발노트가 그것을 "선택" 이라 적어 배포 점검에서
+     * 빠졌다는 것이다 (4차 감사 D5).
+     */
+    console.warn('[daily] CRON_SECRET 이 없어 인증 없이 열려 있습니다');
   }
 
   try {
