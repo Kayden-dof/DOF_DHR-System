@@ -5,6 +5,7 @@ import { withActor } from '@/lib/db';
 import { NUMBERING_TARGETS, M1_CRITICAL_TARGETS } from '@/lib/forms';
 import { ROLE_ORDER } from '@/lib/roles';
 import { canOpen } from '@/lib/access';
+import { schemaDrift, kindLabel } from '@/lib/schema-check';
 import { Tag } from '@/components/ui';
 import { PageShell } from '@/components/shell';
 import { SubNav } from '../nav';
@@ -64,6 +65,7 @@ export default async function SettingsHome() {
                 where verified_at is not null and status = 'ACTIVE'
                   and effective_from is not null
                   and effective_from <= (timezone('Asia/Seoul', now()))::date) as dmr_issuable`),
+    drift: await schemaDrift(db),
     backup: await db.one<{ n: number; days: number; who: string }>(
       `select count(*)::int as n,
               coalesce(min(current_date - (timezone('Asia/Seoul', b.taken_at))::date), 0) as days,
@@ -212,6 +214,38 @@ export default async function SettingsHome() {
         * 인쇄 열쇠도 여기서 말한다. 고정되지 않은 상태는 화면 어디에도
         * 표시가 없어 조용히 지나간다 (lib/print.ts printKeyPinned).
         */}
+      {/*
+        * 코드와 스키마가 어긋나면 크게 말한다 (4차 감사 C5).
+        *
+        * 코드 배포와 이관은 따로 논다. 실제로 그것 때문에 화면이 죽었고,
+        * 사용자가 알려 줄 때까지 아무 장치도 없었다. IQ 는 사람이 돌리는
+        * 것이므로 화면이 스스로도 말해야 한다.
+        */}
+      {!d.drift.ok && (
+        <div className="card border-danger/40 bg-danger-bg p-4">
+          <div className="flex items-start gap-3">
+            <Tag tone="danger">이관이 덜 올라갔습니다</Tag>
+            <div className="text-sm leading-relaxed">
+              <p className="font-semibold text-ink">
+                이 코드가 기대하는 것이 DB 에 없습니다. 화면이 죽을 수 있습니다.
+              </p>
+              <ul className="mt-2 space-y-1 text-xs text-body">
+                {d.drift.missing.map((m) => (
+                  <li key={m.kind}>
+                    <b className="text-ink">{kindLabel(m.kind)}</b>{' '}
+                    <span className="font-mono">{m.names.slice(0, 6).join(', ')}</span>
+                    {m.names.length > 6 && ` 외 ${m.names.length - 6}개`}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 text-xs text-muted">
+                이관을 올리십시오. <code>npm run deploy:db -- --prod</code>
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <section className="card p-4">
         <h3 className="text-xs font-bold text-ink">이 배포</h3>
         <dl className="mt-2 flex flex-wrap gap-x-10 gap-y-3 text-xs">
@@ -222,6 +256,16 @@ export default async function SettingsHome() {
           <div>
             <dt className="text-muted">빌드</dt>
             <dd className="tnum mt-0.5 text-ink">{BUILD_REF ?? '로컬 실행'}</dd>
+          </div>
+          <div>
+            <dt className="text-muted">스키마 대조</dt>
+            <dd className="mt-0.5">
+              {d.drift.checked === 0
+                ? <span className="text-muted">기준 파일 없음</span>
+                : d.drift.ok
+                  ? <span className="tnum text-ink">{d.drift.checked}개 이름 일치</span>
+                  : <Tag tone="danger">빠짐 {d.drift.missing.reduce((a, m) => a + m.names.length, 0)}개</Tag>}
+            </dd>
           </div>
           <div>
             <dt className="text-muted">인쇄 열쇠</dt>
