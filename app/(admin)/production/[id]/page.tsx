@@ -9,7 +9,7 @@ import { KIND_LABEL } from '@/lib/print';
 import Denied from '@/components/denied';
 import { Panel, Empty, Tag, Field, Caution } from '@/components/ui';
 import {
-  CutForm, LotStatusForm, CancelForm, FinishForm, RetrieveForm, DayPrintLink,
+  CutForm, LotStatusForm, CancelForm, FinishForm, RetrieveForm, EndForWorkerForm, DayPrintLink,
   NonconformityForm, WipNonconformityForm, type OpOpt,
   type LotRow, type FinOpt,
 } from './batch-forms';
@@ -525,7 +525,19 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                       )}
                     </td>
                     <td className="td tnum text-xs">{fmtDateTime(r.started_at)}</td>
-                    <td className="td tnum text-xs">{fmtDateTime(r.ended_at)}</td>
+                    <td className="td tnum text-xs">
+                      {fmtDateTime(r.ended_at)}
+                      {/*
+                        * 종료가 비어 있으면 이 묶음은 잠기지 않는다 (0085).
+                        * 현장 화면은 본인 것만 보여 주므로, 자리에 없는 사람의
+                        * 공정을 푸는 자리가 여기 하나다.
+                        */}
+                      {!r.ended_at && !viewer && (
+                        <EndForWorkerForm
+                          recordId={r.id} woId={wo.id}
+                          label={`${r.day_no}일차 · ${r.operation_name} · ${r.worker_name}`} />
+                      )}
+                    </td>
                     <td className="td tnum text-right text-muted">{r.issues || ''}</td>
                     <td className="td text-xs text-muted">
                       {r.equipment_id && <div>설비 {r.equipment_id}</div>}

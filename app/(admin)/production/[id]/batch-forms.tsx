@@ -8,7 +8,7 @@ import { Msg, Caution } from '@/components/ui';
 import { Dialog, useDialog } from '@/components/dialog';
 import {
   cutLot, setLotStatus, cancelWorkOrder, finishWorkOrder, retrievePrint,
-  recordNonconformity, recordWipNonconformity,
+  recordNonconformity, recordWipNonconformity, endRecordForWorker,
 } from '../actions';
 
 export interface LotRow {
@@ -329,6 +329,66 @@ export function RetrieveForm({ id, woId, label }: { id: string; woId: string; la
           <Msg state={state} />
           <button type="submit" disabled={pending} className="btn-danger w-full">
             {pending ? '기록하는 중' : '회수로 기록한다'}
+          </button>
+        </form>
+      </Dialog>
+    </>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   자리에 없는 사람의 공정을 대신 마감한다 (0085 의 짝)
+
+   현장 화면은 본인 기록만 보여 준다. 작업자가 공정을 열어 둔 채 나가면
+   그 묶음은 잠기지 않고 (0085), 생산관리자가 종이를 뽑을 수 없다. 그때
+   여는 문이 여기 하나다.
+
+   왜 대신 마감하는지를 반드시 받는다. 그 문장이 audit_log.reason 에 남아
+   나중에 "이 종료 시각은 누가 찍었나" 에 답한다.
+--------------------------------------------------------------------------- */
+export function EndForWorkerForm({ recordId, woId, label }: {
+  recordId: string; woId: string; label: string;
+}) {
+  const uid = useId();
+  const [state, action, pending] = useActionState<FormState, FormData>(endRecordForWorker, {});
+  const { open, setOpen } = useDialog(state);
+
+  return (
+    <>
+      <button onClick={() => setOpen(true)} className="btn-quiet mt-1 h-7 text-xs">
+        대신 마감
+      </button>
+      <Dialog open={open} onClose={() => setOpen(false)}
+              title="자리에 없는 사람의 공정을 대신 마감" note={label}>
+        <form action={action} className="space-y-3">
+          <input type="hidden" name="process_record_id" value={recordId} />
+          <input type="hidden" name="work_order_id" value={woId} />
+          <Caution>
+            종료 시각은 <b>지금</b>으로 찍힙니다. 실제로 끝난 시각이 아니라면
+            그 사실을 아래 사유에 적으십시오.
+          </Caution>
+          <div>
+            <label className="label" htmlFor={`${uid}-reason`}>왜 대신 마감하는가</label>
+            <input id={`${uid}-reason`} name="reason" required autoComplete="off"
+                   placeholder="예: 작업자 조퇴 · 종료 시각 15:40 으로 구두 확인"
+                   className="input" />
+            <p className="mt-1 text-xs text-faint">
+              누가 왜 대신 마감했는지가 감사추적에 남습니다.
+            </p>
+          </div>
+          <div>
+            <label className="label" htmlFor={`${uid}-nomat`}>
+              자재 해당없음 사유 <span className="text-faint">(필요할 때만)</span>
+            </label>
+            <input id={`${uid}-nomat`} name="no_material_reason" autoComplete="off"
+                   placeholder="자재 구성표 항목이 기록되지 않았다면 그 사유" className="input" />
+            <p className="mt-1 text-xs text-faint">
+              자재가 빠져 있으면 S05 가 마감을 거부합니다. 그때 이 칸을 채웁니다.
+            </p>
+          </div>
+          <Msg state={state} />
+          <button type="submit" disabled={pending} className="btn-primary w-full">
+            {pending ? '마감하는 중' : '대신 마감한다'}
           </button>
         </form>
       </Dialog>

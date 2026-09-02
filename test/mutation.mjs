@@ -66,6 +66,10 @@ const MUTATIONS = [
           drop trigger if exists material_issue_s04 on material_issue`,
     cases: ['S04-01', 'S04-02'] },
 
+  { id: 'M-OPEN', rule: '종료 없는 공정을 품은 채 마감 금지 (0085)',
+    sql: `drop trigger if exists day_lock_open on day_lock`,
+    cases: ['S04-05', 'S04-06'] },
+
   { id: 'M-S05', rule: 'S05 자재 미기록 시 진행 불가',
     sql: `create or replace function complete_process(p_pr uuid)
           returns void language plpgsql security definer

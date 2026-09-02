@@ -28,8 +28,8 @@ export default [
 
     await t.setActor(m.admin);
     await t.rows(
-      `insert into process_record (work_order_id, operation_id, day_no, work_date, worker_id)
-       values ($1,$2,1,current_date,$3)`,
+      `insert into process_record (work_order_id, operation_id, day_no, work_date, worker_id, ended_at)
+       values ($1,$2,1,current_date,$3, now())`,
       [wo.id, m.ops['WS-DX2401-01'], m.worker]);
 
     /* 다른 작업자가 남의 묶음을 건드린다 */
@@ -56,8 +56,8 @@ export default [
     const wo = await newWorkOrder(t, m);
     await t.setActor(m.admin);
     await t.rows(
-      `insert into process_record (work_order_id, operation_id, day_no, work_date, worker_id)
-       values ($1,$2,1,current_date,$3)`,
+      `insert into process_record (work_order_id, operation_id, day_no, work_date, worker_id, ended_at)
+       values ($1,$2,1,current_date,$3, now())`,
       [wo.id, m.ops['WS-DX2401-01'], m.worker]);
 
     /* m.admin 은 SYS_ADMIN 이다. 누가 뽑았는지는 인쇄 기록에 남는다 */
@@ -109,8 +109,8 @@ export default [
     const wo = await newWorkOrder(t, m);
     await t.setActor(m.worker);
     await t.rows(
-      `insert into process_record (work_order_id, operation_id, day_no, work_date, worker_id)
-       values ($1,$2,1,current_date,$3)`,
+      `insert into process_record (work_order_id, operation_id, day_no, work_date, worker_id, ended_at)
+       values ($1,$2,1,current_date,$3, now())`,
       [wo.id, m.ops['WS-DX2401-01'], m.worker]);
 
     await t.rows(`select lock_day($1,1,$2)`, [wo.id, m.worker]);
@@ -214,8 +214,8 @@ export default [
     const wo = await newWorkOrder(t, m);
     await t.setActor(m.worker);
     const pr = await t.val(
-      `insert into process_record (work_order_id, operation_id, day_no, work_date, worker_id)
-       values ($1,$2,1,current_date,$3) returning id`,
+      `insert into process_record (work_order_id, operation_id, day_no, work_date, worker_id, ended_at)
+       values ($1,$2,1,current_date,$3, now()) returning id`,
       [wo.id, m.ops['WS-DX2401-03'], m.worker]);
     const lotA = await newMaterialLot(t, m, m.reagent, { qty: 50 });
     const lotB = await newMaterialLot(t, m, m.reagent, { qty: 50 });
@@ -288,8 +288,8 @@ export default [
     const wo = await newWorkOrder(t, m);
     await t.setActor(m.worker);
     const pr = await t.val(
-      `insert into process_record (work_order_id, operation_id, day_no, work_date, worker_id)
-       values ($1,$2,1,current_date,$3) returning id`,
+      `insert into process_record (work_order_id, operation_id, day_no, work_date, worker_id, ended_at)
+       values ($1,$2,1,current_date,$3, now()) returning id`,
       [wo.id, m.ops['WS-DX2401-03'], m.worker]);
     const lot = await newMaterialLot(t, m, m.reagent, { qty: 50 });
     const mi = await t.val(
@@ -317,8 +317,8 @@ export default [
     const wo = await newWorkOrder(t, m);
     await t.setActor(m.worker);
     const pr = await t.val(
-      `insert into process_record (work_order_id, operation_id, day_no, work_date, worker_id)
-       values ($1,$2,1,current_date,$3) returning id`,
+      `insert into process_record (work_order_id, operation_id, day_no, work_date, worker_id, ended_at)
+       values ($1,$2,1,current_date,$3, now()) returning id`,
       [wo.id, m.ops['WS-DX2401-03'], m.worker]);
     const lot = await newMaterialLot(t, m, m.reagent, { qty: 50 });
     const mi = await t.val(
@@ -344,8 +344,8 @@ export default [
 
     await t.setActor(m.admin);
     await t.rows(
-      `insert into process_record (work_order_id, operation_id, day_no, work_date, worker_id)
-       values ($1,$2,1,current_date,$3)`,
+      `insert into process_record (work_order_id, operation_id, day_no, work_date, worker_id, ended_at)
+       values ($1,$2,1,current_date,$3, now())`,
       [wo.id, m.ops['WS-DX2401-01'], m.worker]);
 
     /* 본인이 마감한다 */
@@ -395,8 +395,8 @@ export default [
 
     await t.setActor(m.admin);
     await t.rows(
-      `insert into process_record (work_order_id, operation_id, day_no, work_date, worker_id)
-       values ($1,$2,1,current_date,$3)`,
+      `insert into process_record (work_order_id, operation_id, day_no, work_date, worker_id, ended_at)
+       values ($1,$2,1,current_date,$3, now())`,
       [wo.id, m.ops['WS-DX2401-01'], m.worker]);
 
     await t.setActor(other);

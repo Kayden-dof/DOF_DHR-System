@@ -377,7 +377,13 @@ export default function WorkPanel({
       {/* 일차 마감 ----------------------------------------------------------- */}
       {!locked && dayRecords.length > 0 && (
         <CloseDayCard woId={woId} day={day} batchNo={batchNo}
-                      open={dayRecords.filter((r) => !r.ended_at).length} />
+                      openOps={dayRecords
+                        .filter((r) => !r.ended_at)
+                        .map((r) => {
+                          const o = ops.find((x) => x.id === r.operation_id);
+                          return (o?.name ?? '공정')
+                            + (r.attempt > 1 ? ` ${r.attempt}회차` : '');
+                        })} />
       )}
 
       {locked && (
@@ -941,11 +947,22 @@ function EndForm({ woId, rec, op, missing }: {
 
 /* -------------------------------------------------------------------------- */
 
-function CloseDayCard({ woId, day, batchNo, open }: {
-  woId: string; day: number; batchNo: string; open: number;
+function CloseDayCard({ woId, day, batchNo, openOps }: {
+  woId: string; day: number; batchNo: string; openOps: string[];
 }) {
   const [state, action, pending] = useActionState<FormState, FormData>(closeDay, {});
   const [confirm, setConfirm] = useState(false);
+  /*
+   * 열린 공정이 있으면 마감 자체를 내주지 않는다 (사용자 결정 2026-09-02).
+   *
+   * 전에는 노란 경고를 띄우고 단추를 그대로 뒀다. 지나갈 수 있는 경고였고,
+   * 지나가면 잠금 해제가 없어 그 종료 칸이 영구히 빈다. 실제로 그렇게 나간
+   * 종이가 하나 있다.
+   *
+   * DB 가 같은 것을 막는다 (0085). 여기서 막는 것은 손이 헛되지 않게 하려는
+   * 것이지 그것이 검증인 것은 아니다 (§1-2).
+   */
+  const blocked = openOps.length > 0;
 
   return (
     <section className="card border-brand-line p-4">
@@ -955,16 +972,22 @@ function CloseDayCard({ woId, day, batchNo, open }: {
         {' '}잠금을 푸는 방법은 없습니다. 누락된 것은 다음 일차에 정정 기록으로 남겨야 합니다.
       </p>
 
-      {open > 0 && (
-        <p className="mt-3 rounded-md bg-warn-bg px-3 py-2.5 text-sm text-ink">
-          아직 마감하지 않은 공정이 <b className="tnum">{open}</b>건 있습니다.
-          마감하지 않은 공정은 종료 시각이 빈 채로 인쇄됩니다.
-        </p>
+      {blocked && (
+        <div className="mt-3 rounded-md border border-danger/25 bg-danger-bg px-3 py-3 text-sm leading-relaxed text-ink">
+          <b>종료 시각이 없는 공정이 {openOps.length}건 있습니다.</b>
+          <ul className="mt-1.5 list-disc space-y-0.5 pl-5">
+            {openOps.map((n, i) => <li key={i}>{n}</li>)}
+          </ul>
+          <p className="mt-2">
+            마감하면 그 칸은 영영 빈 채로 남습니다. 위 공정을 먼저 마감하십시오.
+            자재를 적을 것이 없으면 해당없음 사유를 적고 마감하면 됩니다.
+          </p>
+        </div>
       )}
 
       <Msg state={state} />
 
-      {!confirm ? (
+      {blocked ? null : !confirm ? (
         <button onClick={() => setConfirm(true)} className="btn-ghost mt-4 h-14 w-full text-base">
           {day}일차 마감하고 기록서 발행
         </button>

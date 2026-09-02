@@ -5,14 +5,22 @@
 import { masterData as master, newMaterialLot, newWorkOrder } from '../fixtures.mjs';
 
 /** 재단 전 공정 기록 하나. */
+/*
+ * 기본은 **끝난 기록**이다. 0085 부터 종료 시각이 없는 공정이 있으면 그 묶음을
+ * 잠글 수 없으므로, 잠금을 다루는 시험이 매번 종료를 적어야 한다. 열린 기록이
+ * 필요한 시험은 `{ open: true }` 를 준다.
+ */
 async function newRecord(t, m, wo, opCode, opts = {}) {
   return t.val(
     `insert into process_record (work_order_id, operation_id, day_no, work_date,
        worker_id, rotation_worker_id, attempt, started_at, ended_at, no_material_reason)
-     values ($1,$2,$3, current_date, $4,$5,$6,$7,$8,$9) returning id`,
+     values ($1,$2,$3, current_date, $4,$5,$6,$7,
+             case when $10 then null else coalesce($8::timestamptz, now()) end,
+             $9) returning id`,
     [wo.id, m.ops[opCode], opts.day ?? 1, opts.worker ?? m.worker,
      opts.rotation ?? null, opts.attempt ?? 1,
-     opts.started ?? null, opts.ended ?? null, opts.reason ?? null]);
+     opts.started ?? null, opts.ended ?? null, opts.reason ?? null,
+     opts.open === true]);
 }
 
 export default [
@@ -148,6 +156,73 @@ export default [
           and (p.proname ilike '%unlock%' or p.proname ilike '%force%'
                or p.proname ilike '%override%' or p.proname ilike '%skip_valid%')`);
     t.eq(n, 0, '해제·우회 함수 수');
+  },
+},
+
+{
+  id: 'S04-05', expect: '예외',
+  name: '종료 시각 없는 공정을 품은 채 마감 (0085)',
+  async run(t) {
+    const m = await master(t);
+    const wo = await newWorkOrder(t, m);
+    await newRecord(t, m, wo, 'WS-DX2401-01', { day: 5 });
+    await newRecord(t, m, wo, 'WS-DX2401-03', { day: 5, open: true });
+
+    await t.setActor(m.worker);
+    await t.rejects(() => t.rows(`select lock_day($1, 5, $2)`, [wo.id, m.worker]),
+      { code: 'P0001', message: '종료 시각이 없는 공정' });
+    await t.setActor(null);
+
+    t.eq(await t.val(`select is_locked($1, 5, $2)`, [wo.id, m.worker]), false, '잠기지 않음');
+  },
+},
+
+{
+  id: 'S04-06', expect: '예외',
+  name: '인쇄로도 잠글 수 없다 - 잠그는 길 둘을 한 자리에서 막는다',
+  async run(t) {
+    const m = await master(t);
+    const wo = await newWorkOrder(t, m);
+    await newRecord(t, m, wo, 'WS-DX2401-02', { day: 6, open: true });
+
+    await t.setActor(m.admin);
+    await t.rejects(
+      () => t.rows(`select print_day_record($1, 6, $2, md5('d6') || md5('d6'))`,
+                   [wo.id, m.worker]),
+      { code: 'P0001', message: '종료 시각이 없는 공정' });
+    await t.setActor(null);
+
+    t.eq(await t.val(`select count(*)::int from record_print
+                       where work_order_id = $1 and day_no = 6`, [wo.id]), 0, '인쇄 대장');
+  },
+},
+
+{
+  id: 'S04-07', expect: '통과',
+  name: '공정을 마감하면 지나간다 · 이미 잠긴 묶음의 재인쇄는 막지 않는다',
+  async run(t) {
+    const m = await master(t);
+    const wo = await newWorkOrder(t, m);
+    const pr = await newRecord(t, m, wo, 'WS-DX2401-02',
+                               { day: 7, open: true, reason: '해당 없음' });
+
+    await t.setActor(m.worker);
+    await t.rows(`select complete_process($1)`, [pr]);
+    await t.resolves(() => t.rows(`select lock_day($1, 7, $2)`, [wo.id, m.worker]));
+    await t.setActor(null);
+
+    t.eq(await t.val(`select is_locked($1, 7, $2)`, [wo.id, m.worker]), true, '잠김');
+
+    /*
+     * 잠긴 뒤에 열린 기록이 생겨도 재인쇄는 막지 않는다. 이미 마감된 묶음을
+     * 다시 뽑는 것은 마감이 아니다 (0063). 이 규칙이 서기 전에 잠긴 묶음도
+     * 같은 이유로 그대로 뽑힌다.
+     */
+    await t.setActor(m.admin);
+    await t.resolves(
+      () => t.rows(`select print_day_record($1, 7, $2, md5('d7b') || md5('d7b'))`,
+                   [wo.id, m.worker]));
+    await t.setActor(null);
   },
 },
 

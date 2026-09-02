@@ -27,6 +27,49 @@ const bump = (id?: string) => {
 };
 
 /* ---------------------------------------------------------------------------
+   자리에 없는 사람의 공정을 대신 마감한다 (0085 의 짝)
+
+   0085 부터 종료 시각이 없는 공정이 있으면 그 묶음을 잠글 수 없다. 그런데
+   생산관리자가 **남의 묶음을 마감하는 길**이 설계에 있다 - "작업자가 자리에
+   없는데 종이가 필요한 일이 있다" (0063). 그 사람이 공정을 열어 둔 채
+   나갔으면, 0085 만 두었을 때 생산관리자는 막히고 풀 자리가 없다.
+   잠금 해제가 없으므로(§10) 갇히는 것과 같다.
+
+   그래서 여는 문이 이것 하나다. 현장 화면은 본인 기록만 보여 주므로
+   (myRecords), 남의 것을 마감하는 자리는 배치 화면이다.
+
+   ── 판정하지 않는다 ────────────────────────────────────────────────────
+   무엇이 옳은 종료 시각인지 정하지 않는다. `complete_process` 가 하던 대로
+   지금 시각을 찍을 뿐이고, **누가 왜 대신 찍었는지**가 감사추적에 남는다
+   (audit_log.reason · 0061). 사유는 비워 둘 수 없다.
+--------------------------------------------------------------------------- */
+export async function endRecordForWorker(_p: FormState, form: FormData): Promise<FormState> {
+  try {
+    const me = await mgr();
+    const pr = String(form.get('process_record_id') ?? '');
+    const wo = String(form.get('work_order_id') ?? '');
+    const why = txt(form.get('reason'));
+    const noMat = txt(form.get('no_material_reason'));
+
+    if (!pr) return { error: '어느 기록인지 알 수 없습니다' };
+    if (!why) return { error: '왜 대신 마감하는지 적으십시오' };
+
+    await withActor(me.id, async (db) => {
+      if (noMat) {
+        await db.rows(`update process_record set no_material_reason = $2 where id = $1`,
+                      [pr, noMat]);
+      }
+      await db.rows(`select complete_process($1)`, [pr]);
+    }, { reason: `대신 마감 · ${why}` });
+
+    bump(wo);
+    return { ok: true, message: '공정을 마감했습니다. 누가 왜 대신 마감했는지 감사추적에 남았습니다.' };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
+/* ---------------------------------------------------------------------------
    작업 지시 발행 (§4.5)
 
    지시서번호와 배치번호는 채번 규칙이 만든다. 응용에서 조합하지 않는다 (§10).
