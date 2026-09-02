@@ -75,11 +75,12 @@ function RecordTable({ rows, title }: { rows: RecRow[]; title: string }) {
           <thead>
             <tr>
               <th className="w-[5%] text-center">순번</th>
-              <th className="w-[20%]">공정</th>
-              <th className="w-[11%]">시작</th>
-              <th className="w-[11%]">종료</th>
-              <th className="w-[35%]">투입 자재 (로트 / 수량)</th>
-              <th className="w-[18%]">비고</th>
+              <th className="w-[19%]">공정</th>
+              <th className="w-[10%]">시작</th>
+              <th className="w-[10%]">종료</th>
+              <th className="w-[10%]">투입 설비</th>
+              <th className="w-[31%]">투입 자재 (로트 / 수량)</th>
+              <th className="w-[15%]">비고</th>
             </tr>
           </thead>
           <tbody>
@@ -119,6 +120,19 @@ function RecordTable({ rows, title }: { rows: RecRow[]; title: string }) {
                 </td>
                 <td className="tnum">{r.started_at ? fmtDateTime(r.started_at).slice(11) : ''}</td>
                 <td className="tnum">{r.ended_at ? fmtDateTime(r.ended_at).slice(11) : ''}</td>
+                {/*
+                  * 설비는 비고가 아니다 (사용자 지적 2026-09-02).
+                  *
+                  * 전에는 재포장 수량 · 해당없음 사유와 한 칸에 섞여 있었다.
+                  * 그런데 이 셋은 성격이 다르다 - 설비는 **그 공정을 무엇으로
+                  * 했는가**이고, 나머지는 그 공정에 덧붙은 말이다. 밸리데이션
+                  * 이력이 설비 단위로 관리되므로 (equipment_validation),
+                  * 검토자가 종이에서 설비를 찾는 자리도 한 곳이어야 한다.
+                  *
+                  * 자료 식별자는 바뀌지 않는다 - 나르는 값이 그대로이고 놓는
+                  * 자리만 옮겼다. 이미 인쇄된 종이의 대조가 깨지지 않는다.
+                  */}
+                <td className="font-mono">{r.equipment_id ?? ''}</td>
                 <td>
                   {/*
                     * 정정한 줄에는 그 사실을 함께 적는다. 종이에서 잘못 적은 줄을
@@ -144,7 +158,6 @@ function RecordTable({ rows, title }: { rows: RecRow[]; title: string }) {
                   )}
                 </td>
                 <td>
-                  {r.equipment_id && <div>설비 {r.equipment_id}</div>}
                   {r.rework_qty ? <div className="tnum">재포장 {r.rework_qty}</div> : null}
                   {r.issues.length > 0 && r.no_material_reason && (
                     <div>{r.no_material_reason}</div>
