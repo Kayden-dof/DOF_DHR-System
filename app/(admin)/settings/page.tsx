@@ -2,7 +2,6 @@ import Link from 'next/link';
 import Denied from '@/components/denied';
 import { requireUser, blocksViewer, canWrite } from '@/lib/session';
 import { withActor } from '@/lib/db';
-import { storeMissing } from '@/lib/backup-store';
 import { NUMBERING_TARGETS, M1_CRITICAL_TARGETS } from '@/lib/forms';
 import { ROLE_ORDER } from '@/lib/roles';
 import { canOpen } from '@/lib/access';
@@ -70,18 +69,12 @@ export default async function SettingsHome() {
                   and effective_from is not null
                   and effective_from <= (timezone('Asia/Seoul', now()))::date) as dmr_issuable`),
     drift: await schemaDrift(db),
-    backup: await db.one<{ n: number; days: number; who: string; auto_days: number | null }>(
+    backup: await db.one<{ n: number; days: number; who: string }>(
       `select count(*)::int as n,
               coalesce(min(current_date - (timezone('Asia/Seoul', b.taken_at))::date), 0) as days,
-              coalesce((select coalesce(u.full_name, '예약 작업') from backup_log b2
-                          left join app_user u on u.id = b2.taken_by
-                         order by b2.taken_at desc limit 1), '') as who,
-              /*
-               * 서버에서 도는 백업이 실제로 떴는가 (5차 감사 C3). 설정만
-               * 갖추고 한 번도 안 떴을 수 있으므로 줄로 확인한다.
-               */
-              (select min(current_date - (timezone('Asia/Seoul', b3.taken_at))::date)
-                 from backup_log b3 where b3.source = 'AUTO') as auto_days
+              coalesce((select u.full_name from backup_log b2
+                          join app_user u on u.id = b2.taken_by
+                         order by b2.taken_at desc limit 1), '') as who
          from backup_log b`),
     covered: await db.rows<{ target: string }>(
       `select distinct target::text as target from numbering_rule
@@ -89,12 +82,7 @@ export default async function SettingsHome() {
   }));
 
   const c = d.c!;
-  const backup = d.backup ?? { n: 0, days: 0, who: '', auto_days: null };
-  /*
-   * 자동 백업이 설정되어 있는가 (5차 감사 C3). 값은 읽지 않고 있는지만 본다 -
-   * 비밀은 화면에 내지 않는다.
-   */
-  const autoMissing = storeMissing();
+  const backup = d.backup ?? { n: 0, days: 0, who: '' };
   const brand = await getBrand();
   const keyPinned = printKeyPinned();
   const cronPinned = cronKeyPinned();
@@ -177,22 +165,16 @@ export default async function SettingsHome() {
       value: `${c.users}명`, note: '계정과 역할', tone: 'quiet' },
     { href: '/settings/backup', title: '백업',
       value: backup.n > 0 ? `${backup.days}일 전` : '없음',
-      note: backup.n > 0 ? `${backup.n}회 · 마지막 ${backup.who}` : '한 번도 뜨지 않았습니다',
-      tone: backup.n === 0 || backup.days >= 7 ? 'warn' : 'quiet' },
-    /*
-     * 서버에서 도는 백업 (5차 감사 C3). 전에는 사람 PC 의 작업 스케줄러가
-     * 유일한 자동 경로였고, 그 PC 가 꺼져 있으면 백업이 없었다. 무엇이
-     * 빠졌는지 이름으로 적는다 - "설정하십시오" 만으로는 어디를 볼지 모른다.
-     */
-    { href: '/settings/backup', title: '자동 백업',
-      value: autoMissing ? '꺼짐'
-           : backup.auto_days === null ? '아직 안 뜸'
-           : `${backup.auto_days}일 전`,
-      note: autoMissing ? `${autoMissing} 이(가) 없습니다`
-           : backup.auto_days === null ? '설정은 갖춰졌습니다. 다음 예약 작업에서 뜹니다'
-           : '예약 작업이 떠서 보관소에 둡니다',
-      tone: autoMissing || backup.auto_days === null || backup.auto_days >= 2
-        ? 'warn' : 'quiet' },
+      note: backup.n > 0
+        ? `${backup.n}회 · 마지막 ${backup.who} · ${brand.backupWarnDays}일마다 묻습니다`
+        : '한 번도 뜨지 않았습니다',
+      /*
+       * 며칠이 지나면 묻는가는 설정에서 온다 (§2.0). 전에는 7 이 박혀 있었다 -
+       * 자동 백업이 있을 때는 맞는 값이었는데, 사람이 달마다 또는 분기마다
+       * 뜨기로 하면 그 경고가 늘 켜져 있게 된다. **늘 켜진 경고는 경고가
+       * 아니라 배경이다.**
+       */
+      tone: backup.n === 0 || backup.days >= brand.backupWarnDays ? 'warn' : 'quiet' },
     { href: '/settings/access', title: '권한',
       value: `역할 ${ROLE_ORDER.length}`, note: '어느 역할이 어느 화면을 여는가', tone: 'quiet' },
     { href: '/settings/audit', title: '감사추적',

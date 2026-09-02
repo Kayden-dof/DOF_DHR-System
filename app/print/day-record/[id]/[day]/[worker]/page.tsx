@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { requireUser } from '@/lib/session';
-import { withActor } from '@/lib/db';
+import { withActor, dbMessage } from '@/lib/db';
 import { fmtDate, fmtDateTime } from '@/lib/fmt';
 import { logPrint } from '@/lib/print';
 import PrintFrame, { Sheet, SignRow } from '@/components/print-frame';
@@ -240,13 +240,66 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false }: {
   const pageRows = chunkRows(records, ROWS_FIRST, ROWS_NEXT);
   const sheetCount = pageRows.length + (specLines.length > 0 ? 1 : 0);
 
-  const meta = await logPrint({
-    actorId: user.id, actorName: user.full_name, kind: 'DAY_RECORD',
-    workOrderId: id, dayNo, workerId: worker,
-    payload: hashable({ head, records }),
-    pages: sheetCount,
-    lockDay: true,
-  });
+  /* -------------------------------------------------------------------------
+     뽑을 수 없으면 그 까닭을 종이 대신 화면으로 말한다
+
+     이 화면을 여는 것이 곧 인쇄이고 인쇄가 곧 마감이다 (S04). 그런데 종료
+     시각이 없는 공정이 있으면 마감이 거부된다 (0085) - 마감하면 그 칸이
+     영영 비기 때문이고, 맞는 거부다.
+
+     거부를 그대로 던지면 화면이 500 이 된다. 사람이 흔히 닿는 자리에서
+     서버 오류를 보여 주면 무엇을 해야 하는지 알 수 없다. 까닭을 적는다.
+
+     판정하지 않는다. 무엇이 잘못됐다고 말하지 않고 **무엇이 비어 있어서
+     아직 종이가 될 수 없는지**만 적는다 (§8.5).
+  ------------------------------------------------------------------------- */
+  let meta;
+  try {
+    meta = await logPrint({
+      actorId: user.id, actorName: user.full_name, kind: 'DAY_RECORD',
+      workOrderId: id, dayNo, workerId: worker,
+      payload: hashable({ head, records }),
+      pages: sheetCount,
+      lockDay: true,
+    });
+  } catch (e) {
+    const msg = dbMessage(e);
+    if (!msg.includes('종료 시각이 없는 공정')) throw e;
+
+    const open = records.filter((r) => !r.ended_at);
+    return (
+      <main className="mx-auto max-w-2xl px-6 py-16">
+        <h1 className="text-xl font-bold text-ink">아직 기록서가 될 수 없습니다</h1>
+        <p className="mt-3 text-sm leading-relaxed text-muted">
+          배치 <b className="text-ink">{head.batch_no}</b> · {dayNo}일차 ·{' '}
+          {head.worker_name} 의 기록에 <b className="text-ink">종료 시각이 빈 공정</b>이
+          있습니다. 기록서를 뽑으면 그 묶음이 잠기고
+          <b className="text-ink"> 그 칸은 영영 빈 채로 남습니다.</b>
+        </p>
+        {open.length > 0 && (
+          <ul className="mt-4 list-disc space-y-1 pl-5 text-sm text-ink">
+            {open.map((r, i) => (
+              <li key={i}>
+                {r.operation_name}
+                <span className="ml-1.5 font-mono text-xs text-muted">{r.operation_code}</span>
+                {r.attempt > 1 && <span className="ml-1.5 text-xs">{r.attempt}회차</span>}
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="mt-4 text-sm leading-relaxed text-muted">
+          현장 화면에서 그 공정을 마감하면 됩니다. 작업자가 자리에 없으면
+          배치 화면의 <b className="text-ink">대신 마감</b>으로 생산관리자가 풉니다.
+        </p>
+        <div className="mt-6 flex gap-2">
+          <a href={`/production/${id}`} className="btn-ghost">배치로</a>
+          <a href={`/print/day-record/${id}/all`} className="btn-quiet">
+            지금까지의 기록 보기
+          </a>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <PrintFrame

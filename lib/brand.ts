@@ -35,6 +35,11 @@ export interface Brand {
   address: string;
   bizNo: string;
   ceoName: string;
+  /*
+   * 마지막 백업이 며칠을 넘기면 설정 화면이 묻는가. 그 제조소의 절차가
+   * 정한다 (§2.0) - 달마다 뜨는 곳과 분기마다 뜨는 곳이 같을 수 없다.
+   */
+  backupWarnDays: number;
 }
 
 /** 설정이 아직 없거나 읽지 못했을 때. 화면이 비어 보이지 않게만 한다 */
@@ -51,6 +56,7 @@ const FALLBACK: Brand = {
   address: '',
   bizNo: '',
   ceoName: '',
+  backupWarnDays: 35,
 };
 
 export const getBrand = cache(async (): Promise<Brand> => {
@@ -62,13 +68,14 @@ export const getBrand = cache(async (): Promise<Brand> => {
         system_name: string | null; system_name_long: string | null;
         system_tagline: string | null; company_tagline: string | null;
         address: string | null; biz_no: string | null; ceo_name: string | null;
+        backup_warn_days: number | null;
       }>(
         `select company_name, brand_color,
                 (logo_bytes is not null) as has_logo,
                 (logo_dark_bytes is not null) as has_dark_logo,
                 to_char(updated_at, 'YYYYMMDDHH24MISS') as logo_updated_at,
                 system_name, system_name_long, system_tagline, company_tagline,
-                address, biz_no, ceo_name
+                address, biz_no, ceo_name, backup_warn_days
            from org_brand limit 1`),
     );
     if (!row) return FALLBACK;
@@ -85,6 +92,7 @@ export const getBrand = cache(async (): Promise<Brand> => {
       address: row.address ?? '',
       bizNo: row.biz_no ?? '',
       ceoName: row.ceo_name ?? '',
+      backupWarnDays: row.backup_warn_days ?? 35,
     };
   } catch {
     /* 설정 표가 아직 없어도 화면이 서 버리면 안 된다 */

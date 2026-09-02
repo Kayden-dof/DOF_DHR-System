@@ -15,11 +15,13 @@ import type { FormState } from '@/lib/forms';
 
 export function BrandForm({
   name, color, sys, sysLong, tagline, companyTagline, address, bizNo, ceoName,
+  backupWarnDays,
 }: {
   name: string; color: string;
   sys: string | null; sysLong: string | null;
   tagline: string | null; companyTagline: string | null;
   address: string | null; bizNo: string | null; ceoName: string | null;
+  backupWarnDays: number | null;
 }) {
   /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
   const uid = useId();
@@ -120,6 +122,20 @@ export function BrandForm({
             <input id={`${uid}-ceo_name`} name="ceo_name" defaultValue={ceoName ?? ''}
                    autoComplete="off" maxLength={40} className="input" />
           </div>
+        </div>
+
+        {/*
+          * 백업을 며칠마다 묻는가. 달마다 뜨는 곳과 분기마다 뜨는 곳이 같을
+          * 수 없다 (§2.0). 늘 켜진 경고는 경고가 아니라 배경이 된다.
+          */}
+        <div className="mt-3 max-w-48">
+          <label className="label" htmlFor={`${uid}-warn`}>백업을 묻는 주기 (일)</label>
+          <input id={`${uid}-warn`} name="backup_warn_days" type="number" min="1" max="400"
+                 defaultValue={backupWarnDays ?? 35} className="input tnum" />
+          <p className="mt-1 text-xs leading-relaxed text-faint">
+            마지막 백업이 이 날수를 넘기면 개요 화면이 묻습니다.
+            달마다 뜨면 35, 분기마다 뜨면 100 쯤입니다.
+          </p>
         </div>
         <p className="mt-1.5 text-xs leading-relaxed text-faint">
           적힌 것만 인쇄물 머리에 회사 이름 아래로 한 줄에 이어 나옵니다.

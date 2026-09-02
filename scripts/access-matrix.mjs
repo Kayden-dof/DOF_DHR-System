@@ -40,6 +40,8 @@
  */
 import fs from 'node:fs';
 import pg from 'pg';
+import { randomBytes } from 'node:crypto';
+import { hashPin } from './pin.mjs';
 import { sessionCookie } from './session-cookie.mjs';
 
 const BASE = process.argv[2] ?? 'http://localhost:3100';
@@ -105,10 +107,54 @@ for (const [role] of ROLES) {
 }
 await c.end();
 
-const missing = ROLES.filter(([r]) => !users[r]).map(([, k]) => k);
+/* ---------------------------------------------------------------------------
+   없는 역할은 확인용 계정을 세워서라도 두드린다
+
+   품질책임자는 실제 운영에서 로그인하지 않는다 (§4.1 · can_login=false).
+   그래서 새로 심은 자료에는 그 역할로 로그인할 수 있는 계정이 하나도 없고,
+   이 도구가 거기서 멈췄다.
+
+   멈추면 **권한 매트릭스를 새 설치에서 확인할 수 없다.** 지금까지 돌던 것은
+   이 기계에 우연히 남아 있던 계정 덕이었고, 그것은 확인이 아니라 우연이다
+   (2026-09-02 · 빈 DB 로 흘려 보다 드러났다).
+
+   그래서 없으면 만든다. `can_login` 은 계정의 성질이지 역할의 성질이 아니므로
+   품질책임자 역할을 가진 로그인 가능 계정이 있는 것 자체는 어긋나지 않는다.
+   이름에 무엇인지 적어 두고, 비밀번호는 아무도 모르는 값으로 둔다.
+
+   **로컬에서만 만든다.** 운영에 계정을 심는 도구가 되어서는 안 된다.
+--------------------------------------------------------------------------- */
+const missing = ROLES.filter(([r]) => !users[r]);
 if (missing.length) {
-  console.error(`역할만 하나 가진 로그인 가능 계정이 없습니다: ${missing.join(' · ')}`);
-  process.exit(2);
+  const local = /localhost|127\.0\.0\.1/.test(process.env.DATABASE_URL ?? '');
+  if (!local) {
+    console.error('역할만 하나 가진 로그인 가능 계정이 없습니다: '
+      + `${missing.map(([, k]) => k).join(' · ')}`);
+    console.error('운영에는 계정을 만들지 않습니다. 로컬에서 확인하십시오.');
+    process.exit(2);
+  }
+
+  const c2 = new pg.Client({ connectionString: process.env.DATABASE_URL });
+  await c2.connect();
+  try {
+    for (const [role, label] of missing) {
+      const code = `99${String(ROLES.findIndex(([r]) => r === role)).padStart(4, '0')}`;
+      const id = (await c2.query(
+        `insert into app_user (login_code, full_name, pin_hash, can_login, is_active)
+         values ($1, $2, $3, true, true)
+         on conflict (login_code) do update set is_active = true, can_login = true
+         returning id`,
+        [code, `${label} 확인용`, await hashPin(randomBytes(16).toString('hex'))]
+      )).rows[0].id;
+      await c2.query(
+        `insert into user_role (user_id, role) values ($1, $2::role_code)
+         on conflict do nothing`, [id, role]);
+      users[role] = { id, login_code: code, full_name: `${label} 확인용` };
+      console.log(`  ${label} 로 로그인할 수 있는 계정이 없어 확인용으로 ${code} 를 세웠습니다`);
+    }
+  } finally {
+    await c2.end();
+  }
 }
 
 /*

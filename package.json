@@ -29,7 +29,6 @@
     "seed:flow": "node scripts/seed-flow.mjs",
     "demo": "node scripts/demo.mjs",
     "set-pin": "node scripts/set-pin.mjs",
-    "test:store": "node --env-file=.env.local --experimental-strip-types test/backup-store.mjs",
     "schema:baseline": "node --env-file=.env.local scripts/schema-baseline.mjs"
   },
   "dependencies": {

@@ -149,6 +149,23 @@ const label   = await item('PM-003', '제품 라벨', 'PACK', 'EA', 'EA', 1, 500
 const box     = await item('PM-004', '멸균 박스', 'PACK', 'EA', 'EA', 1, 30, 21);
 
 /*
+ * 제조소 표시 (5차 감사 D1).
+ *
+ * 이관은 이름과 색만 심는다 - 처음 받는 제조소의 주소를 우리가 알 수 없다.
+ * 시연 자료는 "이미 셋업한 제조소" 를 흉내내는 것이므로 여기서 채운다.
+ *
+ * 채우지 않으면 인쇄 대조가 그 칸을 **건너뛴다** - 값이 비면 종이도 비는 것이
+ * 맞으므로 어긋남이 아니다. 그러면 제조소 표시를 종이에 내는 길이 시험에서
+ * 잠들어 있게 된다 (2026-09-02 · 빈 DB 로 흘려 보다 드러났다).
+ */
+await c.query(
+  `update org_brand
+      set address  = coalesce(address,  '서울특별시 (시연 자료)'),
+          biz_no   = coalesce(biz_no,   '000-00-00000'),
+          ceo_name = coalesce(ceo_name, '(시연)')
+    where address is null or biz_no is null or ceo_name is null`);
+
+/*
  * 형명 체계 (0075). 이관은 PD 형명이 이미 있는 DB 에만 이것을 심는다 - 처음
  * 받는 제조소에 DOF 의 규칙을 깔지 않기 위해서다. 시연 자료는 "DX2401 을 이미
  * 셋업한 제조소" 를 흉내내는 것이므로 여기서 스스로 넣는다.

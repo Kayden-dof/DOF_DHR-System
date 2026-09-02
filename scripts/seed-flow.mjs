@@ -58,14 +58,38 @@ const mgrUser = users['100200'];
 const w1 = users['200100'];
 const w2 = users['200200'];
 
+/*
+ * 일차를 며칠에 걸쳐 흘릴 것인가.
+ *
+ * 1일차가 오늘에서 이만큼 앞이고, 일차가 하나 오를 때마다 하루씩 다가온다.
+ * 지시서도 이만큼 앞서 발행된 것으로 만든다 - 그래야 작업일이 발행일 뒤에
+ * 온다 (0052 · trg_pr_workdate).
+ */
+const FLOW_DAYS = 30;
+
 /** 진행할 배치를 찾는다. 없으면 화면과 같은 절차로 하나 발행한다. */
 async function pickWorkOrder() {
   const found = await one(
-    `select wo.id, wo.batch_no, wo.sheet_count, wo.device_master_id
+    `select wo.id, wo.batch_no, wo.sheet_count, wo.device_master_id,
+            (timezone('Asia/Seoul', now()))::date
+              - (timezone('Asia/Seoul', wo.issued_at))::date as age
        from work_order wo
       where wo.status in ('ISSUED','IN_PROCESS')
       order by wo.issued_at limit 1`);
-  if (found) return found;
+  if (found) {
+    /*
+     * 일차를 하루씩 물리려면 지시가 그만큼 앞서 있어야 한다. 모자라면
+     * 억지로 밀지 않고 그렇다고 말한다 - 조용히 같은 날에 몰아 넣으면
+     * 일차가 넷인데 실작업일이 하나가 된다 (§4.6 · §11).
+     */
+    if (Number(found.age) < FLOW_DAYS) {
+      throw new Error(
+        `이어 갈 배치 ${found.batch_no} 의 지시일이 ${found.age}일 전입니다. `
+        + `일차를 ${FLOW_DAYS}일에 걸쳐 물리려면 그만큼 앞서야 합니다. `
+        + '빈 DB 라면 이 스크립트가 스스로 발행하도록 지시서를 비우십시오.');
+    }
+    return found;
+  }
 
   const dm = await one(
     `select dm.id, dm.revision from device_master dm
@@ -77,14 +101,30 @@ async function pickWorkOrder() {
       order by ml.received_at limit 1`);
   if (!dm || !raw) return null;
 
-  // 발행자는 생산과 품질 두 사람이어야 한다 (work_order 검사 제약).
+  /*
+   * 발행자는 생산과 품질 두 사람이어야 한다 (work_order 검사 제약).
+   *
+   * ── 지시일을 뒤로 물린다 ────────────────────────────────────────────
+   * 아래 공정 기록은 하루에 한 일차씩 30일에 걸쳐 흐른다. 그런데 지시를
+   * 지금 발행하면 1일차 작업일이 발행일보다 앞서게 되고, 0052 의
+   * `trg_pr_workdate` 가 그것을 막는다 - **맞는 차단이다.** 종이가 나오기
+   * 전에 일한 기록은 있을 수 없다.
+   *
+   * 실제 배치도 발행이 먼저이고 작업이 나중이다. 시연도 그 모양이어야 한다.
+   *
+   * 이 값을 박아 두었다가 오늘이 그 날짜를 지나면 조용히 깨진다 - 실제로
+   * 그랬다 (2026-09-02). 지금은 오늘에서 세어 정한다.
+   */
   const id = await as(mgrUser.id, async () => {
     const woNo = await val(`select next_number('WORK_ORDER')`);
     const batchNo = await val(`select next_number('BATCH')`);
     return val(
       `insert into work_order (wo_no, batch_no, device_master_id, dmr_revision,
-                               material_lot_id, sheet_count, issued_by_prod, issued_by_qa)
-       values ($1,$2,$3,$4,$5,$6,$7,$8) returning id`,
+                               material_lot_id, sheet_count, issued_by_prod, issued_by_qa,
+                               issued_at)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,
+               timezone('Asia/Seoul',
+                 (timezone('Asia/Seoul', now()))::date - ${FLOW_DAYS})) returning id`,
       [woNo, batchNo, dm.id, dm.revision, raw.id, 20, w1.id, mgrUser.id]);
   });
   return one(
@@ -158,10 +198,10 @@ async function runOp(actor, opCode, { day, lot = null, attempt = 1, units = 0, r
       `insert into process_record (work_order_id, product_lot_id, operation_id, attempt,
          day_no, work_date, worker_id, rotation_worker_id, equipment_ref, started_at)
        values ($1,$2,$3,$4,$5,
-               (timezone('Asia/Seoul', now()))::date - (30 - $5),
+               (timezone('Asia/Seoul', now()))::date - (${FLOW_DAYS} - $5),
                $6,$7,$9,
                timezone('Asia/Seoul',
-                 ((timezone('Asia/Seoul', now()))::date - (30 - $5))
+                 ((timezone('Asia/Seoul', now()))::date - (${FLOW_DAYS} - $5))
                  + ($8 || ' minutes')::interval))
        returning id`,
       [wo.id, lot, op.id, attempt, day, actor.id, rotation, startMin, equip]);

@@ -28,6 +28,17 @@
  * 그래서 두 번 훑는다 - 아무것도 없는 상태에서 한 번, 시연 자료를 심은 뒤에
  * 한 번. 심기가 깨지면 두 번째에서 멈춘다.
  *
+ * ── 배치 하나를 끝까지 흘린다 ────────────────────────────────────────────
+ * 화면이 서는 것과 **일이 되는 것**은 또 다른 물음이다. 5차 감사가 "빈 DB 에서
+ * 배치 하나를 끝까지 흘려 본 적이 없다" 를 닿지 않은 곳으로 적었다 - 위의 두
+ * 훑기는 화면이 그려지는지만 보지, 발행하고 기록하고 재단해 출고까지 가는지는
+ * 묻지 않는다.
+ *
+ * 그래서 세 번째로 seed-flow 를 돌린다. 그것이 쓰는 문장은 화면이 쓰는 것과
+ * 같고 규칙을 우회하지 않는다 - S04 인쇄 잠금도 그대로 걸린다. 흐른 뒤에
+ * 다시 훑고, **종이 일곱 장이 실제로 나오는지**까지 본다. 종이가 정본인
+ * 시스템에서 화면만 서는 것은 절반이다 (§7).
+ *
  * ── 안전 ──────────────────────────────────────────────────────────────────
  * DB 를 만들고 지운다. 그래서 **localhost 가 아니면 거부한다.** 이름도
  * dhr_fresh_check 하나로 고정한다 - 다른 DB 를 지울 길을 두지 않는다.
@@ -143,6 +154,25 @@ try {
       bad = sweep('시연 자료를 심은 뒤');
     }
   }
+
+  /* --- 6) 배치 하나를 끝까지 흘리고 종이를 뽑아 본다 ----------------------- */
+  if (bad === 0) {
+    console.log('\n[배치 하나를 끝까지]');
+    const sf = spawnSync(process.execPath, [path.join(ROOT, 'scripts', 'seed-flow.mjs')],
+      { env, cwd: ROOT, encoding: 'utf8' });
+    if (sf.status !== 0) {
+      process.stdout.write(sf.stdout);
+      process.stderr.write(sf.stderr);
+      console.error('\n  빈 DB 에서 세운 설정으로 배치를 끝까지 흘리지 못했습니다.');
+      bad = 1;
+    } else {
+      process.stdout.write(sf.stdout.split('\n')
+        .filter((l) => l.trim())
+        .slice(-8).map((l) => `  ${l.trim()}`).join('\n') + '\n');
+      bad = sweep('배치를 흘린 뒤');
+      if (bad === 0) bad = await papers(base, env);
+    }
+  }
 } finally {
   if (srv) srv.kill();
   /* 죽는 데 잠깐 걸린다. 붙어 있으면 DB 를 못 지운다 */
@@ -155,6 +185,60 @@ try {
 }
 
 console.log(bad === 0
-  ? '\n빈 DB 에서도, 자료를 심은 뒤에도 전 화면이 섭니다.\n'
+  ? '\n빈 DB 에서 세운 설정으로 배치가 끝까지 흐르고, 종이가 나옵니다.\n'
   : '\n위에서 멈춘 자리를 보십시오.\n');
 process.exit(bad === 0 ? 0 : 1);
+
+/* ---------------------------------------------------------------------------
+   종이가 실제로 나오는가 (§7)
+
+   화면이 서는 것과 종이가 나오는 것은 다르다. 인쇄 경로는 자료를 다시 모아
+   쪽을 나누고 자료 식별자를 만드는데, 그 자리에서 자료가 비어 던지면 화면
+   훑기는 그것을 못 본다 - 훑기가 인쇄 경로를 열지 않기 때문이다.
+   (제조기록서는 여는 것만으로 묶음이 잠기므로 여기서 열지 않는다. 그것은
+   seed-flow 가 이미 흐르며 뽑았고, 인쇄 충실성은 test/print.mjs 가 본다.)
+--------------------------------------------------------------------------- */
+async function papers(base, env) {
+  const { default: pgLib } = await import('pg');
+  const c = new pgLib.Client({ connectionString: env.DATABASE_URL });
+  await c.connect();
+  const id = async (sql) => (await c.query(sql)).rows[0]?.id ?? null;
+  const wo = await id(`select id from work_order order by issued_at limit 1`);
+  const pl = await id(`select id from product_lot order by manufactured_on limit 1`);
+  const ml = await id(`select id from material_lot order by received_at limit 1`);
+  const eq = await id(`select id from equipment limit 1`);
+  const admin = await id(`select id from app_user where login_code = '100200'`);
+  await c.end();
+
+  const { sessionCookie } = await import('./session-cookie.mjs');
+  const cookie = sessionCookie(admin);
+
+  const want = [
+    ['작업 지시서',      `/print/work-order/${wo}`],
+    ['라벨요청서',       `/print/label-request/${wo}`],
+    ['편철 표지',        `/print/cover/${wo}`],
+    ['자재 라벨',        `/print/label/${ml}`],
+    /* 이 종이는 배치 단위다. 어느 로트를 몇 개 내보내는지는 sel 로 실린다 */
+    ['출하 승인 요청서', `/print/release-request/${wo}?sel=${pl}:1`],
+    ['설비 사용 기록',   `/print/equipment-log/${eq}`],
+  ];
+
+  console.log('\n[종이]');
+  let bad = 0;
+  for (const [name, path_] of want) {
+    if (/(null|undefined)/.test(path_)) {
+      console.log(`  못 뽑음  ${name.padEnd(18)} 대상이 없습니다`);
+      bad = 1;
+      continue;
+    }
+    const r = await fetch(base + path_, { headers: { cookie } });
+    const html = await r.text();
+    /* 200 만으로는 모자란다. 부품이 서버에서 죽으면 그 자리가 비고 200 이 된다 */
+    const drawn = /<h1[^>]*>/.test(html) && html.length > 4000;
+    const ok = r.status === 200 && drawn;
+    if (!ok) bad = 1;
+    console.log(`  ${ok ? '나옴  ' : '못 나옴'}  ${name.padEnd(18)}`
+      + `${r.status} · ${html.length.toLocaleString()}자`);
+  }
+  return bad;
+}

@@ -62,16 +62,27 @@ export async function saveBrand(_p: FormState, form: FormData): Promise<FormStat
 
     const txt = (k: string) => String(form.get(k) ?? '').trim() || null;
 
+    /*
+     * 백업을 며칠마다 묻는가 (§2.0). 달마다 뜨는 곳과 분기마다 뜨는 곳이
+     * 같을 수 없으므로 코드가 정하지 않는다.
+     */
+    const rawWarn = String(form.get('backup_warn_days') ?? '').trim();
+    const warnDays = rawWarn === '' ? 35 : Number(rawWarn);
+    if (!Number.isInteger(warnDays) || warnDays < 1 || warnDays > 400) {
+      return { error: '백업을 묻는 주기는 1일에서 400일 사이입니다' };
+    }
+
     await withActor(me.id, (db) =>
       db.rows(
         `update org_brand set company_name = $1, brand_color = $2,
                               system_name = $3, system_name_long = $4,
                               system_tagline = $5, company_tagline = $6,
                               address = $7, biz_no = $8, ceo_name = $9,
-                              updated_by = $10, updated_at = now()`,
+                              backup_warn_days = $10,
+                              updated_by = $11, updated_at = now()`,
         [name, color, txt('system_name'), txt('system_name_long'),
          txt('system_tagline'), txt('company_tagline'),
-         txt('address'), txt('biz_no'), txt('ceo_name'), me.id]),
+         txt('address'), txt('biz_no'), txt('ceo_name'), warnDays, me.id]),
       { reason: '회사 표시 변경' });
 
     bump();
