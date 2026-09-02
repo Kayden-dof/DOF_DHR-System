@@ -3,7 +3,8 @@ import { requireUser } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import { fmtDate } from '@/lib/fmt';
 import { logPrint } from '@/lib/print';
-import PrintFrame from '@/components/print-frame';
+import { chunkRows } from '@/lib/print-pages';
+import PrintFrame, { Sheet } from '@/components/print-frame';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,6 +31,48 @@ interface Use {
   worker_name: string; started: string | null; ended: string | null;
   attempt: number; day_no: number;
   valid_report: string | null;
+}
+
+
+
+
+/* 사용 이력 표. 장이 여럿일 때 이어지는 장이 같은 표를 그린다 */
+function UseTable({ rows }: { rows: Use[] }) {
+  return (
+            <table className="print-table mt-1.5">
+              <thead>
+                <tr>
+                  <th className="w-[11%]">사용일</th>
+                  <th className="w-[14%]">배치번호</th>
+                  <th className="w-[24%]">공정</th>
+                  <th className="w-[7%] text-right">일차</th>
+                  <th className="w-[12%]">작업자</th>
+                  <th className="w-[7%]">시작</th>
+                  <th className="w-[7%]">종료</th>
+                  <th className="w-[18%]">당시 밸리데이션</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((u, i) => (
+                  <tr key={i}>
+                    <td className="tnum">{fmtDate(u.work_date)}</td>
+                    <td className="font-mono">{u.batch_no}</td>
+                    <td>
+                      {u.op_name}
+                      {u.attempt > 1 && <span className="tnum"> · {u.attempt}회차</span>}
+                    </td>
+                    <td className="text-right tnum">{u.day_no}</td>
+                    <td>{u.worker_name}</td>
+                    <td className="tnum">{u.started ?? ''}</td>
+                    <td className="tnum">{u.ended ?? ''}</td>
+                    <td className={u.valid_report ? 'font-mono text-[10px]' : 'font-bold'}>
+                      {u.valid_report ?? '해당 이력 없음'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+  );
 }
 
 export default async function EquipmentLogSheet({
@@ -85,10 +128,17 @@ export default async function EquipmentLogSheet({
   if (!d) notFound();
   const { head, ops, vals, uses } = d;
 
+  /*
+   * 사용 이력을 200줄까지 뽑으면서 N 은 1 로 고정이었다 (4차 감사 B2).
+   * 넘친 장에는 관리번호도 자료 식별자도 쪽 번호도 없이 나간다.
+   */
+  const usePages = chunkRows(uses, 22, 34);
+
   const meta = await logPrint({
     actorId: user.id, actorName: user.full_name, kind: 'EQUIPMENT_LOG',
     equipmentId: id,
     payload: { head, vals, uses },
+    pages: usePages.length,
   });
 
   return (
@@ -97,6 +147,14 @@ export default async function EquipmentLogSheet({
       title="설비 사용 기록"
       subtitle={<>관리번호 <b className="font-mono">{head.code}</b> · {head.name}</>}
       back="/equipment"
+      after={usePages.slice(1).map((rows, k) => (
+        <Sheet key={k} meta={meta} page={k + 2}
+               title="설비 사용 기록"
+               subtitle={<>관리번호 <b className="font-mono">{head.code}</b> · 이어짐</>}>
+          <h2 className="mt-5 text-sm font-bold text-black">사용 이력 (이어짐)</h2>
+          <UseTable rows={rows} />
+        </Sheet>
+      ))}
     >
       <table className="print-table">
         <tbody>
@@ -137,7 +195,7 @@ export default async function EquipmentLogSheet({
       {vals.length === 0 ? (
         <p className="mt-1.5 text-xs text-black">등록된 밸리데이션 이력이 없습니다.</p>
       ) : (
-        <table className="print-table mt-1.5">
+          <table className="print-table mt-1.5">
           <thead>
             <tr>
               <th className="w-[20%]">수행일</th>
@@ -163,39 +221,7 @@ export default async function EquipmentLogSheet({
       {uses.length === 0 ? (
         <p className="mt-1.5 text-xs text-black">사용 기록이 없습니다.</p>
       ) : (
-        <table className="print-table mt-1.5">
-          <thead>
-            <tr>
-              <th className="w-[11%]">사용일</th>
-              <th className="w-[14%]">배치번호</th>
-              <th className="w-[24%]">공정</th>
-              <th className="w-[7%] text-right">일차</th>
-              <th className="w-[12%]">작업자</th>
-              <th className="w-[7%]">시작</th>
-              <th className="w-[7%]">종료</th>
-              <th className="w-[18%]">당시 밸리데이션</th>
-            </tr>
-          </thead>
-          <tbody>
-            {uses.map((u, i) => (
-              <tr key={i}>
-                <td className="tnum">{fmtDate(u.work_date)}</td>
-                <td className="font-mono">{u.batch_no}</td>
-                <td>
-                  {u.op_name}
-                  {u.attempt > 1 && <span className="tnum"> · {u.attempt}회차</span>}
-                </td>
-                <td className="text-right tnum">{u.day_no}</td>
-                <td>{u.worker_name}</td>
-                <td className="tnum">{u.started ?? ''}</td>
-                <td className="tnum">{u.ended ?? ''}</td>
-                <td className={u.valid_report ? 'font-mono text-[10px]' : 'font-bold'}>
-                  {u.valid_report ?? '해당 이력 없음'}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <UseTable rows={usePages[0]} />
       )}
 
       <p className="mt-2 text-[10px] leading-relaxed text-black">

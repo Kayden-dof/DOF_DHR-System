@@ -3,7 +3,8 @@ import { requireUser } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import { fmtDate } from '@/lib/fmt';
 import { logPrint } from '@/lib/print';
-import PrintFrame, { SignRow } from '@/components/print-frame';
+import { chunkByWeight } from '@/lib/print-pages';
+import PrintFrame, { Sheet, SignRow } from '@/components/print-frame';
 
 export const dynamic = 'force-dynamic';
 
@@ -49,6 +50,97 @@ function opName(o: { name: string; after_cutting: boolean }) {
       {o.after_cutting && (
         <div className="nb text-[10px]">재단 이후</div>
       )}
+    </>
+  );
+}
+
+
+/* 공정 표. 장이 여럿일 때 이어지는 장이 같은 표를 그린다 (§10 복제는 갈라진다) */
+function OpTable({ rows, title, today, units }: {
+  rows: OpRow[]; title: string; today?: string | null; units: number;
+}) {
+  return (
+      <>
+        <h2 className="mt-5 text-sm font-bold text-black">{title}</h2>
+        <table className="print-table mt-1.5">
+          <thead>
+            <tr>
+              <th className="w-[5%] text-center">순번</th>
+              <th className="w-[5%] text-center">일차</th>
+              <th className="w-[16%]">공정 코드</th>
+              <th className="w-[17%]">공정명</th>
+              <th className="w-[23%]">자재</th>
+              <th className="w-[11%] text-right">소요량</th>
+              <th className="w-[23%]">설비 · 밸리데이션 만료</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((o) => {
+              const rows = o.materials.length || 1;
+
+              /* 공정 한 묶음에 한 번만 찍는 설비 칸. 여러 대면 줄로 쌓인다 */
+              const equipCell = (
+                <td rowSpan={rows} className={o.equipment.length === 0 ? 'text-center' : undefined}>
+                  {o.equipment.length === 0 ? (
+                    '-'
+                  ) : (
+                    o.equipment.map((q) => {
+                      const gone = !q.valid_until || (today != null && q.valid_until < today);
+                      return (
+                        <div key={q.code} className={gone ? 'font-bold' : undefined}>
+                          <span className="font-mono font-bold">{q.code}</span>{' '}
+                          <span className="nb tnum">
+                            {q.valid_until
+                              ? <>~{fmtDate(q.valid_until)}{gone && ' 기한 경과'}</>
+                              : '밸리데이션 기록 없음'}
+                          </span>
+                        </div>
+                      );
+                    })
+                  )}
+                </td>
+              );
+
+              return o.materials.length === 0 ? (
+                <tr key={o.seq}>
+                  <td className="text-center tnum">{o.seq}</td>
+                  <td className="text-center tnum">{o.typical_day ?? ''}</td>
+                  <td className="font-mono">{o.code}</td>
+                  <td>{opName(o)}</td>
+                  <td className="text-center">-</td>
+                  <td />
+                  {equipCell}
+                </tr>
+              ) : (
+                o.materials.map((m, i) => (
+                  <tr key={`${o.seq}-${m.item_code}`}>
+                    {i === 0 && (
+                      <>
+                        <td rowSpan={rows} className="text-center tnum">{o.seq}</td>
+                        <td rowSpan={rows} className="text-center tnum">{o.typical_day ?? ''}</td>
+                        <td rowSpan={rows} className="font-mono">{o.code}</td>
+                        <td rowSpan={rows}>{opName(o)}</td>
+                      </>
+                    )}
+                    <td>{m.item_name} ({m.item_code})</td>
+                    <td className="text-right tnum">
+                      {/*
+                        * 제품 개수 기준 자재는 예정 수량이 있어야 셈이 선다.
+                        * 예정을 안 적고 발행하면 units 가 0 이라 "0 EA" 가 찍혔는데,
+                        * 그건 "포장재를 쓰지 말라"는 말로 읽힌다. 모르는 것과 0 은
+                        * 다르므로 모를 때는 모른다고 적는다.
+                        */}
+                      {m.required === null || (m.basis === 'PER_UNIT' && units === 0)
+                        ? (m.basis === 'PER_UNIT' ? '재단 후 확정' : '구간 없음')
+                        : `${Number(m.required)} ${m.usage_uom}`}
+                    </td>
+                    {i === 0 && equipCell}
+                  </tr>
+                ))
+              );
+            })}
+          </tbody>
+        </table>
     </>
   );
 }
@@ -146,10 +238,23 @@ export default async function WorkOrderSheet({ params }: { params: Promise<{ id:
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
     .map(([uom, n]) => `${n} ${uom}`);
 
+  /* -------------------------------------------------------------------------
+     장을 우리가 가른다 (4차 감사 B2)
+
+     pages 를 넘기지 않아 N 이 1 로 고정이었다. 공정 12개에 자재 줄이 붙고
+     안내 문단과 서명란이 이어지면 한 장에 들어가지 않는다. 그러면 **서명란이
+     실린 둘째 장이 배치번호도 자료 식별자도 쪽 번호도 없이 편철된다.**
+
+     공정 표는 자재 수만큼 rowSpan 이 걸려 있어 줄 가운데를 자르면 표가
+     깨진다. 공정 단위로 담되 그 공정이 차지하는 줄 수를 무게로 삼는다.
+  ------------------------------------------------------------------------- */
+  const opPages = chunkByWeight(ops, (o) => Math.max(1, o.materials.length), 9, 16);
+
   const meta = await logPrint({
     actorId: user.id, actorName: user.full_name, kind: 'WORK_ORDER',
     workOrderId: id,
     payload: { wo, ops },
+    pages: opPages.length,
   });
 
   return (
@@ -158,6 +263,13 @@ export default async function WorkOrderSheet({ params }: { params: Promise<{ id:
       title="작업 지시서"
       subtitle={<>배치 {wo.batch_no} · 지시서 {wo.wo_no}</>}
       back={`/production/${id}`}
+      after={opPages.slice(1).map((rows, k) => (
+        <Sheet key={k} meta={meta} page={k + 2}
+               title="작업 지시서"
+               subtitle={<>배치 {wo.batch_no} · 지시서 {wo.wo_no} · 이어짐</>}>
+          <OpTable rows={rows} title="공정 순서 및 자재 소요량 (이어짐)" today={today} units={units} />
+        </Sheet>
+      ))}
     >
       <table className="print-table">
         <tbody>
@@ -231,86 +343,7 @@ export default async function WorkOrderSheet({ params }: { params: Promise<{ id:
         * 공정 하나가 표에서 한 묶음이므로, 그 공정의 설비와 밸리데이션 만료일도
         * 같은 줄에서 읽히는 편이 종이에서 자연스럽다. 발행 시점의 사실이다.
         */}
-      <h2 className="mt-5 text-sm font-bold text-black">공정 순서 및 자재 소요량</h2>
-      <table className="print-table mt-1.5">
-        <thead>
-          <tr>
-            <th className="w-[5%] text-center">순번</th>
-            <th className="w-[5%] text-center">일차</th>
-            <th className="w-[16%]">공정 코드</th>
-            <th className="w-[17%]">공정명</th>
-            <th className="w-[23%]">자재</th>
-            <th className="w-[11%] text-right">소요량</th>
-            <th className="w-[23%]">설비 · 밸리데이션 만료</th>
-          </tr>
-        </thead>
-        <tbody>
-          {ops.map((o) => {
-            const rows = o.materials.length || 1;
-
-            /* 공정 한 묶음에 한 번만 찍는 설비 칸. 여러 대면 줄로 쌓인다 */
-            const equipCell = (
-              <td rowSpan={rows} className={o.equipment.length === 0 ? 'text-center' : undefined}>
-                {o.equipment.length === 0 ? (
-                  '-'
-                ) : (
-                  o.equipment.map((q) => {
-                    const gone = !q.valid_until || (today != null && q.valid_until < today);
-                    return (
-                      <div key={q.code} className={gone ? 'font-bold' : undefined}>
-                        <span className="font-mono font-bold">{q.code}</span>{' '}
-                        <span className="nb tnum">
-                          {q.valid_until
-                            ? <>~{fmtDate(q.valid_until)}{gone && ' 기한 경과'}</>
-                            : '밸리데이션 기록 없음'}
-                        </span>
-                      </div>
-                    );
-                  })
-                )}
-              </td>
-            );
-
-            return o.materials.length === 0 ? (
-              <tr key={o.seq}>
-                <td className="text-center tnum">{o.seq}</td>
-                <td className="text-center tnum">{o.typical_day ?? ''}</td>
-                <td className="font-mono">{o.code}</td>
-                <td>{opName(o)}</td>
-                <td className="text-center">-</td>
-                <td />
-                {equipCell}
-              </tr>
-            ) : (
-              o.materials.map((m, i) => (
-                <tr key={`${o.seq}-${m.item_code}`}>
-                  {i === 0 && (
-                    <>
-                      <td rowSpan={rows} className="text-center tnum">{o.seq}</td>
-                      <td rowSpan={rows} className="text-center tnum">{o.typical_day ?? ''}</td>
-                      <td rowSpan={rows} className="font-mono">{o.code}</td>
-                      <td rowSpan={rows}>{opName(o)}</td>
-                    </>
-                  )}
-                  <td>{m.item_name} ({m.item_code})</td>
-                  <td className="text-right tnum">
-                    {/*
-                      * 제품 개수 기준 자재는 예정 수량이 있어야 셈이 선다.
-                      * 예정을 안 적고 발행하면 units 가 0 이라 "0 EA" 가 찍혔는데,
-                      * 그건 "포장재를 쓰지 말라"는 말로 읽힌다. 모르는 것과 0 은
-                      * 다르므로 모를 때는 모른다고 적는다.
-                      */}
-                    {m.required === null || (m.basis === 'PER_UNIT' && units === 0)
-                      ? (m.basis === 'PER_UNIT' ? '재단 후 확정' : '구간 없음')
-                      : `${Number(m.required)} ${m.usage_uom}`}
-                  </td>
-                  {i === 0 && equipCell}
-                </tr>
-              ))
-            );
-          })}
-        </tbody>
-      </table>
+      <OpTable rows={opPages[0]} title="공정 순서 및 자재 소요량" today={today} units={units} />
 
       <p className="mt-2 text-[10px] leading-relaxed text-black">
         일차는 보통 며칠째에 하는 공정인지를 적은 참고값입니다. 실제 작업 일차는

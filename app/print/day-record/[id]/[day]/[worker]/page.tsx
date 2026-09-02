@@ -5,6 +5,7 @@ import { fmtDate, fmtDateTime } from '@/lib/fmt';
 import { logPrint } from '@/lib/print';
 import PrintFrame, { Sheet, SignRow } from '@/components/print-frame';
 import { dayRecordPayload, type RecRow } from '@/lib/print-payload';
+import { chunkRows } from '@/lib/print-pages';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,9 +45,117 @@ export const dynamic = 'force-dynamic';
 const ROWS_FIRST = 10;
 const ROWS_NEXT = 18;
 
-function sheetsFor(rows: number): number {
-  if (rows <= ROWS_FIRST) return 1;
-  return 1 + Math.ceil((rows - ROWS_FIRST) / ROWS_NEXT);
+/* ---------------------------------------------------------------------------
+   재어 맞히지 않고 우리가 가른다 (4차 감사 B2)
+
+   전에는 sheetsFor(records.length) 로 **몇 장이 될지 예측**하고 그 수를 종이에
+   찍었다. 예측이 크면 있지도 않은 2쪽이 생기고(편철 표지가 그 수를 매수로
+   옮겨 적으므로 검토자가 없는 종이를 찾는다), 작으면 브라우저가 자른 뒷장에
+   배치번호도 자료 식별자도 쪽 번호도 없이 나갔다.
+
+   §7 은 "몇 장이 될지 재어 맞히지 않는다" 고 못 박았다.
+
+   이제 줄을 **우리가 나눠 장에 담는다.** 아래 값은 "브라우저가 몇 줄을
+   넣을까" 라는 예측이 아니라 "우리가 한 장에 몇 줄을 담을까" 라는 결정이다.
+   넉넉히 잡으면 장이 하나 늘 뿐이고, 늘어난 장에도 머리글과 쪽 번호가 붙는다.
+--------------------------------------------------------------------------- */
+
+
+/* ---------------------------------------------------------------------------
+   공정 기록 표.
+
+   장이 여럿일 때 이어지는 장이 같은 표를 다시 그린다. 그래서 함수로 뺀다.
+   복제해 두면 한쪽만 고쳐져 두 장이 다른 표가 된다 (§10 "복제는 갈라진다").
+--------------------------------------------------------------------------- */
+function RecordTable({ rows, title }: { rows: RecRow[]; title: string }) {
+  return (
+      <>
+        <h2 className="mt-5 text-sm font-bold text-black">{title}</h2>
+        <table className="print-table mt-1.5">
+          <thead>
+            <tr>
+              <th className="w-[5%] text-center">순번</th>
+              <th className="w-[20%]">공정</th>
+              <th className="w-[11%]">시작</th>
+              <th className="w-[11%]">종료</th>
+              <th className="w-[35%]">투입 자재 (로트 / 수량)</th>
+              <th className="w-[18%]">비고</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={i}>
+                <td className="text-center tnum">
+                  {r.operation_seq}
+                  {r.attempt > 1 && <div className="text-[9px]">{r.attempt}회차</div>}
+                </td>
+                <td>
+                  {r.operation_name}
+                  <div className="font-mono text-[9px]">{r.operation_code}</div>
+                  {/*
+                    * 재단 이후 공정은 제품 로트 단위다. 제조번호만 적으면 그 로트가
+                    * 어떤 규격이고 몇 개인지를 다른 서류에서 찾아야 한다. 규격은
+                    * 재단에서야 정해지므로 여기가 규격이 처음 확정되어 적히는 자리다.
+                    */}
+                  {r.product_lot_no && (
+                    <div className="mt-0.5">
+                      <div className="font-mono text-[9px] font-bold">
+                        제조번호 {r.product_lot_no}
+                      </div>
+                      {r.product_item_name && (
+                        <div className="text-[9px]">
+                          {r.product_item_name}
+                          <span className="ml-1 font-mono">{r.product_item_code}</span>
+                        </div>
+                      )}
+                      {r.product_qty !== null && (
+                        <div className="text-[9px] tnum">
+                          {r.product_qty} 개
+                          {r.product_sample ? ` (샘플 ${r.product_sample})` : ''}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </td>
+                <td className="tnum">{r.started_at ? fmtDateTime(r.started_at).slice(11) : ''}</td>
+                <td className="tnum">{r.ended_at ? fmtDateTime(r.ended_at).slice(11) : ''}</td>
+                <td>
+                  {/*
+                    * 정정한 줄에는 그 사실을 함께 적는다. 종이에서 잘못 적은 줄을
+                    * 한 줄 긋고 사유를 적는 것과 같다. 원래 값은 감사추적에 있다.
+                    */}
+                  {r.issues.map((x, j) => (
+                    <div key={j}>
+                      {x.item_name} · <span className="font-mono">{x.lot_no}</span> ·{' '}
+                      <span className="tnum">{Number(x.qty)} {x.usage_uom}</span>
+                      {x.amend_reason && (
+                        <div className="text-[9px]">정정 · {x.amend_reason}</div>
+                      )}
+                    </div>
+                  ))}
+                  {r.steril.map((v, j) => (
+                    <div key={`s${j}`} className="font-bold">
+                      위탁 발송 <span className="tnum">{v.qty}</span> 개
+                      <span className="ml-1.5 font-mono font-normal">{v.batch_no}</span>
+                    </div>
+                  ))}
+                  {r.issues.length === 0 && r.steril.length === 0 && r.no_material_reason && (
+                    <span>{r.no_material_reason}</span>
+                  )}
+                </td>
+                <td>
+                  {r.equipment_id && <div>설비 {r.equipment_id}</div>}
+                  {r.rework_qty ? <div className="tnum">재포장 {r.rework_qty}</div> : null}
+                  {r.issues.length > 0 && r.no_material_reason && (
+                    <div>{r.no_material_reason}</div>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+    </>
+  );
 }
 
 export default async function DayRecordSheet({ params }: {
@@ -114,11 +223,15 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false }: {
     if (line) line.steril = r.steril.reduce((a, v) => a + v.qty, 0);
   }
 
+  /* 줄을 장에 나눠 담는다. 장 수가 곧 pages 다 - 예측이 아니라 결과다 */
+  const pageRows = chunkRows(records, ROWS_FIRST, ROWS_NEXT);
+  const sheetCount = pageRows.length + (specLines.length > 0 ? 1 : 0);
+
   const meta = await logPrint({
     actorId: user.id, actorName: user.full_name, kind: 'DAY_RECORD',
     workOrderId: id, dayNo, workerId: worker,
     payload: { head, records },
-    pages: sheetsFor(records.length) + (specLines.length > 0 ? 1 : 0),
+    pages: sheetCount,
     lockDay: true,
   });
 
@@ -129,7 +242,19 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false }: {
       title="제조기록서"
       subtitle={<>배치 {head.batch_no} · {dayNo}일차 · {head.worker_name}</>}
       back={`/production/${id}`}
-      after={specLines.length > 0 ? (
+      after={<>
+        {/*
+          * 이어지는 장. 줄이 한 장에 안 담기면 여기서 장을 더 낸다.
+          * 예측이 아니라 우리가 나눈 결과이므로 쪽 번호가 실제와 어긋날 수 없다.
+          */}
+        {pageRows.slice(1).map((rows, k) => (
+          <Sheet key={k} meta={meta} page={k + 2}
+                 title="제조기록서"
+                 subtitle={<>배치 {head.batch_no} · {dayNo}일차 · {head.worker_name} · 이어짐</>}>
+            <RecordTable rows={rows} title="공정 기록 (이어짐)" />
+          </Sheet>
+        ))}
+        {specLines.length > 0 ? (
         /*
           * 생산 규격 기록지.
           *
@@ -138,7 +263,7 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false }: {
           * 공정 기록 사이에 끼워 넣으면 같은 배치가 여러 건인 것처럼 읽힌다.
           * 장을 나눠 뒤에 붙인다.
           */
-        <Sheet meta={meta} page={meta.pages}
+        <Sheet meta={meta} page={sheetCount}
                title="생산 규격 기록지"
                subtitle={<>배치 {head.batch_no} · {dayNo}일차 · {head.worker_name}</>}>
           <table className="print-table">
@@ -228,6 +353,7 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false }: {
           <SignRow roles={['작업자', '생산 책임자']} />
         </Sheet>
       ) : null}
+      </>}
     >
       <table className="print-table">
         <tbody>
@@ -278,90 +404,7 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false }: {
         </tbody>
       </table>
 
-      <h2 className="mt-5 text-sm font-bold text-black">공정 기록</h2>
-      <table className="print-table mt-1.5">
-        <thead>
-          <tr>
-            <th className="w-[5%] text-center">순번</th>
-            <th className="w-[20%]">공정</th>
-            <th className="w-[11%]">시작</th>
-            <th className="w-[11%]">종료</th>
-            <th className="w-[35%]">투입 자재 (로트 / 수량)</th>
-            <th className="w-[18%]">비고</th>
-          </tr>
-        </thead>
-        <tbody>
-          {records.map((r, i) => (
-            <tr key={i}>
-              <td className="text-center tnum">
-                {r.operation_seq}
-                {r.attempt > 1 && <div className="text-[9px]">{r.attempt}회차</div>}
-              </td>
-              <td>
-                {r.operation_name}
-                <div className="font-mono text-[9px]">{r.operation_code}</div>
-                {/*
-                  * 재단 이후 공정은 제품 로트 단위다. 제조번호만 적으면 그 로트가
-                  * 어떤 규격이고 몇 개인지를 다른 서류에서 찾아야 한다. 규격은
-                  * 재단에서야 정해지므로 여기가 규격이 처음 확정되어 적히는 자리다.
-                  */}
-                {r.product_lot_no && (
-                  <div className="mt-0.5">
-                    <div className="font-mono text-[9px] font-bold">
-                      제조번호 {r.product_lot_no}
-                    </div>
-                    {r.product_item_name && (
-                      <div className="text-[9px]">
-                        {r.product_item_name}
-                        <span className="ml-1 font-mono">{r.product_item_code}</span>
-                      </div>
-                    )}
-                    {r.product_qty !== null && (
-                      <div className="text-[9px] tnum">
-                        {r.product_qty} 개
-                        {r.product_sample ? ` (샘플 ${r.product_sample})` : ''}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </td>
-              <td className="tnum">{r.started_at ? fmtDateTime(r.started_at).slice(11) : ''}</td>
-              <td className="tnum">{r.ended_at ? fmtDateTime(r.ended_at).slice(11) : ''}</td>
-              <td>
-                {/*
-                  * 정정한 줄에는 그 사실을 함께 적는다. 종이에서 잘못 적은 줄을
-                  * 한 줄 긋고 사유를 적는 것과 같다. 원래 값은 감사추적에 있다.
-                  */}
-                {r.issues.map((x, j) => (
-                  <div key={j}>
-                    {x.item_name} · <span className="font-mono">{x.lot_no}</span> ·{' '}
-                    <span className="tnum">{Number(x.qty)} {x.usage_uom}</span>
-                    {x.amend_reason && (
-                      <div className="text-[9px]">정정 · {x.amend_reason}</div>
-                    )}
-                  </div>
-                ))}
-                {r.steril.map((v, j) => (
-                  <div key={`s${j}`} className="font-bold">
-                    위탁 발송 <span className="tnum">{v.qty}</span> 개
-                    <span className="ml-1.5 font-mono font-normal">{v.batch_no}</span>
-                  </div>
-                ))}
-                {r.issues.length === 0 && r.steril.length === 0 && r.no_material_reason && (
-                  <span>{r.no_material_reason}</span>
-                )}
-              </td>
-              <td>
-                {r.equipment_id && <div>설비 {r.equipment_id}</div>}
-                {r.rework_qty ? <div className="tnum">재포장 {r.rework_qty}</div> : null}
-                {r.issues.length > 0 && r.no_material_reason && (
-                  <div>{r.no_material_reason}</div>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <RecordTable rows={pageRows[0]} title="공정 기록" />
 
       <p className="mt-2 text-[10px] leading-relaxed text-black">
         여기 적힌 것은 실제로 수행하고 투입한 내용입니다. 작업 지시서의 예정과 달라도
