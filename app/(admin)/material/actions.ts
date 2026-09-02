@@ -33,11 +33,36 @@ const bump = () => {
    구매 단위로 받은 수량을 환산 계수로 사용 단위에 맞춰 넣는다 (§4.2).
    재고 · 불출 · 단가는 전부 사용 단위 기준이다.
 --------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------
+   숫자로 읽되, 숫자가 아니면 숫자가 아니라고 한다 (4차 감사 G3)
+
+   Number('') 은 0 이고 Number('abc') 는 NaN 이다. 그 NaN 이 pg 로 가면
+   'NaN' 문자열이 되고, **PostgreSQL numeric 은 NaN 을 받는다.**
+   qty > 0 같은 검사는 NaN 에서 참이 아니므로 대개 걸리지만, 검사가 없는
+   칸(단가 등)에는 그대로 들어간다. 그 뒤 합계가 전부 NaN 이 된다.
+
+   여기서 막는다. 빈 값과 잘못된 값을 가려 말한다.
+--------------------------------------------------------------------------- */
+function num(v: FormDataEntryValue | null, label: string): number {
+  const raw = String(v ?? '').trim().replace(/,/g, '');
+  if (raw === '') throw new Error(`${label}을(를) 입력하십시오`);
+  const n = Number(raw);
+  if (!Number.isFinite(n)) throw new Error(`${label}은(는) 숫자로 적으십시오`);
+  return n;
+}
+
+/** 비워도 되는 숫자. 비면 null */
+function numOrNull(v: FormDataEntryValue | null, label: string): number | null {
+  const raw = String(v ?? '').trim();
+  if (raw === '') return null;
+  return num(v, label);
+}
+
 export async function receiveMaterial(_p: FormState, form: FormData): Promise<FormState> {
   try {
     const me = await mgr();
     const itemId = String(form.get('item_id') ?? '');
-    const purchaseQty = Number(form.get('purchase_qty') ?? 0);
+    const purchaseQty = num(form.get('purchase_qty'), '구매 수량');
 
     const result = await withActor(me.id, async (db) => {
       const item = await db.one<{ code: string; name: string; conversion: string; usage_uom: string }>(
@@ -60,7 +85,7 @@ export async function receiveMaterial(_p: FormState, form: FormData): Promise<Fo
          String(form.get('coa_date') ?? ''),
          String(form.get('received_at') ?? '') + 'T00:00:00+09:00',
          me.id, usageQty,
-         txt(form.get('unit_price')) ? Number(form.get('unit_price')) : null,
+         numOrNull(form.get('unit_price'), '단가'),
          txt(form.get('expiry_date')),
          txt(form.get('location')),
          txt(form.get('thickness_band'))]);
@@ -93,8 +118,8 @@ export async function createOrder(_p: FormState, form: FormData): Promise<FormSt
            ordered_at, expected_at, ordered_by)
          values ($1,$2,$3,$4,$5,$6::date,$7::date,$8)`,
         [poNo, String(form.get('item_id') ?? ''), String(form.get('supplier_id') ?? ''),
-         Number(form.get('qty') ?? 0),
-         txt(form.get('unit_price')) ? Number(form.get('unit_price')) : null,
+         num(form.get('qty'), '수량'),
+         numOrNull(form.get('unit_price'), '단가'),
          String(form.get('ordered_at') ?? ''), txt(form.get('expected_at')), me.id]));
     bump();
     return { ok: true, message: `발주 ${poNo}를 등록했습니다.` };
@@ -121,7 +146,7 @@ export async function moveStock(_p: FormState, form: FormData): Promise<FormStat
   try {
     const me = await mgr();
     const type = String(form.get('type') ?? '');
-    const raw = Number(form.get('qty') ?? 0);
+    const raw = num(form.get('qty'), '수량');
     const qty = type === 'RETURN' ? Math.abs(raw)
               : type === 'ADJUSTMENT' ? raw
               : -Math.abs(raw);
@@ -151,7 +176,7 @@ export async function makeSolution(_p: FormState, form: FormData): Promise<FormS
     for (const [k, v] of form.entries()) {
       const m = k.match(/^lot_(\d+)$/);
       if (!m || !String(v)) continue;
-      const q = Number(form.get(`qty_${m[1]}`) ?? 0);
+      const q = num(form.get(`qty_${m[1]}`), '수량');
       if (!q) continue;
       lots.push(String(v));
       qtys.push(q);

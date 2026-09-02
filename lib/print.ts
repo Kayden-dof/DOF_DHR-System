@@ -185,3 +185,36 @@ export async function logPrint(a: LogArgs): Promise<PrintMeta> {
 export function cronKeyPinned(): boolean {
   return !!process.env.CRON_SECRET;
 }
+
+/* ---------------------------------------------------------------------------
+   이 서버가 뜬 백업인가 (4차 감사 D4)
+
+   복구는 파일이 **스스로와 맞는지**만 봤다. 목록에 적힌 행 수·해시를 실제
+   줄에서 다시 셈해 견주는 것이라, 한 줄을 고치고 그 표의 sha256 을 다시
+   셈해 목록에 적으면 흠 0건으로 통과했다.
+
+   파일은 이미 사람이 정한 암호로 잠겨 있고 GCM 봉인이 붙어 있다. 그래서 남는
+   위험은 하나다 - **암호를 아는 사람이 손으로 지어낸 백업.** 그것으로
+   되돌리면 제조기록도 감사추적도 통째로 바뀐다.
+
+   서버 열쇠로 목록에 서명한다. 그 열쇠는 배포 환경에 있고 DB 에 없으므로,
+   빈 DB 로 되살리는 재해 복구도 그대로 된다 - 대장의 해시로 문턱을 걸면
+   막혔을 자리다.
+--------------------------------------------------------------------------- */
+export function signManifest(m: Record<string, unknown>): string {
+  const { sig: _drop, ...rest } = m as Record<string, unknown> & { sig?: string };
+  return createHmac('sha256', printKey())
+    .update('dhr:backup:v1')
+    .update(JSON.stringify(rest))
+    .digest('hex');
+}
+
+/** 서명이 이 서버의 것인가. 시간 차로 값을 캐낼 수 없게 길이부터 본다 */
+export function verifyManifest(m: Record<string, unknown>): boolean {
+  const got = String((m as { sig?: string }).sig ?? '');
+  const want = signManifest(m);
+  if (got.length !== want.length) return false;
+  let diff = 0;
+  for (let i = 0; i < want.length; i += 1) diff |= got.charCodeAt(i) ^ want.charCodeAt(i);
+  return diff === 0;
+}

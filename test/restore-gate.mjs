@@ -23,7 +23,7 @@
  */
 import pg from 'pg';
 import { gzipSync, gunzipSync } from 'node:zlib';
-import { randomBytes, scryptSync, createDecipheriv } from 'node:crypto';
+import { randomBytes, scryptSync, createDecipheriv, createHash } from 'node:crypto';
 import { writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { sessionCookie } from '../scripts/session-cookie.mjs';
@@ -207,6 +207,55 @@ check('RG-08', '확인 문구가 비면 되돌리지 않는다', r8.status === 4
 
 const r9 = await post(admin, good, goodName, { mode: 'apply', confirm: '되돌린다' });
 check('RG-09', '확인 문구가 다르면 되돌리지 않는다', r9.status === 400, r9.body.error ?? '');
+
+/* --- 이 서버가 뜬 백업인가 (4차 감사 D4) ------------------------------- */
+/*
+ * 한 줄을 고치고 **그 표의 해시를 다시 셈해 목록에 적으면** 전에는 흠 0건으로
+ * 통과했다. 파일이 스스로와 맞는지만 봤기 때문이다. 이제 목록에 서버 서명이
+ * 붙으므로 목록을 손대면 서명이 어긋난다.
+ */
+{
+  const t2 = gunzipSync(plain).toString('utf8').split(String.fromCharCode(10));
+  const man = JSON.parse(t2[0].slice(10));
+  const at2 = t2.findIndex((l, i) => i > 1 && l.startsWith('{'));
+  let tbl = null;
+  for (let i = at2; i > 0; i -= 1) {
+    if (t2[i].startsWith('#table ')) { tbl = t2[i].split(' ')[1]; break; }
+  }
+  t2[at2] = t2[at2].replace(/"([^"]{4,})"/, '"지어낸값"');
+
+  const rows = [];
+  let cur = null;
+  for (let i = 1; i < t2.length; i += 1) {
+    const l = t2[i];
+    if (!l) continue;
+    if (l.startsWith('#table ')) { cur = l.split(' ')[1]; continue; }
+    if (cur === tbl) rows.push(l);
+  }
+  const h = createHash('sha256');
+  for (const r of rows) h.update(r).update(String.fromCharCode(10));
+  man.tables[tbl].sha256 = h.digest('hex');
+
+  const forged = gzipSync(Buffer.from(
+    '#manifest ' + JSON.stringify(man) + String.fromCharCode(10)
+    + t2.slice(1).join(String.fromCharCode(10)), 'utf8'));
+
+  const rf = await post(admin, forged, 'forged.ndjson.gz', { mode: 'inspect' });
+  const named = (rf.body.flaws ?? []).some((f) => f.table === '(목록)');
+  check('RG-22', '목록까지 고친 백업도 서명이 어긋나 잡힌다',
+        rf.status === 200 && named, `흠 ${(rf.body.flaws ?? []).length}건`);
+
+  const rf2 = await post(admin, forged, 'forged.ndjson.gz',
+    { mode: 'apply', confirm: 'forged.ndjson.gz' });
+  check('RG-23', '그 파일로는 되돌리지 않는다', rf2.status === 400, rf2.body.error ?? '');
+}
+
+/* --- 약한 파일 암호 (4차 감사 G5) -------------------------------------- */
+{
+  const weak = await dl(admin, { pin: PIN, passphrase: 'password' });
+  const wb = await weak.json().catch(() => ({}));
+  check('RG-24', '너무 흔한 파일 암호는 거부한다', weak.status === 400, wb.error ?? '');
+}
 
 const r20 = await post(admin, good, goodName, { mode: 'apply', confirm: goodName, pin: '000000' });
 check('RG-20', '본인 비밀번호가 틀리면 되돌리지 않는다', r20.status === 401, r20.body.error ?? '');

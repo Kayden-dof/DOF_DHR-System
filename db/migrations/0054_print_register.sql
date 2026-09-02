@@ -90,6 +90,20 @@ grant  execute on function lock_day(uuid, int, uuid) to app_role;
 do $$
 declare n int;
 begin
+  /*
+   * 이미 자리가 잡혔으면 건너뛴다 (4차 감사 F4).
+   *
+   * 이 블록은 인덱스를 만들 자리를 마련하는 **일회성 복구**인데, 이관에
+   * 대장이 없어 배포마다 다시 돌았다. 값이 같으면 UPDATE 가 0건이라 결과는
+   * 같지만, session_replication_role='replica' 로 감사 · S03 · S04 · 불변식을
+   * 전부 물러나게 한 채 기록 컬럼을 쓰는 코드가 상시 재실행되는 것이다.
+   *
+   * 인덱스가 이미 서 있으면 겹친 행이 없다는 뜻이므로 할 일이 없다.
+   */
+  if exists (select 1 from pg_class where relname = 'record_print_target_seq' and relkind = 'i') then
+    return;
+  end if;
+
   set local session_replication_role = 'replica';
 
   with ranked as (

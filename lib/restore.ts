@@ -2,6 +2,7 @@ import { gunzipSync } from 'node:zlib';
 import { createHash } from 'node:crypto';
 import type { PoolClient } from 'pg';
 import type { BackupManifest } from './backup';
+import { verifyManifest } from './print';
 
 /* ---------------------------------------------------------------------------
    백업 파일을 넣어 되돌린다 (사용자 지시 2026-09-01)
@@ -104,6 +105,25 @@ export interface Flaw { table: string; detail: string }
  */
 export function verifyBackup(b: ParsedBackup): Flaw[] {
   const flaws: Flaw[] = [];
+
+  /*
+   * 이 서버가 뜬 것인가 (4차 감사 D4).
+   *
+   * 아래 대조는 파일이 **스스로와 맞는지**만 본다. 한 줄을 고치고 그 표의
+   * sha256 을 다시 셈해 목록에 적으면 흠 0건으로 통과한다. 파일이 암호로
+   * 잠겨 있으므로 남는 위험은 하나다 - 암호를 아는 사람이 손으로 지어낸 백업.
+   *
+   * 서버 열쇠는 배포 환경에 있고 DB 에 없다. 그래서 빈 DB 로 되살리는 재해
+   * 복구도 그대로 된다 - 대장의 해시로 문턱을 걸면 막혔을 자리다.
+   */
+  if (!verifyManifest(b.manifest as unknown as Record<string, unknown>)) {
+    flaws.push({
+      table: '(목록)',
+      detail: (b.manifest as { sig?: string }).sig
+        ? '이 서버가 뜬 백업이 아니거나 목록에 손을 댔습니다'
+        : '서명이 없는 백업입니다. 이 화면에서 내려받은 것만 되돌릴 수 있습니다',
+    });
+  }
   for (const [t, m] of Object.entries(b.manifest.tables)) {
     const got = b.rows.get(t);
     if (!got) { flaws.push({ table: t, detail: '목록에는 있으나 파일에 없습니다' }); continue; }

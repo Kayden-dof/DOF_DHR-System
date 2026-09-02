@@ -120,10 +120,15 @@ export default function RestorePanel({ canRestore, left }: {
           <input
             ref={fileRef}
             type="file"
-            accept=".gz,application/gzip"
+            /*
+             * 내려받는 이름은 .dhrbak 인데 .gz 만 받고 있었다 (4차 감사 G4).
+             * 이 화면에서 받은 파일이 고르개에서 회색으로 보였다.
+             */
+            accept=".dhrbak,.gz,application/gzip,application/octet-stream"
             onChange={(e) => {
               setFile(e.target.files?.[0] ?? null);
-              setLook(null); setErr(''); setTyped(''); setPin('');
+              /* 파일을 바꾸면 앞 파일의 암호도 지운다 (4차 감사 G4) */
+              setLook(null); setErr(''); setTyped(''); setPin(''); setPass('');
             }}
             className="input h-10 max-w-md flex-1 py-1.5 text-xs file:mr-3 file:rounded-md
                        file:border-0 file:bg-canvas-deep file:px-3 file:py-1.5
@@ -250,9 +255,20 @@ export default function RestorePanel({ canRestore, left }: {
                     {look.freshMinutes}분 안에 뜬 백업이 없습니다. 되돌릴 길을 만들어 두지
                     않고는 진행할 수 없습니다.
                   </p>
-                  <a href="/api/backup" download className="btn-primary mt-3 h-9 px-3 text-xs">
-                    지금 백업 내려받기
-                  </a>
+                  {/*
+                    * 전에는 <a href="/api/backup" download> 였다. 내려받기를
+                    * GET 에서 POST 로 굳히면서 남은 앵커라 405 를 냈다
+                    * (4차 감사 G4). 도구를 고칠 때 부르는 쪽을 안 본 자리가
+                    * 또 하나 있었던 것이다.
+                    *
+                    * 여기서 다시 받게 하지 않는다 - 본인 비밀번호와 파일 암호를
+                    * 또 물어야 하고, 그것은 왼쪽 칸이 이미 하는 일이다.
+                    * 그 자리를 가리킨다.
+                    */}
+                  <p className="mt-2 text-xs leading-relaxed text-body">
+                    이 화면 <b className="text-ink">왼쪽 칸</b>에서 백업을 먼저
+                    받으십시오. 받고 나면 이 자리가 열립니다.
+                  </p>
                 </div>
               ) : (
                 <div className="mt-3">

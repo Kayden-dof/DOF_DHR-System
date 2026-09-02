@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { readdirSync } from 'node:fs';
 import path from 'node:path';
 import type { PoolClient } from 'pg';
+import { signManifest } from './print';
 
 /* ---------------------------------------------------------------------------
    한 시점의 자료를 통째로 뜬다 (사용자 요청 2026-09-01)
@@ -36,6 +37,8 @@ export interface BackupManifest {
   tables: Record<string, { rows: number; sha256: string }>;
   sequences: Record<string, { seq: string; last: string }>;
   total_rows: number;
+  /** 이 서버가 뜬 것이라는 표. 서버 열쇠로 만든다 (4차 감사 D4) */
+  sig?: string;
 }
 
 export interface Backup {
@@ -117,6 +120,9 @@ export async function buildBackup(c: PoolClient): Promise<Backup> {
      *
      * 복구 훈련은 옆에 놓인 목록 파일이 있으면 그것을, 없으면 이 줄을 읽는다.
      */
+    /* 목록에 서명한다. 줄은 목록의 해시가 지키므로 목록만 서명하면 된다 */
+    manifest.sig = signManifest(manifest as unknown as Record<string, unknown>);
+
     const text = `#manifest ${JSON.stringify(manifest)}\n${body.join('\n')}\n`;
     const gz = gzipSync(Buffer.from(text, 'utf8'), { level: 9 });
 

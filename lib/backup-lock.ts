@@ -57,10 +57,35 @@ async function keyFrom(pass: string, salt: Buffer): Promise<Buffer> {
 }
 
 /** 잠근다. 들어오는 것은 이미 gzip 이고, 나가는 것은 잠긴 통이다 */
-export async function lock(plain: Buffer, pass: string): Promise<Buffer> {
-  if (pass.length < PASSPHRASE_MIN) {
-    throw new LockError(`파일 암호는 ${PASSPHRASE_MIN}자 이상이어야 합니다`);
+/* ---------------------------------------------------------------------------
+   암호가 너무 뻔하면 자물쇠가 뜻을 잃는다 (4차 감사 G5)
+
+   길이 검사 하나뿐이었다. 그 파일에는 pin_hash 를 포함한 전 표가 들어 있고,
+   가져간 사람은 시간 제한 없이 사전을 돌린다. scrypt 가 한 번 여는 값을
+   비싸게 만들지만, 암호가 'password' 면 한 번이면 된다.
+
+   판정하지 않는다 (§1). 이건 제조 판정이 아니라 자물쇠의 최소 조건이다.
+   흔한 것과 한 가지 글자만 쓴 것을 거른다. 그 이상은 사람이 정한다.
+--------------------------------------------------------------------------- */
+const TOO_COMMON = new Set([
+  'password', 'passw0rd', '12345678', '123456789', '1234567890',
+  'qwertyui', 'asdfghjk', 'abcd1234', 'a1234567', 'dof12345',
+  '00000000', '11111111', 'backup12', 'admin123', 'dhrbackup',
+]);
+
+function weakWhy(pass: string): string | null {
+  if (pass.length < PASSPHRASE_MIN) return `${PASSPHRASE_MIN}자 이상이어야 합니다`;
+  if (TOO_COMMON.has(pass.toLowerCase())) return '너무 흔한 암호입니다';
+  if (new Set(pass).size < 4) return '서로 다른 글자가 네 가지 이상이어야 합니다';
+  if (/^[0-9]+$/.test(pass) && pass.length < 12) {
+    return '숫자만 쓰려면 12자 이상이어야 합니다';
   }
+  return null;
+}
+
+export async function lock(plain: Buffer, pass: string): Promise<Buffer> {
+  const why = weakWhy(pass);
+  if (why) throw new LockError(`파일 암호가 약합니다 - ${why}`);
   const salt = randomBytes(16);
   const iv = randomBytes(12);
   const key = await keyFrom(pass, salt);
