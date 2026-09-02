@@ -121,11 +121,30 @@ export default async function WorkOrderSheet({ params }: { params: Promise<{ id:
   /* 예정 제품 개수. 0 이면 아직 정해지지 않은 것이지 0 개가 아니다 */
   const units = wo.planned_units ?? 0;
 
-  // 필요 용기 수: 장입 구간 기준 자재의 소요량 합. 시약이 통 단위로 나가므로
-  // 그 합이 곧 현장에서 꺼내야 할 용기 수다.
+  /* -------------------------------------------------------------------------
+     필요 용기 수 (§7)
+
+     전에는 장입 구간 기준 자재의 소요량을 **그냥 다 더했다.** 단위가 다른데
+     더했다.
+
+       NaCl 2 kg + 알칼리 2 통 + H2O2 2 통 + 에탄올 2 L + 파우치 4 EA = "12 개"
+
+     현장은 이 숫자를 보고 용기를 꺼낸다. 실제 통은 넷인데 종이가 열둘이라고
+     말했다. 조건이 없다. 모든 배치에서 틀렸다 (4차 감사 2026-09-02).
+
+     단위별로 가른다. 서로 더할 수 있는 것만 더한다.
+  ------------------------------------------------------------------------- */
   const containers = ops.flatMap((o) =>
     o.materials.filter((m) => m.basis === 'SHEET_TIER' && m.required !== null));
-  const containerTotal = containers.reduce((s, m) => s + Number(m.required), 0);
+
+  const byUom = new Map<string, number>();
+  for (const m of containers) {
+    byUom.set(m.usage_uom, (byUom.get(m.usage_uom) ?? 0) + Number(m.required));
+  }
+  /* 많이 쓰는 단위부터. 같으면 이름순이라 종이가 배치마다 달라지지 않는다 */
+  const containerParts = [...byUom.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([uom, n]) => `${n} ${uom}`);
 
   const meta = await logPrint({
     actorId: user.id, actorName: user.full_name, kind: 'WORK_ORDER',
@@ -176,7 +195,9 @@ export default async function WorkOrderSheet({ params }: { params: Promise<{ id:
             <th>장입 장수</th>
             <td className="tnum font-bold">{wo.sheet_count} 장</td>
             <th>필요 용기 수</th>
-            <td className="tnum font-bold">{containerTotal} 개</td>
+            <td className="tnum font-bold">
+              {containerParts.length > 0 ? containerParts.join(' · ') : '해당 없음'}
+            </td>
           </tr>
           <tr>
             <th>발행 일시</th>

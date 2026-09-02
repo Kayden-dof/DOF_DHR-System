@@ -113,7 +113,17 @@ export function Sheet({
   const reissued = meta.seq > 1;
 
   return (
-      <div className="sheet relative">
+      /*
+       * data-sheet 는 종이에 나오지 않는 표시다.
+       *
+       * 인쇄 충실성 시험이 쪽 번호를 대조하려면 "이 문서가 실제로 몇 장인가" 를
+       * 셀 수 있어야 한다. 꼬리글의 "n / N" 을 글자로 세면 N 이 틀렸을 때
+       * 틀린 값끼리 맞아떨어져 통과한다 - 재는 것이 재어질 것에서 나오면
+       * 아무것도 재지 못한다 (§8.0.1).
+       *
+       * 그래서 장 자체를 센다. 이 표가 붙은 개수가 실제 매수다.
+       */
+      <div data-sheet={page} className="sheet relative">
         {/*
           * 재발행본 워터마크.
           *
