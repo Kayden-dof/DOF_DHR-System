@@ -38,6 +38,33 @@ const ids = {
 };
 const userIds = Object.fromEntries(
   (await rows(`select login_code, id from app_user`)).map((u) => [u.login_code, u.id]));
+
+/* ---------------------------------------------------------------------------
+   훑을 계정이 없으면 그 자리에서 멈춘다 (4차 감사 A4)
+
+   전에는 없는 계정으로 session(undefined) 를 만들었다. 서명은 성한데 사용자
+   항목이 빠진 쿠키가 나오고, 앱이 그것을 거부해 307 로 로그인 화면에 넘긴다.
+   그런데 307 을 통과로 세고 있었으므로 **전 경로가 통과로 찍혔다.**
+
+   빈 DB 에는 시연 계정이 없다. 그래서 §8.0 이 "새 설치 검사가 §2.0 을 묻는
+   유일한 자리" 라고 적은 그 훑기가 화면을 한 장도 그려 보지 않은 채
+   "전 화면 통과" 를 찍고 있었다.
+
+   빈 DB 는 이관이 심는 계정으로 훑는다. 밖에서 지정할 수 있게 둔다.
+--------------------------------------------------------------------------- */
+const ADMIN_CODE = process.env.SMOKE_ADMIN_CODE || '100200';
+const WORKER_CODE = process.env.SMOKE_WORKER_CODE || '200100';
+
+const NEEDED = { [ADMIN_CODE]: '관리자 훑기' };
+if (WORKER_CODE !== '-') NEEDED[WORKER_CODE] = '현장 훑기';
+
+const missing = Object.entries(NEEDED).filter(([code]) => !userIds[code]);
+if (missing.length) {
+  console.error('훑을 계정이 없습니다. 이 상태로는 화면을 그려 볼 수 없습니다.');
+  for (const [code, what] of missing) console.error(`  ${code}  ${what}`);
+  await db.end();
+  process.exit(2);
+}
 await db.end();
 
 /* --- 훑을 경로 ------------------------------------------------------------ */
@@ -131,7 +158,7 @@ const HAS_TITLE = /<h1[\s>]/;
 --------------------------------------------------------------------------- */
 const DATE_CROSSED = /\$D\d{4}-\d{2}-\d{2}T15:00:00\.000Z/;
 
-async function sweep(label, cookie, paths) {
+async function sweep(label, cookie, paths, expectAway = new Set()) {
   console.log(`\n${label}`);
   for (const p of paths) {
     let status = 0; let note = '';
@@ -151,17 +178,31 @@ async function sweep(label, cookie, paths) {
     } catch (e) {
       note = e.message;
     }
-    const ok = (status === 200 || status === 307 || status === 308) && !note;
+    /*
+     * 307 은 통과가 아니다 (4차 감사 A4).
+     *
+     * "화면이 섰다" 와 "로그인으로 밀려났다" 는 다른 결과다. 307 이면 본문이
+     * 없으므로 제목 검사도 오류봉투 검사도 날짜자국 검사도 전부 건너뛰어진다.
+     * 그것을 통과로 세면 아무것도 안 본 것이 통과가 된다.
+     */
+    const away = status === 307 || status === 308;
+    const ok = expectAway.has(p) ? away : (status === 200 && !note);
     if (!ok) bad++;
-    console.log(`  ${ok ? '통과' : '실패'}  ${String(status).padEnd(4)} ${p}${note ? `  ${note}` : ''}`);
+    console.log(`  ${ok ? (away ? '넘김' : '통과') : '실패'}  ${String(status).padEnd(4)} ${p}`
+      + `${note ? `  ${note}` : ''}`
+      + `${!ok && away ? '  로그인으로 밀려났다 (화면을 그려 보지 못했다)' : ''}`);
   }
 }
 
-const mgrCookie = session(userIds['100200']);
+const mgrCookie = session(userIds[ADMIN_CODE]);
 await sweep('관리자 화면', mgrCookie, ADMIN);
 
-const workerCookie = session(userIds['200100']);
-await sweep('현장 화면', workerCookie, WORKER);
+if (WORKER_CODE === '-') {
+  console.log('\n현장 화면\n  건너뜀 - 훑을 작업자 계정이 지정되지 않았습니다');
+} else {
+  const workerCookie = session(userIds[WORKER_CODE]);
+  await sweep('현장 화면', workerCookie, WORKER);
+}
 
 console.log(`\n${bad === 0 ? '전 화면 통과' : `실패 ${bad}건`}`);
 process.exit(bad === 0 ? 0 : 1);

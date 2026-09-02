@@ -111,13 +111,31 @@ if (missing.length) {
   process.exit(2);
 }
 
+/*
+ * 껍데기 200 을 열림으로 적지 않는다 (4차 감사 A5)
+ *
+ * 전에는 200 이면 data-denied 만 보고 곧바로 "열림" 이라 적었다. smoke 가 두
+ * 번 고쳐서 넣은 검사 - 본문에 제목이 있는가, React 오류 봉투가 실려 있는가 -
+ * 가 여기에는 없었다.
+ *
+ * 그래서 어느 역할에서 어느 화면이 그려지다 죽어도 "열림" 으로 적고,
+ * lib/access.ts 의 선언과 일치하므로 "140칸 일치" 를 찍었다. 상태 코드가
+ * 깨지는 실패만 잡혔다.
+ */
+const SCRIPTS_RE = new RegExp('<script[\\s\\S]*?<\\/script>', 'g');
+const RENDER_ERROR_RE = new RegExp(':E\\{"digest"');
+const HAS_TITLE_RE = new RegExp('<h1[\\s>]');
+
 async function probe(cookie, path) {
   const r = await fetch(BASE + path, { headers: { cookie }, redirect: 'manual' });
   if (r.status === 307 || r.status === 308) return { mark: '내보냄', html: '' };
   if (r.status !== 200) return { mark: `오류 ${r.status}`, html: '' };
   const html = await r.text();
-  const body = html.replace(/<script[\s\S]*?<\/script>/g, '');
-  return { mark: /data-denied/.test(body) ? '막힘' : '열림', html };
+  const body = html.replace(SCRIPTS_RE, '');
+  if (/data-denied/.test(body)) return { mark: '막힘', html };
+  if (RENDER_ERROR_RE.test(html)) return { mark: '그리다 죽음', html };
+  if (!HAS_TITLE_RE.test(body)) return { mark: '껍데기', html };
+  return { mark: '열림', html };
 }
 
 const result = {};

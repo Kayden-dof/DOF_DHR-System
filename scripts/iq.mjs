@@ -25,6 +25,7 @@
 --------------------------------------------------------------------------- */
 import { readFileSync, readdirSync, writeFileSync, mkdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
+import { NAME_SQL, group } from './schema-names.mjs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
@@ -121,11 +122,40 @@ const [n] = await q(`
          (select count(*)::int from pg_trigger tg join pg_class c on c.oid=tg.tgrelid
             join pg_namespace ns on ns.oid=c.relnamespace
            where ns.nspname='public' and not tg.tgisinternal)                            as triggers`);
-check('IQ-02', '표', '35 이상', String(n.tables), n.tables >= 35);
-check('IQ-03', '뷰', '19 이상', String(n.views), n.views >= 19);
-check('IQ-04', '열거형', '10 이상', String(n.enums), n.enums >= 10);
-check('IQ-05', '트리거', '1 이상', String(n.triggers), n.triggers >= 1);
-check('IQ-06', '함수', '1 이상', String(n.funcs), n.funcs >= 1);
+/* ---------------------------------------------------------------------------
+   숫자 하한이 아니라 이름으로 견준다 (4차 감사 A6)
+
+   전에는 "표 35 이상" "트리거 1 이상" "함수 1 이상" 이었다. 표가 42인 지금
+   이관 하나가 통째로 빠져도 전건 통과다. 드리프트를 재라고 둔 자리가 아무것도
+   못 보고 있었다.
+
+   db/schema-baseline.json 에 적힌 이름과 견준다. **빠진 이름이 곧 빠진
+   이관이다.** 늘어난 것은 참고로만 적는다 - 운영과 로컬의 확장이 달라
+   숫자로는 맞출 수 없지만, 이름으로는 우리 것만 골라낼 수 있다.
+
+   이관이 정당하게 늘면 이 파일을 함께 고친다. 그것이 검토에 남는다.
+--------------------------------------------------------------------------- */
+const nameRows = await q(NAME_SQL);
+const have = group(nameRows);
+const want = JSON.parse(readFileSync(path.join(ROOT, 'db', 'schema-baseline.json'), 'utf8'));
+
+const KIND_LABEL = { table: '표', view: '뷰', enum: '열거형', function: '함수', trigger: '트리거' };
+let idn = 1;
+for (const kind of ['table', 'view', 'enum', 'function', 'trigger']) {
+  const w = new Set(want[kind] ?? []);
+  const h = new Set(have[kind] ?? []);
+  const gone = [...w].filter((x) => !h.has(x));
+  const extra = [...h].filter((x) => !w.has(x));
+  idn += 1;
+  check(`IQ-0${idn}`, KIND_LABEL[kind],
+        `${w.size}개 전부`,
+        gone.length ? `${h.size}개 · 빠짐 ${gone.slice(0, 4).join(', ')}${gone.length > 4 ? ' 외' : ''}`
+                    : `${h.size}개`,
+        gone.length === 0);
+  if (extra.length) {
+    say(`          늘어난 것 ${extra.length}개: ${extra.slice(0, 6).join(', ')}${extra.length > 6 ? ' 외' : ''}`);
+  }
+}
 
 /* --- 4. 다섯 규칙이 DB 에 서 있는가 ----------------------------------------- */
 say('');

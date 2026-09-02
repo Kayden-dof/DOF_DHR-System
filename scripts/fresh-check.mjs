@@ -104,16 +104,26 @@ try {
   console.log(`  서버를 ${PORT} 에 세웠습니다\n`);
 
   /* --- 4) 빈 상태로 전 화면을 두드린다 ------------------------------------ */
-  const sweep = (label) => {
+  const sweep = (label, extra = {}) => {
     console.log(`\n[${label}]`);
     const r = spawnSync(process.execPath,
       [path.join(ROOT, 'scripts', 'smoke.mjs'), base],
-      { env, cwd: ROOT, encoding: 'utf8' });
+      { env: { ...env, ...extra }, cwd: ROOT, encoding: 'utf8' });
     process.stdout.write(r.stdout);
     if (r.stderr) process.stderr.write(r.stderr);
     return r.status ?? 1;
   };
-  bad = sweep('빈 설치');
+  /*
+   * 빈 설치는 **이관이 심는 계정**으로 훑는다 (4차 감사 A4).
+   *
+   * 전에는 시연 계정(100200 · 200100)으로 훑었다. 빈 DB 에 그 계정이 없으니
+   * 세션이 서지 않아 전 경로가 307 이 되었고, smoke 가 307 을 통과로 세었다.
+   * §8.0 이 "§2.0 을 묻는 유일한 자리" 라고 적은 이 훑기가 화면을 한 장도
+   * 그려 보지 않은 채 통과를 찍고 있었다.
+   *
+   * 작업자 계정은 이관이 심지 않는다. 현장 훑기는 건너뛴다고 말하고 건너뛴다.
+   */
+  bad = sweep('빈 설치', { SMOKE_ADMIN_CODE: '000000', SMOKE_WORKER_CODE: '-' });
 
   /* --- 5) 시연 자료를 심고 다시 두드린다 ----------------------------------- */
   if (bad === 0) {
