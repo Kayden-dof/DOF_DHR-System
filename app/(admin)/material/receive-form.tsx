@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useMemo, useState } from 'react';
+import { useActionState, useMemo, useState, useId } from 'react';
 import type { FormState } from '@/lib/forms';
 import { Msg } from '@/components/ui';
 import { Dialog, useDialog } from '@/components/dialog';
@@ -26,6 +26,9 @@ export interface OrderOpt {
 export default function ReceiveForm({ items, suppliers, orders, today }: {
   items: ItemOpt[]; suppliers: SupplierOpt[]; orders: OrderOpt[]; today: string;
 }) {
+  /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
+  const uid = useId();
+
   const [state, action, pending] = useActionState<FormState, FormData>(receiveMaterial, {});
   const { open, setOpen } = useDialog(state);
   const [itemId, setItemId] = useState('');
@@ -47,8 +50,8 @@ export default function ReceiveForm({ items, suppliers, orders, today }: {
       <h3 className="text-sm font-bold text-ink">자재 입고</h3>
       <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="lg:col-span-2">
-          <label className="label">품목</label>
-          <select name="item_id" required value={item?.id ?? ''}
+          <label className="label" htmlFor={`${uid}-item_id`}>품목</label>
+          <select id={`${uid}-item_id`} name="item_id" required value={item?.id ?? ''}
                   onChange={(e) => setItemId(e.target.value)} className="input">
             {pool.map((i) => (
               <option key={i.id} value={i.id}>{i.code} · {i.name}</option>
@@ -57,8 +60,8 @@ export default function ReceiveForm({ items, suppliers, orders, today }: {
         </div>
 
         <div>
-          <label className="label">공급자</label>
-          <select name="supplier_id" required className="input">
+          <label className="label" htmlFor={`${uid}-supplier_id`}>공급자</label>
+          <select id={`${uid}-supplier_id`} name="supplier_id" required className="input">
             {suppliers.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}{s.status !== 'APPROVED' ? ' (미승인)' : ''}
@@ -68,8 +71,8 @@ export default function ReceiveForm({ items, suppliers, orders, today }: {
         </div>
 
         <div>
-          <label className="label">연결할 발주</label>
-          <select name="purchase_order_id" value={poId}
+          <label className="label" htmlFor={`${uid}-purchase_order_id`}>연결할 발주</label>
+          <select id={`${uid}-purchase_order_id`} name="purchase_order_id" value={poId}
                   onChange={(e) => setPoId(e.target.value)} className="input">
             <option value="">연결 안 함</option>
             {poPool.map((o) => (
@@ -79,26 +82,26 @@ export default function ReceiveForm({ items, suppliers, orders, today }: {
         </div>
 
         <div>
-          <label className="label">공급자 로트번호</label>
-          <input name="supplier_lot_no" required autoComplete="off" className="input font-mono" />
+          <label className="label" htmlFor={`${uid}-supplier_lot_no`}>공급자 로트번호</label>
+          <input id={`${uid}-supplier_lot_no`} name="supplier_lot_no" required autoComplete="off" className="input font-mono" />
         </div>
         <div>
-          <label className="label">성적서 번호 (필수)</label>
-          <input name="coa_no" required autoComplete="off" placeholder="COA-..."
+          <label className="label" htmlFor={`${uid}-coa_no`}>성적서 번호 (필수)</label>
+          <input id={`${uid}-coa_no`} name="coa_no" required autoComplete="off" placeholder="COA-..."
                  className="input font-mono" />
         </div>
         <div>
-          <label className="label">성적서 일자</label>
-          <input name="coa_date" type="date" required defaultValue={today} className="input tnum" />
+          <label className="label" htmlFor={`${uid}-coa_date`}>성적서 일자</label>
+          <input id={`${uid}-coa_date`} name="coa_date" type="date" required defaultValue={today} className="input tnum" />
         </div>
         <div>
-          <label className="label">입고일</label>
-          <input name="received_at" type="date" required defaultValue={today} className="input tnum" />
+          <label className="label" htmlFor={`${uid}-received_at`}>입고일</label>
+          <input id={`${uid}-received_at`} name="received_at" type="date" required defaultValue={today} className="input tnum" />
         </div>
 
         <div>
-          <label className="label">입고 수량 ({item?.purchase_uom})</label>
-          <input name="purchase_qty" type="number" step="any" min="0.0001" required
+          <label className="label" htmlFor={`${uid}-purchase_qty`}>입고 수량 ({item?.purchase_uom})</label>
+          <input id={`${uid}-purchase_qty`} name="purchase_qty" type="number" step="any" min="0.0001" required
                  value={qty} onChange={(e) => setQty(e.target.value)} className="input tnum" />
         </div>
         <div>
@@ -108,22 +111,22 @@ export default function ReceiveForm({ items, suppliers, orders, today }: {
           </div>
         </div>
         <div>
-          <label className="label">단가 ({item?.usage_uom}당)</label>
-          <input name="unit_price" type="number" step="any" min="0" className="input tnum" />
+          <label className="label" htmlFor={`${uid}-unit_price`}>단가 ({item?.usage_uom}당)</label>
+          <input id={`${uid}-unit_price`} name="unit_price" type="number" step="any" min="0" className="input tnum" />
         </div>
         <div>
-          <label className="label">유효기한</label>
-          <input name="expiry_date" type="date" className="input tnum" />
+          <label className="label" htmlFor={`${uid}-expiry_date`}>유효기한</label>
+          <input id={`${uid}-expiry_date`} name="expiry_date" type="date" className="input tnum" />
         </div>
 
         <div>
-          <label className="label">보관 위치</label>
-          <input name="location" autoComplete="off" className="input" />
+          <label className="label" htmlFor={`${uid}-location`}>보관 위치</label>
+          <input id={`${uid}-location`} name="location" autoComplete="off" className="input" />
         </div>
         {isRaw && (
           <div>
-            <label className="label">두께 구간</label>
-            <input name="thickness_band" placeholder="0510" autoComplete="off"
+            <label className="label" htmlFor={`${uid}-thickness_band`}>두께 구간</label>
+            <input id={`${uid}-thickness_band`} name="thickness_band" placeholder="0510" autoComplete="off"
                    className="input font-mono" />
             <p className="mt-1 text-xs text-faint">0.5~1.0mm 는 0510</p>
           </div>

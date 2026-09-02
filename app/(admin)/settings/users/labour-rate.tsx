@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useId } from 'react';
 import { addLabourRate } from './actions';
 import { Msg, Empty } from '@/components/ui';
 import { Table, Th, Td } from '@/components/table';
@@ -43,6 +43,9 @@ export function LabourRates({ rows, today, writable = true }: {
   /** 이 세션이 쓸 수 있는가. 못 쓰면 등록 칸을 그리지 않는다 */
   writable?: boolean;
 }) {
+  /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
+  const uid = useId();
+
   const [state, action, pending] = useActionState<FormState, FormData>(addLabourRate, {});
 
   /* 단가가 아직 없는 역할. 있는 것만 적고 없으면 아무것도 적지 않는다 */
@@ -64,26 +67,26 @@ export function LabourRates({ rows, today, writable = true }: {
       <form action={action} className="grid gap-3 border-b border-line-soft px-4 py-3
                                        sm:grid-cols-2 lg:grid-cols-5">
         <div>
-          <label className="label">역할</label>
-          <select name="role" required className="input">
+          <label className="label" htmlFor={`${uid}-role`}>역할</label>
+          <select id={`${uid}-role`} name="role" required className="input">
             {ROLE_ORDER.filter((r) => r !== 'VIEWER').map((r) => (
               <option key={r} value={r}>{ROLE_LABEL[r]}</option>
             ))}
           </select>
         </div>
         <div>
-          <label className="label">시간당 단가 (원)</label>
-          <input name="hourly_rate" inputMode="numeric" autoComplete="off"
+          <label className="label" htmlFor={`${uid}-hourly_rate`}>시간당 단가 (원)</label>
+          <input id={`${uid}-hourly_rate`} name="hourly_rate" inputMode="numeric" autoComplete="off"
                  required placeholder="25000" className="input tnum" />
         </div>
         <div>
-          <label className="label">적용일</label>
-          <input type="date" name="effective_from" defaultValue={today}
+          <label className="label" htmlFor={`${uid}-effective_from`}>적용일</label>
+          <input id={`${uid}-effective_from`} type="date" name="effective_from" defaultValue={today}
                  required className="input tnum" />
         </div>
         <div className="lg:col-span-2">
-          <label className="label">비고</label>
-          <input name="note" autoComplete="off" className="input" />
+          <label className="label" htmlFor={`${uid}-note`}>비고</label>
+          <input id={`${uid}-note`} name="note" autoComplete="off" className="input" />
         </div>
 
         <div className="sm:col-span-2 lg:col-span-5">

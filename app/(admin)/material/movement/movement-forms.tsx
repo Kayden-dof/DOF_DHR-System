@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useState } from 'react';
+import { useActionState, useState, useId } from 'react';
 import { MOVEMENT_TYPES, MOVEMENT_REASONS, type FormState } from '@/lib/forms';
 import { Msg } from '@/components/ui';
 import { moveStock, makeSolution } from '../actions';
@@ -18,6 +18,9 @@ export interface WoOpt { id: string; batch_no: string; wo_no: string }
    개봉 후 반납이 안 되는 건은 공정 폐기로 처리한다.
 --------------------------------------------------------------------------- */
 export function MovementForm({ lots, orders }: { lots: LotOpt[]; orders: WoOpt[] }) {
+  /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
+  const uid = useId();
+
   const [state, action, pending] = useActionState<FormState, FormData>(moveStock, {});
   const [type, setType] = useState('RETURN');
   const [lotId, setLotId] = useState('');
@@ -29,8 +32,8 @@ export function MovementForm({ lots, orders }: { lots: LotOpt[]; orders: WoOpt[]
     <form action={action} className="p-4">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="lg:col-span-2">
-          <label className="label">자재 로트</label>
-          <select name="material_lot_id" required value={lot?.id ?? ''}
+          <label className="label" htmlFor={`${uid}-material_lot_id`}>자재 로트</label>
+          <select id={`${uid}-material_lot_id`} name="material_lot_id" required value={lot?.id ?? ''}
                   onChange={(e) => setLotId(e.target.value)} className="input">
             {lots.map((l) => (
               <option key={l.id} value={l.id}>
@@ -40,33 +43,33 @@ export function MovementForm({ lots, orders }: { lots: LotOpt[]; orders: WoOpt[]
           </select>
         </div>
         <div>
-          <label className="label">유형</label>
-          <select name="type" value={type} onChange={(e) => setType(e.target.value)}
+          <label className="label" htmlFor={`${uid}-type`}>유형</label>
+          <select id={`${uid}-type`} name="type" value={type} onChange={(e) => setType(e.target.value)}
                   className="input">
             {MOVEMENT_TYPES.map((m) => <option key={m.code} value={m.code}>{m.label}</option>)}
           </select>
         </div>
         <div>
-          <label className="label">
+          <label className="label" htmlFor={`${uid}-qty`}>
             수량 {type === 'ADJUSTMENT' ? '(늘리면 +, 줄이면 -)' : `(${lot?.usage_uom ?? ''})`}
           </label>
-          <input name="qty" type="number" step="any" required className="input tnum" />
+          <input id={`${uid}-qty`} name="qty" type="number" step="any" required className="input tnum" />
         </div>
 
         <div>
-          <label className="label">사유</label>
-          <select name="reason_code" className="input">
+          <label className="label" htmlFor={`${uid}-reason_code`}>사유</label>
+          <select id={`${uid}-reason_code`} name="reason_code" className="input">
             {MOVEMENT_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
           </select>
         </div>
         <div className={needsWo ? '' : 'lg:col-span-3'}>
-          <label className="label">상세</label>
-          <input name="reason_detail" autoComplete="off" className="input" />
+          <label className="label" htmlFor={`${uid}-reason_detail`}>상세</label>
+          <input id={`${uid}-reason_detail`} name="reason_detail" autoComplete="off" className="input" />
         </div>
         {needsWo && (
           <div className="lg:col-span-2">
-            <label className="label">작업 지시 (공정 폐기는 필수)</label>
-            <select name="work_order_id" required className="input">
+            <label className="label" htmlFor={`${uid}-work_order_id`}>작업 지시 (공정 폐기는 필수)</label>
+            <select id={`${uid}-work_order_id`} name="work_order_id" required className="input">
               {orders.map((o) => (
                 <option key={o.id} value={o.id}>{o.batch_no} · {o.wo_no}</option>
               ))}
@@ -98,6 +101,9 @@ export function MovementForm({ lots, orders }: { lots: LotOpt[]; orders: WoOpt[]
    원료가 차감되는 것만 기록한다.
 --------------------------------------------------------------------------- */
 export function SolutionForm({ lots }: { lots: LotOpt[] }) {
+  /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
+  const uid = useId();
+
   const [state, action, pending] = useActionState<FormState, FormData>(makeSolution, {});
   const [rows, setRows] = useState([0, 1, 2, 3]);
 
@@ -105,13 +111,13 @@ export function SolutionForm({ lots }: { lots: LotOpt[] }) {
     <form action={action} className="p-4">
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
-          <label className="label">제조한 용액</label>
-          <input name="name" required autoComplete="off" placeholder="20× PBS"
+          <label className="label" htmlFor={`${uid}-name`}>제조한 용액</label>
+          <input id={`${uid}-name`} name="name" required autoComplete="off" placeholder="20× PBS"
                  className="input" />
         </div>
         <div>
-          <label className="label">비고</label>
-          <input name="note" autoComplete="off" className="input" />
+          <label className="label" htmlFor={`${uid}-note`}>비고</label>
+          <input id={`${uid}-note`} name="note" autoComplete="off" className="input" />
         </div>
       </div>
 

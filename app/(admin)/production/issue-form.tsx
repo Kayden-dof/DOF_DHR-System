@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useEffect, useState } from 'react';
+import { useActionState, useEffect, useState, useId } from 'react';
 import type { FormState } from '@/lib/forms';
 import { Msg, Warnings } from '@/components/ui';
 import { issueWorkOrder } from './actions';
@@ -31,6 +31,9 @@ export default function IssueForm({ masters, rawLots, finished, users, today }: 
   masters: DmOpt[]; rawLots: RawLotOpt[]; finished: FinOpt[];
   users: UserOpt[]; today: string;
 }) {
+  /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
+  const uid = useId();
+
   const [state, action, pending] = useActionState<FormState, FormData>(issueWorkOrder, {});
   const [open, setOpen] = useState(false);
   const [dm, setDm] = useState('');
@@ -103,8 +106,8 @@ export default function IssueForm({ masters, rawLots, finished, users, today }: 
 
       <div className="mt-3 grid gap-3 lg:grid-cols-3">
         <div>
-          <label className="label">제품표준서</label>
-          <select name="device_master_id" required value={dmSel?.id ?? ''}
+          <label className="label" htmlFor={`${uid}-device_master_id`}>제품표준서</label>
+          <select id={`${uid}-device_master_id`} name="device_master_id" required value={dmSel?.id ?? ''}
                   onChange={(e) => setDm(e.target.value)} className="input">
             {ready.map((m) => (
               <option key={m.id} value={m.id}>
@@ -114,8 +117,8 @@ export default function IssueForm({ masters, rawLots, finished, users, today }: 
           </select>
         </div>
         <div className="lg:col-span-2">
-          <label className="label">원재료 로트</label>
-          <select name="material_lot_id" required value={lotSel?.id ?? ''}
+          <label className="label" htmlFor={`${uid}-material_lot_id`}>원재료 로트</label>
+          <select id={`${uid}-material_lot_id`} name="material_lot_id" required value={lotSel?.id ?? ''}
                   onChange={(e) => setLot(e.target.value)} className="input">
             {rawLots.map((l) => (
               <option key={l.id} value={l.id}>
@@ -134,14 +137,14 @@ export default function IssueForm({ masters, rawLots, finished, users, today }: 
           * 화면이 막는 것은 예의이고 실제 차단은 DB 다 (0069).
           */}
         <div>
-          <label className="label">
+          <label className="label" htmlFor={`${uid}-sheet_count`}>
             장입 장수{' '}
             <span className="text-faint">
               ({lo}
               {hi === null ? '장 이상' : `~${hi}`})
             </span>
           </label>
-          <input name="sheet_count" type="number" min={lo} max={hi ?? undefined} required
+          <input id={`${uid}-sheet_count`} name="sheet_count" type="number" min={lo} max={hi ?? undefined} required
                  value={sheets} onChange={(e) => setSheets(Number(e.target.value))}
                  className="input tnum" />
         </div>
@@ -180,15 +183,15 @@ export default function IssueForm({ masters, rawLots, finished, users, today }: 
         </div>
 
         <div>
-          <label className="label">생산 서명란</label>
-          <select name="issued_by_prod" required value={prod || prodOpts[0]?.id}
+          <label className="label" htmlFor={`${uid}-issued_by_prod`}>생산 서명란</label>
+          <select id={`${uid}-issued_by_prod`} name="issued_by_prod" required value={prod || prodOpts[0]?.id}
                   onChange={(e) => setProd(e.target.value)} className="input">
             <IssuerOptions users={users} roles={['PROD_MGR', 'SYS_ADMIN']} />
           </select>
         </div>
         <div>
-          <label className="label">품질 서명란</label>
-          <select name="issued_by_qa" required value={qa || qaOpts[0]?.id}
+          <label className="label" htmlFor={`${uid}-issued_by_qa`}>품질 서명란</label>
+          <select id={`${uid}-issued_by_qa`} name="issued_by_qa" required value={qa || qaOpts[0]?.id}
                   onChange={(e) => setQa(e.target.value)} className="input">
             <IssuerOptions users={users} roles={['QP']} />
           </select>

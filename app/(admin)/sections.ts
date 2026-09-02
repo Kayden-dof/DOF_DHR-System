@@ -57,6 +57,7 @@ export const SETTINGS_NAV: NavItem[] = [
   { href: '/settings/brand', label: '회사 표시' },
   { href: '/settings/numbering', label: '채번 규칙' },
   { href: '/settings/items', label: '품목' },
+  { href: '/settings/model', label: '형명 체계' },
   { href: '/settings/suppliers', label: '공급자' },
   { href: '/settings/dmr', label: '제품표준서' },
   { href: '/settings/users', label: '사용자' },

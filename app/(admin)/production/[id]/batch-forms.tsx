@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 
-import { useActionState, useEffect, useState } from 'react';
+import { useActionState, useEffect, useState, useId } from 'react';
 import { PL_STATUS_LABEL, type FormState } from '@/lib/forms';
 import { Msg, Caution } from '@/components/ui';
 import { Dialog, useDialog } from '@/components/dialog';
@@ -44,6 +44,9 @@ export function CutForm({ woId, options, today, used, band }: {
   /** 이 배치 원재료 로트의 두께 구간. 예 '1015' */
   band?: string | null;
 }) {
+  /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
+  const uid = useId();
+
   const [state, action, pending] = useActionState<FormState, FormData>(cutLot, {});
   const [produced, setProduced] = useState('');
   const [sample, setSample] = useState('0');
@@ -77,8 +80,8 @@ export function CutForm({ woId, options, today, used, band }: {
       <input type="hidden" name="work_order_id" value={woId} />
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <div className="lg:col-span-2">
-          <label className="label">형명</label>
-          <select name="item_id" required className="input"
+          <label className="label" htmlFor={`${uid}-item_id`}>형명</label>
+          <select id={`${uid}-item_id`} name="item_id" required className="input"
                   value={picked?.id ?? ''} onChange={(e) => setItemId(e.target.value)}>
             {ofBand.length > 0 ? (
               <>
@@ -101,18 +104,18 @@ export function CutForm({ woId, options, today, used, band }: {
           </select>
         </div>
         <div>
-          <label className="label">생산 수량</label>
-          <input name="qty_produced" type="number" min={1} required value={produced}
+          <label className="label" htmlFor={`${uid}-qty_produced`}>생산 수량</label>
+          <input id={`${uid}-qty_produced`} name="qty_produced" type="number" min={1} required value={produced}
                  onChange={(e) => setProduced(e.target.value)} className="input tnum" />
         </div>
         <div>
-          <label className="label">샘플 수량</label>
-          <input name="qty_sample" type="number" min={0} value={sample}
+          <label className="label" htmlFor={`${uid}-qty_sample`}>샘플 수량</label>
+          <input id={`${uid}-qty_sample`} name="qty_sample" type="number" min={0} value={sample}
                  onChange={(e) => setSample(e.target.value)} className="input tnum" />
         </div>
         <div>
-          <label className="label">제조일</label>
-          <input name="manufactured_on" type="date" defaultValue={today} className="input tnum" />
+          <label className="label" htmlFor={`${uid}-manufactured_on`}>제조일</label>
+          <input id={`${uid}-manufactured_on`} name="manufactured_on" type="date" defaultValue={today} className="input tnum" />
         </div>
       </div>
 
@@ -145,6 +148,9 @@ export function CutForm({ woId, options, today, used, band }: {
 }
 
 export function LotStatusForm({ lot, woId }: { lot: LotRow; woId: string }) {
+  /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
+  const uid = useId();
+
   const [state, action, pending] = useActionState<FormState, FormData>(setLotStatus, {});
   const { open, setOpen } = useDialog(state);
 
@@ -161,16 +167,16 @@ export function LotStatusForm({ lot, woId }: { lot: LotRow; woId: string }) {
           <input type="hidden" name="id" value={lot.id} />
           <input type="hidden" name="work_order_id" value={woId} />
           <div>
-            <label className="label">상태</label>
-            <select name="status" defaultValue={lot.status} className="input">
+            <label className="label" htmlFor={`${uid}-status`}>상태</label>
+            <select id={`${uid}-status`} name="status" defaultValue={lot.status} className="input">
               {Object.entries(PL_STATUS_LABEL).map(([c, l]) => (
                 <option key={c} value={c}>{l}</option>
               ))}
             </select>
           </div>
           <div>
-            <label className="label">보관 위치</label>
-            <input name="location" defaultValue={lot.location ?? ''} className="input" />
+            <label className="label" htmlFor={`${uid}-location`}>보관 위치</label>
+            <input id={`${uid}-location`} name="location" defaultValue={lot.location ?? ''} className="input" />
           </div>
           <Msg state={state} />
           <button type="submit" disabled={pending} className="btn-primary w-full">
@@ -185,6 +191,9 @@ export function LotStatusForm({ lot, woId }: { lot: LotRow; woId: string }) {
 /* -------------------------------------------------------------------------- */
 
 export function CancelForm({ id }: { id: string }) {
+  /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
+  const uid = useId();
+
   const [state, action, pending] = useActionState<FormState, FormData>(cancelWorkOrder, {});
   const [open, setOpen] = useState(false);
 
@@ -201,8 +210,8 @@ export function CancelForm({ id }: { id: string }) {
         취소 기록이 그 설명이 됩니다.
       </Caution>
       <div className="mt-2">
-        <label className="label">취소 사유</label>
-        <input name="cancelled_reason" required autoComplete="off" className="input" />
+        <label className="label" htmlFor={`${uid}-cancelled_reason`}>취소 사유</label>
+        <input id={`${uid}-cancelled_reason`} name="cancelled_reason" required autoComplete="off" className="input" />
       </div>
       <Msg state={state} />
       <div className="mt-3 flex gap-2">
@@ -284,6 +293,9 @@ export function DayPrintLink({
    고쳐 쓸 수 없다. 그래서 한 번 더 묻는다.
 --------------------------------------------------------------------------- */
 export function RetrieveForm({ id, woId, label }: { id: string; woId: string; label: string }) {
+  /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
+  const uid = useId();
+
   const [state, action, pending] = useActionState<FormState, FormData>(retrievePrint, {});
   const { open, setOpen } = useDialog(state);
 
@@ -302,8 +314,8 @@ export function RetrieveForm({ id, woId, label }: { id: string; woId: string; la
           <input type="hidden" name="print_id" value={id} />
           <input type="hidden" name="work_order_id" value={woId} />
           <div>
-            <label className="label">회수 사유</label>
-            <select name="reason" required className="input">
+            <label className="label" htmlFor={`${uid}-reason`}>회수 사유</label>
+            <select id={`${uid}-reason`} name="reason" required className="input">
               <option value="">선택하십시오</option>
               <option>재발행으로 앞 종이 회수</option>
               <option>오출력 회수</option>
@@ -353,6 +365,9 @@ export function NonconformityForm({ lot, woId, today, ops }: {
   /** 이 배치의 공정. 재단 이후 것만 고를 수 있다 */
   ops: OpOpt[];
 }) {
+  /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
+  const uid = useId();
+
   const [state, action, pending] = useActionState<FormState, FormData>(
     recordNonconformity, {});
   const { open, setOpen } = useDialog(state);
@@ -393,8 +408,8 @@ export function NonconformityForm({ lot, woId, today, ops }: {
             */}
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="sm:col-span-2">
-              <label className="label">발견 공정</label>
-              <select name="operation_id" required className="input">
+              <label className="label" htmlFor={`${uid}-operation_id`}>발견 공정</label>
+              <select id={`${uid}-operation_id`} name="operation_id" required className="input">
                 <option value="">선택하십시오</option>
                 {ops.filter((o) => o.after_cutting).map((o) => (
                   <option key={o.id} value={o.id}>{o.name} ({o.code})</option>
@@ -402,27 +417,27 @@ export function NonconformityForm({ lot, woId, today, ops }: {
               </select>
             </div>
             <div>
-              <label className="label">수량</label>
-              <input name="qty" type="number" min={1}
+              <label className="label" htmlFor={`${uid}-qty`}>수량</label>
+              <input id={`${uid}-qty`} name="qty" type="number" min={1}
                      max={outcome === 'SCRAP' ? lot.qty_available : undefined}
                      required className="input tnum" />
             </div>
             <div>
-              <label className="label">사유</label>
-              <select name="reason_code" required className="input">
+              <label className="label" htmlFor={`${uid}-reason_code`}>사유</label>
+              <select id={`${uid}-reason_code`} name="reason_code" required className="input">
                 <option value="">선택하십시오</option>
                 {NC_REASONS.map((r) => <option key={r}>{r}</option>)}
               </select>
             </div>
             <div className="sm:col-span-2">
-              <label className="label">발견일</label>
-              <input name="found_at" type="date" defaultValue={today} className="input tnum" />
+              <label className="label" htmlFor={`${uid}-found_at`}>발견일</label>
+              <input id={`${uid}-found_at`} name="found_at" type="date" defaultValue={today} className="input tnum" />
             </div>
           </div>
 
           <div>
-            <label className="label">상세 (선택)</label>
-            <input name="reason_detail" autoComplete="off" className="input" />
+            <label className="label" htmlFor={`${uid}-reason_detail`}>상세 (선택)</label>
+            <input id={`${uid}-reason_detail`} name="reason_detail" autoComplete="off" className="input" />
           </div>
 
           {/* 특채는 서면 승인 사항이다. 승인자 없이는 기록되지 않는다 */}
@@ -434,18 +449,18 @@ export function NonconformityForm({ lot, woId, today, ops }: {
                 * 가리키는 표지다. 성적서 번호와 같은 자리다 (§2 S02).
                 */}
               <div className="sm:col-span-2">
-                <label className="label">특채 기록지 문서 코드 (필수)</label>
-                <input name="concession_doc_no" required autoComplete="off"
+                <label className="label" htmlFor={`${uid}-concession_doc_no`}>특채 기록지 문서 코드 (필수)</label>
+                <input id={`${uid}-concession_doc_no`} name="concession_doc_no" required autoComplete="off"
                        placeholder="예: QC-CON-2026-004" className="input font-mono" />
               </div>
               <div>
-                <label className="label">서면 승인자 (필수)</label>
-                <input name="approved_by" required autoComplete="off"
+                <label className="label" htmlFor={`${uid}-approved_by`}>서면 승인자 (필수)</label>
+                <input id={`${uid}-approved_by`} name="approved_by" required autoComplete="off"
                        placeholder="품질책임자 이름" className="input" />
               </div>
               <div>
-                <label className="label">승인일 (필수)</label>
-                <input name="approved_on" type="date" required defaultValue={today}
+                <label className="label" htmlFor={`${uid}-approved_on`}>승인일 (필수)</label>
+                <input id={`${uid}-approved_on`} name="approved_on" type="date" required defaultValue={today}
                        className="input tnum" />
               </div>
               <p className="text-xs leading-relaxed text-ink sm:col-span-2">
@@ -489,6 +504,9 @@ export function NonconformityForm({ lot, woId, today, ops }: {
 export function WipNonconformityForm({ woId, today, ops, sheets }: {
   woId: string; today: string; ops: OpOpt[]; sheets: number;
 }) {
+  /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
+  const uid = useId();
+
   const [state, action, pending] = useActionState<FormState, FormData>(
     recordWipNonconformity, {});
   const { open, setOpen } = useDialog(state);
@@ -523,8 +541,8 @@ export function WipNonconformityForm({ woId, today, ops, sheets }: {
 
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="sm:col-span-2">
-              <label className="label">발견 공정</label>
-              <select name="operation_id" required className="input">
+              <label className="label" htmlFor={`${uid}-operation_id`}>발견 공정</label>
+              <select id={`${uid}-operation_id`} name="operation_id" required className="input">
                 <option value="">선택하십시오</option>
                 {ops.filter((o) => !o.after_cutting).map((o) => (
                   <option key={o.id} value={o.id}>{o.name} ({o.code})</option>
@@ -532,41 +550,41 @@ export function WipNonconformityForm({ woId, today, ops, sheets }: {
               </select>
             </div>
             <div>
-              <label className="label">장수</label>
-              <input name="sheets" type="number" min={1} required className="input tnum" />
+              <label className="label" htmlFor={`${uid}-sheets`}>장수</label>
+              <input id={`${uid}-sheets`} name="sheets" type="number" min={1} required className="input tnum" />
             </div>
             <div>
-              <label className="label">사유</label>
-              <select name="reason_code" required className="input">
+              <label className="label" htmlFor={`${uid}-reason_code`}>사유</label>
+              <select id={`${uid}-reason_code`} name="reason_code" required className="input">
                 <option value="">선택하십시오</option>
                 {NC_REASONS.map((r) => <option key={r}>{r}</option>)}
               </select>
             </div>
             <div className="sm:col-span-2">
-              <label className="label">발견일</label>
-              <input name="found_at" type="date" defaultValue={today} className="input tnum" />
+              <label className="label" htmlFor={`${uid}-found_at`}>발견일</label>
+              <input id={`${uid}-found_at`} name="found_at" type="date" defaultValue={today} className="input tnum" />
             </div>
           </div>
 
           <div>
-            <label className="label">상세 (선택)</label>
-            <input name="reason_detail" autoComplete="off" className="input" />
+            <label className="label" htmlFor={`${uid}-reason_detail`}>상세 (선택)</label>
+            <input id={`${uid}-reason_detail`} name="reason_detail" autoComplete="off" className="input" />
           </div>
 
           {outcome === 'CONCESSION' && (
             <div className="grid gap-3 rounded-md border border-warn/30 bg-warn-bg p-3 sm:grid-cols-2">
               <div className="sm:col-span-2">
-                <label className="label">특채 기록지 문서 코드 (필수)</label>
-                <input name="concession_doc_no" required autoComplete="off"
+                <label className="label" htmlFor={`${uid}-concession_doc_no`}>특채 기록지 문서 코드 (필수)</label>
+                <input id={`${uid}-concession_doc_no`} name="concession_doc_no" required autoComplete="off"
                        placeholder="예: QC-CON-2026-004" className="input font-mono" />
               </div>
               <div>
-                <label className="label">서면 승인자 (필수)</label>
-                <input name="approved_by" required autoComplete="off" className="input" />
+                <label className="label" htmlFor={`${uid}-approved_by`}>서면 승인자 (필수)</label>
+                <input id={`${uid}-approved_by`} name="approved_by" required autoComplete="off" className="input" />
               </div>
               <div>
-                <label className="label">승인일 (필수)</label>
-                <input name="approved_on" type="date" required defaultValue={today}
+                <label className="label" htmlFor={`${uid}-approved_on`}>승인일 (필수)</label>
+                <input id={`${uid}-approved_on`} name="approved_on" type="date" required defaultValue={today}
                        className="input tnum" />
               </div>
             </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useState } from 'react';
+import { useActionState, useState, useId } from 'react';
 import { saveBrand, uploadLogo, clearLogo, uploadDarkLogo, clearDarkLogo } from './actions';
 import { Msg } from '@/components/ui';
 import type { FormState } from '@/lib/forms';
@@ -18,6 +18,9 @@ export function BrandForm({ name, color, sys, sysLong, tagline, companyTagline }
   sys: string | null; sysLong: string | null;
   tagline: string | null; companyTagline: string | null;
 }) {
+  /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
+  const uid = useId();
+
   const [state, action, pending] = useActionState<FormState, FormData>(saveBrand, {});
   const [c, setC] = useState(color);
 
@@ -25,15 +28,15 @@ export function BrandForm({ name, color, sys, sysLong, tagline, companyTagline }
     <form action={action} className="space-y-3 px-4 py-3">
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
-          <label className="label">회사 이름</label>
-          <input name="company_name" defaultValue={name} required autoComplete="off"
+          <label className="label" htmlFor={`${uid}-company_name`}>회사 이름</label>
+          <input id={`${uid}-company_name`} name="company_name" defaultValue={name} required autoComplete="off"
                  maxLength={80} className="input" />
           <p className="mt-1 text-xs leading-relaxed text-faint">
             화면 바닥글과 인쇄물에 나옵니다. 로고가 없으면 이 이름이 글자로 나옵니다.
           </p>
 
-          <label className="label mt-3">회사 슬로건</label>
-          <input name="company_tagline" defaultValue={companyTagline ?? ''} autoComplete="off"
+          <label className="label mt-3" htmlFor={`${uid}-company_tagline`}>회사 슬로건</label>
+          <input id={`${uid}-company_tagline`} name="company_tagline" defaultValue={companyTagline ?? ''} autoComplete="off"
                  maxLength={80} placeholder="REGENERATIVE HEALTHCARE PLATFORM"
                  className="input" />
           <p className="mt-1 text-xs leading-relaxed text-faint">
@@ -66,20 +69,20 @@ export function BrandForm({ name, color, sys, sysLong, tagline, companyTagline }
         */}
       <div className="grid gap-3 border-t border-line-soft pt-3 sm:grid-cols-3">
         <div>
-          <label className="label">시스템 이름 (짧게)</label>
-          <input name="system_name" defaultValue={sys ?? ''} autoComplete="off"
+          <label className="label" htmlFor={`${uid}-system_name`}>시스템 이름 (짧게)</label>
+          <input id={`${uid}-system_name`} name="system_name" defaultValue={sys ?? ''} autoComplete="off"
                  maxLength={20} placeholder="DHR" className="input" />
           <p className="mt-1 text-xs text-faint">머리줄에 붙습니다.</p>
         </div>
         <div>
-          <label className="label">풀어 쓴 이름</label>
-          <input name="system_name_long" defaultValue={sysLong ?? ''} autoComplete="off"
+          <label className="label" htmlFor={`${uid}-system_name_long`}>풀어 쓴 이름</label>
+          <input id={`${uid}-system_name_long`} name="system_name_long" defaultValue={sysLong ?? ''} autoComplete="off"
                  maxLength={80} placeholder="Device History Record" className="input" />
           <p className="mt-1 text-xs text-faint">로그인 화면 제목입니다.</p>
         </div>
         <div>
-          <label className="label">한 줄 설명</label>
-          <input name="system_tagline" defaultValue={tagline ?? ''} autoComplete="off"
+          <label className="label" htmlFor={`${uid}-system_tagline`}>한 줄 설명</label>
+          <input id={`${uid}-system_tagline`} name="system_tagline" defaultValue={tagline ?? ''} autoComplete="off"
                  maxLength={80} placeholder="제조기록 지원 시스템" className="input" />
           <p className="mt-1 text-xs text-faint">제목 아래에 옵니다.</p>
         </div>

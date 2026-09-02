@@ -77,6 +77,7 @@ export const ACCESS_ROWS: AccessRow[] = [
   { group: '설정', label: '회사 표시',   path: '/settings/brand',        marks: '●X-XX' },
   { group: '설정', label: '채번 규칙',   path: '/settings/numbering',    marks: '●●-●X' },
   { group: '설정', label: '품목',        path: '/settings/items',        marks: '●●-XX' },
+  { group: '설정', label: '형명 체계',   path: '/settings/model',        marks: '●X-XX' },
   { group: '설정', label: '공급자',      path: '/settings/suppliers',    marks: '●●-●X' },
   { group: '설정', label: '제품표준서',  path: '/settings/dmr',          marks: '●●-●X' },
   { group: '설정', label: '사용자',      path: '/settings/users',        marks: '●●-●X' },

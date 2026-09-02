@@ -29,6 +29,7 @@ interface Counts {
   dmr: number; dmr_verified: number; users: number; rules: number; audit: number;
   /* 첫 설정 차례표가 보는 것 (M5-3) */
   supplies: number; equipment: number; dmr_issuable: number; workers: number;
+  schemes: number; segments: number;
 }
 
 export default async function SettingsHome() {
@@ -56,6 +57,8 @@ export default async function SettingsHome() {
               (select count(*)::int from audit_log)                              as audit,
               (select count(*)::int from item where type <> 'FIN')               as supplies,
               (select count(*)::int from equipment)                              as equipment,
+              (select count(*)::int from model_scheme where is_active)           as schemes,
+              (select count(*)::int from model_segment)                          as segments,
               (select count(*)::int from user_role where role = 'WORKER')         as workers,
               /*
                * 발행할 수 있는 표준서. 세 가지가 모두 서야 한다 (0061).
@@ -101,6 +104,10 @@ export default async function SettingsHome() {
       fact: `${c.rules}건 활성`,
       empty: blocking.length > 0,
       blocks: `${blocking.map((t) => t.label).join(' · ')} 규칙이 없어 번호를 만들 수 없습니다` },
+    { href: '/settings/model', title: '형명 체계',
+      fact: c.schemes > 0 ? `${c.schemes}개 · 자리 ${c.segments}개` : '없음',
+      empty: c.schemes === 0,
+      blocks: '형명 체계가 없으면 완제품 형명을 만들 수 없고 규격 표기가 종이에 나가지 않습니다' },
     { href: '/settings/items', title: '품목',
       fact: `자재 ${c.supplies}종 · 완제품 형명 ${c.finished}종`,
       empty: c.supplies === 0,

@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useActionState, useState } from 'react';
+import { Fragment, useActionState, useState, useId } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { fmtDate } from '@/lib/fmt';
@@ -57,6 +57,9 @@ function bySpec(rows: { item_code: string; item_name: string; qty: number }[]) {
 export function SterilForm({ lots, today, boxQty }: {
   lots: PlOpt[]; today: string; boxQty: number | null;
 }) {
+  /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
+  const uid = useId();
+
   const [state, action, pending] = useActionState<FormState, FormData>(createSterilBatch, {});
   const [open, setOpen] = useState(false);
   const [picked, setPicked] = useState<Record<string, number>>({});
@@ -92,12 +95,12 @@ export function SterilForm({ lots, today, boxQty }: {
 
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <div>
-          <label className="label">위탁 업체</label>
-          <input name="vendor_name" required autoComplete="off" className="input" />
+          <label className="label" htmlFor={`${uid}-vendor_name`}>위탁 업체</label>
+          <input id={`${uid}-vendor_name`} name="vendor_name" required autoComplete="off" className="input" />
         </div>
         <div>
-          <label className="label">의뢰서 번호</label>
-          <input name="request_no" autoComplete="off" className="input font-mono" />
+          <label className="label" htmlFor={`${uid}-request_no`}>의뢰서 번호</label>
+          <input id={`${uid}-request_no`} name="request_no" autoComplete="off" className="input font-mono" />
         </div>
       </div>
 
@@ -182,6 +185,9 @@ export function SterilForm({ lots, today, boxQty }: {
 }
 
 export function SterilRow({ sb, today }: { sb: SbRow; today: string }) {
+  /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
+  const uid = useId();
+
   const [state, action, pending] = useActionState<FormState, FormData>(updateSterilBatch, {});
   const [open, setOpen] = useState(false);
   const stage = sb.received_at ? '회수 완료' : sb.shipped_at ? '멸균 중' : '준비';
@@ -220,23 +226,23 @@ export function SterilRow({ sb, today }: { sb: SbRow; today: string }) {
             <form action={action} className="flex flex-wrap items-end gap-3">
               <input type="hidden" name="id" value={sb.id} />
               <div className="w-40">
-                <label className="label">발송일</label>
-                <input name="shipped_at" type="date" defaultValue={sb.shipped_at ?? today}
+                <label className="label" htmlFor={`${uid}-shipped_at`}>발송일</label>
+                <input id={`${uid}-shipped_at`} name="shipped_at" type="date" defaultValue={sb.shipped_at ?? today}
                        className="input h-9 tnum text-xs" />
               </div>
               <div className="w-40">
-                <label className="label">회수일</label>
-                <input name="received_at" type="date" defaultValue={sb.received_at ?? ''}
+                <label className="label" htmlFor={`${uid}-received_at`}>회수일</label>
+                <input id={`${uid}-received_at`} name="received_at" type="date" defaultValue={sb.received_at ?? ''}
                        className="input h-9 tnum text-xs" />
               </div>
               <div className="w-48">
-                <label className="label">멸균 성적서 번호</label>
-                <input name="cert_no" defaultValue={sb.cert_no ?? ''}
+                <label className="label" htmlFor={`${uid}-cert_no`}>멸균 성적서 번호</label>
+                <input id={`${uid}-cert_no`} name="cert_no" defaultValue={sb.cert_no ?? ''}
                        className="input h-9 font-mono text-xs" />
               </div>
               <div className="w-48">
-                <label className="label">의뢰서 번호</label>
-                <input name="request_no" defaultValue={sb.request_no ?? ''}
+                <label className="label" htmlFor={`${uid}-request_no`}>의뢰서 번호</label>
+                <input id={`${uid}-request_no`} name="request_no" defaultValue={sb.request_no ?? ''}
                        className="input h-9 font-mono text-xs" />
               </div>
               <button type="submit" disabled={pending} className="btn-primary h-9 px-3 text-xs">
@@ -349,6 +355,9 @@ export function RequestBuilder({ groups }: {
 /* -------------------------------------------------------------------------- */
 
 export function ApproveForm({ lot, today }: { lot: PlOpt; today: string }) {
+  /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
+  const uid = useId();
+
   const [state, action, pending] = useActionState<FormState, FormData>(approveRelease, {});
   const [open, setOpen] = useState(false);
 
@@ -369,13 +378,13 @@ export function ApproveForm({ lot, today }: { lot: PlOpt; today: string }) {
       </Caution>
       <div className="mt-2 flex flex-wrap items-end gap-2">
         <div className="w-44">
-          <label className="label">품질책임자 성명</label>
-          <input name="release_approved_by" required autoComplete="off"
+          <label className="label" htmlFor={`${uid}-release_approved_by`}>품질책임자 성명</label>
+          <input id={`${uid}-release_approved_by`} name="release_approved_by" required autoComplete="off"
                  className="input h-9 text-xs" />
         </div>
         <div className="w-36">
-          <label className="label">승인 일자</label>
-          <input name="release_approved_on" type="date" defaultValue={today} required
+          <label className="label" htmlFor={`${uid}-release_approved_on`}>승인 일자</label>
+          <input id={`${uid}-release_approved_on`} name="release_approved_on" type="date" defaultValue={today} required
                  className="input h-9 tnum text-xs" />
         </div>
         <button type="submit" disabled={pending} className="btn-primary h-9 px-3 text-xs">
@@ -472,6 +481,9 @@ export function ShipList({ lots, today }: { lots: PlOpt[]; today: string }) {
 }
 
 function ShipRowForm({ lot, today }: { lot: PlOpt; today: string }) {
+  /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
+  const uid = useId();
+
   const [state, action, pending] = useActionState<FormState, FormData>(ship, {});
   /*
    * 수량과 시작 순번이 끝 순번을 정한다. 사람이 셋을 따로 적으면 반드시
@@ -489,18 +501,18 @@ function ShipRowForm({ lot, today }: { lot: PlOpt; today: string }) {
       </p>
       <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <div>
-          <label className="label">출하 승인서 번호 (필수)</label>
-          <input name="release_request_no" required autoComplete="off"
+          <label className="label" htmlFor={`${uid}-release_request_no`}>출하 승인서 번호 (필수)</label>
+          <input id={`${uid}-release_request_no`} name="release_request_no" required autoComplete="off"
                  placeholder={`RR-${lot.batch_no}-01`}
                  className="input font-mono" />
         </div>
         <div>
-          <label className="label">거래처</label>
-          <input name="customer_name" required autoComplete="off" className="input" />
+          <label className="label" htmlFor={`${uid}-customer_name`}>거래처</label>
+          <input id={`${uid}-customer_name`} name="customer_name" required autoComplete="off" className="input" />
         </div>
         <div>
-          <label className="label">수량 (최대 {lot.qty_available})</label>
-          <input name="qty" type="number" min={1} max={lot.qty_available}
+          <label className="label" htmlFor={`${uid}-qty`}>수량 (최대 {lot.qty_available})</label>
+          <input id={`${uid}-qty`} name="qty" type="number" min={1} max={lot.qty_available}
                  value={qty} onChange={(e) => setQty(e.target.value)}
                  required className="input tnum" />
         </div>
@@ -523,8 +535,8 @@ function ShipRowForm({ lot, today }: { lot: PlOpt; today: string }) {
           </div>
         </div>
         <div>
-          <label className="label">출고일</label>
-          <input name="shipped_at" type="date" defaultValue={today} required
+          <label className="label" htmlFor={`${uid}-shipped_at`}>출고일</label>
+          <input id={`${uid}-shipped_at`} name="shipped_at" type="date" defaultValue={today} required
                  className="input tnum" />
         </div>
         <div className="flex items-end">

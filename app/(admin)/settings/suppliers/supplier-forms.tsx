@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useState } from 'react';
+import { useActionState, useState, useId } from 'react';
 import { isPastKST } from '@/lib/kst';
 import { fmtDate } from '@/lib/fmt';
 import { SUPPLIER_STATUS, type FormState } from '@/lib/forms';
@@ -21,57 +21,60 @@ export interface ItemOption { id: string; code: string; name: string; usage_uom:
 const statusOf = (c: string) => SUPPLIER_STATUS.find((s) => s.code === c);
 
 function Fields({ s }: { s?: SupplierRow }) {
+  /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
+  const uid = useId();
+
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       {!s && (
         <div>
-          <label className="label">공급자 코드</label>
-          <input name="code" required autoComplete="off" placeholder="SUP-001"
+          <label className="label" htmlFor={`${uid}-code`}>공급자 코드</label>
+          <input id={`${uid}-code`} name="code" required autoComplete="off" placeholder="SUP-001"
                  className="input font-mono" />
         </div>
       )}
       <div className={s ? 'lg:col-span-2' : ''}>
-        <label className="label">상호</label>
-        <input name="name" required defaultValue={s?.name} autoComplete="off" className="input" />
+        <label className="label" htmlFor={`${uid}-name`}>상호</label>
+        <input id={`${uid}-name`} name="name" required defaultValue={s?.name} autoComplete="off" className="input" />
       </div>
       <div>
-        <label className="label">승인 상태</label>
-        <select name="status" defaultValue={s?.status ?? 'PENDING'} className="input">
+        <label className="label" htmlFor={`${uid}-status`}>승인 상태</label>
+        <select id={`${uid}-status`} name="status" defaultValue={s?.status ?? 'PENDING'} className="input">
           {SUPPLIER_STATUS.map((x) => <option key={x.code} value={x.code}>{x.label}</option>)}
         </select>
       </div>
       <div>
-        <label className="label">승인 만료일</label>
-        <input name="approved_until" type="date" defaultValue={s?.approved_until ?? ''}
+        <label className="label" htmlFor={`${uid}-approved_until`}>승인 만료일</label>
+        <input id={`${uid}-approved_until`} name="approved_until" type="date" defaultValue={s?.approved_until ?? ''}
                className="input tnum" />
       </div>
       <div>
-        <label className="label">담당자</label>
-        <input name="contact_name" defaultValue={s?.contact_name ?? ''} className="input" />
+        <label className="label" htmlFor={`${uid}-contact_name`}>담당자</label>
+        <input id={`${uid}-contact_name`} name="contact_name" defaultValue={s?.contact_name ?? ''} className="input" />
       </div>
       <div>
-        <label className="label">연락처</label>
-        <input name="contact_phone" defaultValue={s?.contact_phone ?? ''} className="input tnum" />
+        <label className="label" htmlFor={`${uid}-contact_phone`}>연락처</label>
+        <input id={`${uid}-contact_phone`} name="contact_phone" defaultValue={s?.contact_phone ?? ''} className="input tnum" />
       </div>
       <div>
-        <label className="label">이메일</label>
-        <input name="contact_email" type="email" defaultValue={s?.contact_email ?? ''} className="input" />
+        <label className="label" htmlFor={`${uid}-contact_email`}>이메일</label>
+        <input id={`${uid}-contact_email`} name="contact_email" type="email" defaultValue={s?.contact_email ?? ''} className="input" />
       </div>
       <div>
-        <label className="label">사업자번호</label>
-        <input name="biz_no" defaultValue={s?.biz_no ?? ''} className="input tnum" />
+        <label className="label" htmlFor={`${uid}-biz_no`}>사업자번호</label>
+        <input id={`${uid}-biz_no`} name="biz_no" defaultValue={s?.biz_no ?? ''} className="input tnum" />
       </div>
       <div className="lg:col-span-2">
-        <label className="label">주소</label>
-        <input name="address" defaultValue={s?.address ?? ''} className="input" />
+        <label className="label" htmlFor={`${uid}-address`}>주소</label>
+        <input id={`${uid}-address`} name="address" defaultValue={s?.address ?? ''} className="input" />
       </div>
       <div>
-        <label className="label">결제 조건</label>
-        <input name="payment_terms" defaultValue={s?.payment_terms ?? ''} className="input" />
+        <label className="label" htmlFor={`${uid}-payment_terms`}>결제 조건</label>
+        <input id={`${uid}-payment_terms`} name="payment_terms" defaultValue={s?.payment_terms ?? ''} className="input" />
       </div>
       <div className="lg:col-span-4">
-        <label className="label">비고</label>
-        <input name="note" defaultValue={s?.note ?? ''} className="input" />
+        <label className="label" htmlFor={`${uid}-note`}>비고</label>
+        <input id={`${uid}-note`} name="note" defaultValue={s?.note ?? ''} className="input" />
       </div>
 
       {/*
@@ -178,32 +181,35 @@ export function SupplierRowView({ s, writable = true }: {
 export function PriceForm({ items, suppliers, today }: {
   items: ItemOption[]; suppliers: SupplierRow[]; today: string;
 }) {
+  /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
+  const uid = useId();
+
   const [state, action, pending] = useActionState<FormState, FormData>(savePrice, {});
   return (
     <form action={action} className="p-4">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="lg:col-span-2">
-          <label className="label">품목</label>
-          <select name="item_id" required className="input">
+          <label className="label" htmlFor={`${uid}-item_id`}>품목</label>
+          <select id={`${uid}-item_id`} name="item_id" required className="input">
             {items.filter((i) => i.type !== 'FIN').map((i) => (
               <option key={i.id} value={i.id}>{i.code} · {i.name} ({i.usage_uom})</option>
             ))}
           </select>
         </div>
         <div>
-          <label className="label">공급자</label>
-          <select name="supplier_id" required className="input">
+          <label className="label" htmlFor={`${uid}-supplier_id`}>공급자</label>
+          <select id={`${uid}-supplier_id`} name="supplier_id" required className="input">
             {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="label">단가</label>
-            <input name="price" type="number" step="any" min="0" required className="input tnum" />
+            <label className="label" htmlFor={`${uid}-price`}>단가</label>
+            <input id={`${uid}-price`} name="price" type="number" step="any" min="0" required className="input tnum" />
           </div>
           <div>
-            <label className="label">적용일</label>
-            <input name="effective_from" type="date" defaultValue={today} required className="input tnum" />
+            <label className="label" htmlFor={`${uid}-effective_from`}>적용일</label>
+            <input id={`${uid}-effective_from`} name="effective_from" type="date" defaultValue={today} required className="input tnum" />
           </div>
         </div>
       </div>
@@ -219,28 +225,31 @@ export function PriceForm({ items, suppliers, today }: {
 }
 
 export function ShelfLifeForm({ items, today }: { items: ItemOption[]; today: string }) {
+  /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
+  const uid = useId();
+
   const [state, action, pending] = useActionState<FormState, FormData>(saveShelfLife, {});
   const fin = items.filter((i) => i.type === 'FIN');
   return (
     <form action={action} className="p-4">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <div className="lg:col-span-2">
-          <label className="label">완제품 형명</label>
-          <select name="item_id" required className="input">
+          <label className="label" htmlFor={`${uid}-item_id`}>완제품 형명</label>
+          <select id={`${uid}-item_id`} name="item_id" required className="input">
             {fin.map((i) => <option key={i.id} value={i.id}>{i.code} · {i.name}</option>)}
           </select>
         </div>
         <div>
-          <label className="label">사용기간(개월)</label>
-          <input name="months" type="number" min="1" required className="input tnum" />
+          <label className="label" htmlFor={`${uid}-months`}>사용기간(개월)</label>
+          <input id={`${uid}-months`} name="months" type="number" min="1" required className="input tnum" />
         </div>
         <div>
-          <label className="label">적용일</label>
-          <input name="effective_from" type="date" defaultValue={today} required className="input tnum" />
+          <label className="label" htmlFor={`${uid}-effective_from`}>적용일</label>
+          <input id={`${uid}-effective_from`} name="effective_from" type="date" defaultValue={today} required className="input tnum" />
         </div>
         <div>
-          <label className="label">안정성 시험 보고서</label>
-          <input name="study_report_no" required autoComplete="off"
+          <label className="label" htmlFor={`${uid}-study_report_no`}>안정성 시험 보고서</label>
+          <input id={`${uid}-study_report_no`} name="study_report_no" required autoComplete="off"
                  placeholder="STB-2026-001" className="input font-mono" />
         </div>
       </div>

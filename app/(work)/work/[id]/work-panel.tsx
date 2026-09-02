@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useEffect, useMemo, useState } from 'react';
+import { useActionState, useEffect, useMemo, useState, useId } from 'react';
 import Link from 'next/link';
 import type { FormState } from '@/lib/forms';
 import { fmtDateTime } from '@/lib/fmt';
@@ -1011,6 +1011,9 @@ function CutPanel({ woId, finished, lots, sampleTiers, sampleBasis, band }: {
   woId: string; finished: FinOpt[]; lots: PlOpt[];
   sampleTiers: SampleTier[]; sampleBasis: string | null; band: string | null;
 }) {
+  /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
+  const uid = useId();
+
   const [state, action, pending] = useActionState<FormState, FormData>(cutAtField, {});
   const [item, setItem] = useState('');
   const [produced, setProduced] = useState('');
@@ -1112,14 +1115,14 @@ function CutPanel({ woId, finished, lots, sampleTiers, sampleBasis, band }: {
 
           <div className="grid gap-3 sm:grid-cols-3">
             <div>
-              <label className="label">생산 수량</label>
-              <input name="qty_produced" type="number" min={1} required inputMode="numeric"
+              <label className="label" htmlFor={`${uid}-qty_produced`}>생산 수량</label>
+              <input id={`${uid}-qty_produced`} name="qty_produced" type="number" min={1} required inputMode="numeric"
                      value={produced} onChange={(e) => setProduced(e.target.value)}
                      className="input tnum text-lg" />
             </div>
             <div>
-              <label className="label">샘플 수량</label>
-              <input name="qty_sample" type="number" min={0} inputMode="numeric"
+              <label className="label" htmlFor={`${uid}-qty_sample`}>샘플 수량</label>
+              <input id={`${uid}-qty_sample`} name="qty_sample" type="number" min={0} inputMode="numeric"
                      value={shown}
                      onChange={(e) => { setTouched(true); setSample(e.target.value); }}
                      className="input tnum text-lg" />

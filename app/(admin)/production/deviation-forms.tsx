@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useState } from 'react';
+import { useActionState, useState, useId } from 'react';
 import { openDeviation, closeDeviation } from './actions';
 import { Msg, Tag } from '@/components/ui';
 import { Dialog, useDialog } from '@/components/dialog';
@@ -47,6 +47,9 @@ export interface DevOpts {
 }
 
 export function OpenDeviation({ opts, today }: { opts: DevOpts; today: string }) {
+  /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
+  const uid = useId();
+
   const [state, action, pending] = useActionState<FormState, FormData>(openDeviation, {});
   const [open, setOpen] = useState(false);
 
@@ -69,12 +72,12 @@ export function OpenDeviation({ opts, today }: { opts: DevOpts; today: string })
 
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <div>
-          <label className="label">발생일</label>
-          <input type="date" name="occurred_on" required defaultValue={today} className="input" />
+          <label className="label" htmlFor={`${uid}-occurred_on`}>발생일</label>
+          <input id={`${uid}-occurred_on`} type="date" name="occurred_on" required defaultValue={today} className="input" />
         </div>
         <div>
-          <label className="label">관련 배치</label>
-          <select name="work_order_id" className="input" defaultValue="">
+          <label className="label" htmlFor={`${uid}-work_order_id`}>관련 배치</label>
+          <select id={`${uid}-work_order_id`} name="work_order_id" className="input" defaultValue="">
             <option value="">해당 없음</option>
             {opts.batches.map((b) => (
               <option key={b.id} value={b.id}>{b.batch_no}</option>
@@ -84,27 +87,27 @@ export function OpenDeviation({ opts, today }: { opts: DevOpts; today: string })
       </div>
 
       <div className="mt-3">
-        <label className="label">무엇이 일어났는가</label>
-        <input name="title" required autoComplete="off" maxLength={200} className="input"
+        <label className="label" htmlFor={`${uid}-title`}>무엇이 일어났는가</label>
+        <input id={`${uid}-title`} name="title" required autoComplete="off" maxLength={200} className="input"
                placeholder="한 줄로 적습니다" />
       </div>
 
       <div className="mt-3">
-        <label className="label">경위 <span className="text-faint">(선택)</span></label>
-        <textarea name="detail" rows={3} className="input" />
+        <label className="label" htmlFor={`${uid}-detail`}>경위 <span className="text-faint">(선택)</span></label>
+        <textarea id={`${uid}-detail`} name="detail" rows={3} className="input" />
       </div>
 
       <div className="mt-3 grid gap-3 sm:grid-cols-3">
         <div>
-          <label className="label">제품 로트 <span className="text-faint">(선택)</span></label>
-          <select name="product_lot_id" className="input" defaultValue="">
+          <label className="label" htmlFor={`${uid}-product_lot_id`}>제품 로트 <span className="text-faint">(선택)</span></label>
+          <select id={`${uid}-product_lot_id`} name="product_lot_id" className="input" defaultValue="">
             <option value="">해당 없음</option>
             {opts.lots.map((l) => <option key={l.id} value={l.id}>{l.lot_no}</option>)}
           </select>
         </div>
         <div>
-          <label className="label">자재 로트 <span className="text-faint">(선택)</span></label>
-          <select name="material_lot_id" className="input" defaultValue="">
+          <label className="label" htmlFor={`${uid}-material_lot_id`}>자재 로트 <span className="text-faint">(선택)</span></label>
+          <select id={`${uid}-material_lot_id`} name="material_lot_id" className="input" defaultValue="">
             <option value="">해당 없음</option>
             {opts.materials.map((m) => (
               <option key={m.id} value={m.id}>{m.lot_no} · {m.item_name}</option>
@@ -112,8 +115,8 @@ export function OpenDeviation({ opts, today }: { opts: DevOpts; today: string })
           </select>
         </div>
         <div>
-          <label className="label">설비 <span className="text-faint">(선택)</span></label>
-          <select name="equipment_id" className="input" defaultValue="">
+          <label className="label" htmlFor={`${uid}-equipment_id`}>설비 <span className="text-faint">(선택)</span></label>
+          <select id={`${uid}-equipment_id`} name="equipment_id" className="input" defaultValue="">
             <option value="">해당 없음</option>
             {opts.equipment.map((e) => (
               <option key={e.id} value={e.id}>{e.code} · {e.name}</option>
@@ -135,6 +138,9 @@ export function OpenDeviation({ opts, today }: { opts: DevOpts; today: string })
 }
 
 export function DeviationRow({ d, today }: { d: DevRow; today: string }) {
+  /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
+  const uid = useId();
+
   const [state, action, pending] = useActionState<FormState, FormData>(closeDeviation, {});
   const { open, setOpen } = useDialog(state);
 
@@ -186,28 +192,28 @@ export function DeviationRow({ d, today }: { d: DevRow; today: string }) {
           </div>
 
           <div>
-            <label className="label">서면 일탈 보고서 번호</label>
-            <input name="report_no" required autoComplete="off" className="input font-mono" />
+            <label className="label" htmlFor={`${uid}-report_no`}>서면 일탈 보고서 번호</label>
+            <input id={`${uid}-report_no`} name="report_no" required autoComplete="off" className="input font-mono" />
           </div>
 
           <div>
-            <label className="label">서면에 적힌 결론</label>
-            <textarea name="outcome" required rows={3} className="input"
+            <label className="label" htmlFor={`${uid}-outcome`}>서면에 적힌 결론</label>
+            <textarea id={`${uid}-outcome`} name="outcome" required rows={3} className="input"
                       placeholder="보고서의 결론을 그대로 옮겨 적습니다" />
           </div>
 
           <div className="grid gap-3 sm:grid-cols-3">
             <div>
-              <label className="label">승인자</label>
-              <input name="approved_by" required autoComplete="off" className="input" />
+              <label className="label" htmlFor={`${uid}-approved_by`}>승인자</label>
+              <input id={`${uid}-approved_by`} name="approved_by" required autoComplete="off" className="input" />
             </div>
             <div>
-              <label className="label">승인일</label>
-              <input type="date" name="approved_on" required defaultValue={today} className="input" />
+              <label className="label" htmlFor={`${uid}-approved_on`}>승인일</label>
+              <input id={`${uid}-approved_on`} type="date" name="approved_on" required defaultValue={today} className="input" />
             </div>
             <div>
-              <label className="label">종결일</label>
-              <input type="date" name="closed_on" required defaultValue={today} className="input" />
+              <label className="label" htmlFor={`${uid}-closed_on`}>종결일</label>
+              <input id={`${uid}-closed_on`} type="date" name="closed_on" required defaultValue={today} className="input" />
             </div>
           </div>
 

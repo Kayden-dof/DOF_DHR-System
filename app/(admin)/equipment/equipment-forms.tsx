@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useState } from 'react';
+import { useActionState, useState, useId } from 'react';
 import type { FormState } from '@/lib/forms';
 import { Msg, Tag } from '@/components/ui';
 import { Dialog, useDialog } from '@/components/dialog';
@@ -52,6 +52,9 @@ export interface EquipRow extends EquipBuy {
 --------------------------------------------------------------------------- */
 
 function BuyFields({ e }: { e?: EquipBuy }) {
+  /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
+  const uid = useId();
+
   const v = (k: keyof EquipBuy) => (e?.[k] ?? '') as string;
 
   return (
@@ -66,31 +69,31 @@ function BuyFields({ e }: { e?: EquipBuy }) {
 
         <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <div>
-            <label className="label">구입일</label>
-            <input type="date" name="purchased_on" defaultValue={v('purchased_on')}
+            <label className="label" htmlFor={`${uid}-purchased_on`}>구입일</label>
+            <input id={`${uid}-purchased_on`} type="date" name="purchased_on" defaultValue={v('purchased_on')}
                    className="input tnum" />
           </div>
           <div>
-            <label className="label">취득원가 (원)</label>
-            <input name="purchase_price" inputMode="numeric" autoComplete="off"
+            <label className="label" htmlFor={`${uid}-purchase_price`}>취득원가 (원)</label>
+            <input id={`${uid}-purchase_price`} name="purchase_price" inputMode="numeric" autoComplete="off"
                    defaultValue={v('purchase_price')} placeholder="12000000"
                    className="input tnum" />
           </div>
           <div>
-            <label className="label">내용연수 (개월)</label>
-            <input name="useful_life_months" inputMode="numeric" autoComplete="off"
+            <label className="label" htmlFor={`${uid}-useful_life_months`}>내용연수 (개월)</label>
+            <input id={`${uid}-useful_life_months`} name="useful_life_months" inputMode="numeric" autoComplete="off"
                    defaultValue={v('useful_life_months')} placeholder="60"
                    className="input tnum" />
           </div>
           <div>
-            <label className="label">잔존가치 (원)</label>
-            <input name="salvage_value" inputMode="numeric" autoComplete="off"
+            <label className="label" htmlFor={`${uid}-salvage_value`}>잔존가치 (원)</label>
+            <input id={`${uid}-salvage_value`} name="salvage_value" inputMode="numeric" autoComplete="off"
                    defaultValue={v('salvage_value')} placeholder="0"
                    className="input tnum" />
           </div>
           <div>
-            <label className="label">기준 월 가동시간</label>
-            <input name="monthly_hours" inputMode="decimal" autoComplete="off"
+            <label className="label" htmlFor={`${uid}-monthly_hours`}>기준 월 가동시간</label>
+            <input id={`${uid}-monthly_hours`} name="monthly_hours" inputMode="decimal" autoComplete="off"
                    defaultValue={v('monthly_hours')} placeholder="160"
                    className="input tnum" />
           </div>
@@ -108,33 +111,33 @@ function BuyFields({ e }: { e?: EquipBuy }) {
         <h4 className="text-xs font-bold text-ink">판 곳</h4>
         <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <div>
-            <label className="label">업체명</label>
-            <input name="vendor_name" autoComplete="off" defaultValue={v('vendor_name')}
+            <label className="label" htmlFor={`${uid}-vendor_name`}>업체명</label>
+            <input id={`${uid}-vendor_name`} name="vendor_name" autoComplete="off" defaultValue={v('vendor_name')}
                    className="input" />
           </div>
           <div>
-            <label className="label">담당자</label>
-            <input name="vendor_contact_name" autoComplete="off"
+            <label className="label" htmlFor={`${uid}-vendor_contact_name`}>담당자</label>
+            <input id={`${uid}-vendor_contact_name`} name="vendor_contact_name" autoComplete="off"
                    defaultValue={v('vendor_contact_name')} className="input" />
           </div>
           <div>
-            <label className="label">연락처</label>
-            <input name="vendor_phone" autoComplete="off" defaultValue={v('vendor_phone')}
+            <label className="label" htmlFor={`${uid}-vendor_phone`}>연락처</label>
+            <input id={`${uid}-vendor_phone`} name="vendor_phone" autoComplete="off" defaultValue={v('vendor_phone')}
                    className="input tnum" />
           </div>
           <div>
-            <label className="label">이메일</label>
-            <input type="email" name="vendor_email" autoComplete="off"
+            <label className="label" htmlFor={`${uid}-vendor_email`}>이메일</label>
+            <input id={`${uid}-vendor_email`} type="email" name="vendor_email" autoComplete="off"
                    defaultValue={v('vendor_email')} className="input" />
           </div>
           <div>
-            <label className="label">사이트 <span className="text-faint">(선택)</span></label>
-            <input type="url" name="vendor_site" autoComplete="off" placeholder="https://"
+            <label className="label" htmlFor={`${uid}-vendor_site`}>사이트 <span className="text-faint">(선택)</span></label>
+            <input id={`${uid}-vendor_site`} type="url" name="vendor_site" autoComplete="off" placeholder="https://"
                    defaultValue={v('vendor_site')} className="input" />
           </div>
           <div>
-            <label className="label">주소 <span className="text-faint">(선택)</span></label>
-            <input name="vendor_address" autoComplete="off"
+            <label className="label" htmlFor={`${uid}-vendor_address`}>주소 <span className="text-faint">(선택)</span></label>
+            <input id={`${uid}-vendor_address`} name="vendor_address" autoComplete="off"
                    defaultValue={v('vendor_address')} className="input" />
           </div>
         </div>
@@ -159,6 +162,9 @@ export interface OpOption {
 /* -------------------------------------------------------------------------- */
 
 export function NewEquipment() {
+  /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
+  const uid = useId();
+
   const [state, action, pending] = useActionState<FormState, FormData>(saveEquipment, {});
   const { open, setOpen } = useDialog(state);
 
@@ -179,13 +185,13 @@ export function NewEquipment() {
                  className="input font-mono" />
         </div>
         <div className="lg:col-span-2">
-          <label className="label">설비명</label>
-          <input name="name" required autoComplete="off" placeholder="동결건조기 1호"
+          <label className="label" htmlFor={`${uid}-name`}>설비명</label>
+          <input id={`${uid}-name`} name="name" required autoComplete="off" placeholder="동결건조기 1호"
                  className="input" />
         </div>
         <div>
-          <label className="label">비고</label>
-          <input name="note" autoComplete="off" className="input" />
+          <label className="label" htmlFor={`${uid}-note`}>비고</label>
+          <input id={`${uid}-note`} name="note" autoComplete="off" className="input" />
         </div>
       </div>
       <p className="mt-2 text-xs leading-relaxed text-muted">
@@ -208,6 +214,9 @@ export function NewEquipment() {
 /* -------------------------------------------------------------------------- */
 
 export function EquipCard({ e, ops }: { e: EquipRow; ops: OpOption[] }) {
+  /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
+  const uid = useId();
+
   const [state, action, pending] = useActionState<FormState, FormData>(saveEquipment, {});
   const [linkState, linkAction] = useActionState<FormState, FormData>(linkOperation, {});
   const [edit, setEdit] = useState(false);
@@ -257,8 +266,8 @@ export function EquipCard({ e, ops }: { e: EquipRow; ops: OpOption[] }) {
               * 기록은 되돌릴 수 없다. DB 트리거가 같은 것을 막는다 (0031).
               */}
             <div>
-              <label className="label">설비 코드</label>
-              <input name="code" defaultValue={e.code} disabled={e.used > 0}
+              <label className="label" htmlFor={`${uid}-code`}>설비 코드</label>
+              <input id={`${uid}-code`} name="code" defaultValue={e.code} disabled={e.used > 0}
                      autoComplete="off" className="input font-mono" />
               {e.used > 0 && (
                 <p className="mt-1 text-xs leading-relaxed text-muted">
@@ -268,12 +277,12 @@ export function EquipCard({ e, ops }: { e: EquipRow; ops: OpOption[] }) {
               )}
             </div>
             <div>
-              <label className="label">설비명</label>
-              <input name="name" defaultValue={e.name} required className="input" />
+              <label className="label" htmlFor={`${uid}-name`}>설비명</label>
+              <input id={`${uid}-name`} name="name" defaultValue={e.name} required className="input" />
             </div>
             <div>
-              <label className="label">비고</label>
-              <input name="note" defaultValue={e.note ?? ''} className="input" />
+              <label className="label" htmlFor={`${uid}-note`}>비고</label>
+              <input id={`${uid}-note`} name="note" defaultValue={e.note ?? ''} className="input" />
             </div>
             <div className="flex items-end pb-2">
               <label className="flex items-center gap-2 text-sm text-ink">
@@ -389,6 +398,9 @@ export function EquipCard({ e, ops }: { e: EquipRow; ops: OpOption[] }) {
    않는다 - 잘못 넣었으면 바른 값을 다시 등록하고, 최신 만료일이 상태가 된다.
 --------------------------------------------------------------------------- */
 function ValidationPanel({ e }: { e: EquipRow }) {
+  /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
+  const uid = useId();
+
   const [state, action, pending] = useActionState<FormState, FormData>(saveValidation, {});
   const { open, setOpen } = useDialog(state);
 
@@ -411,21 +423,21 @@ function ValidationPanel({ e }: { e: EquipRow }) {
           <input type="hidden" name="equipment_id" value={e.id} />
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label className="label">수행일</label>
-              <input name="performed_on" type="date" required className="input tnum" />
+              <label className="label" htmlFor={`${uid}-performed_on`}>수행일</label>
+              <input id={`${uid}-performed_on`} name="performed_on" type="date" required className="input tnum" />
             </div>
             <div>
-              <label className="label">만료일</label>
-              <input name="valid_until" type="date" required className="input tnum" />
+              <label className="label" htmlFor={`${uid}-valid_until`}>만료일</label>
+              <input id={`${uid}-valid_until`} name="valid_until" type="date" required className="input tnum" />
             </div>
             <div>
-              <label className="label">보고서 번호 (필수)</label>
-              <input name="report_no" required autoComplete="off"
+              <label className="label" htmlFor={`${uid}-report_no`}>보고서 번호 (필수)</label>
+              <input id={`${uid}-report_no`} name="report_no" required autoComplete="off"
                      placeholder="VAL-2026-001" className="input font-mono" />
             </div>
             <div>
-              <label className="label">비고</label>
-              <input name="note" autoComplete="off" className="input" />
+              <label className="label" htmlFor={`${uid}-note`}>비고</label>
+              <input id={`${uid}-note`} name="note" autoComplete="off" className="input" />
             </div>
           </div>
           <Msg state={state} />

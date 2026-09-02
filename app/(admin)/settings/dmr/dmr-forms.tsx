@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useState } from 'react';
+import { useActionState, useState, useId } from 'react';
 import type { FormState } from '@/lib/forms';
 import { Msg, Tag } from '@/components/ui';
 import { Dialog, useDialog } from '@/components/dialog';
@@ -26,6 +26,9 @@ export interface ItemOption { id: string; code: string; name: string; usage_uom:
 /* -------------------------------------------------------------------------- */
 
 export function NewDeviceMaster({ items }: { items: ItemOption[] }) {
+  /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
+  const uid = useId();
+
   const [state, action, pending] = useActionState<FormState, FormData>(createDeviceMaster, {});
   const { open, setOpen } = useDialog(state);
   const fin = items.filter((i) => i.type === 'FIN');
@@ -46,42 +49,42 @@ export function NewDeviceMaster({ items }: { items: ItemOption[] }) {
         */}
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
-          <label className="label">제품 코드</label>
-          <input name="product_code" required placeholder="DX2401" autoComplete="off"
+          <label className="label" htmlFor={`${uid}-product_code`}>제품 코드</label>
+          <input id={`${uid}-product_code`} name="product_code" required placeholder="DX2401" autoComplete="off"
                  className="input font-mono" />
         </div>
         <div>
-          <label className="label">제품명</label>
-          <input name="product_name" placeholder="돈피 진피" autoComplete="off"
+          <label className="label" htmlFor={`${uid}-product_name`}>제품명</label>
+          <input id={`${uid}-product_name`} name="product_name" placeholder="돈피 진피" autoComplete="off"
                  className="input" />
         </div>
       </div>
 
       <div className="mt-3 grid gap-3 sm:grid-cols-3">
         <div>
-          <label className="label">개정 표기</label>
-          <input name="revision" required placeholder="Rev.02" autoComplete="off"
+          <label className="label" htmlFor={`${uid}-revision`}>개정 표기</label>
+          <input id={`${uid}-revision`} name="revision" required placeholder="Rev.02" autoComplete="off"
                  className="input font-mono" />
         </div>
         <div>
-          <label className="label">시행일</label>
-          <input name="effective_from" type="date" className="input tnum" />
+          <label className="label" htmlFor={`${uid}-effective_from`}>시행일</label>
+          <input id={`${uid}-effective_from`} name="effective_from" type="date" className="input tnum" />
         </div>
         <div>
-          <label className="label">
+          <label className="label" htmlFor={`${uid}-item_id`}>
             대표 형명 <span className="text-faint">(채번 · 소요량 기준)</span>
           </label>
-          <select name="item_id" required className="input">
+          <select id={`${uid}-item_id`} name="item_id" required className="input">
             {fin.map((i) => <option key={i.id} value={i.id}>{i.code} · {i.name}</option>)}
           </select>
         </div>
       </div>
 
       <div className="mt-3">
-        <label className="label">
+        <label className="label" htmlFor={`${uid}-note`}>
           개정 사유 <span className="text-faint">(비고)</span>
         </label>
-        <input name="note" autoComplete="off" maxLength={300} className="input"
+        <input id={`${uid}-note`} name="note" autoComplete="off" maxLength={300} className="input"
                placeholder="서면 제품표준서에 적힌 개정 사유를 그대로 옮깁니다" />
       </div>
 
@@ -267,28 +270,31 @@ function verifyRows(s: VerifySheet) {
 /* -------------------------------------------------------------------------- */
 
 export function AddOperationForm({ dm, nextSeq }: { dm: string; nextSeq: number }) {
+  /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
+  const uid = useId();
+
   const [state, action, pending] = useActionState<FormState, FormData>(addOperation, {});
   return (
     <form action={action} className="border-t border-line bg-canvas p-4">
       <input type="hidden" name="device_master_id" value={dm} />
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
         <div>
-          <label className="label">순번</label>
-          <input name="seq" type="number" min="1" defaultValue={nextSeq} required className="input tnum" />
+          <label className="label" htmlFor={`${uid}-seq`}>순번</label>
+          <input id={`${uid}-seq`} name="seq" type="number" min="1" defaultValue={nextSeq} required className="input tnum" />
         </div>
         <div>
-          <label className="label">보통 일차</label>
-          <input name="typical_day" type="number" min="1" placeholder="비워도 됨"
+          <label className="label" htmlFor={`${uid}-typical_day`}>보통 일차</label>
+          <input id={`${uid}-typical_day`} name="typical_day" type="number" min="1" placeholder="비워도 됨"
                  className="input tnum" />
         </div>
         <div>
-          <label className="label">공정 코드</label>
-          <input name="code" required placeholder="WS-DX2401-01" autoComplete="off"
+          <label className="label" htmlFor={`${uid}-code`}>공정 코드</label>
+          <input id={`${uid}-code`} name="code" required placeholder="WS-DX2401-01" autoComplete="off"
                  className="input font-mono" />
         </div>
         <div className="lg:col-span-2">
-          <label className="label">공정명</label>
-          <input name="name" required autoComplete="off" className="input" />
+          <label className="label" htmlFor={`${uid}-name`}>공정명</label>
+          <input id={`${uid}-name`} name="name" required autoComplete="off" className="input" />
         </div>
         <label className="flex items-center gap-2 self-end pb-2 text-sm text-ink">
           <input type="checkbox" name="after_cutting" className="size-4 accent-brand" />
@@ -311,6 +317,9 @@ export function AddOperationForm({ dm, nextSeq }: { dm: string; nextSeq: number 
 export function AddBomForm({ dm, op, items }: {
   dm: string; op: OperationRow; items: ItemOption[];
 }) {
+  /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
+  const uid = useId();
+
   const [state, action, pending] = useActionState<FormState, FormData>(addBom, {});
   const [basis, setBasis] = useState('SHEET_TIER');
   const used = new Set(op.bom.map((b) => b.component_item_id));
@@ -321,26 +330,26 @@ export function AddBomForm({ dm, op, items }: {
       <input type="hidden" name="device_master_id" value={dm} />
       <input type="hidden" name="operation_id" value={op.id} />
       <div className="sm:col-span-2">
-        <label className="label">자재</label>
-        <select name="component_item_id" required className="input h-9 text-xs">
+        <label className="label" htmlFor={`${uid}-component_item_id`}>자재</label>
+        <select id={`${uid}-component_item_id`} name="component_item_id" required className="input h-9 text-xs">
           {pool.map((i) => (
             <option key={i.id} value={i.id}>{i.code} · {i.name} ({i.usage_uom})</option>
           ))}
         </select>
       </div>
       <div>
-        <label className="label">소요량 기준</label>
-        <select name="basis" value={basis} onChange={(e) => setBasis(e.target.value)}
+        <label className="label" htmlFor={`${uid}-basis`}>소요량 기준</label>
+        <select id={`${uid}-basis`} name="basis" value={basis} onChange={(e) => setBasis(e.target.value)}
                 className="input h-9 text-xs">
           <option value="SHEET_TIER">장입 구간 기준</option>
           <option value="PER_UNIT">제품 개수 기준</option>
         </select>
       </div>
       <div>
-        <label className="label">
+        <label className="label" htmlFor={`${uid}-qty_per_unit`}>
           {basis === 'PER_UNIT' ? '제품 1개당' : '구간별로 따로 입력'}
         </label>
-        <input name="qty_per_unit" type="number" step="any" min="0"
+        <input id={`${uid}-qty_per_unit`} name="qty_per_unit" type="number" step="any" min="0"
                disabled={basis !== 'PER_UNIT'}
                className="input h-9 tnum text-xs" />
       </div>
@@ -359,6 +368,9 @@ export function AddBomForm({ dm, op, items }: {
 }
 
 export function AddTierForm({ dm, bom }: { dm: string; bom: BomRow }) {
+  /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
+  const uid = useId();
+
   const [state, action, pending] = useActionState<FormState, FormData>(addTier, {});
   const last = bom.tiers.at(-1);
   const nextMin = last?.max_sheets ? last.max_sheets + 1 : 1;
@@ -368,18 +380,18 @@ export function AddTierForm({ dm, bom }: { dm: string; bom: BomRow }) {
       <input type="hidden" name="device_master_id" value={dm} />
       <input type="hidden" name="dmr_bom_id" value={bom.id} />
       <div className="w-24">
-        <label className="label">장입 하한</label>
-        <input name="min_sheets" type="number" min="1" defaultValue={nextMin} required
+        <label className="label" htmlFor={`${uid}-min_sheets`}>장입 하한</label>
+        <input id={`${uid}-min_sheets`} name="min_sheets" type="number" min="1" defaultValue={nextMin} required
                className="input h-9 tnum text-xs" />
       </div>
       <div className="w-24">
-        <label className="label">상한</label>
-        <input name="max_sheets" type="number" min="1" placeholder="없음"
+        <label className="label" htmlFor={`${uid}-max_sheets`}>상한</label>
+        <input id={`${uid}-max_sheets`} name="max_sheets" type="number" min="1" placeholder="없음"
                className="input h-9 tnum text-xs" />
       </div>
       <div className="w-28">
-        <label className="label">소요량</label>
-        <input name="qty" type="number" step="any" min="0.0001" required
+        <label className="label" htmlFor={`${uid}-qty`}>소요량</label>
+        <input id={`${uid}-qty`} name="qty" type="number" step="any" min="0.0001" required
                className="input h-9 tnum text-xs" />
       </div>
       <button type="submit" disabled={pending} className="btn-quiet h-9 px-3 text-xs">
@@ -538,6 +550,9 @@ export function OperationCard({ dm, op, items, editable, equipment = [] }: {
 export function DmrLimitsForm({
   id, sheetMin, sheetMax, boxQty,
 }: { id: string; sheetMin: number | null; sheetMax: number | null; boxQty: number | null }) {
+  /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
+  const uid = useId();
+
   const [state, action, pending] = useActionState<FormState, FormData>(setDmrLimits, {});
 
   return (
@@ -545,18 +560,18 @@ export function DmrLimitsForm({
           className="flex flex-wrap items-end gap-2 border-t border-line-soft px-4 py-3">
       <input type="hidden" name="id" value={id} />
       <div className="w-28">
-        <label className="label">장입 하한</label>
-        <input name="sheet_min" type="number" min={1} defaultValue={sheetMin ?? ''}
+        <label className="label" htmlFor={`${uid}-sheet_min`}>장입 하한</label>
+        <input id={`${uid}-sheet_min`} name="sheet_min" type="number" min={1} defaultValue={sheetMin ?? ''}
                placeholder="1" className="input h-9 tnum text-xs" />
       </div>
       <div className="w-28">
-        <label className="label">장입 상한</label>
-        <input name="sheet_max" type="number" min={1} defaultValue={sheetMax ?? ''}
+        <label className="label" htmlFor={`${uid}-sheet_max`}>장입 상한</label>
+        <input id={`${uid}-sheet_max`} name="sheet_max" type="number" min={1} defaultValue={sheetMax ?? ''}
                placeholder="없음" className="input h-9 tnum text-xs" />
       </div>
       <div className="w-40">
-        <label className="label">멸균 박스 한 개 수량</label>
-        <input name="steril_box_qty" type="number" min={1} defaultValue={boxQty ?? ''}
+        <label className="label" htmlFor={`${uid}-steril_box_qty`}>멸균 박스 한 개 수량</label>
+        <input id={`${uid}-steril_box_qty`} name="steril_box_qty" type="number" min={1} defaultValue={boxQty ?? ''}
                placeholder="없음" className="input h-9 tnum text-xs" />
       </div>
       <button type="submit" disabled={pending} className="btn-ghost h-9 px-3 text-xs">
@@ -571,6 +586,9 @@ export function DmrLimitsForm({
 }
 
 export function ExpectedUnitsForm({ id, value }: { id: string; value: number | null }) {
+  /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
+  const uid = useId();
+
   const [state, action, pending] = useActionState<FormState, FormData>(setExpectedUnits, {});
 
   return (
@@ -578,8 +596,8 @@ export function ExpectedUnitsForm({ id, value }: { id: string; value: number | n
           className="flex flex-wrap items-end gap-2 border-t border-line-soft px-4 py-3">
       <input type="hidden" name="id" value={id} />
       <div className="w-52">
-        <label className="label">배치당 예상 생산수량 (계획 참고값)</label>
-        <input name="expected_units" type="number" min={1}
+        <label className="label" htmlFor={`${uid}-expected_units`}>배치당 예상 생산수량 (계획 참고값)</label>
+        <input id={`${uid}-expected_units`} name="expected_units" type="number" min={1}
                defaultValue={value ?? ''} placeholder="예: 204"
                className="input h-9 tnum text-xs" />
       </div>
@@ -633,6 +651,9 @@ export interface SampleTier {
 export function SamplePlanForm({ id, tiers, basis }: {
   id: string; tiers: SampleTier[]; basis: string | null;
 }) {
+  /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
+  const uid = useId();
+
   const [tState, tAction, tPending] = useActionState<FormState, FormData>(addSampleTier, {});
   const [bState, bAction, bPending] = useActionState<FormState, FormData>(setSampleBasis, {});
 
@@ -670,18 +691,18 @@ export function SamplePlanForm({ id, tiers, basis }: {
       <form action={tAction} className="mt-2 flex flex-wrap items-end gap-2">
         <input type="hidden" name="id" value={id} />
         <div className="w-24">
-          <label className="label">구간 시작</label>
-          <input name="min_qty" type="number" min={1} required placeholder="1"
+          <label className="label" htmlFor={`${uid}-min_qty`}>구간 시작</label>
+          <input id={`${uid}-min_qty`} name="min_qty" type="number" min={1} required placeholder="1"
                  className="input h-9 tnum text-xs" />
         </div>
         <div className="w-24">
-          <label className="label">구간 끝</label>
-          <input name="max_qty" type="number" min={1} placeholder="비우면 무제한"
+          <label className="label" htmlFor={`${uid}-max_qty`}>구간 끝</label>
+          <input id={`${uid}-max_qty`} name="max_qty" type="number" min={1} placeholder="비우면 무제한"
                  className="input h-9 tnum text-xs" />
         </div>
         <div className="w-24">
-          <label className="label">시료 수</label>
-          <input name="sample_qty" type="number" min={0} required placeholder="예: 3"
+          <label className="label" htmlFor={`${uid}-sample_qty`}>시료 수</label>
+          <input id={`${uid}-sample_qty`} name="sample_qty" type="number" min={0} required placeholder="예: 3"
                  className="input h-9 tnum text-xs" />
         </div>
         <button type="submit" disabled={tPending} className="btn-ghost h-9 px-3 text-xs">
@@ -696,8 +717,8 @@ export function SamplePlanForm({ id, tiers, basis }: {
       <form action={bAction} className="mt-2 flex flex-wrap items-end gap-2">
         <input type="hidden" name="id" value={id} />
         <div className="min-w-0 flex-1">
-          <label className="label">근거</label>
-          <input name="sample_basis" defaultValue={basis ?? ''}
+          <label className="label" htmlFor={`${uid}-sample_basis`}>근거</label>
+          <input id={`${uid}-sample_basis`} name="sample_basis" defaultValue={basis ?? ''}
                  placeholder="예: 검사기준서 QC-DX2401-01 표3"
                  className="input h-9 text-xs" />
         </div>
@@ -734,6 +755,9 @@ export function SamplePlanForm({ id, tiers, basis }: {
    감사추적에 남는다.
 --------------------------------------------------------------------------- */
 export function DmrNoteForm({ id, note }: { id: string; note: string | null }) {
+  /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
+  const uid = useId();
+
   const [state, action, pending] = useActionState<FormState, FormData>(setDmrNote, {});
 
   return (
@@ -741,8 +765,8 @@ export function DmrNoteForm({ id, note }: { id: string; note: string | null }) {
           className="flex flex-wrap items-end gap-2 border-t border-line-soft px-4 py-3">
       <input type="hidden" name="id" value={id} />
       <div className="min-w-[18rem] flex-1">
-        <label className="label">개정 사유 (비고)</label>
-        <input name="note" defaultValue={note ?? ''} autoComplete="off" maxLength={300}
+        <label className="label" htmlFor={`${uid}-note`}>개정 사유 (비고)</label>
+        <input id={`${uid}-note`} name="note" defaultValue={note ?? ''} autoComplete="off" maxLength={300}
                placeholder="예: WS-05 세척 시간 변경 · 형명 12종 추가"
                className="input h-9 text-xs" />
       </div>
@@ -760,6 +784,9 @@ export function DmrNoteForm({ id, note }: { id: string; note: string | null }) {
 export function ProductCodeForm({
   id, code, name, itemCode,
 }: { id: string; code: string | null; name: string | null; itemCode: string }) {
+  /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
+  const uid = useId();
+
   const [state, action, pending] = useActionState<FormState, FormData>(setProductCode, {});
 
   return (
@@ -767,13 +794,13 @@ export function ProductCodeForm({
           className="flex flex-wrap items-end gap-2 border-t border-line-soft px-4 py-3">
       <input type="hidden" name="id" value={id} />
       <div className="w-40">
-        <label className="label">제품 코드 (관리 코드)</label>
-        <input name="product_code" defaultValue={code ?? ''} placeholder="DX2401"
+        <label className="label" htmlFor={`${uid}-product_code`}>제품 코드 (관리 코드)</label>
+        <input id={`${uid}-product_code`} name="product_code" defaultValue={code ?? ''} placeholder="DX2401"
                autoComplete="off" className="input h-9 font-mono text-xs" />
       </div>
       <div className="w-56">
-        <label className="label">제품명</label>
-        <input name="product_name" defaultValue={name ?? ''} placeholder="돈피 진피"
+        <label className="label" htmlFor={`${uid}-product_name`}>제품명</label>
+        <input id={`${uid}-product_name`} name="product_name" defaultValue={name ?? ''} placeholder="돈피 진피"
                autoComplete="off" className="input h-9 text-xs" />
       </div>
       <button type="submit" disabled={pending} className="btn-ghost h-9 px-3 text-xs">
@@ -805,6 +832,9 @@ export function OperationSetForm({
   /** 복사해 올 수 있는 다른 표준서 */
   sources: { id: string; label: string; op_count: number }[];
 }) {
+  /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
+  const uid = useId();
+
   const [mode, setMode] = useState<'flow' | 'copy' | null>(null);
   const [bulkState, bulkAction, bulkPending] =
     useActionState<FormState, FormData>(addOperationsBulk, {});
@@ -845,8 +875,8 @@ export function OperationSetForm({
         </p>
         <div className="mt-3 flex flex-wrap items-end gap-2">
           <div className="w-72">
-            <label className="label">가져올 표준서</label>
-            <select name="source_id" required className="input h-9 text-xs">
+            <label className="label" htmlFor={`${uid}-source_id`}>가져올 표준서</label>
+            <select id={`${uid}-source_id`} name="source_id" required className="input h-9 text-xs">
               <option value="">선택하십시오</option>
               {sources.map((x) => (
                 <option key={x.id} value={x.id}>{x.label} · 공정 {x.op_count}</option>
@@ -919,6 +949,9 @@ export function NewProduct({
   finished: { id: string; code: string; name: string }[];
   today: string;
 }) {
+  /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
+  const uid = useId();
+
   const [state, action, pending] = useActionState<FormState, FormData>(createProduct, {});
   const { open, setOpen } = useDialog(state);
   const [useExisting, setUseExisting] = useState(finished.length > 0);
@@ -935,23 +968,23 @@ export function NewProduct({
 
       <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div>
-          <label className="label">제품 코드 (관리 코드)</label>
-          <input name="product_code" required autoComplete="off" placeholder="DX2402"
+          <label className="label" htmlFor={`${uid}-product_code`}>제품 코드 (관리 코드)</label>
+          <input id={`${uid}-product_code`} name="product_code" required autoComplete="off" placeholder="DX2402"
                  className="input font-mono" />
         </div>
         <div>
-          <label className="label">제품명</label>
-          <input name="product_name" autoComplete="off" placeholder="우피 진피"
+          <label className="label" htmlFor={`${uid}-product_name`}>제품명</label>
+          <input id={`${uid}-product_name`} name="product_name" autoComplete="off" placeholder="우피 진피"
                  className="input" />
         </div>
         <div>
-          <label className="label">제품표준서 개정</label>
-          <input name="revision" required autoComplete="off" placeholder="Rev.01"
+          <label className="label" htmlFor={`${uid}-revision`}>제품표준서 개정</label>
+          <input id={`${uid}-revision`} name="revision" required autoComplete="off" placeholder="Rev.01"
                  className="input font-mono" />
         </div>
         <div>
-          <label className="label">시행일</label>
-          <input name="effective_from" type="date" defaultValue={today} className="input tnum" />
+          <label className="label" htmlFor={`${uid}-effective_from`}>시행일</label>
+          <input id={`${uid}-effective_from`} name="effective_from" type="date" defaultValue={today} className="input tnum" />
         </div>
       </div>
 
@@ -986,13 +1019,13 @@ export function NewProduct({
         ) : (
           <div className="mt-2.5 grid gap-3 sm:grid-cols-2">
             <div>
-              <label className="label">형명 코드</label>
-              <input name="new_item_code" autoComplete="off" placeholder="PD05050510"
+              <label className="label" htmlFor={`${uid}-new_item_code`}>형명 코드</label>
+              <input id={`${uid}-new_item_code`} name="new_item_code" autoComplete="off" placeholder="PD05050510"
                      className="input font-mono" />
             </div>
             <div>
-              <label className="label">형명 이름</label>
-              <input name="new_item_name" autoComplete="off"
+              <label className="label" htmlFor={`${uid}-new_item_name`}>형명 이름</label>
+              <input id={`${uid}-new_item_name`} name="new_item_name" autoComplete="off"
                      placeholder="DX2402 0.5x0.5 0.5~1.0mm" className="input" />
             </div>
           </div>

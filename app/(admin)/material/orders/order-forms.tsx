@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useState } from 'react';
+import { useActionState, useState, useId } from 'react';
 import type { FormState } from '@/lib/forms';
 import { Msg } from '@/components/ui';
 import { Dialog, useDialog } from '@/components/dialog';
@@ -20,6 +20,9 @@ export interface SupplierOpt { id: string; name: string; status: string }
 export function NewOrder({ items, suppliers, today }: {
   items: ItemOpt[]; suppliers: SupplierOpt[]; today: string;
 }) {
+  /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
+  const uid = useId();
+
   const [state, action, pending] = useActionState<FormState, FormData>(createOrder, {});
   const { open, setOpen } = useDialog(state);
   const [itemId, setItemId] = useState('');
@@ -33,20 +36,20 @@ export function NewOrder({ items, suppliers, today }: {
       <h3 className="mb-3 text-sm font-bold text-ink">새 발주</h3>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div>
-          <label className="label">발주번호</label>
-          <input name="po_no" required autoComplete="off" placeholder="PO-2026-001"
+          <label className="label" htmlFor={`${uid}-po_no`}>발주번호</label>
+          <input id={`${uid}-po_no`} name="po_no" required autoComplete="off" placeholder="PO-2026-001"
                  className="input font-mono" />
         </div>
         <div className="lg:col-span-2">
-          <label className="label">품목</label>
-          <select name="item_id" required value={item?.id ?? ''}
+          <label className="label" htmlFor={`${uid}-item_id`}>품목</label>
+          <select id={`${uid}-item_id`} name="item_id" required value={item?.id ?? ''}
                   onChange={(e) => setItemId(e.target.value)} className="input">
             {items.map((i) => <option key={i.id} value={i.id}>{i.code} · {i.name}</option>)}
           </select>
         </div>
         <div>
-          <label className="label">공급자</label>
-          <select name="supplier_id" required className="input">
+          <label className="label" htmlFor={`${uid}-supplier_id`}>공급자</label>
+          <select id={`${uid}-supplier_id`} name="supplier_id" required className="input">
             {suppliers.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}{s.status !== 'APPROVED' ? ' (미승인)' : ''}
@@ -55,20 +58,20 @@ export function NewOrder({ items, suppliers, today }: {
           </select>
         </div>
         <div>
-          <label className="label">수량 ({item?.usage_uom})</label>
-          <input name="qty" type="number" step="any" min="0.0001" required className="input tnum" />
+          <label className="label" htmlFor={`${uid}-qty`}>수량 ({item?.usage_uom})</label>
+          <input id={`${uid}-qty`} name="qty" type="number" step="any" min="0.0001" required className="input tnum" />
         </div>
         <div>
-          <label className="label">단가</label>
-          <input name="unit_price" type="number" step="any" min="0" className="input tnum" />
+          <label className="label" htmlFor={`${uid}-unit_price`}>단가</label>
+          <input id={`${uid}-unit_price`} name="unit_price" type="number" step="any" min="0" className="input tnum" />
         </div>
         <div>
-          <label className="label">발주일</label>
-          <input name="ordered_at" type="date" defaultValue={today} required className="input tnum" />
+          <label className="label" htmlFor={`${uid}-ordered_at`}>발주일</label>
+          <input id={`${uid}-ordered_at`} name="ordered_at" type="date" defaultValue={today} required className="input tnum" />
         </div>
         <div>
-          <label className="label">입고 예정일</label>
-          <input name="expected_at" type="date" className="input tnum" />
+          <label className="label" htmlFor={`${uid}-expected_at`}>입고 예정일</label>
+          <input id={`${uid}-expected_at`} name="expected_at" type="date" className="input tnum" />
         </div>
       </div>
       <p className="mt-3 text-xs leading-relaxed text-muted">

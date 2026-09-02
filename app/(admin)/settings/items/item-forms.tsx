@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useState } from 'react';
+import { useActionState, useState, useId } from 'react';
 import type { FormState } from '@/lib/forms';
 import { ITEM_TYPES } from '@/lib/forms';
 import { Msg, Tag } from '@/components/ui';
@@ -108,6 +108,9 @@ export function NewItemForm({ materialOnly = false }: { materialOnly?: boolean }
 /* -------------------------------------------------------------------------- */
 
 export function ItemRowView({ it }: { it: ItemRow }) {
+  /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
+  const uid = useId();
+
   const [state, action, pending] = useActionState<FormState, FormData>(updateItem, {});
   const { open, setOpen } = useDialog(state);
 
@@ -141,22 +144,22 @@ export function ItemRowView({ it }: { it: ItemRow }) {
             <form action={action} className="grid gap-3 sm:grid-cols-2">
               <input type="hidden" name="id" value={it.id} />
               <div className="lg:col-span-2">
-                <label className="label">품목명</label>
-                <input name="name" defaultValue={it.name} required className="input" />
+                <label className="label" htmlFor={`${uid}-name`}>품목명</label>
+                <input id={`${uid}-name`} name="name" defaultValue={it.name} required className="input" />
               </div>
               <div>
-                <label className="label">최소 재고선</label>
-                <input name="min_stock" type="number" step="any"
+                <label className="label" htmlFor={`${uid}-min_stock`}>최소 재고선</label>
+                <input id={`${uid}-min_stock`} name="min_stock" type="number" step="any"
                        defaultValue={it.min_stock ?? ''} className="input tnum" />
               </div>
               <div>
-                <label className="label">리드타임(일)</label>
-                <input name="lead_days" type="number"
+                <label className="label" htmlFor={`${uid}-lead_days`}>리드타임(일)</label>
+                <input id={`${uid}-lead_days`} name="lead_days" type="number"
                        defaultValue={it.lead_days ?? ''} className="input tnum" />
               </div>
               <div>
-                <label className="label">사용기간(개월)</label>
-                <input name="shelf_life_months" type="number"
+                <label className="label" htmlFor={`${uid}-shelf_life_months`}>사용기간(개월)</label>
+                <input id={`${uid}-shelf_life_months`} name="shelf_life_months" type="number"
                        defaultValue={it.shelf_life_months ?? ''} className="input tnum" />
               </div>
 
