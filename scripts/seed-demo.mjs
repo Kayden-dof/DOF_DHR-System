@@ -411,8 +411,28 @@ const receive = async (it, sup, qty, price, opts = {}) => {
      admin, qty, price, opts.expiry ?? null, opts.loc ?? null, opts.band ?? null]);
 };
 
+/* ---------------------------------------------------------------------------
+   지어낸 자재는 기준정보가 아니다 (4차 감사 C2)
+
+   실무 착수 절차 ② 가 `reset-db --prod --erase --base` 를 지시한다. 그
+   `--base` 가 이 파일을 부르는데, 이 파일은 기준정보만 넣지 않는다. 자재
+   로트 11건과 **지어낸 성적서 번호**('COA-' + 로트 뒤 네 자리), 지어낸
+   공급자 로트번호, 발주 한 건이 함께 들어간다.
+
+   그 로트는 AVAILABLE 이라 발행 화면 고르개에 뜬다. 첫 배치에 고르면
+   **존재하지 않는 성적서 번호가 작업지시서와 제조기록서와 계보에 박힌다.**
+   material_lot 은 삭제가 걷혀 있어 되돌릴 길이 없고, demo_marker 도 서지
+   않으므로 착수 문서가 "표식 0개" 를 ② 가 제대로 됐다는 증거로 읽는다.
+
+   기준정보(품목 · 공급자 · 제품표준서 · 설비 · 채번 규칙 · 형명 체계)와
+   **지어낸 자료**를 가른다. SEED_BASE_ONLY=1 이면 앞의 것만 넣는다.
+--------------------------------------------------------------------------- */
+const BASE_ONLY = process.env.SEED_BASE_ONLY === '1';
+
 const have = await val(`select count(*)::int from material_lot`);
-if (Number(have) === 0) {
+if (BASE_ONLY) {
+  console.log('자재 로트 · 발주  건너뜀 (기준정보만 넣습니다)');
+} else if (Number(have) === 0) {
   await receive(raw, supA, 30, 22000, { band: '0510', loc: '냉장-1', expiry: '2027-02-28' });
   await receive(raw, supA, 28, 22500, { band: '1015', loc: '냉장-2', expiry: '2027-03-31' });
   await receive(rgAlk, supB, 8, 48000, { loc: '시약장-A', expiry: '2027-01-31' });
@@ -428,11 +448,13 @@ if (Number(have) === 0) {
 }
 
 // --- 발주 ---------------------------------------------------------------------
-await c.query(
-  `insert into purchase_order (po_no, item_id, supplier_id, qty, unit_price,
-     ordered_at, expected_at, ordered_by)
-   values ('PO-2026-001',$1,$2,20,22000,current_date,current_date+30,$3)
-   on conflict (po_no) do nothing`, [raw, supA, admin]);
+if (!BASE_ONLY) {
+  await c.query(
+    `insert into purchase_order (po_no, item_id, supplier_id, qty, unit_price,
+       ordered_at, expected_at, ordered_by)
+     values ('PO-2026-001',$1,$2,20,22000,current_date,current_date+30,$3)
+     on conflict (po_no) do nothing`, [raw, supA, admin]);
+}
 
 console.log('\n완료. 로그인 계정');
 

@@ -58,6 +58,24 @@ const WORKER_CODE = process.env.SMOKE_WORKER_CODE || '200100';
 const NEEDED = { [ADMIN_CODE]: '관리자 훑기' };
 if (WORKER_CODE !== '-') NEEDED[WORKER_CODE] = '현장 훑기';
 
+/* ---------------------------------------------------------------------------
+   localhost 만 훑는다 (4차 감사 C3)
+
+   훑는 경로에 인쇄 화면이 여덟 있고, 이 시스템에서 인쇄 화면을 여는 것이 곧
+   대장에 남는 일이다 (§7 · logPrint). 다른 서버를 가리키면 그쪽 대장에
+   나가지 않은 종이가 쌓인다. §10 은 "대장에는 실제 종이만 남는다" 고 적었다.
+--------------------------------------------------------------------------- */
+if (!new RegExp('localhost|127" + B+B + ".0" + B+B + ".0" + B+B + ".1').test(BASE)) {
+  console.error('이 훑기는 인쇄 화면을 열어 인쇄 대장에 줄을 남깁니다.');
+  console.error(`  대상: ${BASE}`);
+  console.error('');
+  console.error('localhost 가 아닌 곳을 가리킬 수 없습니다.');
+  await db.end();
+  process.exit(2);
+}
+
+const printBefore = Number((await rows('select count(*)::int n from record_print'))[0].n);
+
 const missing = Object.entries(NEEDED).filter(([code]) => !userIds[code]);
 if (missing.length) {
   console.error('훑을 계정이 없습니다. 이 상태로는 화면을 그려 볼 수 없습니다.');
@@ -66,6 +84,10 @@ if (missing.length) {
   process.exit(2);
 }
 await db.end();
+
+/* 끝에서 대장을 다시 세려면 연결이 하나 더 있어야 한다 */
+const db2 = new pg.Client({ connectionString: url, ssl: pgSsl(url, process.cwd()) });
+await db2.connect();
 
 /* --- 훑을 경로 ------------------------------------------------------------ */
 
@@ -203,6 +225,26 @@ if (WORKER_CODE === '-') {
   const workerCookie = session(userIds[WORKER_CODE]);
   await sweep('현장 화면', workerCookie, WORKER);
 }
+
+/*
+ * 인쇄 대장에 몇 줄을 남겼는지 밝힌다 (4차 감사 C3).
+ *
+ * 훑는 경로에 인쇄 화면이 여덟 있고, 이 시스템에서 인쇄 화면을 여는 것이 곧
+ * 대장에 남는 일이다. 그것은 의도된 설계다 - 서버가 관찰할 수 있는 유일한
+ * 순간이 그때이고, 그러지 않으면 미리보기로 뽑고 기록을 남기지 않는 길이 생긴다.
+ *
+ * 바꾸지 않는다. 다만 조용히 쌓이면 대장이 거짓말이 된다.
+ */
+{
+  const after = Number((await db2.query('select count(*)::int n from record_print')).rows[0].n);
+  const added = after - printBefore;
+  if (added > 0) {
+    console.log(`
+  이 훑기가 인쇄 대장에 ${added}줄을 남겼습니다`
+      + ' (화면을 연 것이지 종이가 나간 것이 아닙니다).');
+  }
+}
+await db2.end();
 
 console.log(`\n${bad === 0 ? '전 화면 통과' : `실패 ${bad}건`}`);
 process.exit(bad === 0 ? 0 : 1);

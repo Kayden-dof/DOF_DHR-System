@@ -64,16 +64,28 @@ const mask = url.replace(/\/\/[^@]*@/, '//***@');
 const client = new pg.Client({ connectionString: url, ssl: pgSsl(url, ROOT) });
 await client.connect();
 
-// 무엇이 지워지는지 먼저 보여 준다
-const counts = (await client.query(`
-  select (select count(*) from app_user)      as 계정,
-         (select count(*) from work_order)    as 배치,
-         (select count(*) from product_lot)   as 제품로트,
-         (select count(*) from material_lot)  as 자재로트,
-         (select count(*) from audit_log)     as 감사기록`)).rows[0];
+/*
+ * 무엇이 지워지는지 먼저 보여 준다.
+ *
+ * 표가 아직 없을 수도 있다 (완전히 빈 DB). 그때는 셀 것이 없다고 말하고
+ * 넘어간다 - 전에는 여기서 relation does not exist 로 죽어, 새 DB 에 처음
+ * 세우는 길이 막혀 있었다.
+ */
+let counts = null;
+try {
+  counts = (await client.query(`
+    select (select count(*) from app_user)      as 계정,
+           (select count(*) from work_order)    as 배치,
+           (select count(*) from product_lot)   as 제품로트,
+           (select count(*) from material_lot)  as 자재로트,
+           (select count(*) from audit_log)     as 감사기록`)).rows[0];
+} catch {
+  /* 스키마가 아직 없다 */
+}
 
 console.log(`대상   : ${PROD ? '운영 (Supabase)' : '로컬'} · ${mask}`);
-console.table([counts]);
+if (counts) console.table([counts]);
+else console.log('        (표가 아직 없습니다. 빈 DB 에 처음 세웁니다)');
 
 if (!ERASE) {
   console.log('계획만 보여 주었습니다. 실제로 비우려면 --erase 를 붙이십시오:');
@@ -85,13 +97,45 @@ if (!ERASE) {
 console.log('\n스키마를 비웁니다');
 await client.query(`drop schema if exists public cascade`);
 await client.query(`create schema public`);
-await client.query(`drop role if exists app_role`);
-/* 읽기 전용 역할도 함께 내린다. 마이그레이션이 다시 만든다 (0043) */
-await client.query(`drop role if exists app_readonly`);
+/*
+ * 역할은 못 내려도 넘어간다.
+ *
+ * 역할은 DB 가 아니라 클러스터에 딸린다. 같은 서버에 다른 DB 가 있고 그쪽이
+ * 이 역할에 권한을 걸고 있으면 drop 이 거부된다. 그러면 **스키마를 지운
+ * 뒤에 죽어** 다시 세울 수 없는 상태가 남는다 (C1 과 같은 모양이다).
+ *
+ * 이관이 create role if not exists 로 다시 세우므로 내리지 못해도 결과는
+ * 같다. 못 내렸다고 말하고 넘어간다.
+ */
+for (const role of ['app_role', 'app_readonly']) {
+  try {
+    await client.query(`drop role if exists ${role}`);
+  } catch (e) {
+    console.log(`  ${role} 은 내리지 못했습니다 (다른 DB 가 쓰고 있습니다). 그대로 씁니다.`);
+  }
+}
 await client.end();
 
 // 마이그레이션부터 다시. deploy-db 가 초기 관리자까지 만든다
 const childEnv = { ...process.env, MIGRATION_DATABASE_URL: url, DATABASE_URL: url };
+/* ---------------------------------------------------------------------------
+   자식에게 대상 표시를 넘긴다 (4차 감사 C1)
+
+   deploy-db 에 "운영을 치려면 --prod 를 붙여라" 는 문턱을 넣었는데(2026-09-01)
+   부르는 쪽이 따라오지 않았다. 그래서 이 스크립트는 운영의 public 스키마와 두
+   역할을 **지운 다음**, 재구축을 인자 없이 불러 그 자리에서 종료 코드 2 로
+   죽었다.
+
+   사내문서/실무 착수 절차.md ② 가 지시하는 명령이 바로 그것이다. 문서대로
+   치면 운영 DB 에 표도 뷰도 역할도 없는 상태가 남고 앱은 전 화면이 죽는다.
+   지워지는 것은 지우기로 한 시연 자료이므로 기록 소실은 아니지만, 그 자리에서
+   다시 세울 수 없다.
+
+   도구를 고칠 때 부르는 쪽을 함께 보지 않은 것이다. 같은 모양이 세 번 있었다
+   (백업 GET→POST 와 복구 화면의 앵커, logPrint 와 smoke).
+--------------------------------------------------------------------------- */
+const CHILD_ARGS = PROD ? ['--prod'] : [];
+
 const run = (label, args, extraEnv = {}) => {
   console.log(`\n== ${label}`);
   const r = spawnSync(process.execPath, args,
@@ -99,9 +143,15 @@ const run = (label, args, extraEnv = {}) => {
   if (r.status !== 0) process.exit(r.status ?? 1);
 };
 
-run('마이그레이션', [path.join(ROOT, 'scripts', 'deploy-db.mjs')]);
+run('마이그레이션', [path.join(ROOT, 'scripts', 'deploy-db.mjs'), ...CHILD_ARGS]);
 if (DEMO || BASE) {
-  run('기준정보', [path.join(ROOT, 'scripts', 'seed-demo.mjs')], { SEED_DEMO_FORCE: '1' });
+  /*
+   * --base 는 기준정보만 넣는다 (4차 감사 C2). 지어낸 자재 로트와 성적서
+   * 번호는 시연(--demo)에만 들어간다. 실무 착수 절차 ② 가 --base 를
+   * 지시하므로 그 길로 운영에 가짜 성적서가 들어가면 안 된다.
+   */
+  run('기준정보', [path.join(ROOT, 'scripts', 'seed-demo.mjs')],
+      { SEED_DEMO_FORCE: '1', ...(BASE && !DEMO ? { SEED_BASE_ONLY: '1' } : {}) });
 }
 if (DEMO) {
   run('시연 전 공정', [path.join(ROOT, 'scripts', 'seed-flow.mjs')]);
