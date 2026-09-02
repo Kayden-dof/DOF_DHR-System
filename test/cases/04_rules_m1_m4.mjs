@@ -576,8 +576,54 @@ export default [
     const before = await t.val(`select count(*)::int from item where type='FIN'`);
     await t.rows(
       `select * from generate_finished_items(
-         array['0505'], array['0510'], array[]::text[])`);
+         array['0505'], array['0510'], array[]::text[], 'DX2401')`);
     t.eq(await t.val(`select count(*)::int from item where type='FIN'`), before, '완제품 수');
+  },
+},
+
+{
+  id: 'WARN-01', expect: '확인',
+  name: '장입 경고가 제품표준서의 범위를 쓴다 (5차 감사 B1)',
+  async run(t) {
+    const m = await master(t);
+    const wo = await newWorkOrder(t, m);
+
+    const kinds = async (sheets) => (await t.rows(
+      `select kind, detail from work_order_warnings($1, $2, $3)`,
+      [wo.rawLot, sheets, m.dm])).filter((r) => r.kind.startsWith('장입'));
+
+    /* 상한을 50으로 잡으면 31장은 아무 말도 듣지 않는다 */
+    await t.rows(`update device_master set sheet_min = 1, sheet_max = 50 where id = $1`,
+                 [m.dm]);
+    t.eq((await kinds(31)).length, 0, '상한 50에서 31장');
+
+    /* 상한을 20으로 내리면 25장이 걸리고, 문구가 20을 말한다 */
+    await t.rows(`update device_master set sheet_max = 20 where id = $1`, [m.dm]);
+    const over = await kinds(25);
+    t.eq(over.length, 1, '상한 20에서 25장');
+    t.ok(over[0].detail.includes('20장'), `제품표준서 값을 말한다: ${over[0].detail}`);
+    t.ok(!over[0].detail.includes('30장'), '30이 남아 있지 않다');
+    t.ok(!over[0].detail.includes('WS-'), '공정 코드가 남아 있지 않다');
+
+    /* 하한도 같은 자리에서 온다 */
+    await t.rows(`update device_master set sheet_min = 10 where id = $1`, [m.dm]);
+    const under = await kinds(5);
+    t.eq(under.length, 1, '하한 10에서 5장');
+    t.ok(under[0].detail.includes('10장'), `하한을 말한다: ${under[0].detail}`);
+  },
+},
+
+{
+  id: 'WARN-02', expect: '확인',
+  name: '제품표준서를 안 주면 장입에 대해 아무 말도 하지 않는다',
+  async run(t) {
+    const m = await master(t);
+    const wo = await newWorkOrder(t, m);
+
+    /* 견줄 것이 없으면 지어내지 않는다. 999장에도 장입 경고가 없다 */
+    const rows = await t.rows(
+      `select kind from work_order_warnings($1, 999)`, [wo.rawLot]);
+    t.eq(rows.filter((r) => r.kind.startsWith('장입')).length, 0, '장입 경고');
   },
 },
 

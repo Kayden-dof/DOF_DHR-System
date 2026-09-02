@@ -66,6 +66,58 @@ const MUTATIONS = [
           drop trigger if exists material_issue_s04 on material_issue`,
     cases: ['S04-01', 'S04-02'] },
 
+  { id: 'M-LOAD', rule: '장입 경고가 제품표준서를 본다 (0087)',
+    /* 옛 셈법으로 되돌린다. 30과 WS-02 가 박혀 있던 그대로 */
+    sql: `create or replace function work_order_warnings(
+            p_material_lot uuid, p_sheets int, p_device_master uuid default null)
+          returns table (kind text, detail text)
+          language plpgsql stable as $x$
+          begin
+            if p_sheets > 30 then
+              kind := '장입 상한 초과';
+              detail := format('장입 %s장. WS-02 배치 상한은 30장입니다', p_sheets);
+              return next;
+            end if;
+          end $x$`,
+    cases: ['WARN-01'] },
+
+  { id: 'M-SCHEME', rule: '완제품 생성기가 체계를 고른다 (0086)',
+    /* 조용히 가장 먼저 등록한 체계를 고르던 그대로 */
+    sql: `create or replace function generate_finished_items(
+            p_sizes text[], p_bands text[], p_exclude text[] default '{}',
+            p_name_prefix text default null, p_shelf_months int default 12,
+            p_scheme uuid default null)
+          returns table (item_code text, item_name text, was_created boolean)
+          language plpgsql as $x$
+          declare sc record;
+          begin
+            select * into sc from model_scheme where is_active
+              order by registered_at limit 1;
+            item_code := sc.prefix || p_sizes[1] || p_bands[1];
+            item_name := sc.prefix; was_created := false;
+            return next;
+          end $x$`,
+    cases: ['MS-06', 'MS-07'] },
+
+  { id: 'M-SPECNOTE', rule: '완제품 규격을 못 만들면 사실을 적는다 (0088)',
+    /* 빈 문자열로 되돌린다. 종이에 빈 칸이 나가던 그대로 */
+    sql: `create or replace function spec_label(p_code text)
+          returns text language plpgsql stable
+          set search_path = pg_catalog, public, pg_temp as $x$
+          declare p record; out_ text;
+          begin
+            select s.spec_pattern into out_ from model_scheme s
+             where s.is_active and left(p_code, length(s.prefix)) = s.prefix
+               and exists (select 1 from model_parts(p_code))
+             order by length(s.prefix) desc limit 1;
+            if out_ is null then return ''; end if;
+            for p in select * from model_parts(p_code) loop
+              out_ := replace(out_, '{' || p.seq || '}', p.shown);
+            end loop;
+            return out_;
+          end $x$`,
+    cases: ['MS-08'] },
+
   { id: 'M-OPEN', rule: '종료 없는 공정을 품은 채 마감 금지 (0085)',
     sql: `drop trigger if exists day_lock_open on day_lock`,
     cases: ['S04-05', 'S04-06'] },

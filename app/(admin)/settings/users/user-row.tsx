@@ -5,7 +5,7 @@ import { Dialog } from '@/components/dialog';
 import { ROLE_LABEL, ROLE_NOTE, ROLE_ORDER, type RoleCode } from '@/lib/roles';
 import { PIN_MIN_LENGTH } from '@/lib/auth-const';
 import type { FormState } from '@/lib/forms';
-import { grantRole, revokeRole, setActive, setDeveloper, setPin } from './actions';
+import { grantRole, revokeRole, setActive, setDeveloper, setPin, setFullName } from './actions';
 
 export interface UserRow {
   id: string;
@@ -85,7 +85,8 @@ export default function UserRowView(
               title={`${u.full_name} 계정 관리`}
               note={<><span className="tnum">{u.login_code}</span>
                 {u.is_developer && <span className="ml-1.5 font-bold text-warn">개발 계정</span>}</>}>
-        <div className="grid gap-5 lg:grid-cols-3">
+        <NamePanel u={u} />
+        <div className="mt-5 grid gap-5 lg:grid-cols-3">
           <RolePanel u={u} isMe={isMe} sysAdmin={meIsSysAdmin} />
           <PinPanel u={u} isMe={isMe} canReset={meIsDeveloper} />
           <FlagPanel u={u} isMe={isMe} sysAdmin={meIsSysAdmin} />
@@ -96,6 +97,44 @@ export default function UserRowView(
 }
 
 /* -------------------------------------------------------------------------- */
+
+/*
+ * 이름 정정 (5차 감사 A2). 이 이름이 제조기록서의 작업자 칸에 인쇄되므로
+ * 오타를 그대로 두면 종이에 계속 나간다. 이미 나간 종이는 바뀌지 않는다는
+ * 것을 화면이 먼저 말한다.
+ */
+function NamePanel({ u }: { u: UserRow }) {
+  const [state, action, pending] = useActionState<FormState, FormData>(setFullName, {});
+
+  return (
+    <Panel title="이름">
+      <form action={action} className="space-y-2.5">
+        <input type="hidden" name="id" value={u.id} />
+        <div className="grid gap-2.5 sm:grid-cols-2">
+          <div>
+            <label className="label" htmlFor={`name-${u.id}`}>이름</label>
+            <input id={`name-${u.id}`} name="full_name" required autoComplete="off"
+                   defaultValue={u.full_name} maxLength={40} className="input" />
+          </div>
+          <div>
+            <label className="label" htmlFor={`nreason-${u.id}`}>고치는 사유</label>
+            <input id={`nreason-${u.id}`} name="reason" required autoComplete="off"
+                   placeholder="예: 등록 시 오타" className="input" />
+          </div>
+        </div>
+        <p className="text-xs leading-relaxed text-muted">
+          이 이름이 제조기록서의 작업자 칸에 인쇄됩니다.
+          <b className="text-ink"> 이미 나간 종이는 바뀌지 않습니다.</b>
+          {' '}바꾼 사실과 이전 이름은 감사추적에 남습니다.
+        </p>
+        <Msg state={state} />
+        <button type="submit" disabled={pending} className="btn-ghost h-9">
+          {pending ? '고치는 중' : '이름 고치기'}
+        </button>
+      </form>
+    </Panel>
+  );
+}
 
 function RolePanel({ u, isMe, sysAdmin }: {
   u: UserRow; isMe: boolean; sysAdmin: boolean;

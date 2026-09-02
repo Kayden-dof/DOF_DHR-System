@@ -94,12 +94,21 @@ export async function generateFinished(_p: GenResult, form: FormData): Promise<G
       return { error: '크기와 두께 구간을 각각 하나 이상 입력하십시오' };
     }
 
+    /*
+     * 앞머리에 기본값을 두지 않는다 (5차 감사 B4). DX2401 은 이 제조소의
+     * 품목 코드이지 프로그램의 성질이 아니다 (§2.0).
+     */
+    const prefix = String(form.get('prefix') ?? '').trim();
+    if (!prefix) return { error: '이름 앞머리를 적으십시오' };
+
+    const scheme = String(form.get('scheme_id') ?? '').trim();
+    if (!scheme) return { error: '어느 형명 체계로 만들지 고르십시오' };
+
     const rows = await withActor(me.id, (db) =>
       db.rows<{ item_code: string; item_name: string; was_created: boolean }>(
-        `select * from generate_finished_items($1::text[], $2::text[], $3::text[], $4, $5)`,
-        [sizes, bands, exclude,
-         String(form.get('prefix') ?? 'DX2401').trim() || 'DX2401',
-         Number(form.get('shelf_months') ?? 12) || 12],
+        `select * from generate_finished_items($1::text[], $2::text[], $3::text[], $4, $5, $6)`,
+        [sizes, bands, exclude, prefix,
+         Number(form.get('shelf_months') ?? 12) || 12, scheme],
       ),
     );
 

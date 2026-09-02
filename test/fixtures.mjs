@@ -100,7 +100,8 @@ async function seedMasterData(t) {
     `select * from generate_finished_items(
        array['0505','1015','1018','1215'],
        array['0510','1015','1520','2025','2530'],
-       array['10152530','10182530','12152530'])`);
+       array['10152530','10182530','12152530'],
+       'DX2401')`);
   const fin = await t.val(`select id from item where code = 'PD05050510'`);
 
   // 제품표준서

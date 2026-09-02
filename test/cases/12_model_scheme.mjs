@@ -33,9 +33,17 @@ const mm = (d) => (parseInt(d, 10) / 10).toFixed(1);
 const PARTS = /^PD(\d{2})(\d{2})(\d{2})(\d{2})$/;
 
 /** 인쇄물이 쓰는 규격 문구 (§7). 형명이 아니면 빈 글 */
-function expectedSpec(code) {
+/*
+ * 0088 부터 **완제품인데 규격을 못 만들면 그 사실을 적는다** (5차 감사 C2).
+ * 빈 칸이 종이에 나가면 아무도 모르고, 그 칸은 라벨 업체가 보고 찍는 자리다.
+ *
+ * 자재 코드에는 그대로 빈 문자열이다 - 자재에는 이런 뜻의 규격이 없고 없는
+ * 것이 정상이다 (MS-03).
+ */
+function expectedSpec(code, type) {
   const m = PARTS.exec(code);
-  return m ? `${cm(m[1])}x${cm(m[2])}cm · 두께 ${mm(m[3])}~${mm(m[4])}mm` : '';
+  if (m) return `${cm(m[1])}x${cm(m[2])}cm · 두께 ${mm(m[3])}~${mm(m[4])}mm`;
+  return type === 'FIN' ? '(형명 체계에 없는 코드)' : '';
 }
 
 /** 넓이 cm2. 원가를 배치 안에서 넓이로 가르는 데 쓴다 (0066) */
@@ -60,14 +68,15 @@ export default [
 
     /* 완제품만 보지 않는다. 자재 코드에 규격 문구가 붙어도 안 된다 */
     const rows = await t.rows(
-      `select code, spec_label(code) as spec, item_area_cm2(code) as area
+      `select code, type::text as type,
+              spec_label(code) as spec, item_area_cm2(code) as area
          from item order by code`);
 
     t.ok(rows.length > 0, '품목이 하나도 없다');
 
     const bad = [];
     for (const r of rows) {
-      const spec = expectedSpec(r.code);
+      const spec = expectedSpec(r.code, r.type);
       const area = expectedArea(r.code);
       const gotArea = r.area === null ? null : Number(r.area);
       if (r.spec !== spec) bad.push(`${r.code} 규격 "${r.spec}" ≠ "${spec}"`);
@@ -169,6 +178,79 @@ export default [
       `select count(*)::int from pg_proc p join pg_namespace n on n.oid = p.pronamespace
         where n.nspname = 'public' and p.proname = 'spec_label'`);
     t.eq(n, 1, 'spec_label 은 하나여야 한다');
+  },
+},
+
+{
+  id: 'MS-06', expect: '예외',
+  name: '활성 체계가 둘이면 조용히 고르지 않는다 (5차 감사 B2)',
+  async run(t) {
+    const m = await master(t);
+
+    /* 접두어가 다르면 함께 활성이다. 활성 유일 제약이 prefix 별이다 */
+    await t.rows(
+      `insert into model_scheme (name, prefix, spec_pattern, name_pattern,
+                                 is_active, registered_by)
+       values ('두 번째 체계', 'QQ', '{1}x{2}cm', '{P} {1}x{2}', true, $1)`,
+      [m.admin]);
+
+    await t.rejects(
+      () => t.rows(`select * from generate_finished_items(
+                      array['0505'], array['0510'], array[]::text[], 'ZZ')`),
+      { code: 'P0001', message: '어느 체계로 만들지 고르십시오' });
+  },
+},
+
+{
+  id: 'MS-07', expect: '통과',
+  name: '고른 체계의 접두어로 만든다 (5차 감사 B2)',
+  async run(t) {
+    const m = await master(t);
+
+    const other = await t.val(
+      `insert into model_scheme (name, prefix, spec_pattern, name_pattern,
+                                 is_active, registered_by)
+       values ('세 번째 체계', 'RR', '{1}x{2}cm', '{P} {1}x{2}', true, $1)
+       returning id`, [m.admin]);
+    /* 자리 정의가 있어야 코드를 가른다. 앞 네 자리 크기 · 뒤 네 자리 두께 */
+    for (const [seq, digits, divisor, decimals, label, role] of [
+      [1, 2, 1, 0, '가로', 'WIDTH'], [2, 2, 1, 0, '세로', 'HEIGHT'],
+      [3, 2, 10, 1, '두께 하한', 'BAND'], [4, 2, 10, 1, '두께 상한', 'BAND'],
+    ]) {
+      await t.rows(
+        `insert into model_segment (scheme_id, seq, digits, divisor, decimals, label, role)
+         values ($1,$2,$3,$4::numeric,$5,$6,$7)`,
+        [other, seq, digits, divisor, decimals, label, role]);
+    }
+
+    const made = await t.rows(
+      `select * from generate_finished_items(
+         array['0505'], array['0510'], array[]::text[], 'ZZ', 12, $1)`, [other]);
+
+    t.eq(made.length, 1, '만들어진 수');
+    t.eq(made[0].item_code, 'RR05050510', '고른 체계의 접두어');
+  },
+},
+
+{
+  id: 'MS-08', expect: '확인',
+  name: '완제품인데 규격을 못 만들면 빈 칸이 아니라 사실을 적는다 (5차 감사 C2)',
+  async run(t) {
+    await master(t);
+
+    await t.rows(
+      `insert into item (code, name, type, purchase_uom, usage_uom)
+       values ('ZZNOSCHEME', '체계 밖 완제품', 'FIN', 'EA', 'EA')`);
+
+    t.eq(await t.val(`select spec_label('ZZNOSCHEME')`),
+         '(형명 체계에 없는 코드)', '완제품은 말한다');
+
+    /* 자재는 그대로 빈 문자열이다. 없는 것이 정상이다 */
+    t.eq(await t.val(`select spec_label('RM-006')`), '', '자재는 말하지 않는다');
+
+    await t.rows(`update model_scheme set is_active = false`);
+    t.eq(await t.val(`select spec_label('ZZNOSCHEME')`),
+         '(형명 체계 미등록)', '체계가 없을 때는 그렇게 말한다');
   },
 },
 

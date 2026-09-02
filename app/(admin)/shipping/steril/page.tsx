@@ -65,7 +65,20 @@ export default async function SterilPage() {
     <PageShell
       section="출하"
       title="멸균 위탁"
-      lede="50개(25ea 2줄) 박스 단위로 발송합니다. 한 박스에 여러 제품 로트가 들어갈 수 있습니다."
+      /*
+       * 박스 수량을 여기 적지 않는다 (5차 감사 B3).
+       *
+       * 전에는 "50개(25ea 2줄)" 이 박혀 있었다. 바로 아래 SterilForm 은 같은
+       * 값을 제품표준서에서 읽어(0069) 없으면 "박스 수는 세지 않습니다" 라고
+       * 말하는데, 그 폼 위에서 안내문은 50이라고 단언하고 있었다. 같은 화면의
+       * 두 곳이 서로 다른 출처를 쓰면 갈라진다 (§10).
+       *
+       * 50은 DX2401 의 값이지 프로그램의 성질이 아니다.
+       */
+      lede={(d.boxQty
+              ? `${d.boxQty}개 박스 단위로 발송합니다. `
+              : '박스 단위로 발송합니다. ')
+            + '한 박스에 여러 제품 로트가 들어갈 수 있습니다.'}
       action={<SterilForm lots={d.lots} today={d.today ?? ''} boxQty={d.boxQty ?? null} />}
       nav={<SubNav items={SHIPPING_NAV} />}
     >

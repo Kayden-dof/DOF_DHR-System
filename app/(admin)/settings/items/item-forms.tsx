@@ -189,7 +189,10 @@ export function ItemRowView({ it }: { it: ItemRow }) {
 
 /* -------------------------------------------------------------------------- */
 
-export function GenerateFinished() {
+export interface SchemeOpt { id: string; name: string; prefix: string }
+
+export function GenerateFinished({ schemes }: { schemes: SchemeOpt[] }) {
+  const uid = useId();
   const [state, action, pending] = useActionState<GenResult, FormData>(generateFinished, {});
   const { open, setOpen } = useDialog(state);
 
@@ -200,10 +203,32 @@ export function GenerateFinished() {
         <form action={action}>
       <h3 className="text-sm font-bold text-ink">완제품 형명 생성</h3>
       <p className="mt-1 text-xs leading-relaxed text-muted">
-        형명은 <code className="font-mono">PD + 가로2 + 세로2 + 두께하한2 + 두께상한2</code> 규칙입니다.
-        크기와 두께 구간을 입력하면 조합으로 만듭니다. 손으로 한 줄씩 등록하지 마십시오.
-        이미 있는 코드는 건드리지 않으므로 반복 실행해도 안전합니다.
+        형명 규칙은 <b className="text-ink">형명 체계</b>가 정합니다. 크기와 두께 구간을
+        입력하면 그 체계의 접두어를 앞에 붙여 조합으로 만듭니다. 손으로 한 줄씩 등록하지
+        마십시오. 이미 있는 코드는 건드리지 않으므로 반복 실행해도 안전합니다.
       </p>
+
+      {/*
+        * 어느 체계로 만들지 먼저 고른다 (5차 감사 B2). 자리 수와 접두어가
+        * 여기서 나오므로 아래 칸들의 뜻이 이 선택에 달려 있다.
+        */}
+      <div className="mt-3">
+        <label className="label" htmlFor={`${uid}-scheme`}>형명 체계</label>
+        {schemes.length === 0 ? (
+          <p className="rounded-md bg-warn-bg px-3 py-2.5 text-sm text-ink">
+            활성 형명 체계가 없습니다. <b>설정 · 형명 체계</b>에서 먼저 등록하십시오.
+          </p>
+        ) : (
+          <select id={`${uid}-scheme`} name="scheme_id" required
+                  defaultValue={schemes.length === 1 ? schemes[0].id : ''}
+                  className="input">
+            {schemes.length > 1 && <option value="">고르십시오</option>}
+            {schemes.map((x) => (
+              <option key={x.id} value={x.id}>{x.name} · {x.prefix}</option>
+            ))}
+          </select>
+        )}
+      </div>
 
       <div className="mt-3 grid gap-3 lg:grid-cols-3">
         <div>
@@ -232,7 +257,12 @@ export function GenerateFinished() {
       <div className="mt-3 grid gap-3 sm:grid-cols-3">
         <div>
           <label className="label" htmlFor="prefix">이름 앞머리</label>
-          <input id="prefix" name="prefix" defaultValue="DX2401" className="input" />
+          {/*
+            * 기본값을 두지 않는다 (5차 감사 B4). DX2401 은 이 제조소의 품목이지
+            * 프로그램의 성질이 아니다. 무엇을 적을지는 제품 코드가 알려 준다.
+            */}
+          <input id="prefix" name="prefix" required autoComplete="off"
+                 placeholder="예: 제품 코드" className="input" />
         </div>
         <div>
           <label className="label" htmlFor="shelf_months">사용기간(개월)</label>

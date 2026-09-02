@@ -135,6 +135,45 @@ export async function setPin(_prev: FormState, form: FormData): Promise<FormStat
   }
 }
 
+/* ---------------------------------------------------------------------------
+   이름을 고친다 (5차 감사 A2)
+
+   전에는 계정을 만들 때 한 번 적으면 끝이었다. `full_name` 입력이 새 계정
+   화면 한 곳뿐이었다. 그런데 **그 이름이 제조기록서의 작업자 칸에 인쇄된다.**
+   오타가 나면 종이에 계속 나갔고, 계정을 비활성으로 내리고 새로 만들어도
+   그 계정으로 이미 남은 공정 기록은 옛 이름을 계속 썼다.
+
+   판정하지 않는다. 무엇이 옳은 이름인지 정하지 않고 고쳐 쓸 자리를 낼 뿐이다.
+   바뀐 사실과 이전 이름은 감사추적에 남는다 (§5).
+--------------------------------------------------------------------------- */
+export async function setFullName(_prev: FormState, form: FormData): Promise<FormState> {
+  try {
+    const me = await admin();
+    const id = String(form.get('id') ?? '');
+    const name = String(form.get('full_name') ?? '').trim();
+
+    if (!id) return { error: '어느 계정인지 알 수 없습니다' };
+    if (!name) return { error: '이름을 입력하십시오' };
+    if (name.length > 40) return { error: '이름은 40자를 넘을 수 없습니다' };
+
+    const reason = String(form.get('reason') ?? '').trim();
+    if (!reason) return { error: '왜 고치는지 적으십시오' };
+
+    await withActor(me.id, (db) =>
+      db.rows(`update app_user set full_name = $2 where id = $1`, [id, name]),
+      { reason: `이름 정정 · ${reason}` });
+
+    revalidatePath('/settings/users');
+    revalidatePath('/');
+    return {
+      ok: true,
+      message: `이름을 ${name} 으로 고쳤습니다. 이미 인쇄된 종이는 바뀌지 않습니다.`,
+    };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
 export async function setActive(_prev: FormState, form: FormData): Promise<FormState> {
   try {
     const me = await admin();

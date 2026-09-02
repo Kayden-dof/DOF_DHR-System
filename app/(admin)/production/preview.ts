@@ -43,7 +43,7 @@ export async function previewIssue(
        * 발행을 막지 않는다 (§2).
        */
       warnings: await db.rows<{ kind: string; detail: string }>(
-        `select kind, detail from work_order_warnings($1, $2)
+        `select kind, detail from work_order_warnings($1, $2, $3)
          union all
          select '설비'::text,
                 format('%s %s (%s): %s', e.code, e.name, o.name,
