@@ -314,7 +314,7 @@ for (const m of MUTATIONS) {
     const c = byId.get(id);
     if (!c) {
       say(` ${pad(id, 10)}${pad('(그런 시험이 없다)', 52)}눈감음`);
-      blind += 1; blindList.push(`${id} — 시험을 찾을 수 없다`);
+      blind += 1; blindList.push(`${id} - 시험을 찾을 수 없다`);
       continue;
     }
 
@@ -324,7 +324,7 @@ for (const m of MUTATIONS) {
      */
     const detects = !res.ok;
     if (detects) caught += 1;
-    else { blind += 1; blindList.push(`${id} — ${c.name}`); }
+    else { blind += 1; blindList.push(`${id} - ${c.name}`); }
     say(` ${pad(id, 10)}${pad(c.name, 52)}${detects ? '잡음' : '눈감음'}`);
   }
 }
