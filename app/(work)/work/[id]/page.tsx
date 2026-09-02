@@ -1,9 +1,11 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { requireUser } from '@/lib/session';
+import { todayKST } from '@/lib/kst';
+import { requireUser} from '@/lib/session';
 import { withActor } from '@/lib/db';
 import { fmtDate } from '@/lib/fmt';
 import { Tag } from '@/components/ui';
+import { WO_STATUS_LABEL } from '@/lib/forms';
 import WorkPanel, {
   type Op, type Rec, type LotOpt, type PersonOpt, type PlOpt, type FinOpt,
   type SampleTier,
@@ -76,6 +78,7 @@ export default async function WorkBatchPage({ params }: { params: Promise<{ id: 
         [wo.device_master_id, wo.sheet_count]),
       records: await db.rows<Rec>(
         `select pr.id, pr.operation_id, pr.day_no, pr.attempt, pr.product_lot_id,
+                pr.work_date::text as work_date,
                 pl.lot_no as product_lot_no, pr.started_at, pr.ended_at,
                 pr.equipment_id, pr.rework_qty, pr.no_material_reason, pr.worker_id,
                 u.full_name as worker_name,
@@ -154,7 +157,32 @@ export default async function WorkBatchPage({ params }: { params: Promise<{ id: 
                 점검 도구가 그것을 제목으로 안다 */}
             <h1 className="font-mono text-2xl font-bold text-ink">{wo.batch_no}</h1>
             <Tag tone="brand">{wo.item_name}</Tag>
+            {/*
+              * 배치 상태를 말한다 (4차 감사 E4).
+              *
+              * status 를 조회해 놓고 그리지 않았다. app/(work) 전체에
+              * CANCELLED 를 다루는 곳이 없어서, **취소된 배치가 살아 있는 것과
+              * 똑같이 보였다.** 목록은 상태로 거르는데 상세는 주소로 그대로
+              * 열리므로 (뒤로가기 · 열어 둔 탭) 하루치를 기록하고 인쇄해 잠그는
+              * 일이 가능했다.
+              *
+              * 막지 않는다 - 차단은 다섯 개뿐이다 (§1). 알려 주지 않은 것이
+              * 문제였다.
+              */}
+            {wo.status !== 'IN_PROCESS' && wo.status !== 'ISSUED' && (
+              <Tag tone={wo.status === 'CANCELLED' ? 'danger' : 'quiet'}>
+                {WO_STATUS_LABEL[wo.status] ?? wo.status}
+              </Tag>
+            )}
           </div>
+
+          {wo.status === 'CANCELLED' && (
+            <p className="mt-3 rounded-md border border-danger/40 bg-danger-bg px-3 py-2
+                          text-sm leading-relaxed text-ink">
+              <b>이 배치는 취소되었습니다.</b> 여기에 적은 기록도 그대로 남고 지울 수
+              없습니다. 취소된 배치에 기록할 일이 아니면 배치 목록으로 돌아가십시오.
+            </p>
+          )}
           <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-sm text-muted">
             <span>지시서 <span className="font-mono text-ink">{wo.wo_no}</span></span>
             <span>장입 <b className="tnum text-ink">{wo.sheet_count}</b>장</span>
@@ -181,7 +209,8 @@ export default async function WorkBatchPage({ params }: { params: Promise<{ id: 
         band={wo.thickness_band}
         meId={user.id}
         lockedDays={d.lockedDays.map((r) => r.day_no)}
-      />
+            today={todayKST()}
+    />
     </div>
   );
 }

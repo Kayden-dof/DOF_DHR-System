@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 
-import { useActionState, useState } from 'react';
+import { useActionState, useEffect, useState } from 'react';
 import { PL_STATUS_LABEL, type FormState } from '@/lib/forms';
 import { Msg, Caution } from '@/components/ui';
 import { Dialog, useDialog } from '@/components/dialog';
@@ -47,6 +47,16 @@ export function CutForm({ woId, options, today, used, band }: {
   const [state, action, pending] = useActionState<FormState, FormData>(cutLot, {});
   const [produced, setProduced] = useState('');
   const [sample, setSample] = useState('0');
+
+  /*
+   * 제출이 끝나면 칸을 비운다 (4차 감사 E3). 현장 화면과 같은 문제였다 -
+   * 제어 입력이라 폼 자동 초기화가 듣지 않아, 형명만 바꾸고 다시 누르면 앞
+   * 형명의 수량이 두 번째 제품 로트에 들어간다. qty_produced 는 사후 정정이
+   * 불가능하고 그 숫자가 라벨요청서와 편철 표지에 찍힌다.
+   */
+  useEffect(() => {
+    if (state.ok) { setProduced(''); setSample('0'); }
+  }, [state]);
   const pool = options.filter((o) => !used.has(o.id));
 
   /*

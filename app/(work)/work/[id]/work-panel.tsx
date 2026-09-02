@@ -24,6 +24,7 @@ export interface Op {
 }
 export interface Rec {
   id: string; operation_id: string; day_no: number; attempt: number;
+  work_date: string;
   product_lot_id: string | null; product_lot_no: string | null;
   started_at: Date | null; ended_at: Date | null;
   equipment_id: string | null; rework_qty: number | null; no_material_reason: string | null;
@@ -84,7 +85,7 @@ const REASONS = [
 --------------------------------------------------------------------------- */
 export default function WorkPanel({
   woId, batchNo, sheets, ops, records, lots, people, productLots, meId, lockedDays,
-  cutOpId, finished, sampleTiers, sampleBasis, band,
+  cutOpId, finished, sampleTiers, sampleBasis, band, today,
 }: {
   woId: string; batchNo: string; sheets: number;
   ops: Op[]; records: Rec[]; lots: LotOpt[]; people: PersonOpt[];
@@ -95,6 +96,8 @@ export default function WorkPanel({
   sampleTiers: SampleTier[];
   sampleBasis: string | null;
   band: string | null;
+  /** 오늘 (한국 날짜). 고른 일차가 오늘이 아니면 알린다 */
+  today: string;
 }) {
   const myRecords = useMemo(() => records.filter((r) => r.worker_id === meId), [records, meId]);
 
@@ -122,6 +125,20 @@ export default function WorkPanel({
   const [opId, setOpId] = useState<string | null>(null);
   const [showEarlier, setShowEarlier] = useState(false);
 
+  /*
+   * 일차마다 그 날짜. 한 일차에 여러 날이 섞이면 가장 이른 날을 쓴다 -
+   * 제조기록서 머리가 그렇게 찍기 때문이다 (lib/print-payload).
+   */
+  const dayDate = new Map<number, string>();
+  for (const r of records) {
+    const cur = dayDate.get(r.day_no);
+    if (!cur || r.work_date < cur) dayDate.set(r.day_no, r.work_date);
+  }
+
+  /* 고른 일차가 오늘이 아닌가. 막지 않고 사실만 알린다 (§8.5) */
+  const pickedDate = dayDate.get(day);
+  const notToday = !!pickedDate && pickedDate !== today;
+
   const locked = lockedDays.includes(day);
   const dayRecords = myRecords.filter((r) => r.day_no === day);
   const op = ops.find((o) => o.id === opId) ?? null;
@@ -129,10 +146,34 @@ export default function WorkPanel({
                  ?? dayRecords.filter((r) => r.operation_id === op.id).at(-1) ?? null
                  : null;
 
+  /* -------------------------------------------------------------------------
+     재단 이후 공정은 제품 로트마다 따로 흐른다 (4차 감사 E2)
+
+     전에는 operation_id 만 보고 상태를 정했다. 그래서 **첫 로트 포장을
+     마감하면 타일이 초록 "마감" 이 되고**, 두 번째 형명을 시작하면 "재작업이나
+     재세척일 때만 쓰십시오" 경고와 함께 틀린 회차가 안내됐다. 날이 바뀌면
+     접힘 안으로 들어가 남은 로트가 오늘 할 일에서 사라졌다.
+
+     DB 와 종이는 옳았다 (0055 가 로트를 포함해 센다). 틀린 것은 화면 안내다.
+  ------------------------------------------------------------------------- */
+  const lotsDone = (o: Op) => {
+    const mine = dayRecords.filter((r) => r.operation_id === o.id);
+    const all = records.filter((r) => r.operation_id === o.id);
+    const done = new Set(all.filter((r) => r.ended_at && r.product_lot_id)
+      .map((r) => r.product_lot_id as string));
+    return { mine, done, total: productLots.length };
+  };
+
   const stateOf = (o: Op) => {
     const rs = dayRecords.filter((r) => r.operation_id === o.id);
     if (rs.length === 0) return 'none';
-    return rs.some((r) => !r.ended_at) ? 'open' : 'done';
+    if (rs.some((r) => !r.ended_at)) return 'open';
+    if (o.after_cutting) {
+      /* 로트가 다 끝나야 마감이다. 하나만 끝난 것을 마감이라 하지 않는다 */
+      const { done, total } = lotsDone(o);
+      return total > 0 && done.size < total ? 'partial' : 'done';
+    }
+    return 'done';
   };
 
   /*
@@ -157,6 +198,14 @@ export default function WorkPanel({
    * 필요하면 한 번 눌러 펼치고 그 자리에서 다음 회차로 기록한다.
    */
   const closedElsewhere = (o: Op) => {
+    /*
+     * 재단 이후 공정은 로트가 다 끝나야 지난 것이다 (4차 감사 E2).
+     * 하나만 끝났는데 접어 두면 남은 로트가 오늘 할 일에서 사라진다.
+     */
+    if (o.after_cutting) {
+      const { done, total } = lotsDone(o);
+      if (total > 0 && done.size < total) return null;
+    }
     const rs = records.filter(
       (r) => r.operation_id === o.id && r.ended_at && r.day_no !== day);
     if (rs.length === 0) return null;
@@ -187,6 +236,15 @@ export default function WorkPanel({
                       data-on={day === n}
                       className="tile no-select w-[6.5rem] items-center gap-0.5 text-center">
                 <span className="text-xl font-bold tnum">{n}일차</span>
+                {/*
+                  * 그 일차가 언제였는지 붙인다 (4차 감사 E1).
+                  *
+                  * 전에는 날짜가 없었다. 화면이 여는 것은 "내가 마지막으로
+                  * 손댄 일차" 인데, 어제 마감하지 않고 오늘 열면 어제 일차가
+                  * 선택된 채 뜨고 그것이 어제라는 표시가 없었다. 그대로 적으면
+                  * 종이에 앞선 날짜만 찍히고 오늘 작업이 시각만 남은 채 들어간다.
+                  */}
+                <span className="text-xs tnum text-faint">{dayDate.get(n) ?? ''}</span>
                 <span className={`text-xs ${
                   lockedDays.includes(n) ? 'text-ok' : mineHere > 0 ? 'text-muted' : 'text-faint'
                 }`}>
@@ -208,6 +266,26 @@ export default function WorkPanel({
             </button>
           )}
         </div>
+
+        {/*
+          * 고른 일차가 오늘이 아니면 알린다 (4차 감사 E1).
+          *
+          * 막지 않는다. 차단은 다섯 개뿐이고 (§1) 어제 일차에 오늘 정정을
+          * 붙이는 것은 정상 작업이다. 다만 **모르고 그러는 것**은 막아야 한다 -
+          * 종이에는 그 일차의 가장 이른 날짜 하나만 찍히므로, 오늘 작업이
+          * 어제 날짜의 종이에 시각만 남은 채 들어간다.
+          *
+          * 사실만 적는다. 판정 문구를 쓰지 않는다 (§8.5).
+          */}
+        {notToday && !locked && (
+          <p className="mt-3 rounded-md border border-warn/40 bg-warn-bg px-3 py-2
+                        text-sm leading-relaxed text-ink">
+            고른 <b>{day}일차</b>의 작업일은 <b className="tnum">{pickedDate}</b>이고
+            오늘은 <b className="tnum">{today}</b>입니다.
+            여기에 적으면 제조기록서에는 <b className="tnum">{pickedDate}</b>로 찍힙니다.
+            {!days.includes(nextDay) && ' 오늘 것이면 새 일차를 여십시오.'}
+          </p>
+        )}
 
         {locked && (
           <p className="mt-3 rounded-md border border-ok/30 bg-ok-bg px-3 py-2.5 text-sm leading-relaxed text-ink">
@@ -234,6 +312,9 @@ export default function WorkPanel({
         <div className="mt-3.5 grid gap-2 sm:grid-cols-2">
           {todo.map((o) => (
             <OpTile key={o.id} o={o} state={stateOf(o)} others={othersOf(o)}
+                    lots={o.after_cutting
+                      ? { done: lotsDone(o).done.size, total: lotsDone(o).total }
+                      : null}
                     selected={o.id === opId}
                     onPick={() => setOpId(o.id === opId ? null : o.id)} />
           ))}
@@ -281,7 +362,13 @@ export default function WorkPanel({
         <OperationCard
           woId={woId} day={day} op={op} rec={rec} lots={lots} people={people}
           productLots={productLots} locked={locked} sheets={sheets}
-          attemptCount={records.filter((r) => r.operation_id === op.id).length}
+          /*
+           * 회차는 (공정, 제품 로트) 로 센다 (4차 감사 E2 · 0055 와 같은 기준).
+           * 로트를 가리지 않고 세면 두 번째 형명을 시작할 때 2회차라고 안내한다.
+           */
+          attemptCount={op.after_cutting
+            ? 0
+            : records.filter((r) => r.operation_id === op.id).length}
           isCut={op.id === cutOpId} finished={finished}
           sampleTiers={sampleTiers} sampleBasis={sampleBasis} band={band}
         />
@@ -309,15 +396,19 @@ export default function WorkPanel({
 
 /** 공정 하나. 왼쪽 띠가 상태를 먼저 말한다. */
 function OpTile({
-  o, state, others, selected, onPick,
+  o, state, others, selected, onPick, lots,
 }: {
   o: Op;
-  state: 'none' | 'open' | 'done' | 'closed';
+  state: 'none' | 'open' | 'done' | 'partial' | 'closed';
+  /** 재단 이후 공정일 때 몇 로트가 끝났는가 */
+  lots?: { done: number; total: number } | null;
   others: { names: string; days: number[] } | null;
   selected: boolean;
   onPick: () => void;
 }) {
   const bar = state === 'open' ? 'bg-warn'
+    /* 로트가 남았으면 초록으로 칠하지 않는다. 다 끝난 것처럼 보인다 */
+    : state === 'partial' ? 'bg-warn'
     : state === 'done' ? 'bg-ok'
     : state === 'closed' ? 'bg-line-strong'
     : others ? 'bg-line-strong' : 'bg-transparent';
@@ -345,7 +436,9 @@ function OpTile({
           * 참고값이다. 다른 일차에 기록해도 막지 않는다.
           */}
         {o.typical_day !== null && ` · 보통 ${o.typical_day}일차`}
-        {o.after_cutting && ' · 제품 로트별'}
+        {o.after_cutting && (lots
+          ? ` · 제품 로트 ${lots.done}/${lots.total} 마감`
+          : ' · 제품 로트별')}
         {/*
           * 착수 전에도 무엇이 들어가는지 이름으로 보인다. "자재 3종" 만으로는
           * 준비를 못 한다 - 무엇 셋인지 알아야 미리 꺼내 온다 (사용자 요청).
@@ -922,6 +1015,20 @@ function CutPanel({ woId, finished, lots, sampleTiers, sampleBasis, band }: {
   const [item, setItem] = useState('');
   const [produced, setProduced] = useState('');
   const [sample, setSample] = useState('');
+
+  /* -------------------------------------------------------------------------
+     제출이 끝나면 칸을 비운다 (4차 감사 E3)
+
+     제어 입력이라 폼 자동 초기화가 듣지 않고, 부모가 계속 마운트되어 있어
+     값이 그대로 남았다. 형명만 바꾸고 다시 누르면 **앞 형명의 수량이 두 번째
+     제품 로트에 들어간다.**
+
+     qty_produced 는 0052 가 UPDATE 를 거부하므로 사후 정정이 불가능하고,
+     그 숫자가 라벨요청서와 편철 표지에 찍힌다.
+  ------------------------------------------------------------------------- */
+  useEffect(() => {
+    if (state.ok) { setItem(''); setProduced(''); setSample(''); }
+  }, [state]);
   /* 사람이 직접 시료 수를 고쳤는가. 고쳤으면 그 값을 덮어쓰지 않는다 */
   const [touched, setTouched] = useState(false);
 

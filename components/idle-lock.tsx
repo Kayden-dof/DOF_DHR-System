@@ -29,6 +29,30 @@ export default function IdleLock({
   minutes, name, initial,
 }: { minutes: number; name: string; initial: string }) {
   const [locked, setLocked] = useState(false);
+
+  /* -------------------------------------------------------------------------
+     새로고침으로 풀리지 않는다 (4차 감사 E5)
+
+     잠금이 클라이언트 useState 하나였다. 새로고침 · 주소 입력 · 새 탭이면
+     비밀번호 없이 풀렸다. 덮개만 있고 문이 없던 셈이다.
+
+     이 탭에 남긴다. sessionStorage 는 탭을 닫으면 사라지고 다른 탭으로 새지
+     않는다. §4.1 이 이석 책임을 교육으로 관리하기로 정했으므로 이것은 그 위의
+     방어층이고, 서버 세션을 끊는 것과는 다른 일이다.
+  ------------------------------------------------------------------------- */
+  const KEY = 'dhr-idle-lock';
+  const mark = (on: boolean) => {
+    try {
+      if (on) sessionStorage.setItem(KEY, '1');
+      else sessionStorage.removeItem(KEY);
+    } catch { /* 사생활 보호 모드 등. 그때는 이 층이 없을 뿐이다 */ }
+  };
+
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem(KEY) === '1') setLocked(true);
+    } catch { /* 못 읽으면 잠기지 않은 것으로 본다 */ }
+  }, []);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastActive = useRef(Date.now());
 
@@ -46,7 +70,7 @@ export default function IdleLock({
      */
     const tick = () => {
       const left = ms - (Date.now() - lastActive.current);
-      if (left <= 0) { setLocked(true); return; }
+      if (left <= 0) { mark(true); setLocked(true); return; }
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(tick, Math.min(left, 30_000));
     };
@@ -72,7 +96,7 @@ export default function IdleLock({
     <LockScreen
       name={name}
       initial={initial}
-      onOpen={() => { lastActive.current = Date.now(); setLocked(false); }}
+      onOpen={() => { lastActive.current = Date.now(); mark(false); setLocked(false); }}
     />
   );
 }
@@ -107,8 +131,14 @@ function LockScreen({
   keysRef.current = { press, submit };
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      const t = e.target as HTMLElement | null;
-      if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
+      /*
+       * 잠긴 동안에는 뒤로 아무 키도 새지 않는다 (4차 감사 E5).
+       *
+       * 전에는 초점이 뒤 입력칸에 있으면 여기서 빠져나가, Enter 가 브라우저
+       * 기본 동작(뒤 폼의 암묵적 제출)으로 갔다. 잠금은 번호판만 받는다 -
+       * 이 화면에는 받을 입력칸이 없다.
+       */
+      e.stopPropagation();
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (/^[0-9]$/.test(e.key)) { e.preventDefault(); keysRef.current.press(e.key); }
       else if (e.key === 'Backspace') { e.preventDefault(); keysRef.current.press('back'); }
@@ -144,7 +174,7 @@ function LockScreen({
       role="dialog"
       aria-modal="true"
       aria-label="자리 비움 잠금"
-      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-indigo-deep/95 p-5 backdrop-blur-sm"
+      className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-indigo-deep/95 p-5 backdrop-blur-sm"
     >
       <div className="w-full max-w-[22rem] py-6">
         <div className="text-center">
