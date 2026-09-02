@@ -407,6 +407,110 @@ export async function addBom(_p: FormState, form: FormData): Promise<FormState> 
   }
 }
 
+/* ---------------------------------------------------------------------------
+   적어 넣은 것을 고친다 (5차 감사 A3)
+
+   전에는 공정도 자재 구성표도 **추가만** 되었다. 공정 코드를 잘못 치거나
+   소요량을 잘못 넣으면 개정본을 새로 만들어 처음부터 다시 넣는 수밖에 없었다.
+   0084 는 "발행 전에는 전부 열려 있다. 오기 정정이 정상 작업이다" 라고
+   적었는데, DB 가 연 문을 화면이 안 냈다.
+
+   발행 뒤에는 DB 가 막는다 (0089). 화면도 같은 조건으로 폼을 내지 않는다
+   (`editable = wo_count === 0`). 두 층이 같은 것을 말한다.
+
+   판정하지 않는다. 무엇이 옳은 소요량인지 정하지 않고 고쳐 쓸 자리를 낼
+   뿐이며, 이전 값은 감사추적에 남는다 (§5).
+--------------------------------------------------------------------------- */
+export async function updateOperation(_p: FormState, form: FormData): Promise<FormState> {
+  try {
+    const me = await admin();
+    const dm = String(form.get('device_master_id') ?? '');
+    const id = String(form.get('id') ?? '');
+    const code = String(form.get('code') ?? '').trim();
+    const name = String(form.get('name') ?? '').trim();
+    const seq = Number(form.get('seq') ?? 0);
+
+    if (!id) return { error: '어느 공정인지 알 수 없습니다' };
+    if (!code) return { error: '공정 코드를 입력하십시오' };
+    if (!name) return { error: '공정 이름을 입력하십시오' };
+    if (!Number.isInteger(seq) || seq < 1) return { error: '순번은 1 이상의 정수입니다' };
+
+    await withActor(me.id, (db) =>
+      db.rows(
+        `update dmr_operation
+            set code = $2, name = $3, seq = $4, after_cutting = $5, typical_day = $6
+          where id = $1`,
+        [id, code, name, seq, form.get('after_cutting') === 'on',
+         Number(form.get('typical_day') ?? 0) || null]),
+      { reason: '제품표준서 공정 정정' });
+
+    path(dm);
+    return { ok: true, message: `${code} 공정을 고쳤습니다.` };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
+export async function updateBom(_p: FormState, form: FormData): Promise<FormState> {
+  try {
+    const me = await admin();
+    const dm = String(form.get('device_master_id') ?? '');
+    const id = String(form.get('id') ?? '');
+    const basis = String(form.get('basis') ?? 'SHEET_TIER');
+    const per = String(form.get('qty_per_unit') ?? '').trim();
+
+    if (!id) return { error: '어느 자재인지 알 수 없습니다' };
+    if (basis === 'PER_UNIT' && per === '') {
+      return { error: '제품 개수 기준은 1개당 소요량이 필요합니다' };
+    }
+    if (basis === 'PER_UNIT' && !(Number(per) > 0)) {
+      return { error: '1개당 소요량은 0보다 커야 합니다' };
+    }
+
+    await withActor(me.id, (db) =>
+      db.rows(
+        `update dmr_bom set basis = $2::qty_basis, qty_per_unit = $3 where id = $1`,
+        [id, basis, basis === 'PER_UNIT' ? Number(per) : null]),
+      { reason: '제품표준서 자재 구성표 정정' });
+
+    path(dm);
+    return {
+      ok: true,
+      message: basis === 'SHEET_TIER'
+        ? '자재를 고쳤습니다. 장입 구간별 소요량을 확인하십시오.'
+        : '자재를 고쳤습니다.',
+    };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
+export async function updateTier(_p: FormState, form: FormData): Promise<FormState> {
+  try {
+    const me = await admin();
+    const dm = String(form.get('device_master_id') ?? '');
+    const id = String(form.get('id') ?? '');
+    const max = String(form.get('max_sheets') ?? '').trim();
+    const min = Number(form.get('min_sheets') ?? 0);
+    const qty = Number(form.get('qty') ?? 0);
+
+    if (!id) return { error: '어느 구간인지 알 수 없습니다' };
+    if (!Number.isInteger(min) || min < 1) return { error: '구간 하한은 1 이상의 정수입니다' };
+    if (!(qty > 0)) return { error: '소요량은 0보다 커야 합니다' };
+
+    await withActor(me.id, (db) =>
+      db.rows(
+        `update dmr_bom_tier set min_sheets = $2, max_sheets = $3, qty = $4 where id = $1`,
+        [id, min, max === '' ? null : Number(max), qty]),
+      { reason: '제품표준서 장입 구간 정정' });
+
+    path(dm);
+    return { ok: true, message: '장입 구간을 고쳤습니다.' };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
 export async function addTier(_p: FormState, form: FormData): Promise<FormState> {
   try {
     const me = await admin();

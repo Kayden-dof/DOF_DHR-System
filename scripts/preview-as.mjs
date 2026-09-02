@@ -44,9 +44,25 @@ if (!u) {
 const cookie = sessionCookie(u.id);
 
 const srv = http.createServer((req, res) => {
+  /*
+   * Origin 과 Referer 도 앞쪽 주소로 고쳐 준다.
+   *
+   * 이것이 없으면 화면은 보이는데 **아무 단추도 저장되지 않는다.** Next 는
+   * 서버 동작 요청에서 Origin 과 Host 가 같은지 보고, 다르면 "Invalid Server
+   * Actions request" 로 막는다. 대리 서버가 Host 만 고치고 Origin 을 그대로
+   * 넘기면 3112 대 3100 이 되어 전부 걸린다.
+   *
+   * 그러면 이 도구로는 읽기만 확인할 수 있고 누르는 것은 확인하지 못한다.
+   * 확인해 주는 도구가 절반만 확인하는 상태였다 (2026-09-02).
+   */
+  const headers = { ...req.headers, host: `localhost:${from}`, cookie };
+  const fix = (v) => String(v).replace(`:${to}`, `:${from}`);
+  if (headers.origin) headers.origin = fix(headers.origin);
+  if (headers.referer) headers.referer = fix(headers.referer);
+
   const p = http.request({
     host: '127.0.0.1', port: Number(from), path: req.url, method: req.method,
-    headers: { ...req.headers, host: `localhost:${from}`, cookie },
+    headers,
   }, (r) => {
     res.writeHead(r.statusCode ?? 500, r.headers);
     r.pipe(res);

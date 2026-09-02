@@ -11,6 +11,7 @@ import { MATERIAL_STATUS_LABEL } from '@/lib/forms';
 import { Panel, Empty, Truncated, Tag } from '@/components/ui';
 import { Table, Th, Td, IdCell, TwoLine } from '@/components/table';
 import ReceiveForm, { type ItemOpt, type SupplierOpt, type OrderOpt } from './receive-form';
+import AmendLotForm from './amend-form';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,6 +29,8 @@ interface LotRow {
   qty_received: string; qty_available: string;
   status: string; expiry_date: string | null;
   thickness_band: string | null; used_in: number;
+  /* 정정 화면이 지금 값을 그대로 들고 열려야 한다 (5차 감사 A1) */
+  unit_price: string | null; location: string | null;
 }
 
 type Search = Promise<{ status?: string; q?: string }>;
@@ -50,6 +53,7 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
               s.name as supplier_name, s.status as supplier_status, ml.supplier_lot_no,
               ml.coa_no, ml.coa_date, ml.qty_received, ml.qty_available,
               ml.status::text as status, ml.expiry_date, ml.thickness_band,
+              ml.unit_price, ml.location,
               (select count(distinct pr.work_order_id)::int
                  from material_issue mi join process_record pr on pr.id = mi.process_record_id
                 where mi.material_lot_id = ml.id) as used_in
@@ -136,6 +140,7 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
                 <Th>유효기한</Th>
                 <Th>상태</Th>
                 <Th right>사용 배치</Th>
+                {!viewer && <Th right>정정</Th>}
               </tr>
             </thead>
             <tbody>
@@ -183,6 +188,21 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
                       {MATERIAL_STATUS_LABEL[l.status] ?? l.status}
                     </Td>
                     <Td right className="text-muted">{l.used_in || ''}</Td>
+                    {!viewer && <Td right>
+                      {/*
+                        * 입고에서 한 글자 틀리면 되돌릴 곳이 여기뿐이다
+                        * (5차 감사 A1). 읽기 전용 역할에는 내지 않는다.
+                        */}
+                      {!viewer && <AmendLotForm lot={{
+                        id: l.id, lot_no: l.lot_no, item_name: l.item_name,
+                        coa_no: l.coa_no, coa_date: l.coa_date as unknown as string | null,
+                        supplier_lot_no: l.supplier_lot_no,
+                        expiry_date: l.expiry_date as unknown as string | null,
+                        location: l.location ?? null,
+                        unit_price: l.unit_price,
+                        thickness_band: l.thickness_band,
+                      }} />}
+                    </Td>}
                   </tr>
                 );
               })}

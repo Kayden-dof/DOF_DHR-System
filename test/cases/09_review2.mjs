@@ -255,8 +255,13 @@ export default [
       `update product_lot set release_approved_by='다른사람' where id=$1`, [lot]),
       { ...BLOCKED, message: '한 번 적으면' });
 
+    /*
+     * 자재 로트에서 잠긴 것은 이제 넷이다 - 사내 로트번호 · 품목 · 공급자 ·
+     * 입고 수량 (0090). 성적서 번호는 오기 정정이 정상 작업으로 열렸다
+     * (5차 감사 A1 · 사용자 결정 2026-09-02). 그 자리를 ML-01 이 지킨다.
+     */
     await t.rejects(() => t.rows(
-      `update material_lot set coa_no = coa_no || 'X' where id = $1`, [wo.rawLot]),
+      `update material_lot set lot_no = lot_no || 'X' where id = $1`, [wo.rawLot]),
       { ...BLOCKED, message: '한 번 적으면' });
   },
 },

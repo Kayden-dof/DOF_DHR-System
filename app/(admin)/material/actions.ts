@@ -58,6 +58,60 @@ function numOrNull(v: FormDataEntryValue | null, label: string): number | null {
   return num(v, label);
 }
 
+/* ---------------------------------------------------------------------------
+   자재 로트의 오기를 고친다 (5차 감사 A1 · 사용자 결정 2026-09-02)
+
+   입고 등록이 유일한 입구였고 출구가 없었다. `material_lot_coa_once` 가 여덟
+   열을 잠그고 화면에도 고치는 자리가 없어, 한 글자를 틀리면 영구히 되돌릴 수
+   없었다. 현장의 유일한 대처는 같은 자재를 다른 로트번호로 다시 등록하는
+   것이었고, 그러면 재고가 둘로 갈라진다.
+
+   여기서 손대지 않는 것 - 사내 로트번호 · 품목 · 공급자 · 입고 수량.
+   DB 도 같은 넷을 막는다 (0090). 응용에서만 막은 건 검증이 아니다 (§1-2).
+
+   판정하지 않는다. 무엇이 옳은 값인지 정하지 않고 고쳐 쓸 자리를 낼 뿐이며,
+   왜 고쳤는지와 이전 값은 감사추적에 남는다 (§5 · audit_log.reason).
+--------------------------------------------------------------------------- */
+export async function amendMaterialLot(_p: FormState, form: FormData): Promise<FormState> {
+  try {
+    const me = await mgr();
+    const id = String(form.get('id') ?? '');
+    const coa = String(form.get('coa_no') ?? '').trim();
+    const coaDate = String(form.get('coa_date') ?? '').trim();
+    const supplierLot = String(form.get('supplier_lot_no') ?? '').trim();
+    const reason = String(form.get('reason') ?? '').trim();
+
+    if (!id) return { error: '어느 로트인지 알 수 없습니다' };
+    if (!coa) return { error: '성적서 번호는 비울 수 없습니다 (S02)' };
+    if (!coaDate) return { error: '성적서 일자를 입력하십시오' };
+    if (!supplierLot) return { error: '공급자 로트번호를 입력하십시오' };
+    if (!reason) return { error: '왜 고치는지 적으십시오' };
+
+    const lotNo = await withActor(me.id, async (db) => {
+      await db.rows(
+        `update material_lot
+            set coa_no = $2, coa_date = $3::date, supplier_lot_no = $4,
+                thickness_band = $5, expiry_date = $6::date,
+                location = $7, unit_price = $8
+          where id = $1`,
+        [id, coa, coaDate, supplierLot,
+         txt(form.get('thickness_band')),
+         txt(form.get('expiry_date')),
+         txt(form.get('location')),
+         numOrNull(form.get('unit_price'), '단가')]);
+      return db.val<string>(`select lot_no from material_lot where id = $1`, [id]);
+    }, { reason: `자재 로트 정정 · ${reason}` });
+
+    bump();
+    return {
+      ok: true,
+      message: `${lotNo} 을(를) 고쳤습니다. 이미 인쇄된 자재 라벨은 바뀌지 않습니다.`,
+    };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
 export async function receiveMaterial(_p: FormState, form: FormData): Promise<FormState> {
   try {
     const me = await mgr();

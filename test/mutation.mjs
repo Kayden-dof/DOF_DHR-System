@@ -66,6 +66,16 @@ const MUTATIONS = [
           drop trigger if exists material_issue_s04 on material_issue`,
     cases: ['S04-01', 'S04-02'] },
 
+  { id: 'M-MLLOCK', rule: '자재 로트에서 계보가 걸린 넷은 잠긴다 (0090)',
+    sql: `drop trigger if exists material_lot_coa_once on material_lot`,
+    cases: ['ML-02', 'RV2-10'] },
+
+  { id: 'M-DMRPART', rule: '발행 뒤 공정 · 자재 구성표 고쳐 쓰기 금지 (0089)',
+    sql: `drop trigger if exists dmr_operation_frozen on dmr_operation;
+          drop trigger if exists dmr_bom_frozen on dmr_bom;
+          drop trigger if exists dmr_bom_tier_frozen on dmr_bom_tier`,
+    cases: ['DMR-02', 'DMR-03'] },
+
   { id: 'M-LOAD', rule: '장입 경고가 제품표준서를 본다 (0087)',
     /* 옛 셈법으로 되돌린다. 30과 WS-02 가 박혀 있던 그대로 */
     sql: `create or replace function work_order_warnings(

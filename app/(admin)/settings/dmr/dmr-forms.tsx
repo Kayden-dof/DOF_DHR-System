@@ -8,6 +8,7 @@ import {
   createDeviceMaster, verifyDeviceMaster, addOperation, addBom, addTier, setExpectedUnits, setProductCode,
   addOperationsBulk, copyDmr, createProduct, addSampleTier, setSampleBasis,
   setTypicalDay, setDmrNote, setDmrLimits,
+  updateOperation, updateBom, updateTier,
 } from './actions';
 import { linkOperation } from '../../equipment/actions';
 
@@ -367,6 +368,167 @@ export function AddBomForm({ dm, op, items }: {
   );
 }
 
+/* ---------------------------------------------------------------------------
+   적어 넣은 것을 고치는 자리 (5차 감사 A3)
+
+   전에는 추가만 되었다. 오기가 나면 개정본을 새로 만들어 처음부터 다시 넣는
+   수밖에 없었다. 0084 는 발행 전이면 열어 두었는데 화면이 문을 안 냈다.
+
+   발행 뒤에는 이 폼들이 아예 나오지 않는다 (editable). DB 도 같은 것을
+   막는다 (0089) - 응용에서만 막은 건 검증이 아니다 (§1-2).
+--------------------------------------------------------------------------- */
+export function EditOperationForm({ dm, op }: { dm: string; op: OperationRow }) {
+  const uid = useId();
+  const [show, setShow] = useState(false);
+  const [state, action, pending] = useActionState<FormState, FormData>(updateOperation, {});
+
+  if (!show) {
+    return (
+      <div className="border-b border-line-soft px-4 py-2.5">
+        <button type="button" onClick={() => setShow(true)} className="btn-quiet h-8 text-xs">
+          공정 고치기
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <form action={action} className="border-b border-line-soft px-4 py-3">
+      <input type="hidden" name="device_master_id" value={dm} />
+      <input type="hidden" name="id" value={op.id} />
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="w-20">
+          <label className="label" htmlFor={`${uid}-seq`}>순번</label>
+          <input id={`${uid}-seq`} name="seq" type="number" min="1" required
+                 defaultValue={op.seq} className="input h-9 tnum text-xs" />
+        </div>
+        <div className="w-44">
+          <label className="label" htmlFor={`${uid}-code`}>공정 코드</label>
+          <input id={`${uid}-code`} name="code" required autoComplete="off"
+                 defaultValue={op.code} className="input h-9 font-mono text-xs" />
+        </div>
+        <div className="min-w-44 flex-1">
+          <label className="label" htmlFor={`${uid}-name`}>공정 이름</label>
+          <input id={`${uid}-name`} name="name" required autoComplete="off"
+                 defaultValue={op.name} className="input h-9 text-xs" />
+        </div>
+        <div className="w-24">
+          <label className="label" htmlFor={`${uid}-day`}>보통 일차</label>
+          <input id={`${uid}-day`} name="typical_day" type="number" min="1"
+                 defaultValue={op.typical_day ?? ''} placeholder="비움"
+                 className="input h-9 tnum text-xs" />
+        </div>
+        <label className="flex h-9 items-center gap-1.5 text-xs text-ink">
+          <input type="checkbox" name="after_cutting" defaultChecked={op.after_cutting} />
+          재단 이후
+        </label>
+        <button type="submit" disabled={pending} className="btn-quiet h-9 px-3 text-xs">
+          {pending ? '고치는 중' : '고친다'}
+        </button>
+        <button type="button" onClick={() => setShow(false)}
+                className="btn-ghost h-9 px-3 text-xs">취소</button>
+      </div>
+      <p className="mt-1.5 text-xs leading-relaxed text-faint">
+        공정 코드와 이름, 보통 일차는 작업 지시서에 인쇄됩니다. 재단 이후로 바꾸면
+        그 공정의 기록이 제품 로트에 붙습니다.
+      </p>
+      <Msg state={state} />
+    </form>
+  );
+}
+
+export function EditBomForm({ dm, bom }: { dm: string; bom: BomRow }) {
+  const uid = useId();
+  const [show, setShow] = useState(false);
+  const [basis, setBasis] = useState(bom.basis);
+  const [state, action, pending] = useActionState<FormState, FormData>(updateBom, {});
+
+  if (!show) {
+    return (
+      <div className="px-3 pb-2">
+        <button type="button" onClick={() => setShow(true)} className="btn-quiet h-7 text-xs">
+          자재 고치기
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <form action={action} className="flex flex-wrap items-end gap-2 px-3 pb-3">
+      <input type="hidden" name="device_master_id" value={dm} />
+      <input type="hidden" name="id" value={bom.id} />
+      <div className="w-40">
+        <label className="label" htmlFor={`${uid}-basis`}>기준</label>
+        <select id={`${uid}-basis`} name="basis" value={basis}
+                onChange={(e) => setBasis(e.target.value as BomRow['basis'])}
+                className="input h-9 text-xs">
+          <option value="SHEET_TIER">장입 구간 기준</option>
+          <option value="PER_UNIT">제품 개수 기준</option>
+        </select>
+      </div>
+      {basis === 'PER_UNIT' && (
+        <div className="w-32">
+          <label className="label" htmlFor={`${uid}-per`}>1개당 소요량</label>
+          <input id={`${uid}-per`} name="qty_per_unit" type="number" step="any" min="0.0001"
+                 required defaultValue={bom.qty_per_unit ?? ''}
+                 className="input h-9 tnum text-xs" />
+        </div>
+      )}
+      <button type="submit" disabled={pending} className="btn-quiet h-9 px-3 text-xs">
+        {pending ? '고치는 중' : '고친다'}
+      </button>
+      <button type="button" onClick={() => setShow(false)}
+              className="btn-ghost h-9 px-3 text-xs">취소</button>
+      <div className="w-full"><Msg state={state} /></div>
+    </form>
+  );
+}
+
+export function EditTierForm({ dm, tier }: {
+  dm: string; tier: { id: string; min_sheets: number; max_sheets: number | null; qty: string };
+}) {
+  const uid = useId();
+  const [show, setShow] = useState(false);
+  const [state, action, pending] = useActionState<FormState, FormData>(updateTier, {});
+
+  if (!show) {
+    return (
+      <button type="button" onClick={() => setShow(true)}
+              className="btn-quiet h-7 px-2 text-xs">고치기</button>
+    );
+  }
+
+  return (
+    <form action={action} className="flex flex-wrap items-end gap-1.5">
+      <input type="hidden" name="device_master_id" value={dm} />
+      <input type="hidden" name="id" value={tier.id} />
+      <div className="w-20">
+        <label className="label" htmlFor={`${uid}-min`}>하한</label>
+        <input id={`${uid}-min`} name="min_sheets" type="number" min="1" required
+               defaultValue={tier.min_sheets} className="input h-8 tnum text-xs" />
+      </div>
+      <div className="w-20">
+        <label className="label" htmlFor={`${uid}-max`}>상한</label>
+        <input id={`${uid}-max`} name="max_sheets" type="number" min="1" placeholder="없음"
+               defaultValue={tier.max_sheets ?? ''} className="input h-8 tnum text-xs" />
+      </div>
+      <div className="w-24">
+        <label className="label" htmlFor={`${uid}-q`}>소요량</label>
+        <input id={`${uid}-q`} name="qty" type="number" step="any" min="0.0001" required
+               defaultValue={Number(tier.qty)} className="input h-8 tnum text-xs" />
+      </div>
+      <button type="submit" disabled={pending} className="btn-quiet h-8 px-2 text-xs">
+        {pending ? '중' : '고친다'}
+      </button>
+      <button type="button" onClick={() => setShow(false)}
+              className="btn-ghost h-8 px-2 text-xs">취소</button>
+      <div className="w-full"><Msg state={state} /></div>
+    </form>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
 export function AddTierForm({ dm, bom }: { dm: string; bom: BomRow }) {
   /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
   const uid = useId();
@@ -438,6 +600,8 @@ export function OperationCard({ dm, op, items, editable, equipment = [] }: {
 
       {open && (
         <div className="bg-canvas/50">
+          {editable && <EditOperationForm dm={dm} op={op} />}
+
           {/*
             * 보통 몇 일차. 실제 일차는 현장이 정하므로 여기 값은 계획을 돕는
             * 참고값이고, 어긋나도 검토 지원에 올리지 않는다.
@@ -494,6 +658,7 @@ export function OperationCard({ dm, op, items, editable, equipment = [] }: {
                         : '장입 구간 기준'}
                     </Tag>
                   </div>
+                  {editable && <EditBomForm dm={dm} bom={b} />}
                   {b.basis === 'SHEET_TIER' && (
                     <>
                       {b.tiers.length > 0 && (
@@ -502,6 +667,7 @@ export function OperationCard({ dm, op, items, editable, equipment = [] }: {
                             <tr>
                               <th className="th">장입 구간</th>
                               <th className="th text-right">소요량</th>
+                              {editable && <th className="th" />}
                             </tr>
                           </thead>
                           <tbody>
@@ -513,6 +679,11 @@ export function OperationCard({ dm, op, items, editable, equipment = [] }: {
                                 <td className="td tnum text-right text-xs">
                                   {Number(tr.qty)} {b.usage_uom}
                                 </td>
+                                {editable && (
+                                  <td className="td text-right">
+                                    <EditTierForm dm={dm} tier={tr} />
+                                  </td>
+                                )}
                               </tr>
                             ))}
                           </tbody>
