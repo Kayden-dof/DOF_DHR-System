@@ -213,7 +213,11 @@ export function NewEquipment() {
 
 /* -------------------------------------------------------------------------- */
 
-export function EquipCard({ e, ops }: { e: EquipRow; ops: OpOption[] }) {
+export function EquipCard({ e, ops, warnDays }: {
+  e: EquipRow; ops: OpOption[];
+  /** 며칠 남으면 눈에 띄게 하는가. 설정이 정한다 (6차 감사 N1) */
+  warnDays: number;
+}) {
   /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
   const uid = useId();
 
@@ -241,7 +245,7 @@ export function EquipCard({ e, ops }: { e: EquipRow; ops: OpOption[] }) {
             <Tag tone="danger">밸리데이션 기록 없음</Tag>
           ) : e.days_left !== null && e.days_left < 0 ? (
             <Tag tone="danger">기한 경과 {fmtDate(e.valid_until)}</Tag>
-          ) : e.days_left !== null && e.days_left <= 30 ? (
+          ) : e.days_left !== null && e.days_left <= warnDays ? (
             <Tag tone="warn">만료 {e.days_left}일 전</Tag>
           ) : (
             <span className="tnum text-xs text-muted">만료 {fmtDate(e.valid_until)}</span>

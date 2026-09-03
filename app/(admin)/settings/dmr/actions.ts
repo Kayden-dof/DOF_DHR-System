@@ -282,12 +282,14 @@ export async function addOperation(_p: FormState, form: FormData): Promise<FormS
     const code = String(form.get('code') ?? '').trim();
     await withActor(me.id, (db) =>
       db.rows(
-        `insert into dmr_operation (device_master_id, seq, code, name, after_cutting, typical_day)
-         values ($1,$2,$3,$4,$5,$6)`,
+        `insert into dmr_operation (device_master_id, seq, code, name, after_cutting,
+                                    typical_day, takes_rework)
+         values ($1,$2,$3,$4,$5,$6,$7)`,
         [dm, Number(form.get('seq') ?? 0), code,
          String(form.get('name') ?? '').trim(),
          form.get('after_cutting') === 'on',
-         Number(form.get('typical_day') ?? 0) || null]));
+         Number(form.get('typical_day') ?? 0) || null,
+         form.get('takes_rework') === 'on']));
     path(dm);
     return { ok: true, message: `${code} 공정을 추가했습니다.` };
   } catch (e) {
@@ -450,10 +452,12 @@ export async function updateOperation(_p: FormState, form: FormData): Promise<Fo
     await withActor(me.id, (db) =>
       db.rows(
         `update dmr_operation
-            set code = $2, name = $3, seq = $4, after_cutting = $5, typical_day = $6
+            set code = $2, name = $3, seq = $4, after_cutting = $5, typical_day = $6,
+                takes_rework = $7
           where id = $1`,
         [id, code, name, seq, form.get('after_cutting') === 'on',
-         Number(form.get('typical_day') ?? 0) || null]),
+         Number(form.get('typical_day') ?? 0) || null,
+         form.get('takes_rework') === 'on']),
       { reason: '제품표준서 공정 정정' });
 
     path(dm);

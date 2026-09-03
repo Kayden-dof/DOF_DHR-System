@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { requireUser, hasRole } from '@/lib/session';
 import { withUser } from '@/lib/db';
+import { getBrand } from '@/lib/brand';
 import { fmtDate, fmtTime } from '@/lib/fmt';
 import {
   NUMBERING_TARGETS, M1_CRITICAL_TARGETS, WO_STATUS_LABEL, PL_STATUS_LABEL, tableLabel,
@@ -233,6 +234,12 @@ export default async function Dashboard() {
          from v_audit_entry order by id desc limit 20`),
   }));
 
+  /*
+   * 며칠 남으면 눈에 띄게 할지는 설정이 정한다 (6차 감사 N1).
+   * 전에는 이 화면이 7일, 설비 화면이 30일로 서로 다르게 보고 있었다.
+   */
+  const { expiryWarnDays: warnDays } = await getBrand();
+
   const c = d.c!;
   const have = new Set(d.covered.map((r) => r.target));
   const blocking = NUMBERING_TARGETS.filter(
@@ -408,7 +415,7 @@ export default async function Dashboard() {
         {d.expiring.length > 0 && (
           <Panel
             title="유효기한 임박"
-            note="30일 이내"
+            note={`${warnDays}일 이내`}
             action={
               <Link href="/material" className="text-xs font-bold text-brand hover:underline">
                 자재로
@@ -419,7 +426,8 @@ export default async function Dashboard() {
               {d.expiring.map((e) => (
                 <li key={e.id} className="flex items-center gap-3 px-4 py-2.5">
                   <span aria-hidden className={`h-8 w-[3px] shrink-0 rounded-full ${
-                    e.days_left <= 0 ? 'bg-danger' : e.days_left <= 7 ? 'bg-warn' : 'bg-line-strong'
+                    e.days_left <= 0 ? 'bg-danger'
+                      : e.days_left <= warnDays ? 'bg-warn' : 'bg-line-strong'
                   }`} />
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm text-ink">{e.item_name}</div>

@@ -43,6 +43,12 @@ export interface Brand {
    * 정한다 (§2.0) - 달마다 뜨는 곳과 분기마다 뜨는 곳이 같을 수 없다.
    */
   backupWarnDays: number;
+  /*
+   * 유효기한 · 밸리데이션이 며칠 남으면 화면이 눈에 띄게 하는가 (6차 감사 N1).
+   * 전에는 네 화면과 함수 하나에 박혀 있었고, 게다가 화면마다 달랐다 -
+   * 같은 것을 두 자리가 다르게 말하면 둘 다 못 믿는다.
+   */
+  expiryWarnDays: number;
 }
 
 /** 설정이 아직 없거나 읽지 못했을 때. 화면이 비어 보이지 않게만 한다 */
@@ -61,6 +67,7 @@ const FALLBACK: Brand = {
   bizNo: '',
   ceoName: '',
   backupWarnDays: 35,
+  expiryWarnDays: 30,
 };
 
 export const getBrand = cache(async (): Promise<Brand> => {
@@ -73,14 +80,15 @@ export const getBrand = cache(async (): Promise<Brand> => {
         system_tagline: string | null; company_tagline: string | null;
         address: string | null; plant_address: string | null;
         biz_no: string | null; ceo_name: string | null;
-        backup_warn_days: number | null;
+        backup_warn_days: number | null; expiry_warn_days: number | null;
       }>(
         `select company_name, brand_color,
                 (logo_bytes is not null) as has_logo,
                 (logo_dark_bytes is not null) as has_dark_logo,
                 to_char(updated_at, 'YYYYMMDDHH24MISS') as logo_updated_at,
                 system_name, system_name_long, system_tagline, company_tagline,
-                address, plant_address, biz_no, ceo_name, backup_warn_days
+                address, plant_address, biz_no, ceo_name,
+                backup_warn_days, expiry_warn_days
            from org_brand limit 1`),
     );
     if (!row) return FALLBACK;
@@ -99,6 +107,7 @@ export const getBrand = cache(async (): Promise<Brand> => {
       bizNo: row.biz_no ?? '',
       ceoName: row.ceo_name ?? '',
       backupWarnDays: row.backup_warn_days ?? 35,
+      expiryWarnDays: row.expiry_warn_days ?? 30,
     };
   } catch {
     /* 설정 표가 아직 없어도 화면이 서 버리면 안 된다 */

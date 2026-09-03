@@ -1,5 +1,6 @@
 import { requireUser, hasRole, canWrite } from '@/lib/session';
 import { withUser } from '@/lib/db';
+import { getBrand } from '@/lib/brand';
 import Denied from '@/components/denied';
 import { Empty } from '@/components/ui';
 import { PageShell, StatStrip, type StatItem } from '@/components/shell';
@@ -97,9 +98,13 @@ export default async function EquipmentPage() {
         order by i.code, dm.revision desc, o.seq`),
   }));
 
+  /* 며칠 남으면 눈에 띄게 할지는 설정이 정한다 (6차 감사 N1) */
+  const { expiryWarnDays: warnDays } = await getBrand();
+
   const active = d.equipment.filter((e) => e.is_active);
   const expired = active.filter((e) => e.valid_until === null || (e.days_left ?? -1) < 0);
-  const soon = active.filter((e) => e.days_left !== null && e.days_left >= 0 && e.days_left <= 30);
+  const soon = active.filter(
+    (e) => e.days_left !== null && e.days_left >= 0 && e.days_left <= warnDays);
 
   /*
    * 숫자에 든 설비를 그대로 적는다. 뜻풀이가 아니라 항목이다 (사용자 지시).
@@ -118,7 +123,7 @@ export default async function EquipmentPage() {
       detail: statRows(
         valid.map((e) => eqRow(e, `${e.valid_until} 까지`)),
         '해당 설비가 없습니다') },
-    { label: '만료 30일 이내', value: soon.length, unit: '대',
+    { label: `만료 ${warnDays}일 이내`, value: soon.length, unit: '대',
       tone: soon.length > 0 ? 'warn' : undefined,
       detail: statRows(
         soon.map((e) => eqRow(e, `${e.days_left}일 남음`)),
@@ -157,7 +162,7 @@ export default async function EquipmentPage() {
       ) : (
         <div className="space-y-4">
           {d.equipment.map((e) => (
-            <EquipCard key={e.id} e={e} ops={d.ops} />
+            <EquipCard key={e.id} e={e} ops={d.ops} warnDays={warnDays} />
           ))}
         </div>
       )}

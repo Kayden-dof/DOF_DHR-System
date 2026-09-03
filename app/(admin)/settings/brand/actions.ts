@@ -72,6 +72,16 @@ export async function saveBrand(_p: FormState, form: FormData): Promise<FormStat
       return { error: '백업을 묻는 주기는 1일에서 400일 사이입니다' };
     }
 
+    /*
+     * 유효기한 · 밸리데이션이 며칠 남으면 눈에 띄게 할 것인가 (6차 감사 N1).
+     * 전에는 네 화면과 함수 하나에 박혀 있었고 화면마다 값이 달랐다.
+     */
+    const rawExp = String(form.get('expiry_warn_days') ?? '').trim();
+    const expDays = rawExp === '' ? 30 : Number(rawExp);
+    if (!Number.isInteger(expDays) || expDays < 1 || expDays > 400) {
+      return { error: '임박으로 보는 날수는 1일에서 400일 사이입니다' };
+    }
+
     await withActor(me.id, (db) =>
       db.rows(
         `update org_brand set company_name = $1, brand_color = $2,
@@ -79,12 +89,12 @@ export async function saveBrand(_p: FormState, form: FormData): Promise<FormStat
                               system_tagline = $5, company_tagline = $6,
                               address = $7, plant_address = $8,
                               biz_no = $9, ceo_name = $10,
-                              backup_warn_days = $11,
-                              updated_by = $12, updated_at = now()`,
+                              backup_warn_days = $11, expiry_warn_days = $12,
+                              updated_by = $13, updated_at = now()`,
         [name, color, txt('system_name'), txt('system_name_long'),
          txt('system_tagline'), txt('company_tagline'),
          txt('address'), txt('plant_address'),
-         txt('biz_no'), txt('ceo_name'), warnDays, me.id]),
+         txt('biz_no'), txt('ceo_name'), warnDays, expDays, me.id]),
       { reason: '회사 표시 변경' });
 
     bump();

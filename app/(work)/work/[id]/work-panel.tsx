@@ -17,6 +17,12 @@ import {
 export interface Op {
   id: string; seq: number; code: string; name: string; after_cutting: boolean;
   typical_day: number | null;
+  /*
+   * 이 공정에서 재작업(재포장) 수량을 적는가 (6차 감사 N6).
+   * 전에는 공정 이름에 '포장' 이 들어가는지로 정했다 - 그 공정을 달리
+   * 부르는 제조소는 그 칸을 영영 못 봤다. 제품표준서가 정한다.
+   */
+  takes_rework: boolean;
   bom: { item_id: string; item_code: string; item_name: string; usage_uom: string;
          basis: string; required: string | null }[];
   /** 이 공정에 걸린 설비. 비어 있으면 화면에 칸이 나오지 않는다 */
@@ -912,7 +918,7 @@ function EndForm({ woId, rec, op, missing }: {
         <PresetPicker name="no_material_reason" label="해당 없음 사유" presets={REASONS} />
       )}
 
-      {op.name.includes('포장') && (
+      {op.takes_rework && (
         <NumPad name="rework_qty" label="재포장 수량 (없으면 비워 둡니다)"
                 allowDecimal={false} />
       )}

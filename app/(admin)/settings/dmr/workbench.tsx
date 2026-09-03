@@ -63,6 +63,7 @@ export async function DmrWorkbench({
     const operations = selected
       ? await db.rows<OperationRow>(
           `select o.id, o.seq, o.code, o.name, o.after_cutting, o.typical_day,
+                  o.takes_rework,
                   coalesce((
                     select json_agg(json_build_object(
                       'id', b.id, 'component_item_id', b.component_item_id,

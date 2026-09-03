@@ -2,6 +2,7 @@ import { requireUser, blocksViewer } from '@/lib/session';
 import Denied from '@/components/denied';
 import { isViewerOnly } from '@/lib/roles';
 import { withUser } from '@/lib/db';
+import { getBrand } from '@/lib/brand';
 import { PageShell, FilterBar } from '@/components/shell';
 import { SubNav } from '../nav';
 import { MATERIAL_NAV } from '../sections';
@@ -42,6 +43,8 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
 
   /* 순수 열람자면 쓰기 단추를 아예 그리지 않는다 */
   const viewer = isViewerOnly(user.roles);
+  /* 며칠 남으면 눈에 띄게 할지는 설정이 정한다 (6차 감사 N1) */
+  const { expiryWarnDays: warnDays } = await getBrand();
 
   const sp = await searchParams;
   const status = sp.status || null;
@@ -147,7 +150,7 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
               {d.lots.map((l) => {
                 /* 날짜는 글자다. Date 산술은 자정 언저리에서 하루 밀린다 (lib/kst) */
                 const left = daysUntilKST(l.expiry_date);
-                const soon = left !== null && left < 30;
+                const soon = left !== null && left < warnDays;
                 /*
                  * 상태를 행마다 색 조각으로 찍지 않는다. 열한 줄이 모두 "사용 가능"
                  * 이면 그 열은 아무것도 말하지 않으면서 눈만 잡는다. 손대야 할

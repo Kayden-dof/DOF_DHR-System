@@ -34,7 +34,20 @@ export default function FlowDiagram({
 }) {
   if (operations.length === 0) return null;
 
-  const cutIndex = operations.findIndex((o) => o.name.includes('재단') && !o.after_cutting);
+  /*
+   * 어느 공정이 갈림인가를 **구조로** 찾는다 (6차 감사 N5).
+   *
+   * 전에는 이름에 '재단' 이 들어가는지로 골랐다. 그 공정을 '절단' 이라 부르는
+   * 제조소에서는 갈림 표시가 사라지고, 무엇보다 **DB 와 정의가 달랐다** -
+   * cut_operation_id() 는 "재단 이후 공정이 하나라도 있을 때, 그 이전 공정 중
+   * 마지막" 으로 찾는다. 같은 것을 두 곳이 다르게 정하면 둘 다 못 믿는다.
+   *
+   * 여기서도 같은 셈을 쓴다. 이름은 보지 않는다.
+   */
+  const hasAfter = operations.some((o) => o.after_cutting);
+  const cutIndex = hasAfter
+    ? operations.map((o) => o.after_cutting).lastIndexOf(false)
+    : -1;
 
   return (
     <div className="px-4 py-4">

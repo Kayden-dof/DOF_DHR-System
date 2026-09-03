@@ -15,14 +15,14 @@ import type { FormState } from '@/lib/forms';
 
 export function BrandForm({
   name, color, sys, sysLong, tagline, companyTagline, address, plantAddress,
-  bizNo, ceoName, backupWarnDays,
+  bizNo, ceoName, backupWarnDays, expiryWarnDays,
 }: {
   name: string; color: string;
   sys: string | null; sysLong: string | null;
   tagline: string | null; companyTagline: string | null;
   address: string | null; plantAddress: string | null;
   bizNo: string | null; ceoName: string | null;
-  backupWarnDays: number | null;
+  backupWarnDays: number | null; expiryWarnDays: number | null;
 }) {
   /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
   const uid = useId();
@@ -147,7 +147,8 @@ export function BrandForm({
           * 백업을 며칠마다 묻는가. 달마다 뜨는 곳과 분기마다 뜨는 곳이 같을
           * 수 없다 (§2.0). 늘 켜진 경고는 경고가 아니라 배경이 된다.
           */}
-        <div className="mt-3 max-w-48">
+        <div className="mt-3 grid max-w-md gap-3 sm:grid-cols-2">
+        <div>
           <label className="label" htmlFor={`${uid}-warn`}>백업을 묻는 주기 (일)</label>
           <input id={`${uid}-warn`} name="backup_warn_days" type="number" min="1" max="400"
                  defaultValue={backupWarnDays ?? 35} className="input tnum" />
@@ -155,6 +156,20 @@ export function BrandForm({
             마지막 백업이 이 날수를 넘기면 개요 화면이 묻습니다.
             달마다 뜨면 35, 분기마다 뜨면 100 쯤입니다.
           </p>
+        </div>
+        {/*
+          * 유효기한 · 밸리데이션 임박 (6차 감사 N1). 전에는 네 화면에 박혀
+          * 있었고, 자재 화면은 30일 첫 화면은 7일로 서로 달랐다.
+          */}
+        <div>
+          <label className="label" htmlFor={`${uid}-exp`}>임박으로 보는 날수 (일)</label>
+          <input id={`${uid}-exp`} name="expiry_warn_days" type="number" min="1" max="400"
+                 defaultValue={expiryWarnDays ?? 30} className="input tnum" />
+          <p className="mt-1 text-xs leading-relaxed text-faint">
+            자재 유효기한과 설비 밸리데이션이 이 날수 안에 들면 화면이 눈에 띄게
+            표시합니다. 막지는 않습니다.
+          </p>
+        </div>
         </div>
         <p className="mt-1.5 text-xs leading-relaxed text-faint">
           적힌 것만 인쇄물 머리에 회사 이름 아래로 한 줄에 이어 나옵니다.

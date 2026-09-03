@@ -53,12 +53,21 @@ export default async function SterilPage() {
         order by sb.shipped_at desc nulls first, sb.batch_no desc
         limit 100`),
     today: await db.val<string>(`select to_char(timezone('Asia/Seoul', now()),'YYYY-MM-DD')`),
-    /* 박스 수량은 제품표준서가 정한다 (0069). 여러 개정이 있으면 발효된 것 */
-    boxQty: await db.val<number>(
-      `select steril_box_qty from device_master
-        where steril_box_qty is not null
-        order by (status = 'EFFECTIVE') desc, effective_from desc nulls last
-        limit 1`),
+    /*
+     * 박스 수량은 제품표준서가 정한다 (0069). 그런데 **어느 제품표준서인가**
+     * 를 전역으로 골랐다 (6차 감사 N4) - 제품이 둘이면 한쪽 값이 다른 쪽
+     * 로트에도 쓰인다.
+     *
+     * 보낼 수 있는 로트들이 실제로 어느 값을 갖는지 세어 본다. 하나로
+     * 모이면 그 값을 쓰고, 갈리면 지어내지 않고 세지 않는다.
+     */
+    boxQtys: await db.rows<{ qty: number }>(
+      `select distinct dm.steril_box_qty as qty
+         from product_lot pl
+         join work_order wo on wo.id = pl.work_order_id
+         join device_master dm on dm.id = wo.device_master_id
+        where dm.steril_box_qty is not null
+          and pl.status in ('PACKED','STERILIZING')`),
   }));
 
   return (
@@ -75,11 +84,12 @@ export default async function SterilPage() {
        *
        * 50은 DX2401 의 값이지 프로그램의 성질이 아니다.
        */
-      lede={(d.boxQty
-              ? `${d.boxQty}개 박스 단위로 발송합니다. `
+      lede={(d.boxQtys.length === 1
+              ? `${Number(d.boxQtys[0].qty)}개 박스 단위로 발송합니다. `
               : '박스 단위로 발송합니다. ')
             + '한 박스에 여러 제품 로트가 들어갈 수 있습니다.'}
-      action={<SterilForm lots={d.lots} today={d.today ?? ''} boxQty={d.boxQty ?? null} />}
+      action={<SterilForm lots={d.lots} today={d.today ?? ''}
+                          boxQty={d.boxQtys.length === 1 ? Number(d.boxQtys[0].qty) : null} />}
       nav={<SubNav items={SHIPPING_NAV} />}
     >
 

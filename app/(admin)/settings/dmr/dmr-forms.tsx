@@ -14,6 +14,8 @@ import { linkOperation } from '../../equipment/actions';
 
 export interface OperationRow {
   id: string; seq: number; code: string; name: string; after_cutting: boolean;
+  /** 이 공정에서 재작업(재포장) 수량을 적는가 (6차 감사 N6) */
+  takes_rework: boolean;
   typical_day: number | null;
   bom: BomRow[];
 }
@@ -318,10 +320,15 @@ export function AddOperationForm({ dm, nextSeq }: { dm: string; nextSeq: number 
           <input type="checkbox" name="after_cutting" className="size-4 accent-brand" />
           재단 이후 공정
         </label>
+        <label className="flex items-center gap-2 text-sm text-ink">
+          <input type="checkbox" name="takes_rework" className="size-4 accent-brand" />
+          재작업 수량을 적는다
+        </label>
       </div>
       <p className="mt-2 text-xs leading-relaxed text-muted">
         재단 이후 공정은 기록이 <b className="text-ink">제품 로트</b>에 붙고, 그 이전은
-        <b className="text-ink"> 배치</b>에 붙습니다. 재단(WS-07) 자체는 이전 공정입니다.
+        <b className="text-ink"> 배치</b>에 붙습니다. <b className="text-ink">갈라지는 공정
+        자체는 이전</b>입니다 - 자르는 일은 아직 배치 하나로 일어납니다.
         보통 일차는 참고값이며 실제 기록 일차를 제약하지 않습니다.
       </p>
       <Msg state={state} />
@@ -439,6 +446,10 @@ export function EditOperationForm({ dm, op }: { dm: string; op: OperationRow }) 
           <input type="checkbox" name="after_cutting" defaultChecked={op.after_cutting} />
           재단 이후
         </label>
+        <label className="flex h-9 items-center gap-1.5 text-xs text-ink">
+          <input type="checkbox" name="takes_rework" defaultChecked={op.takes_rework} />
+          재작업 수량
+        </label>
         <button type="submit" disabled={pending} className="btn-quiet h-9 px-3 text-xs">
           {pending ? '고치는 중' : '고친다'}
         </button>
@@ -447,7 +458,8 @@ export function EditOperationForm({ dm, op }: { dm: string; op: OperationRow }) 
       </div>
       <p className="mt-1.5 text-xs leading-relaxed text-faint">
         공정 코드와 이름, 보통 일차는 작업 지시서에 인쇄됩니다. 재단 이후로 바꾸면
-        그 공정의 기록이 제품 로트에 붙습니다.
+        그 공정의 기록이 제품 로트에 붙습니다. <b className="text-ink">재작업 수량</b>을
+        켜면 현장 마감 화면에 그 칸이 납니다 - 제조기록서에 인쇄됩니다.
       </p>
       <Msg state={state} />
     </form>

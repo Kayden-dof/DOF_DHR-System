@@ -58,6 +58,7 @@ export default async function WorkBatchPage({ params }: { params: Promise<{ id: 
       wo,
       ops: await db.rows<Op>(
         `select o.id, o.seq, o.code, o.name, o.after_cutting, o.typical_day,
+                o.takes_rework,
                 coalesce((
                   select json_agg(json_build_object(
                     'item_id', b.component_item_id, 'item_code', ci.code,
