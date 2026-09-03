@@ -52,12 +52,19 @@ export async function updateItem(_p: FormState, form: FormData): Promise<FormSta
     const id = String(form.get('id') ?? '');
     await withActor(me.id, (db) =>
       db.rows(
+        /*
+         * 기본 공급자 (6차 감사 N7). 사양 §4.2 에 있는 열인데 화면에 칸이
+         * 없었고 아무도 읽지 않았다 - 발주 화면이 공급자를 미리 골라 주지
+         * 않아, 살 때마다 어디서 사는지를 사람이 다시 떠올려야 했다.
+         */
         `update item set name = $2, min_stock = $3, lead_days = $4,
-                         shelf_life_months = $5, is_active = $6
+                         shelf_life_months = $5, is_active = $6,
+                         default_supplier_id = $7
           where id = $1`,
         [id, String(form.get('name') ?? '').trim(),
          num(form.get('min_stock')), num(form.get('lead_days')),
-         num(form.get('shelf_life_months')), form.get('is_active') === 'on'],
+         num(form.get('shelf_life_months')), form.get('is_active') === 'on',
+         String(form.get('default_supplier_id') ?? '').trim() || null],
       ),
     );
     revalidatePath('/settings/items');

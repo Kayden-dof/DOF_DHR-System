@@ -8,6 +8,8 @@ import { Dialog, useDialog } from '@/components/dialog';
 import { createItem, updateItem, generateFinished, type GenResult } from './actions';
 
 export interface ItemRow {
+  /** 어디서 사는가. 발주 화면이 미리 골라 준다 (6차 감사 N7) */
+  default_supplier_id: string | null;
   id: string;
   code: string;
   name: string;
@@ -107,7 +109,11 @@ export function NewItemForm({ materialOnly = false }: { materialOnly?: boolean }
 
 /* -------------------------------------------------------------------------- */
 
-export function ItemRowView({ it }: { it: ItemRow }) {
+export function ItemRowView({ it, suppliers }: {
+  it: ItemRow;
+  /** 어디서 사는가. 발주 화면이 이것을 미리 골라 준다 (6차 감사 N7) */
+  suppliers: { id: string; name: string }[];
+}) {
   /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
   const uid = useId();
 
@@ -156,6 +162,16 @@ export function ItemRowView({ it }: { it: ItemRow }) {
                 <label className="label" htmlFor={`${uid}-lead_days`}>리드타임(일)</label>
                 <input id={`${uid}-lead_days`} name="lead_days" type="number"
                        defaultValue={it.lead_days ?? ''} className="input tnum" />
+              </div>
+              <div>
+                <label className="label" htmlFor={`${uid}-default_supplier_id`}>기본 공급자</label>
+                <select id={`${uid}-default_supplier_id`} name="default_supplier_id"
+                        defaultValue={it.default_supplier_id ?? ''} className="input">
+                  <option value="">정하지 않음</option>
+                  {suppliers.map((sp) => (
+                    <option key={sp.id} value={sp.id}>{sp.name}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="label" htmlFor={`${uid}-shelf_life_months`}>사용기간(개월)</label>

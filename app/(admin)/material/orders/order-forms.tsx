@@ -12,7 +12,11 @@ export interface OrderRow {
   item_code: string; item_name: string; usage_uom: string;
   supplier_name: string; ordered_by_name: string; lot_count: number;
 }
-export interface ItemOpt { id: string; code: string; name: string; usage_uom: string; type: string }
+export interface ItemOpt {
+  id: string; code: string; name: string; usage_uom: string; type: string;
+  /** 품목이 정해 둔 기본 공급자. 고르면 그쪽으로 따라간다 (6차 감사 N7) */
+  default_supplier_id: string | null;
+}
 export interface SupplierOpt { id: string; name: string; status: string }
 
 // 'use client' 모듈은 함수만 서버 경계를 넘는다. 컴포넌트를 객체로 묶어
@@ -27,6 +31,20 @@ export function NewOrder({ items, suppliers, today }: {
   const { open, setOpen } = useDialog(state);
   const [itemId, setItemId] = useState('');
   const item = items.find((i) => i.id === itemId) ?? items[0];
+
+  /*
+   * 품목을 고르면 그 품목이 정해 둔 공급자로 따라간다 (6차 감사 N7).
+   *
+   * 전에는 item.default_supplier_id 가 사양에만 있고 아무도 읽지 않았다.
+   * 살 때마다 어디서 사는지를 사람이 다시 떠올려야 했다.
+   *
+   * 잠그지 않는다 - 이번만 다른 곳에서 사는 일은 있다. 처음 놓이는 값을
+   * 정할 뿐이고 그대로 바꿀 수 있다.
+   */
+  const [supplierId, setSupplierId] = useState('');
+  const picked = supplierId
+    || (item?.default_supplier_id ?? '')
+    || (suppliers[0]?.id ?? '');
 
   return (
     <>
@@ -43,13 +61,16 @@ export function NewOrder({ items, suppliers, today }: {
         <div className="lg:col-span-2">
           <label className="label" htmlFor={`${uid}-item_id`}>품목</label>
           <select id={`${uid}-item_id`} name="item_id" required value={item?.id ?? ''}
-                  onChange={(e) => setItemId(e.target.value)} className="input">
+                  onChange={(e) => { setItemId(e.target.value); setSupplierId(''); }}
+                  className="input">
             {items.map((i) => <option key={i.id} value={i.id}>{i.code} · {i.name}</option>)}
           </select>
         </div>
         <div>
           <label className="label" htmlFor={`${uid}-supplier_id`}>공급자</label>
-          <select id={`${uid}-supplier_id`} name="supplier_id" required className="input">
+          <select id={`${uid}-supplier_id`} name="supplier_id" required
+                  value={picked} onChange={(e) => setSupplierId(e.target.value)}
+                  className="input">
             {suppliers.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}{s.status !== 'APPROVED' ? ' (미승인)' : ''}

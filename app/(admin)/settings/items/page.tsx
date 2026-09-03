@@ -28,11 +28,14 @@ export default async function ItemsPage({ searchParams }: { searchParams: Search
   const type = sp.type || null;
   const q = (sp.q || '').trim() || null;
 
-  const { items, counts, schemes } = await withActor(user.id, async (db) => ({
+  const { items, counts, schemes, suppliers } = await withActor(user.id, async (db) => ({
     /*
      * 어느 형명 체계로 만들지 화면에서 고른다 (5차 감사 B2). 전에는 생성기가
      * 가장 먼저 등록한 체계를 조용히 골랐다.
      */
+    /* 품목마다 어디서 사는지 고를 수 있게 (6차 감사 N7) */
+    suppliers: await db.rows<{ id: string; name: string }>(
+      `select id, name from supplier order by status desc, name`),
     schemes: await db.rows<{ id: string; name: string; prefix: string }>(
       `select id, name, prefix from model_scheme
         where is_active order by prefix`),
@@ -118,7 +121,9 @@ export default async function ItemsPage({ searchParams }: { searchParams: Search
                 </tr>
               </thead>
               <tbody>
-                {items.map((it) => <ItemRowView key={it.id} it={it} />)}
+                {items.map((it) => (
+                  <ItemRowView key={it.id} it={it} suppliers={suppliers} />
+                ))}
               </tbody>
             </table>
           </div>

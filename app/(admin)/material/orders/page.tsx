@@ -47,7 +47,8 @@ export default async function OrdersPage() {
         order by po.ordered_at desc, po.po_no desc
         limit 200`),
     items: await db.rows<ItemOpt>(
-      `select id, code, name, usage_uom, type::text as type from item
+      `select id, code, name, usage_uom, type::text as type, default_supplier_id
+         from item
         where is_active and type <> 'FIN' order by type, code`),
     suppliers: await db.rows<SupplierOpt>(
       `select id, name, status from supplier order by status desc, name`),
