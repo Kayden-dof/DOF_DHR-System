@@ -25,7 +25,8 @@ interface Row {
   system_name: string | null; system_name_long: string | null;
   system_tagline: string | null; company_tagline: string | null;
   /* 제조소를 가리키는 값 (5차 감사 D1) */
-  address: string | null; biz_no: string | null; ceo_name: string | null;
+  address: string | null; plant_address: string | null;
+  biz_no: string | null; ceo_name: string | null;
   backup_warn_days: number | null;
   logo_name: string | null; has_logo: boolean; version: string | null;
   logo_dark_name: string | null; has_dark_logo: boolean;
@@ -42,7 +43,7 @@ export default async function BrandPage() {
     db.one<Row>(
       `select b.company_name, b.brand_color, b.logo_name,
               b.system_name, b.system_name_long, b.system_tagline, b.company_tagline,
-              b.address, b.biz_no, b.ceo_name, b.backup_warn_days,
+              b.address, b.plant_address, b.biz_no, b.ceo_name, b.backup_warn_days,
               (b.logo_bytes is not null) as has_logo,
               b.logo_dark_name, (b.logo_dark_bytes is not null) as has_dark_logo,
               to_char(b.updated_at, 'YYYYMMDDHH24MISS') as version,
@@ -76,7 +77,8 @@ export default async function BrandPage() {
         <BrandForm name={d.company_name} color={d.brand_color}
                    sys={d.system_name} sysLong={d.system_name_long}
                    tagline={d.system_tagline} companyTagline={d.company_tagline}
-                   address={d.address} bizNo={d.biz_no} ceoName={d.ceo_name}
+                   address={d.address} plantAddress={d.plant_address}
+                   bizNo={d.biz_no} ceoName={d.ceo_name}
                    backupWarnDays={d.backup_warn_days} />
         <LogoForm hasLogo={d.has_logo} logoName={d.logo_name}
                   hasDarkLogo={d.has_dark_logo} darkName={d.logo_dark_name}

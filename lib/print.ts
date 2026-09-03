@@ -173,16 +173,26 @@ export async function logPrint(a: LogArgs): Promise<PrintMeta> {
     /* 종이 머리에 나가는 회사 표시. 설정에서 온다 (§2.0 · 0070) */
     companyName: brand.companyName,
     /*
-     * 제조소를 가리키는 한 줄 (5차 감사 D1). 소재지 · 사업자등록번호 ·
-     * 대표자 중 적힌 것만 이어 붙인다. 셋 다 비면 빈 문자열이고 종이에
-     * 아무것도 나오지 않는다 - 서면 양식이 이미 갖고 있으면 시스템이 낼
-     * 이유가 없다.
+     * 제조소를 가리키는 한 줄 (5차 감사 D1 · 0094).
+     *
+     * 적힌 것만 이어 붙인다. 다 비면 빈 문자열이고 종이에 아무것도 나오지
+     * 않는다 - 서면 양식이 이미 갖고 있으면 시스템이 낼 이유가 없다.
+     *
+     * ── 주소가 둘이다 ──────────────────────────────────────────────────
+     * 제조기록서에 찍히는 주소는 **그 기록이 만들어진 자리**여야 한다. GMP
+     * 제조소는 본사와 다른 자리인 것이 보통이므로 (사용자 지적 2026-09-02)
+     * 제조소를 먼저 적고, 본사가 그와 다를 때만 뒤에 붙인다.
+     *
+     * 제조소가 비어 있으면 본사를 **이름표 없이** 적는다. 본사 주소에
+     * "제조소" 라고 이름을 달면 그것은 종이 위의 거짓말이다.
      *
      * 만드는 자리를 여기 하나로 둔다. 양식마다 각자 이어 붙이면 갈라진다
      * (§10 복제는 갈라진다).
      */
     orgLine: [
-      brand.address,
+      brand.plantAddress ? `제조소 ${brand.plantAddress}` : brand.address,
+      brand.plantAddress && brand.address && brand.address !== brand.plantAddress
+        ? `본사 ${brand.address}` : '',
       brand.bizNo ? `사업자등록번호 ${brand.bizNo}` : '',
       brand.ceoName ? `대표자 ${brand.ceoName}` : '',
     ].filter(Boolean).join(' · '),

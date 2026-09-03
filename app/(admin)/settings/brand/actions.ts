@@ -77,12 +77,14 @@ export async function saveBrand(_p: FormState, form: FormData): Promise<FormStat
         `update org_brand set company_name = $1, brand_color = $2,
                               system_name = $3, system_name_long = $4,
                               system_tagline = $5, company_tagline = $6,
-                              address = $7, biz_no = $8, ceo_name = $9,
-                              backup_warn_days = $10,
-                              updated_by = $11, updated_at = now()`,
+                              address = $7, plant_address = $8,
+                              biz_no = $9, ceo_name = $10,
+                              backup_warn_days = $11,
+                              updated_by = $12, updated_at = now()`,
         [name, color, txt('system_name'), txt('system_name_long'),
          txt('system_tagline'), txt('company_tagline'),
-         txt('address'), txt('biz_no'), txt('ceo_name'), warnDays, me.id]),
+         txt('address'), txt('plant_address'),
+         txt('biz_no'), txt('ceo_name'), warnDays, me.id]),
       { reason: '회사 표시 변경' });
 
     bump();

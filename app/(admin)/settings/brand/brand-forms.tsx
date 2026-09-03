@@ -14,13 +14,14 @@ import type { FormState } from '@/lib/forms';
 --------------------------------------------------------------------------- */
 
 export function BrandForm({
-  name, color, sys, sysLong, tagline, companyTagline, address, bizNo, ceoName,
-  backupWarnDays,
+  name, color, sys, sysLong, tagline, companyTagline, address, plantAddress,
+  bizNo, ceoName, backupWarnDays,
 }: {
   name: string; color: string;
   sys: string | null; sysLong: string | null;
   tagline: string | null; companyTagline: string | null;
-  address: string | null; bizNo: string | null; ceoName: string | null;
+  address: string | null; plantAddress: string | null;
+  bizNo: string | null; ceoName: string | null;
   backupWarnDays: number | null;
 }) {
   /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
@@ -106,11 +107,29 @@ export function BrandForm({
       <div className="border-t border-line-soft pt-3">
         <p className="label mb-2">제조소 표시 (인쇄물 머리)</p>
         <div className="grid gap-3 sm:grid-cols-2">
+          {/*
+            * 주소가 둘이다 (0094). GMP 제조소는 본사와 다른 자리인 것이
+            * 보통이고, 제조기록서에 찍히는 주소는 그 기록이 만들어진
+            * 자리여야 한다.
+            */}
           <div className="sm:col-span-2">
-            <label className="label" htmlFor={`${uid}-address`}>소재지</label>
+            <label className="label" htmlFor={`${uid}-plant`}>제조소 소재지</label>
+            <input id={`${uid}-plant`} name="plant_address" defaultValue={plantAddress ?? ''}
+                   autoComplete="off" maxLength={160}
+                   placeholder="GMP 제조가 실제로 일어나는 자리" className="input" />
+            <p className="mt-1 text-xs leading-relaxed text-faint">
+              <b className="text-ink">이 주소가 인쇄물 머리에 먼저 나갑니다.</b>{' '}
+              본사와 같으면 본사 칸만 채우고 여기는 비워 두십시오.
+            </p>
+          </div>
+          <div className="sm:col-span-2">
+            <label className="label" htmlFor={`${uid}-address`}>본사 소재지</label>
             <input id={`${uid}-address`} name="address" defaultValue={address ?? ''}
-                   autoComplete="off" maxLength={120}
-                   placeholder="예: 서울특별시 ..." className="input" />
+                   autoComplete="off" maxLength={160}
+                   placeholder="사업자등록증의 사업장 소재지" className="input" />
+            <p className="mt-1 text-xs leading-relaxed text-faint">
+              제조소와 다를 때만 인쇄물에 함께 나갑니다.
+            </p>
           </div>
           <div>
             <label className="label" htmlFor={`${uid}-biz_no`}>사업자등록번호</label>
@@ -139,6 +158,7 @@ export function BrandForm({
         </div>
         <p className="mt-1.5 text-xs leading-relaxed text-faint">
           적힌 것만 인쇄물 머리에 회사 이름 아래로 한 줄에 이어 나옵니다.
+          제조소가 먼저이고, 본사는 제조소와 다를 때만 붙습니다.
           <b className="text-ink"> 비워 두면 아무것도 나오지 않습니다.</b>{' '}
           미리 인쇄된 양식이 이미 갖고 있으면 비워 두십시오.
         </p>

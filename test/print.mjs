@@ -419,6 +419,7 @@ async function sheet(name, formPath, checks, signBoxes, register) {
 --------------------------------------------------------------------------- */
 const org = await one(
   `select coalesce(company_name,'') as name, coalesce(address,'') as address,
+          coalesce(plant_address,'') as plant_address,
           coalesce(biz_no,'') as biz_no, coalesce(ceo_name,'') as ceo_name
      from org_brand limit 1`);
 
@@ -429,7 +430,11 @@ const org = await one(
  */
 const common = (kindLabel) => [
   { label: '양식 이름', value: kindLabel, anywhere: true },
-  { label: '제조소 소재지',   value: org?.address ?? '',  anywhere: true },
+  /* 제조소가 먼저이고, 본사는 제조소와 다를 때만 붙는다 (0094) */
+  { label: '제조소 소재지', value: org?.plant_address ?? '', anywhere: true },
+  { label: '본사 소재지',
+    value: (org?.plant_address && org?.address !== org?.plant_address)
+      ? (org?.address ?? '') : '', anywhere: true },
   { label: '사업자등록번호',  value: org?.biz_no ?? '',   anywhere: true },
   { label: '대표자',          value: org?.ceo_name ?? '', anywhere: true },
 ];

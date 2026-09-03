@@ -160,10 +160,12 @@ const box     = await item('PM-004', '멸균 박스', 'PACK', 'EA', 'EA', 1, 30,
  */
 await c.query(
   `update org_brand
-      set address  = coalesce(address,  '서울특별시 (시연 자료)'),
-          biz_no   = coalesce(biz_no,   '000-00-00000'),
-          ceo_name = coalesce(ceo_name, '(시연)')
-    where address is null or biz_no is null or ceo_name is null`);
+      set address       = coalesce(address,       '서울특별시 (시연 자료 · 본사)'),
+          plant_address = coalesce(plant_address, '경기도 (시연 자료 · 제조소)'),
+          biz_no        = coalesce(biz_no,        '000-00-00000'),
+          ceo_name      = coalesce(ceo_name,      '(시연)')
+    where address is null or plant_address is null
+       or biz_no is null or ceo_name is null`);
 
 /*
  * 형명 체계 (0075). 이관은 PD 형명이 이미 있는 DB 에만 이것을 심는다 - 처음

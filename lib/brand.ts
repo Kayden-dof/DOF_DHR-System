@@ -32,7 +32,10 @@ export interface Brand {
    * 나온다. 비어 있으면 아무것도 나오지 않는다 - 서면 양식이 이미 갖고
    * 있으면 시스템이 낼 이유가 없다.
    */
+  /** 본사 소재지. 사업자등록증의 사업장 소재지 */
   address: string;
+  /** 제조소 소재지. GMP 제조가 일어나는 자리 (0094) */
+  plantAddress: string;
   bizNo: string;
   ceoName: string;
   /*
@@ -54,6 +57,7 @@ const FALLBACK: Brand = {
   systemTagline: '',
   companyTagline: '',
   address: '',
+  plantAddress: '',
   bizNo: '',
   ceoName: '',
   backupWarnDays: 35,
@@ -67,7 +71,8 @@ export const getBrand = cache(async (): Promise<Brand> => {
         has_logo: boolean; has_dark_logo: boolean; logo_updated_at: string | null;
         system_name: string | null; system_name_long: string | null;
         system_tagline: string | null; company_tagline: string | null;
-        address: string | null; biz_no: string | null; ceo_name: string | null;
+        address: string | null; plant_address: string | null;
+        biz_no: string | null; ceo_name: string | null;
         backup_warn_days: number | null;
       }>(
         `select company_name, brand_color,
@@ -75,7 +80,7 @@ export const getBrand = cache(async (): Promise<Brand> => {
                 (logo_dark_bytes is not null) as has_dark_logo,
                 to_char(updated_at, 'YYYYMMDDHH24MISS') as logo_updated_at,
                 system_name, system_name_long, system_tagline, company_tagline,
-                address, biz_no, ceo_name, backup_warn_days
+                address, plant_address, biz_no, ceo_name, backup_warn_days
            from org_brand limit 1`),
     );
     if (!row) return FALLBACK;
@@ -90,6 +95,7 @@ export const getBrand = cache(async (): Promise<Brand> => {
       systemTagline: row.system_tagline ?? '',
       companyTagline: row.company_tagline ?? '',
       address: row.address ?? '',
+      plantAddress: row.plant_address ?? '',
       bizNo: row.biz_no ?? '',
       ceoName: row.ceo_name ?? '',
       backupWarnDays: row.backup_warn_days ?? 35,
