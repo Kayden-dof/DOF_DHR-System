@@ -236,8 +236,17 @@ const fin = await val(`select id from item where code = 'PD05050510'`);
 let dm = await val(`select id from device_master where item_id = $1 and revision = 'Rev.02'`, [fin]);
 if (!dm) {
   dm = await val(
-    `insert into device_master (item_id, revision, status, effective_from, verified_by, verified_at)
-     values ($1,'Rev.02','ACTIVE',current_date,$2,now()) returning id`, [fin, admin]);
+    /*
+     * 허가 번호도 심는다 (0095). 심지 않으면 라벨요청서의 그 칸이 비고,
+     * 인쇄 대조가 값이 비었다는 이유로 건너뛴다 - 그러면 그 확인이
+     * 잠들어 있게 된다 (2026-09-02 에 제조소 표시에서 같은 일이 있었다).
+     *
+     * 지시가 나간 뒤에는 못 바꾸므로 (0095) 여기서 함께 넣어야 한다.
+     */
+    `insert into device_master (item_id, revision, status, effective_from,
+                                verified_by, verified_at, license_no)
+     values ($1,'Rev.02','ACTIVE',current_date,$2,now(),$3) returning id`,
+    [fin, admin, '제허 26-1234호 (시연 자료)']);
 
   /*
    * 마지막 칸은 보통 몇 일차에 하는 공정인가다. 참고값이라 실제 기록 일차를

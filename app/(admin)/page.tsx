@@ -510,7 +510,11 @@ export default async function Dashboard() {
             : null}
         >
           {/* 감사추적 화면과 같은 표다 (components/audit-table.tsx) */}
-          <AuditTable entries={d.recent} collapseTo={10} />
+          {/*
+            * 다섯 줄만 먼저 보인다 (사용자 지시 2026-09-02). 나머지는 접혀
+            * 있고 펼칠 수 있다. 첫 화면에서 이 표가 세로를 다 먹지 않게 한다.
+            */}
+          <AuditTable entries={d.recent} collapseTo={5} />
         </Panel>
       </div>
     </PageShell>

@@ -59,6 +59,23 @@ export function NewDeviceMaster({ items }: { items: ItemOption[] }) {
           <input id={`${uid}-product_name`} name="product_name" placeholder="돈피 진피" autoComplete="off"
                  className="input" />
         </div>
+        {/*
+          * 허가(인증 · 신고) 번호 (0095). 서면 허가증에 적힌 번호를 그대로
+          * 옮긴다. 갈래를 고르게 하지 않는다 - 그것은 나라와 등급이 정하고,
+          * 목록을 내놓는 순간 그 목록이 분류 체계가 된다.
+          */}
+        <div className="sm:col-span-2">
+          <label className="label" htmlFor={`${uid}-license_no`}>
+            허가 번호 <span className="text-faint">(인증 · 신고 번호)</span>
+          </label>
+          <input id={`${uid}-license_no`} name="license_no" autoComplete="off"
+                 placeholder="서면 허가증에 적힌 번호" className="input font-mono" />
+          <p className="mt-1 text-xs leading-relaxed text-faint">
+            <b className="text-ink">라벨요청서와 편철 표지에 인쇄됩니다.</b>{' '}
+            변경허가가 나면 새 개정본으로 등록하십시오 - 지시가 나간 뒤에는
+            바꿀 수 없습니다.
+          </p>
+        </div>
       </div>
 
       <div className="mt-3 grid gap-3 sm:grid-cols-3">
@@ -952,9 +969,11 @@ export function DmrNoteForm({ id, note }: { id: string; note: string | null }) {
   );
 }
 
-export function ProductCodeForm({
-  id, code, name, itemCode,
-}: { id: string; code: string | null; name: string | null; itemCode: string }) {
+export function ProductCodeForm({ id, code, name, itemCode, license }: {
+  id: string; code: string | null; name: string | null; itemCode: string;
+  /** 서면 허가증의 번호. 라벨요청서와 편철 표지에 인쇄된다 (0095) */
+  license: string | null;
+}) {
   /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
   const uid = useId();
 
@@ -974,12 +993,19 @@ export function ProductCodeForm({
         <input id={`${uid}-product_name`} name="product_name" defaultValue={name ?? ''} placeholder="돈피 진피"
                autoComplete="off" className="input h-9 text-xs" />
       </div>
+      <div className="w-52">
+        <label className="label" htmlFor={`${uid}-license_no`}>허가 번호</label>
+        <input id={`${uid}-license_no`} name="license_no" defaultValue={license ?? ''}
+               placeholder="인증 · 신고 번호"
+               autoComplete="off" className="input h-9 font-mono text-xs" />
+      </div>
       <button type="submit" disabled={pending} className="btn-ghost h-9 px-3 text-xs">
         저장
       </button>
       <span className="pb-2 text-xs leading-relaxed text-faint">
         최상위 관리 코드입니다. 형명 <span className="font-mono">{itemCode}</span> 은
-        그 아래의 규격이며, 비우면 형명이 대신 나옵니다.
+        그 아래의 규격이며, 비우면 형명이 대신 나옵니다. 허가 번호는 라벨요청서와
+        편철 표지에 인쇄되며, 지시가 나간 뒤에는 바꿀 수 없습니다.
       </span>
       <Msg state={state} className="w-full" />
     </form>

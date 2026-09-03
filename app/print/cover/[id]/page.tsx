@@ -18,6 +18,8 @@ interface Head {
   batch_no: string; wo_no: string; status: string; sheet_count: number;
   dmr_revision: string; issued_at: Date; item_code: string; item_name: string;
   product_code: string | null; product_name: string | null;
+  /** 서면 허가증의 번호 (0095) */
+  license_no: string | null;
   raw_lot_no: string; raw_item_code: string; thickness_band: string | null;
   supplier_name: string; coa_no: string; prod_name: string; qa_name: string;
   cancelled_reason: string | null;
@@ -46,7 +48,7 @@ export default async function CoverSheet({ params }: { params: Promise<{ id: str
       `select wo.batch_no, wo.wo_no, wo.status::text as status, wo.sheet_count,
               wo.dmr_revision, wo.issued_at, wo.cancelled_reason,
               i.code as item_code, i.name as item_name,
-              dm.product_code, dm.product_name,
+              dm.product_code, dm.product_name, dm.license_no,
               ml.lot_no as raw_lot_no, ri.code as raw_item_code, ml.thickness_band,
               s.name as supplier_name, ml.coa_no,
               up.full_name as prod_name, uq.full_name as qa_name
@@ -181,7 +183,13 @@ export default async function CoverSheet({ params }: { params: Promise<{ id: str
               )}
             </td>
             <th>제품표준서 개정</th>
-            <td className="font-mono">{head.dmr_revision}</td>
+            <td className="font-mono">
+              {head.dmr_revision}
+              {/* 허가 번호는 개정본이 들고 있다. 변경허가는 새 개정본이다 (0095) */}
+              {head.license_no && (
+                <div className="mt-0.5 text-[9px]">허가 {head.license_no}</div>
+              )}
+            </td>
           </tr>
           <tr>
             <th>원재료 로트</th>

@@ -23,6 +23,8 @@ interface DmRow {
   verified_at: Date | null; verified_by_name: string | null;
   expected_units: number | null; sample_basis: string | null;
   product_code: string | null; product_name: string | null; note: string | null;
+  /** 서면 허가증의 번호 (0095) */
+  license_no: string | null;
   sheet_min: number | null; sheet_max: number | null; steril_box_qty: number | null;
   item_code: string; item_name: string;
   op_count: number; bom_count: number; wo_count: number;
@@ -43,6 +45,7 @@ export async function DmrWorkbench({
     const masters = await db.rows<DmRow>(
       `select dm.id, dm.revision, dm.status, dm.effective_from, dm.verified_at,
               dm.expected_units, dm.sample_basis, dm.product_code, dm.product_name, dm.note,
+              dm.license_no,
               dm.sheet_min, dm.sheet_max, dm.steril_box_qty,
               u.full_name as verified_by_name, i.code as item_code, i.name as item_name,
               (select count(*)::int from dmr_operation o where o.device_master_id = dm.id) as op_count,
@@ -163,7 +166,8 @@ export async function DmrWorkbench({
                   </Field>
                 </div>
                 <ProductCodeForm id={dm.id} code={dm.product_code}
-                                 name={dm.product_name} itemCode={dm.item_code} />
+                                 name={dm.product_name} itemCode={dm.item_code}
+                                 license={dm.license_no} />
                 <DmrNoteForm id={dm.id} note={dm.note} />
                 <DmrLimitsForm id={dm.id} sheetMin={dm.sheet_min}
                                sheetMax={dm.sheet_max} boxQty={dm.steril_box_qty} />

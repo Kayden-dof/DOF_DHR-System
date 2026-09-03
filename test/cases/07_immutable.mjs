@@ -395,4 +395,27 @@ export default [
   },
 },
 
+{
+  id: 'DMR-05', expect: '예외',
+  name: '지시가 나간 뒤에는 허가 번호를 바꿀 수 없다 (0095)',
+  async run(t) {
+    const m = await master(t);
+    const x = await freshDmr(t, m, 'A3-LICENSE');
+
+    /* 발행 전에는 적고 고치는 것이 정상 작업이다 */
+    await t.resolves(() => t.rows(
+      `update device_master set license_no = '제허 00-0001호' where id = $1`, [x.dm]));
+
+    await issueAgainst(t, m, x.dm);
+
+    await t.rejects(
+      () => t.rows(`update device_master set license_no = '제허 00-9999호' where id = $1`,
+                   [x.dm]),
+      { ...BLOCKED, message: '허가 번호는 바꿀 수 없습니다' });
+
+    t.eq(await t.val(`select license_no from device_master where id = $1`, [x.dm]),
+         '제허 00-0001호', '적힌 번호가 그대로다');
+  },
+},
+
 ];

@@ -417,6 +417,12 @@ async function sheet(name, formPath, checks, signBoxes, register) {
 
    이제 대장(record_print)에서 실제 값을 읽어 종이와 견준다.
 --------------------------------------------------------------------------- */
+/* 허가 번호는 제품표준서가 들고 있고 라벨 업체가 이 종이를 보고 찍는다 (0095) */
+const lic = await one(
+  `select coalesce(dm.license_no, '') as license_no
+     from device_master dm join work_order wo on wo.device_master_id = dm.id
+    where wo.id = $1`, [wo.id]);
+
 const org = await one(
   `select coalesce(company_name,'') as name, coalesce(address,'') as address,
           coalesce(plant_address,'') as plant_address,
@@ -533,6 +539,7 @@ if (day) {
 /* --- 3. 라벨요청서 --------------------------------------------------------- */
 
 await sheet('③ 라벨요청서', `/print/label-request/${wo.id}`, [
+  { label: '허가 번호', value: lic?.license_no ?? '', cell: '허가 번호' },
   ...common('라벨요청서'),
   { label: '배치번호', value: wo.batch_no },
   // 이 종이는 배치 하나의 여러 형명을 함께 담는다. 머리글은 최상위 제품 코드다
@@ -552,6 +559,7 @@ await sheet('③ 라벨요청서', `/print/label-request/${wo.id}`, [
 /* --- 4. 편철 표지 ---------------------------------------------------------- */
 
 await sheet('④ 편철 표지', `/print/cover/${wo.id}`, [
+  { label: '허가 번호 (표지)', value: lic?.license_no ?? '', anywhere: true },
   ...common('편철 표지'),
   { label: '배치번호',        value: wo.batch_no },
   { label: '지시서번호',      value: wo.wo_no },

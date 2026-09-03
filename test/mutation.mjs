@@ -70,6 +70,23 @@ const MUTATIONS = [
     sql: `drop trigger if exists material_lot_coa_once on material_lot`,
     cases: ['ML-02', 'RV2-10'] },
 
+  { id: 'M-LICENSE', rule: '발행 뒤 허가 번호 고쳐 쓰기 금지 (0095)',
+    /* 0084 판으로 되돌린다 - 허가 번호를 안 보던 그대로 */
+    sql: `create or replace function trg_dmr_frozen()
+          returns trigger language plpgsql
+          security definer
+          set search_path = pg_catalog, public, pg_temp as $x$
+          declare n int;
+          begin
+            select count(*) into n from work_order where device_master_id = new.id;
+            if n = 0 then return new; end if;
+            if new.product_code is distinct from old.product_code then
+              raise exception '작업 지시가 나간 제품표준서의 제품 코드는 바꿀 수 없습니다 (지시 %건)', n;
+            end if;
+            return new;
+          end $x$`,
+    cases: ['DMR-05'] },
+
   { id: 'M-DMRPART', rule: '발행 뒤 공정 · 자재 구성표 고쳐 쓰기 금지 (0089)',
     sql: `drop trigger if exists dmr_operation_frozen on dmr_operation;
           drop trigger if exists dmr_bom_frozen on dmr_bom;

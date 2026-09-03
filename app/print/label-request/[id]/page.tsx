@@ -16,6 +16,8 @@ export const dynamic = 'force-dynamic';
 interface Head {
   batch_no: string; wo_no: string; item_name: string; thickness_band: string | null;
   product_code: string | null; product_name: string | null;
+  /** 라벨 업체가 이 종이를 보고 찍는 값 (0095) */
+  license_no: string | null;
 }
 interface LotRow {
   lot_no: string; item_code: string; item_name: string;
@@ -40,7 +42,7 @@ export default async function LabelRequestSheet({ params }: { params: Promise<{ 
   const d = await withActor(user.id, async (db) => {
     const head = await db.one<Head>(
       `select wo.batch_no, wo.wo_no, i.name as item_name, ml.thickness_band,
-              dm.product_code, dm.product_name
+              dm.product_code, dm.product_name, dm.license_no
          from work_order wo
          join device_master dm on dm.id = wo.device_master_id
          join item i on i.id = dm.item_id
@@ -98,6 +100,17 @@ export default async function LabelRequestSheet({ params }: { params: Promise<{ 
             <th>두께 구간</th>
             <td>{head.thickness_band ?? ''}</td>
           </tr>
+          {/*
+            * 허가 번호 (0095). 의료기기 라벨에 찍히는 값이므로 라벨 업체가
+            * 받는 이 종이에 있어야 한다. 적히지 않았으면 나오지 않는다 -
+            * 지어내지 않는다.
+            */}
+          {head.license_no && (
+            <tr>
+              <th>허가 번호</th>
+              <td className="font-mono" colSpan={3}>{head.license_no}</td>
+            </tr>
+          )}
         </tbody>
       </table>
 

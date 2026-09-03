@@ -57,10 +57,12 @@ export async function createProduct(_p: FormState, form: FormData): Promise<Form
       }
       await db.rows(
         `insert into device_master
-           (item_id, revision, status, effective_from, product_code, product_name)
-         values ($1,$2,'DRAFT',$3::date,$4,$5)`,
+           (item_id, revision, status, effective_from, product_code, product_name,
+            license_no)
+         values ($1,$2,'DRAFT',$3::date,$4,$5,$6)`,
         [itemId, revision, String(form.get('effective_from') ?? '') || null,
-         productCode, productName || null]);
+         productCode, productName || null,
+         String(form.get('license_no') ?? '').trim() || null]);
     });
 
     path();
@@ -232,9 +234,19 @@ export async function setProductCode(_p: FormState, form: FormData): Promise<For
     const me = await admin();
     const code = String(form.get('product_code') ?? '').trim() || null;
     const name = String(form.get('product_name') ?? '').trim() || null;
+    /*
+     * 허가 번호도 여기서 고친다 (0095). 발행 뒤에는 DB 가 막는다 - 라벨에
+     * 찍히는 값이라 바꾸면 이미 나간 배치의 라벨요청서가 다른 번호를 낸다.
+     * 변경허가는 새 개정본으로 간다.
+     */
+    const license = String(form.get('license_no') ?? '').trim() || null;
     await withActor(me.id, (db) =>
-      db.rows(`update device_master set product_code = $2, product_name = $3 where id = $1`,
-        [String(form.get('id') ?? ''), code, name]));
+      db.rows(
+        `update device_master
+            set product_code = $2, product_name = $3, license_no = $4
+          where id = $1`,
+        [String(form.get('id') ?? ''), code, name, license]),
+      { reason: '제품 코드 · 제품명 · 허가 번호 기재' });
     revalidatePath('/production/setup');
     revalidatePath('/settings/dmr');
     revalidatePath('/production');
