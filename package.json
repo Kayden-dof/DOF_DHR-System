@@ -30,7 +30,8 @@
     "demo": "node scripts/demo.mjs",
     "set-pin": "node scripts/set-pin.mjs",
     "schema:baseline": "node --env-file=.env.local scripts/schema-baseline.mjs",
-    "settings": "node scripts/settings-cover.mjs"
+    "settings": "node scripts/settings-cover.mjs",
+    "second": "node --env-file=.env.local scripts/seed-second.mjs"
   },
   "dependencies": {
     "next": "^16.3.3",
