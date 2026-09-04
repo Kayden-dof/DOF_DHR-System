@@ -163,10 +163,19 @@ async function bomLots(opId) {
  * 공정 시작이 빨라져서 검토 지원이 전부 시각 모순으로 잡는다. 시연 자료가
  * 경고를 만들어 내면 진짜 경고가 묻힌다.
  */
+/*
+ * 시계는 **일차마다 아침으로 돌아온다.**
+ *
+ * 전에는 배치 전체에 걸쳐 40분씩 밀기만 했다. 공정이 서른 번을 넘으면
+ * 1,880분(31시간)이 되어 같은 일차의 뒤 공정이 자정을 넘어 다음 날로
+ * 넘어갔고, 그러면 앞 공정 종료보다 뒤 공정 시작이 빨라진다.
+ */
 let clock = 0;
+let clockDay = null;
 
 async function runOp(actor, opCode, { day, lot = null, attempt = 1, units = 0, rotation = null } = {}) {
   const op = opBy[opCode];
+  if (clockDay !== day) { clock = 0; clockDay = day; }
   const startMin = 480 + clock * 40;   // 08:00 부터 40분 간격
   clock += 1;
   // 그 공정에 걸린 설비가 있으면 첫 번째를 적는다. 현장에서는 타일로 고른다.
@@ -219,12 +228,25 @@ async function runOp(actor, opCode, { day, lot = null, attempt = 1, units = 0, r
          values ($1,$2,$3,$4)`, [prId, b.lot_id, qty, actor.id]));
   }
 
+  /*
+   * 종료도 **시작과 같은 날**에 찍는다.
+   *
+   * 전에는 여기만 오늘 날짜를 썼다. 시작은 일차만큼 뒤로 물려 놓고 종료는
+   * 오늘로 찍으니, 1일차 공정이 29일 동안 돌아간 것으로 남았다. 종이에는
+   * 시·분만 나와서 눈에 띄지 않았지만, 검토 지원은 시각으로 보므로
+   * **시연 배치마다 시각 모순이 20건씩 떴다** (2026-09-04).
+   *
+   * 이 파일의 다른 주석이 이미 그것을 경계하고 있었다 - "시연 자료가
+   * 경고를 만들어 내면 진짜 경고가 묻힌다." 경계해 놓고 그 자리에서
+   * 어겼다.
+   */
   await as(actor.id, () =>
     client.query(
       `update process_record
           set ended_at = timezone('Asia/Seoul',
-                (timezone('Asia/Seoul', now()))::date + ($2 || ' minutes')::interval)
-        where id = $1`, [prId, startMin + 30]));
+                ((timezone('Asia/Seoul', now()))::date - (${FLOW_DAYS} - $3))
+                + ($2 || ' minutes')::interval)
+        where id = $1`, [prId, startMin + 30, day]));
   await as(actor.id, () => client.query(`select complete_process($1)`, [prId]));
   say(`${op.code} ${op.name}${lot ? ' · 로트별' : ''} 마감`);
   return prId;
@@ -660,6 +682,37 @@ await history('2026-08-19', 22, [['PD10100510', 44, 2], ['PD05100510', 36, 2]],
   { shipQty: 30, wipScrap: 2, customer: '삼성서울병원' });
 await history('2026-08-26', 16, [['PD05050510', 60, 3]],
   { shipQty: 25, scrap: 1, customer: '서울아산병원' });
+
+/* ---------------------------------------------------------------------------
+   시연 자료가 검토 지원을 울리지 않는가
+
+   §8.5 는 검토 지원이 **어긋난 것만** 짚게 해 두었다. 이상이 없으면 아무것도
+   표시하지 않는 것이 정상이고, 그래야 표시가 뜰 때 사람이 본다.
+
+   그런데 지어낸 자료가 스스로 표시를 만들어 내면 그 규율이 무너진다. 배치를
+   열 때마다 스무 건이 떠 있으면 검토자는 그것을 배경으로 여기게 되고, 진짜
+   하나가 그 속에 묻힌다.
+
+   실제로 그랬다 (2026-09-04). 이 파일이 시작 시각만 일차만큼 뒤로 물리고
+   종료 시각은 오늘로 찍어서, 시연 배치마다 시각 모순이 20건씩 서 있었다.
+   종이에는 시·분만 나와 눈에 띄지 않았고, 어느 시험도 그것을 묻지 않았다.
+
+   그래서 심고 나서 스스로 되묻는다. 여기서 걸리면 자료가 잘못 심긴 것이다.
+--------------------------------------------------------------------------- */
+const noisy = await all(
+  `select w.batch_no, count(*)::int n
+     from work_order w, lateral review_flags(w.id) f
+    group by w.batch_no having count(*) > 0 order by w.batch_no`);
+if (noisy.length > 0) {
+  console.error('\n시연 자료가 검토 표시를 만들어 냈습니다. 진짜 표시가 묻힙니다.');
+  for (const r of noisy) console.error(`  ${r.batch_no}  ${r.n}건`);
+  const sample = await all(
+    `select f.kind, f.detail from work_order w, lateral review_flags(w.id) f limit 5`);
+  for (const r of sample) console.error(`    ${r.kind}  ${r.detail}`);
+  await client.end();
+  process.exit(1);
+}
+say('검토 표시 0건 - 시연 자료가 스스로 경고를 만들지 않습니다');
 
 /* ---------------------------------------------------------------------------
    시연 자료 표시

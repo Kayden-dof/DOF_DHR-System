@@ -229,19 +229,28 @@ async function flush() {
    * 문자열 그대로 jsonb 에 넘긴다. 자바스크립트가 해석하지 않으므로
    * numeric 자릿수가 깎이지 않는다 (backup.mjs 와 같은 이유).
    */
+  /*
+   * ── 백업이 담고 있던 열만 넣는다 ──────────────────────────────────────
+   * 전에는 `jsonb_populate_record(null::표, …)` 가 만든 행을 통째로
+   * 넣었다. 그 함수는 **json 에 없는 열을 NULL 로 채운다.** 넣을 때
+   * NULL 을 명시하는 셈이라 표의 기본값이 끼어들 자리가 없다.
+   *
+   * 그래서 뒤에 `not null default` 로 열이 하나 늘 때마다, 그 열을
+   * 모르던 옛 백업이 통째로 안 들어간다. 0096 의 takes_rework 에서
+   * 실제로 그랬다 (2026-09-04). §10 이 적어 둔 함정과 같은 자리다 -
+   * 제약만이 아니라 **열이 늘어도** 옛 백업이 막힌다.
+   *
+   * 백업에 있던 열만 적어 넣으면 나머지는 표의 기본값이 채운다. 그게
+   * 맞는 뜻이다 - 그때는 그 열이 없었으니 지금 정한 기본값으로 선다.
+   */
+  const q = (backupCols[table] ?? [])
+    .map((n) => `"${String(n).replace(/"/g, '""')}"`);
   await c.query(
-    `insert into public.${table}
-     select (jsonb_populate_record(null::public.${table}, j))::public.${table}.*
-       from unnest($1::text[]) t(s), lateral (select s::jsonb) v(j)`,
-    [batch]).catch(async (e) => {
-      /* 일부 판에서 위 형태가 안 먹으면 한 줄씩 넣는다 */
-      if (e.code !== '42601' && e.code !== '42P01' && e.code !== '42804') throw e;
-      for (const s of batch) {
-        await c.query(
-          `insert into public.${table}
-           select * from jsonb_populate_record(null::public.${table}, $1::jsonb)`, [s]);
-      }
-    });
+    `insert into public.${table} (${q.join(', ')})
+     select ${q.map((n) => `r.${n}`).join(', ')}
+       from unnest($1::text[]) t(s),
+            lateral jsonb_populate_record(null::public.${table}, s::jsonb) r`,
+    [batch]);
   loaded[table] = (loaded[table] ?? 0) + batch.length;
   batch = [];
 }

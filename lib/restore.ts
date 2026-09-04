@@ -222,11 +222,28 @@ export async function applyRestore(c: PoolClient, b: ParsedBackup): Promise<Rest
        * 줄을 그대로 배열로 묶어 넘긴다. 자바스크립트가 json 을 해석하지 않으므로
        * numeric 자릿수가 깎이지 않는다 (scripts/backup.mjs 와 같은 이유).
        */
+      /*
+     * ── 백업이 담고 있던 열만 넣는다 ──────────────────────────────────────
+     * 전에는 `jsonb_populate_record(null::표, …)` 가 만든 행을 통째로
+     * 넣었다. 그 함수는 **json 에 없는 열을 NULL 로 채운다.** 넣을 때
+     * NULL 을 명시하는 셈이라 표의 기본값이 끼어들 자리가 없다.
+     *
+     * 그래서 뒤에 `not null default` 로 열이 하나 늘 때마다, 그 열을
+     * 모르던 옛 백업이 통째로 안 들어간다. 0096 의 takes_rework 에서
+     * 실제로 그랬다 (2026-09-04). §10 이 적어 둔 함정과 같은 자리다 -
+     * 제약만이 아니라 **열이 늘어도** 옛 백업이 막힌다.
+     *
+     * 백업에 있던 열만 적어 넣으면 나머지는 표의 기본값이 채운다. 그게
+     * 맞는 뜻이다 - 그때는 그 열이 없었으니 지금 정한 기본값으로 선다.
+     */
+      const names = Object.keys(JSON.parse(rs[0]) as Record<string, unknown>);
+      const q = names.map((n) => `"${n.replace(/"/g, '""')}"`);
       for (let i = 0; i < rs.length; i += 500) {
         const chunk = rs.slice(i, i + 500);
         await c.query(
-          `insert into public.${t}
-           select * from jsonb_populate_recordset(null::public.${t}, $1::jsonb)`,
+          `insert into public.${t} (${q.join(', ')})
+           select ${q.map((n) => `r.${n}`).join(', ')}
+             from jsonb_populate_recordset(null::public.${t}, $1::jsonb) r`,
           [`[${chunk.join(',')}]`]);
       }
     }

@@ -65,7 +65,7 @@ if (WORKER_CODE !== '-') NEEDED[WORKER_CODE] = '현장 훑기';
    대장에 남는 일이다 (§7 · logPrint). 다른 서버를 가리키면 그쪽 대장에
    나가지 않은 종이가 쌓인다. §10 은 "대장에는 실제 종이만 남는다" 고 적었다.
 --------------------------------------------------------------------------- */
-if (!new RegExp('localhost|127" + B+B + ".0" + B+B + ".0" + B+B + ".1').test(BASE)) {
+if (!/^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/.test(BASE)) {
   console.error('이 훑기는 인쇄 화면을 열어 인쇄 대장에 줄을 남깁니다.');
   console.error(`  대상: ${BASE}`);
   console.error('');

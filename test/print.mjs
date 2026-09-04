@@ -137,10 +137,25 @@ const issues = day ? await rows(
 /* 편철 표지 대조 재료: 재작업 회차 · 출하 승인 요청서 번호 · 멸균 성적서 */
 const rework = await one(
   `select 1 from process_record where work_order_id = $1 and attempt > 1 limit 1`, [wo.id]);
-const coverRR = await one(
-  `select 'RR-' || $2 || '-' || lpad(min(seq)::text, 2, '0') as v
-     from record_print where work_order_id = $1 and kind = 'RELEASE_REQUEST'`,
-  [wo.id, wo.batch_no]).then((r) => r?.v ?? '');
+/*
+ * 표지의 출하 승인 요청서 줄.
+ *
+ * 전에는 인쇄 대장에서 min(seq) 하나만 떠서, 발행 이력이 없으면 빈 글이
+ * 되었다. 빈 값은 대조에서 **건너뛴다** - 값이 비면 종이도 비는 것이 맞기
+ * 때문이다. 그래서 요청서를 한 번도 안 뽑은 DB 에서는 이 확인이 잠들어
+ * 있었고, 표지의 그 줄이 무엇을 찍든 아무도 묻지 않았다 (2026-09-04).
+ *
+ * 이제 **두 경우 모두 종이에 나와야 할 글을 짓는다.** 이력이 없으면
+ * '발행 이력 없음' 이 나와야 하고, 있으면 회차를 전부 이어 붙인 글이
+ * 나와야 한다 - 표지가 그렇게 그린다. 어느 쪽이든 대조가 선다.
+ */
+const coverRRSeqs = await rows(
+  `select seq from record_print
+    where work_order_id = $1 and kind = 'RELEASE_REQUEST' order by seq`, [wo.id]);
+const coverRR = coverRRSeqs.length === 0
+  ? '발행 이력 없음'
+  : coverRRSeqs.map((r) => `RR-${wo.batch_no}-${String(r.seq).padStart(2, '0')}`)
+      .join(' · ');
 const coverCert = await one(
   `select min(sb.cert_no) as v
      from steril_batch sb
