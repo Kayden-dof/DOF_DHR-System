@@ -24,6 +24,7 @@ const TOKENS = [
   { t: '{SEQ:4}', d: '순번' },
   { t: '{ITEM}', d: '품목 코드' },
   { t: '{MODEL}', d: '형명 뒤 8자리' },
+  { t: '{BATCH}', d: '생산 배치번호' },
 ];
 
 const cycleLabel = (c: string) => RESET_CYCLES.find((r) => r.code === c)?.label ?? c;
@@ -68,7 +69,17 @@ export default function RuleForm({
     return () => clearTimeout(id);
   }, [pattern, seqWidth, itemCode]);
 
-  const noSeqToken = !!preview.first && preview.first === preview.second;
+  /*
+   * 순번 토큰이 없으면 회차마다 같은 번호가 나온다 - 대개는 결함이다.
+   *
+   * 그런데 `{BATCH}` 는 예외다. 미리보기는 배치를 모르니 1·2회차가 똑같이
+   * `{BATCH}` 로 보이지만, 실제로는 배치마다 다른 번호가 선다. 그것을 못
+   * 가리면 멸균 배치 규칙(`{BATCH}`)을 세울 때마다 빨간 경고가 뜬다
+   * (사용자 지적 2026-09-07). 거짓 경보는 사람이 경고를 안 믿게 만든다.
+   */
+  const hasBatchToken = pattern.includes('{BATCH}');
+  const sameTwice = !!preview.first && preview.first === preview.second;
+  const noSeqToken = sameTwice && !hasBatchToken;
   const cycleChanged = !!existing && existing.reset !== reset;
   const samePattern = !!existing && existing.pattern === pattern.trim();
 
@@ -270,6 +281,17 @@ export default function RuleForm({
           패턴에 순번 토큰이 없습니다. 1회차와 2회차가 같은 번호로 나옵니다
           첫 발행 이후 전부 중복이 됩니다. <code className="font-mono">{'{SEQ:4}'}</code>를
           입력하십시오.
+        </Alert>
+      )}
+
+      {hasBatchToken && sameTwice && (
+        <Alert tone="warn">
+          <b>배치마다 다른 번호가 섭니다.</b> 미리보기는 어느 배치인지 모르므로
+          <code className="font-mono"> {'{BATCH}'} </code>를 그대로 보여 줍니다.
+          순번 토큰이 없으므로 <b>같은 배치로 두 번 발행하면 같은 번호</b>가 되어
+          막힙니다 - 멸균처럼 한 배치에 한 번만 나가는 자리에서는 그것이 규칙을
+          지키는 방식입니다. 두 번 나갈 수 있으면
+          <code className="font-mono"> {'{SEQ:1}'} </code>을 뒤에 붙이십시오.
         </Alert>
       )}
 
