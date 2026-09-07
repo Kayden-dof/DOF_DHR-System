@@ -233,7 +233,9 @@ const WRITE_FUNCS = [
   'return_material_issue(uuid, numeric, text)',
   'cut_product_lot(uuid, uuid, int, int, date)',
   'complete_process(uuid)',
-  'next_number(numbering_target, uuid)',
+  /* 0097 · 0099 로 인자가 늘었다. 서명이 어긋나면 to_regprocedure 가 null 을
+     내고 이 누출 검사가 조용히 잠든다 (2026-09-07) */
+  'next_number(numbering_target, uuid, date, text)',
   'make_solution(uuid[], numeric[], text, text)',
   'purge_demo_data()',
 ];

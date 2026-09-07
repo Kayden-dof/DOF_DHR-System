@@ -240,15 +240,19 @@ const rule = (target, pattern, width, reset = 'DAILY', type = null) =>
      on conflict do nothing`, [target, pattern, reset, width, admin, type]);
 await rule('MATERIAL_LOT', 'R{YY}{MM}{DD}-{SEQ:2}', 2, 'DAILY', 'RAW');
 await rule('MATERIAL_LOT', 'P{YY}{MM}{DD}-{SEQ:2}', 2, 'DAILY', 'PACK');
-await rule('MATERIAL_LOT', 'M{YY}{MM}{DD}-{SEQ:2}', 2, 'DAILY', 'REAGENT');
-await rule('MATERIAL_LOT', 'M{YY}{MM}{DD}-{SEQ:2}', 2, 'DAILY', 'PROCESS');
+/*
+ * 시약과 소모품은 둘 다 M 이다. 그렇다고 규칙을 둘로 나누면 **카운터도 둘**이라
+ * 같은 날 둘 다 01 이 나오고 lot_no 고유 제약에서 막힌다 (N-33).
+ * 예외인 종류만 종류별로 두고 나머지는 공통 규칙 하나가 받는다.
+ */
+await rule('MATERIAL_LOT', 'M{YY}{MM}{DD}-{SEQ:2}', 2, 'DAILY');
 await rule('WORK_ORDER',   'WO-{YY}{MM}{DD}-{SEQ:2}', 2);
 await rule('BATCH',        'B{YY}{MM}{DD}-{SEQ:2}', 2);
 await rule('PRODUCT_LOT',  'GM-{YY}{MM}{DD}{SEQ:2}', 2);
 /* 멸균 배치번호는 생산 배치번호와 같다 - 한 발송이 한 배치다 (0099) */
 await rule('STERIL_BATCH', '{BATCH}', 2, 'NEVER');
 await rule('DEVIATION',    'DV-{YY}-{SEQ:3}', 3, 'YEARLY');
-console.log('채번 규칙 9종 (자재 로트는 품목 종류별 4종)');
+console.log('채번 규칙 8종 (자재 로트는 원자재 R · 포장재 P · 나머지 M)');
 
 // --- 제품표준서 ---------------------------------------------------------------
 const fin = await val(`select id from item where code = 'PD05050510'`);

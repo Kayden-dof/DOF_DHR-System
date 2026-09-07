@@ -655,4 +655,47 @@ export default [
   },
 },
 
+
+{
+  id: 'N-33', expect: '같은 번호가 나온다',
+  name: '같은 형식을 종류별로 둘 두면 번호가 부딪힌다 (0097 함정)',
+  async run(t) {
+    /*
+     * 시약과 소모품을 둘 다 `M...` 로 매기기로 했다. 그런데 **규칙을 둘로
+     * 나누면 카운터도 둘**이라(numbering_counter 의 키가 rule_id 다) 같은 날
+     * 둘 다 01 이 나온다. 자재 로트였다면 lot_no 고유 제약에서 막힌다.
+     *
+     * 답은 규칙을 나누지 않는 것이다 - 예외인 종류만 종류별로 두고 나머지는
+     * 공통 규칙 하나가 받는다. 여기서는 그 함정이 실재함을 못박아 둔다.
+     *
+     * 자재 로트가 아니라 일탈 자리에서 확인한다. 자재 로트 규칙을 건드리면
+     * 뒤 시험들이 만드는 로트가 번호를 잃는다 - 실제로 그렇게 넘어뜨렸다
+     * (2026-09-07). 시험은 남의 자리를 빌리지 않는다.
+     */
+    const rg = await newTyped(t, 'REAGENT', 'CLA');
+    const pc = await newTyped(t, 'PROCESS', 'CLB');
+    await t.rows(
+      `update numbering_rule set is_active = false
+        where target = 'DEVIATION' and is_active`);
+    await mkRule(t, { target: 'DEVIATION', type: 'REAGENT',
+                      pattern: 'M{YY}{MM}{DD}-{SEQ:2}', reset: 'DAILY', width: 2 });
+    await mkRule(t, { target: 'DEVIATION', type: 'PROCESS',
+                      pattern: 'M{YY}{MM}{DD}-{SEQ:2}', reset: 'DAILY', width: 2 });
+
+    const a = await t.val(`select next_number('DEVIATION',$1,'2026-09-07')`, [rg]);
+    const b = await t.val(`select next_number('DEVIATION',$1,'2026-09-07')`, [pc]);
+    t.eq(a, b, `규칙을 나누면 같은 번호가 나온다 (${a} · ${b})`);
+
+    /* 공통 규칙 하나로 받으면 카운터가 하나라 갈린다 */
+    await t.rows(
+      `update numbering_rule set is_active = false
+        where target = 'DEVIATION' and is_active`);
+    await mkRule(t, { target: 'DEVIATION',
+                      pattern: 'M{YY}{MM}{DD}-{SEQ:2}', reset: 'DAILY', width: 2 });
+    const c = await t.val(`select next_number('DEVIATION',$1,'2026-09-08')`, [rg]);
+    const d = await t.val(`select next_number('DEVIATION',$1,'2026-09-08')`, [pc]);
+    t.ok(c !== d, `공통 규칙 하나면 갈린다 (${c} · ${d})`);
+  },
+},
+
 ];

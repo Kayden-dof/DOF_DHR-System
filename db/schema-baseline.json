@@ -83,7 +83,7 @@
     "trg_no_qp_dev",
     "trg_once_written",
     "trg_pin_changed",
-    "trg_pin_reset_dev_only",
+    "trg_pin_reset_admin",
     "trg_pl_immutable",
     "trg_pr_attempt",
     "trg_pr_equipment_snapshot",
