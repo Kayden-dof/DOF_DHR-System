@@ -90,7 +90,7 @@ export function SterilForm({ lots, today, boxQty }: {
       <h3 className="text-sm font-bold text-ink">멸균 위탁 발송</h3>
       <p className="mt-1 text-xs leading-relaxed text-muted">
         한 박스에 여러 제품 로트가 들어갈 수 있습니다. 파괴검사용 2개를 박스에 동봉하는 것은
-        재단 시 샘플 수량에 이미 반영되어 있습니다.
+        제조번호를 붙일 때 시료 수량에 이미 반영되어 있습니다.
       </p>
 
       <div className="mt-3 grid gap-3 sm:grid-cols-2">

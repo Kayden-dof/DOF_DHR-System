@@ -16,6 +16,8 @@ export const metadata = { title: '현장' };
 
 interface BatchTile {
   id: string; batch_no: string; wo_no: string; status: string; sheet_count: number;
+  /* 화면의 낱말이 제품에서 나온다 (0101) */
+  load_unit: string | null;
   item_name: string; item_code: string;
   raw_lot_no: string; thickness_band: string | null;
   issued_at: Date;
@@ -36,6 +38,7 @@ export default async function WorkHome() {
   const batches = await withActor(user.id, (db) =>
     db.rows<BatchTile>(
       `select wo.id, wo.batch_no, wo.wo_no, wo.status::text as status, wo.sheet_count,
+              dm.load_unit,
               i.name as item_name, i.code as item_code,
               ml.lot_no as raw_lot_no, ml.thickness_band, wo.issued_at,
               (select count(*)::int from process_record pr
@@ -133,7 +136,7 @@ export default async function WorkHome() {
 
               <dl className="grid grid-cols-3 gap-px border-t border-line-soft bg-line-soft">
                 {[
-                  ['장입', `${b.sheet_count}장`],
+                  ['장입', `${b.sheet_count}${b.load_unit ?? ''}`],
                   ['내 기록', `${b.my_records}건`],
                   b.lot_count > 0
                     ? ['제품 로트', `${b.lot_count}건`]
@@ -148,7 +151,7 @@ export default async function WorkHome() {
 
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-line-soft px-5 py-2.5 text-sm text-muted">
                 <span>원재료 <span className="font-mono text-body">{b.raw_lot_no}</span></span>
-                {b.thickness_band && <span>두께 {b.thickness_band}</span>}
+                {b.thickness_band && <span>구간 {b.thickness_band}</span>}
                 {b.last_day && <span className="tnum">{b.last_day}일차까지 기록</span>}
               </div>
             </Link>

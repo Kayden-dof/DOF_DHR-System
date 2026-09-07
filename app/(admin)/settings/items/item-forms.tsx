@@ -1,11 +1,12 @@
 'use client';
 
-import { useActionState, useState, useId } from 'react';
+import { useActionState, useState, useId, useTransition } from 'react';
 import type { FormState } from '@/lib/forms';
 import { ITEM_TYPES } from '@/lib/forms';
 import { Msg, Tag } from '@/components/ui';
 import { Dialog, useDialog } from '@/components/dialog';
-import { createItem, updateItem, generateFinished, type GenResult } from './actions';
+import { createItem, updateItem, generateFinished, previewFinished,
+         type GenResult, type PreviewRow } from './actions';
 
 export interface ItemRow {
   /** 어디서 사는가. 발주 화면이 미리 골라 준다 (6차 감사 N7) */
@@ -45,7 +46,7 @@ export function NewItemForm({ materialOnly = false }: { materialOnly?: boolean }
         <div>
           <label className="label" htmlFor="code">품목 코드</label>
           <input id="code" name="code" required autoComplete="off"
-                 placeholder="RM-006" className="input font-mono" />
+                 placeholder="품목 코드" className="input font-mono" />
         </div>
         <div className="lg:col-span-2">
           <label className="label" htmlFor="name">품목명</label>
@@ -205,12 +206,71 @@ export function ItemRowView({ it, suppliers }: {
 
 /* -------------------------------------------------------------------------- */
 
-export interface SchemeOpt { id: string; name: string; prefix: string }
+export interface SchemeOpt {
+  id: string; name: string; prefix: string;
+  /** 크기 자리 수 (BAND 가 아닌 자리들의 합) */
+  head: number;
+  /** 구간 자리 수 (BAND 자리들의 합) */
+  tail: number;
+  /** 크기 자리 이름들. 라벨을 여기서 짓는다 */
+  size_labels: string;
+  band_labels: string;
+}
 
+/* ---------------------------------------------------------------------------
+   완제품 형명 생성
+
+   ── 화면이 체계를 읽는다 ─────────────────────────────────────────────────
+   전에는 `크기 (가로2+세로2)` · `제외 조합 (8자리)` 라고 박혀 있었다. DX2401
+   의 모양이지 프로그램의 성질이 아니다 - 자리 수와 이름은 형명 체계가 정한다
+   (0075). 다른 품목을 올리는 사람은 화면이 시키는 대로 넣다가 틀린 형명을
+   만들었다 (사용자 지적 2026-09-07).
+
+   ── 제외를 문자열로 조립하지 않는다 ──────────────────────────────────────
+   만들어질 형명을 격자로 펴고 체크를 꺼서 뺀다. 사람이 여덟 자리를 머릿속에서
+   붙일 일이 없어지고, **만들기 전에 몇 종이 나오는지와 이름이 어떻게 붙는지가
+   보인다.**
+
+   격자의 내용은 `preview_finished_items()` 가 만든다. 화면이 스스로 조합하면
+   그것이 두 번째 출처가 되고, 언젠가 보여 준 것과 만들어진 것이 갈라진다
+   (§10 - 복제는 갈라진다).
+--------------------------------------------------------------------------- */
 export function GenerateFinished({ schemes }: { schemes: SchemeOpt[] }) {
   const uid = useId();
   const [state, action, pending] = useActionState<GenResult, FormData>(generateFinished, {});
   const { open, setOpen } = useDialog(state);
+
+  const [schemeId, setSchemeId] = useState(schemes.length === 1 ? schemes[0].id : '');
+  const sc = schemes.find((x) => x.id === schemeId) ?? null;
+
+  /* 미리보기. 만들지 않으므로 폼 제출이 아니라 그냥 부른다 */
+  const [rows, setRows] = useState<PreviewRow[] | null>(null);
+  const [off, setOff] = useState<Set<string>>(new Set());
+  const [previewErr, setPreviewErr] = useState('');
+  const [busy, startPreview] = useTransition();
+
+  function doPreview(form: HTMLFormElement) {
+    const fd = new FormData(form);
+    startPreview(async () => {
+      const r = await previewFinished(fd);
+      if (r.error) { setPreviewErr(r.error); setRows(null); return; }
+      setPreviewErr('');
+      setRows(r.rows ?? []);
+      setOff(new Set());
+    });
+  }
+
+  /* 격자의 축. 미리보기가 돌려준 차례를 그대로 쓴다 */
+  const sizes = rows ? [...new Set(rows.map((r) => r.size_part))] : [];
+  const bands = rows ? [...new Set(rows.map((r) => r.band_part))] : [];
+  const cell = new Map((rows ?? []).map((r) => [`${r.size_part}|${r.band_part}`, r]));
+  const chosen = (rows ?? []).filter((r) => !off.has(r.item_code));
+
+  const toggle = (code: string) => setOff((prev) => {
+    const next = new Set(prev);
+    if (next.has(code)) next.delete(code); else next.add(code);
+    return next;
+  });
 
   return (
     <>
@@ -219,15 +279,12 @@ export function GenerateFinished({ schemes }: { schemes: SchemeOpt[] }) {
         <form action={action}>
       <h3 className="text-sm font-bold text-ink">완제품 형명 생성</h3>
       <p className="mt-1 text-xs leading-relaxed text-muted">
-        형명 규칙은 <b className="text-ink">형명 체계</b>가 정합니다. 크기와 두께 구간을
-        입력하면 그 체계의 접두어를 앞에 붙여 조합으로 만듭니다. 손으로 한 줄씩 등록하지
-        마십시오. 이미 있는 코드는 건드리지 않으므로 반복 실행해도 안전합니다.
+        형명 규칙은 <b className="text-ink">형명 체계</b>가 정합니다. 크기와 구간을 입력하고
+        미리보기를 누르면 만들어질 형명이 격자로 펼쳐집니다. 만들지 않을 칸은 체크를
+        끄십시오. 손으로 한 줄씩 등록하지 마십시오. 이미 있는 코드는 건드리지 않으므로
+        반복 실행해도 안전합니다.
       </p>
 
-      {/*
-        * 어느 체계로 만들지 먼저 고른다 (5차 감사 B2). 자리 수와 접두어가
-        * 여기서 나오므로 아래 칸들의 뜻이 이 선택에 달려 있다.
-        */}
       <div className="mt-3">
         <label className="label" htmlFor={`${uid}-scheme`}>형명 체계</label>
         {schemes.length === 0 ? (
@@ -235,8 +292,8 @@ export function GenerateFinished({ schemes }: { schemes: SchemeOpt[] }) {
             활성 형명 체계가 없습니다. <b>설정 · 형명 체계</b>에서 먼저 등록하십시오.
           </p>
         ) : (
-          <select id={`${uid}-scheme`} name="scheme_id" required
-                  defaultValue={schemes.length === 1 ? schemes[0].id : ''}
+          <select id={`${uid}-scheme`} name="scheme_id" required value={schemeId}
+                  onChange={(e) => { setSchemeId(e.target.value); setRows(null); }}
                   className="input">
             {schemes.length > 1 && <option value="">고르십시오</option>}
             {schemes.map((x) => (
@@ -246,27 +303,30 @@ export function GenerateFinished({ schemes }: { schemes: SchemeOpt[] }) {
         )}
       </div>
 
-      <div className="mt-3 grid gap-3 lg:grid-cols-3">
+      <div className="mt-3 grid gap-3 lg:grid-cols-2">
         <div>
-          <label className="label" htmlFor="sizes">크기 (가로2+세로2)</label>
+          <label className="label" htmlFor="sizes">
+            크기{sc ? ` (${sc.size_labels} · ${sc.head}자리)` : ''}
+          </label>
           <textarea id="sizes" name="sizes" rows={3} required
-                    placeholder="0505 1015 1018 1215"
+                    onChange={() => setRows(null)}
+                    placeholder={sc ? '0'.repeat(sc.head) : ''}
                     className="input font-mono text-xs" />
-          <p className="mt-1 text-xs text-faint">공백이나 쉼표로 구분. 5x5 는 0505</p>
+          <p className="mt-1 text-xs text-faint">
+            공백이나 쉼표로 구분{sc ? ` · 한 덩이가 ${sc.head}자리입니다` : ''}
+          </p>
         </div>
         <div>
-          <label className="label" htmlFor="bands">두께 구간 (하한2+상한2)</label>
+          <label className="label" htmlFor="bands">
+            구간{sc ? ` (${sc.band_labels} · ${sc.tail}자리)` : ''}
+          </label>
           <textarea id="bands" name="bands" rows={3} required
-                    placeholder="0510 1015 1520 2025 2530"
+                    onChange={() => setRows(null)}
+                    placeholder={sc ? '0'.repeat(sc.tail) : ''}
                     className="input font-mono text-xs" />
-          <p className="mt-1 text-xs text-faint">0.5~1.0mm 는 0510</p>
-        </div>
-        <div>
-          <label className="label" htmlFor="exclude">제외 조합 (8자리)</label>
-          <textarea id="exclude" name="exclude" rows={3}
-                    placeholder="10152530 10182530 12152530"
-                    className="input font-mono text-xs" />
-          <p className="mt-1 text-xs text-faint">만들지 않는 크기x두께 조합</p>
+          <p className="mt-1 text-xs text-faint">
+            공백이나 쉼표로 구분{sc ? ` · 한 덩이가 ${sc.tail}자리입니다` : ''}
+          </p>
         </div>
       </div>
 
@@ -278,6 +338,7 @@ export function GenerateFinished({ schemes }: { schemes: SchemeOpt[] }) {
             * 프로그램의 성질이 아니다. 무엇을 적을지는 제품 코드가 알려 준다.
             */}
           <input id="prefix" name="prefix" required autoComplete="off"
+                 onChange={() => setRows(null)}
                  placeholder="예: 제품 코드" className="input" />
         </div>
         <div>
@@ -285,7 +346,75 @@ export function GenerateFinished({ schemes }: { schemes: SchemeOpt[] }) {
           <input id="shelf_months" name="shelf_months" type="number" defaultValue={12}
                  className="input tnum" />
         </div>
+        <div className="flex items-end">
+          <button type="button" disabled={busy}
+                  onClick={(e) => doPreview(e.currentTarget.form!)}
+                  className="btn-ghost">
+            {busy ? '보는 중' : '미리보기'}
+          </button>
+        </div>
       </div>
+
+      {previewErr && (
+        <p className="mt-3 rounded-md border border-danger/40 bg-danger-bg px-3 py-2 text-sm text-ink">
+          {previewErr}
+        </p>
+      )}
+
+      {/* 제외는 꺼 둔 칸에서 나온다. 사람이 여덟 자리를 조립하지 않는다 */}
+      <input type="hidden" name="exclude"
+             value={[...off].map((c) => (sc ? c.slice(sc.prefix.length) : c)).join(' ')} />
+
+      {rows && rows.length > 0 && (
+        <div className="mt-4">
+          <p className="text-xs text-muted">
+            만들어질 형명 <b className="tnum text-ink">{chosen.length}종</b>
+            {off.size > 0 && <> · 뺀 것 <b className="tnum text-ink">{off.size}종</b></>}
+            {' · '}이미 있는 것 <b className="tnum text-ink">
+              {chosen.filter((r) => r.already).length}종
+            </b>
+          </p>
+          <div className="mt-2 max-h-72 overflow-auto rounded-md border border-line">
+            <table className="w-full">
+              <thead>
+                <tr>
+                  <th className="th sticky left-0 bg-surface">크기</th>
+                  {bands.map((b) => <th key={b} className="th font-mono text-xs">{b}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {sizes.map((sz) => (
+                  <tr key={sz}>
+                    <td className="td sticky left-0 bg-surface font-mono text-xs">{sz}</td>
+                    {bands.map((b) => {
+                      const r = cell.get(`${sz}|${b}`);
+                      if (!r) return <td key={b} className="td" />;
+                      const on = !off.has(r.item_code);
+                      return (
+                        <td key={b} className="td">
+                          <label className="flex cursor-pointer items-center gap-1.5"
+                                 title={`${r.item_code} · ${r.item_name}${r.spec ? ` · ${r.spec}` : ''}`}>
+                            <input type="checkbox" checked={on} className="size-4 accent-brand"
+                                   onChange={() => toggle(r.item_code)} />
+                            <span className={`font-mono text-[11px] ${on ? 'text-ink' : 'text-faint line-through'}`}>
+                              {r.item_code}
+                            </span>
+                            {r.already && <Tag tone="faint">있음</Tag>}
+                          </label>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-1 text-xs text-faint">
+            칸에 마우스를 올리면 이름과 규격이 보입니다. 규격 문구는 종이에 나가는 것과
+            같은 자리에서 나옵니다.
+          </p>
+        </div>
+      )}
 
       <Msg state={state} />
 
@@ -312,7 +441,7 @@ export function GenerateFinished({ schemes }: { schemes: SchemeOpt[] }) {
 
       <div className="mt-4 flex gap-2">
         <button type="submit" disabled={pending} className="btn-primary">
-          {pending ? '생성 중' : '생성'}
+          {pending ? '생성 중' : rows ? `${chosen.length}종 생성` : '생성'}
         </button>
         <button type="button" onClick={() => setOpen(false)} className="btn-ghost">닫기</button>
       </div>

@@ -72,7 +72,9 @@ export default async function ProductionPage({ searchParams }: { searchParams: S
     masters: await db.rows<DmOpt>(
       `select dm.id, dm.revision, dm.verified_at, i.code as item_code, i.name as item_name,
               dm.product_code, dm.product_name, dm.sheet_min, dm.sheet_max,
-              (select count(*)::int from dmr_operation o where o.device_master_id = dm.id) as op_count
+              (select count(*)::int from dmr_operation o where o.device_master_id = dm.id) as op_count,
+              /* 화면의 낱말이 제품에서 나온다 (0101) */
+              split_op_name(dm.id) as split_op, dm.load_unit
          from device_master dm join item i on i.id = dm.item_id
         order by i.code, dm.revision desc`),
     rawLots: await db.rows<RawLotOpt>(
@@ -167,7 +169,7 @@ export default async function ProductionPage({ searchParams }: { searchParams: S
                       <span className="ml-1.5 text-faint">{w.thickness_band}</span>
                     )}
                   </Td>
-                  <Td right>{w.sheet_count}장</Td>
+                  <Td right>{w.sheet_count}</Td>
                   <Td right className="text-muted">{w.lot_count || ''}</Td>
                   <Td right className="text-muted">{w.day_count || ''}</Td>
                   <Td>

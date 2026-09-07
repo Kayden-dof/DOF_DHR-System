@@ -343,8 +343,8 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false }: {
               <tr>
                 <th>제품</th>
                 <td>{head.item_name}</td>
-                <th>장입 장수</th>
-                <td className="tnum">{head.sheet_count} 장</td>
+                <th>장입 수량</th>
+                <td className="tnum">{head.sheet_count} {head.load_unit ?? ''}</td>
               </tr>
             </tbody>
           </table>
@@ -412,8 +412,8 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false }: {
           )}
 
           <p className="mt-3 text-[10px] leading-relaxed text-black">
-            규격은 재단 공정에서 확정됩니다. 이 표의 수량은 재단 결과이며 시스템이
-            판정한 값이 아닙니다.
+            규격은 {head.split_op ?? '제조번호 부여'} 공정에서 확정됩니다. 이 표의 수량은
+            그 결과이며 시스템이 판정한 값이 아닙니다.
           </p>
 
           <SignRow roles={['작업자', '생산 책임자']} />
@@ -443,9 +443,9 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false }: {
               {head.raw_lot_no}
               <span className="ml-1.5 font-sans font-normal">({head.raw_item_code})</span>
             </td>
-            <th>장입 장수 / 두께</th>
+            <th>장입 수량{head.raw_thickness ? ' / 구간' : ''}</th>
             <td className="tnum">
-              {head.sheet_count} 장
+              {head.sheet_count} {head.load_unit ?? ''}
               {head.raw_thickness && <> / {head.raw_thickness}</>}
             </td>
           </tr>

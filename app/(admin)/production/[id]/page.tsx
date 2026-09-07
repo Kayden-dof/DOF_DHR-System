@@ -42,6 +42,8 @@ interface Wo {
   raw_lot_id: string; raw_lot_no: string; thickness_band: string | null;
   supplier_name: string; coa_no: string; coa_date: string;
   prod_name: string; qa_name: string; device_master_id: string;
+  /* 화면의 낱말이 제품에서 나온다 (0101). 갈림 공정 이름과 장입 단위 */
+  split_op: string | null; load_unit: string | null;
 }
 interface DayRow {
   day_no: number; work_date: string; worker_id: string; worker_name: string;
@@ -86,7 +88,8 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
               i.id as item_id, i.code as item_code, i.name as item_name,
               ml.id as raw_lot_id, ml.lot_no as raw_lot_no, ml.thickness_band,
               ml.coa_no, ml.coa_date, s.name as supplier_name,
-              up.full_name as prod_name, uq.full_name as qa_name
+              up.full_name as prod_name, uq.full_name as qa_name,
+              split_op_name(dm.id) as split_op, dm.load_unit
          from work_order wo
          join device_master dm on dm.id = wo.device_master_id
          join item i on i.id = dm.item_id
@@ -170,6 +173,11 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
 
   if (!d) notFound();
   const { wo } = d;
+  /*
+   * 갈림 공정을 무엇이라 부르는가. 제품표준서가 답한다 (0101).
+   * 갈림이 없는 품목이면 null 이고, 그때는 그 말을 쓰지 않는다.
+   */
+  const splitOp = wo.split_op;
   const used = new Set(d.lots.map((l) => l.item_code));
   const usedIds = new Set(
     d.finished.filter((f) => used.has(f.code)).map((f) => f.id));
@@ -180,7 +188,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
   const remaining = [
     active && '배치 미종료',
     unprinted > 0 && `기록서 미발행 ${unprinted}건`,
-    d.lots.length === 0 && wo.status !== 'CANCELLED' && '재단 전',
+    d.lots.length === 0 && wo.status !== 'CANCELLED' && (splitOp ? `${splitOp} 전` : '제조번호 전'),
   ].filter(Boolean) as string[];
   const totalPages = d.days.reduce((a, r) => a + r.printed, 0);
 
@@ -282,7 +290,9 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
           <Field label="지시서번호"><span className="font-mono">{wo.wo_no}</span></Field>
           <Field label="배치번호"><span className="font-mono font-semibold">{wo.batch_no}</span></Field>
           <Field label="제품표준서 개정"><span className="font-mono">{wo.dmr_revision}</span></Field>
-          <Field label="장입 장수"><span className="tnum font-semibold">{wo.sheet_count}장</span></Field>
+          <Field label="장입 수량">
+            <span className="tnum font-semibold">{wo.sheet_count}{wo.load_unit ?? ''}</span>
+          </Field>
 
           <Field label="원재료 로트">
             <span className="font-mono font-semibold">{wo.raw_lot_no}</span>
@@ -310,19 +320,20 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
         * 놓는다. 차이는 사실만 적는다 - 많고 적음을 판정하지 않는다 (§10).
         */}
       {wo.planned_units !== null && (
-        <Panel title="예정과 실제" note="발행 시점의 계획입니다. 형명과 실제 수량은 재단에서 정해집니다.">
+        <Panel title="예정과 실제"
+               note={`발행 시점의 계획입니다. 형명과 실제 수량은 ${splitOp ?? '제조번호 부여'}에서 정해집니다.`}>
           <div className="grid gap-x-6 gap-y-3 px-4 py-3 sm:grid-cols-3">
             <Field label="예정 생산 수량">
               <span className="tnum">{wo.planned_units}개</span>
             </Field>
-            <Field label="재단 실적">
+            <Field label={`${splitOp ?? '제조번호'} 실적`}>
               <span className="tnum font-semibold">
                 {d.lots.reduce((a, l) => a + l.qty_produced, 0)}개
               </span>
             </Field>
             <Field label="차이">
               {d.lots.length === 0 ? (
-                <span className="text-faint">재단 전</span>
+                <span className="text-faint">{splitOp ? `${splitOp} 전` : '아직 없음'}</span>
               ) : (() => {
                 const diff = d.lots.reduce((a, l) => a + l.qty_produced, 0) - wo.planned_units!;
                 return (
@@ -337,7 +348,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
       )}
 
       <Panel
-        title="제품 로트 (재단 분할)"
+        title={`제품 로트${splitOp ? ` (${splitOp} 분할)` : ''}`}
         note="형명별 · 제조번호"
         action={d.lots.length > 0 ? (
           // 라벨요청서는 재단 뒤에 뽑는다 (§7). 재단 결과가 그대로 요청 내용이다.
@@ -349,7 +360,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
         ) : null}
       >
         {d.lots.length === 0 ? (
-          <Empty>아직 재단하지 않았습니다.</Empty>
+          <Empty>아직 제조번호가 붙지 않았습니다.</Empty>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">

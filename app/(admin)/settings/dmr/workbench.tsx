@@ -26,6 +26,8 @@ interface DmRow {
   /** 서면 허가증의 번호 (0095) */
   license_no: string | null;
   sheet_min: number | null; sheet_max: number | null; steril_box_qty: number | null;
+  /* 장입 수량의 단위 (0101) */
+  load_unit: string | null;
   item_code: string; item_name: string;
   op_count: number; bom_count: number; wo_count: number;
 }
@@ -46,7 +48,7 @@ export async function DmrWorkbench({
       `select dm.id, dm.revision, dm.status, dm.effective_from, dm.verified_at,
               dm.expected_units, dm.sample_basis, dm.product_code, dm.product_name, dm.note,
               dm.license_no,
-              dm.sheet_min, dm.sheet_max, dm.steril_box_qty,
+              dm.sheet_min, dm.sheet_max, dm.steril_box_qty, dm.load_unit,
               u.full_name as verified_by_name, i.code as item_code, i.name as item_name,
               (select count(*)::int from dmr_operation o where o.device_master_id = dm.id) as op_count,
               (select count(*)::int from dmr_bom b
@@ -171,7 +173,8 @@ export async function DmrWorkbench({
                                  license={dm.license_no} />
                 <DmrNoteForm id={dm.id} note={dm.note} />
                 <DmrLimitsForm id={dm.id} sheetMin={dm.sheet_min}
-                               sheetMax={dm.sheet_max} boxQty={dm.steril_box_qty} />
+                               sheetMax={dm.sheet_max} boxQty={dm.steril_box_qty}
+                               loadUnit={dm.load_unit} />
                 <ExpectedUnitsForm id={dm.id} value={dm.expected_units} />
                 <SamplePlanForm id={dm.id} basis={dm.sample_basis}
                                 tiers={d.sampleTiers} />
@@ -214,7 +217,7 @@ export async function DmrWorkbench({
               <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
               <Panel
                 title="공정 순서"
-                note="재단 이후 공정은 기록이 제품 로트에 붙습니다"
+                note="제품 로트 단위 공정은 기록이 제품 로트에 붙습니다"
               >
                 {/*
                   * 공정이 없으면 흐름부터 넣는다. 하나씩 폼으로 열두 번 누르는
@@ -251,7 +254,7 @@ export async function DmrWorkbench({
               </Panel>
 
               {d.operations.length > 0 && (
-                <Panel title="제조 공정도" note="재단에서 형명별로 갈립니다">
+                <Panel title="제조 공정도" note="갈라지는 공정에서 형명별로 나뉩니다">
                   <FlowDiagram
                     operations={d.operations}
                     equipmentByOp={new Map(d.operations.map((op) => [
@@ -272,7 +275,7 @@ export async function DmrWorkbench({
                   <div className="flex gap-2">
                     <dt className="w-32 shrink-0 font-semibold text-ink">장입 구간 기준</dt>
                     <dd className="text-muted">
-                      시약 · 타이백처럼 통 단위로 소모되어 장수에 비례하지 않는 자재.
+                      통 · 포처럼 정해진 단위로 소모되어 투입량에 비례하지 않는 자재.
                       구간별 고정량을 넣습니다. 구간이 겹치면 등록이 거부됩니다.
                     </dd>
                   </div>

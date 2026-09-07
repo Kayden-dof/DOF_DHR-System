@@ -107,6 +107,25 @@ try {
   const applied = (dep.stdout.match(/ {2}적용 {2}/g) ?? []).length;
   console.log(`  이관 ${applied}건을 올렸습니다`);
 
+  /*
+   * 한 번 더 올린다. **이관은 매번 다시 돈다** (장부가 없다).
+   *
+   * 첫 배포는 빈 DB 에 차례로 쌓으므로 늘 통과한다. 어긋남은 **두 번째부터**
+   * 나타난다 - 뒤 이관이 함수 서명을 바꿔 놓은 자리에 앞 이관이 옛 서명을
+   * 다시 만들면, 그때부터 호출이 모호해지고 앞 이관이 죽는다.
+   *
+   * 실제로 그랬다 (2026-09-07 · 0099). render_number 에 기본값 있는 인자를
+   * 더했더니 0004 가 다시 만드는 5인자와 겹쳐, **운영의 다음 배포가 죽을
+   * 상태**로 올라갔다. 첫 배포만 보는 이 검사는 그것을 못 봤다.
+   */
+  const again = spawnSync(process.execPath, [path.join(ROOT, 'scripts', 'deploy-db.mjs')],
+    { env, cwd: ROOT, encoding: 'utf8' });
+  if (again.status !== 0) {
+    console.error(again.stdout + again.stderr);
+    throw new Error('이관을 두 번째로 올리지 못했습니다 (재실행이 깨졌습니다)');
+  }
+  console.log('  같은 이관을 한 번 더 올렸습니다 (재실행이 됩니다)');
+
   /* --- 3) 서버를 세운다 --------------------------------------------------- */
   srv = spawn(process.execPath,
     [path.join(ROOT, 'node_modules', 'next', 'dist', 'bin', 'next'), 'start', '-p', PORT],

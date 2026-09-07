@@ -32,7 +32,7 @@ export function SchemeForm({ scheme }: { scheme: Scheme | null }) {
         <div>
           <label className="label" htmlFor={`${uid}-name`}>이름</label>
           <input id={`${uid}-name`} name="name" required autoComplete="off"
-                 defaultValue={scheme?.name ?? ''} placeholder="이종 진피 완제품"
+                 defaultValue={scheme?.name ?? ''} placeholder="완제품 형명 체계 이름"
                  className="input" />
         </div>
         <div>

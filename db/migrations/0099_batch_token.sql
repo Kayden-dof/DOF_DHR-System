@@ -35,8 +35,25 @@ create or replace function render_number(
   p_seq_width int,
   p_seq       int,
   p_at        timestamp,
-  p_item_code text default null,
-  p_batch     text default null
+  /*
+   * 뒤 두 인자에 기본값을 두지 않는다.
+   *
+   * 이관은 매번 다시 돈다.
+   *
+   * 이관은 매번 다시 돈다. 0004 와 0075 가 옛 5인자 render_number 를 다시
+   * 만드는데, 여기에 기본값이 있으면 그 순간 5인자 호출이 **둘 다에 맞아**
+   * 모호해지고 0004 의 preview_number 생성이 죽는다. 두 번째 배포에서만
+   * 나타나서 첫 배포로는 안 보였다 (2026-09-07).
+   *
+   * 기본값이 없으면 5인자 호출은 5인자 함수로만 간다. 아래에서 그 5인자를
+   * 내리므로 배포가 끝난 뒤에는 6인자 하나만 남는다.
+   *
+   * PostgreSQL 은 기본값 있는 인자 뒤에 기본값 없는 인자를 두지 못하게 하므로
+   * p_item_code 의 기본값도 함께 뗀다. 부르는 곳이 둘뿐이고 둘 다 명시적으로
+   * 넘긴다.
+   */
+  p_item_code text,
+  p_batch     text
 ) returns text language sql stable
 set search_path = pg_catalog, public, pg_temp as $fn$
   select regexp_replace(

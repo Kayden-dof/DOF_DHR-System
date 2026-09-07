@@ -90,10 +90,15 @@ const REASONS = [
    사유는 미리 정한 문구에서 고른다. 되돌릴 수 없는 조작 앞에는 확인을 둔다.
 --------------------------------------------------------------------------- */
 export default function WorkPanel({
-  woId, batchNo, sheets, ops, records, lots, people, productLots, meId, lockedDays,
+  woId, batchNo, sheets, splitOp, loadUnit,
+  ops, records, lots, people, productLots, meId, lockedDays,
   cutOpId, finished, sampleTiers, sampleBasis, band, today,
 }: {
   woId: string; batchNo: string; sheets: number;
+  /** 갈림 공정 이름. 갈림이 없는 품목이면 null (0101) */
+  splitOp: string | null;
+  /** 장입 수량의 단위. 비면 숫자만 보여 준다 */
+  loadUnit: string | null;
   ops: Op[]; records: Rec[]; lots: LotOpt[]; people: PersonOpt[];
   productLots: PlOpt[]; meId: string; lockedDays: number[];
   /** 재단 공정. 이 공정 카드에서 형명별 수량을 적는다 */
@@ -368,6 +373,7 @@ export default function WorkPanel({
         <OperationCard
           woId={woId} day={day} op={op} rec={rec} lots={lots} people={people}
           productLots={productLots} locked={locked} sheets={sheets}
+          splitOp={splitOp} loadUnit={loadUnit}
           /*
            * 회차는 (공정, 제품 로트) 로 센다 (4차 감사 E2 · 0055 와 같은 기준).
            * 로트를 가리지 않고 세면 두 번째 형명을 시작할 때 2회차라고 안내한다.
@@ -473,11 +479,13 @@ function OpTile({
 /* -------------------------------------------------------------------------- */
 
 function OperationCard({
-  woId, day, op, rec, lots, people, productLots, locked, sheets, attemptCount,
+  woId, day, op, rec, lots, people, productLots, locked, sheets, splitOp, loadUnit,
+  attemptCount,
   isCut, finished, sampleTiers, sampleBasis, band,
 }: {
   woId: string; day: number; op: Op; rec: Rec | null; lots: LotOpt[];
   people: PersonOpt[]; productLots: PlOpt[]; locked: boolean; sheets: number;
+  splitOp: string | null; loadUnit: string | null;
   attemptCount: number;
   isCut: boolean; finished: FinOpt[]; band: string | null;
   sampleTiers: SampleTier[]; sampleBasis: string | null;
@@ -505,9 +513,10 @@ function OperationCard({
       ) : !rec || rec.ended_at ? (
         <StartCard woId={woId} day={day} op={op} people={people}
                    productLots={productLots} attempt={attemptCount + 1}
-                   done={!!rec?.ended_at} />
+                   done={!!rec?.ended_at} splitOp={splitOp} />
       ) : (
-        <RunningCard woId={woId} op={op} rec={rec} lots={lots} sheets={sheets} />
+        <RunningCard woId={woId} op={op} rec={rec} lots={lots} sheets={sheets}
+                     loadUnit={loadUnit} />
       )}
 
       {/*
@@ -517,7 +526,8 @@ function OperationCard({
         */}
       {isCut && rec && (
         <CutPanel woId={woId} finished={finished} lots={productLots}
-                  sampleTiers={sampleTiers} sampleBasis={sampleBasis} band={band} />
+                  sampleTiers={sampleTiers} sampleBasis={sampleBasis} band={band}
+                  splitOp={splitOp} />
       )}
 
       {rec && rec.issues.length > 0 && (
@@ -555,9 +565,9 @@ function OperationCard({
 
 /* -------------------------------------------------------------------------- */
 
-function StartCard({ woId, day, op, people, productLots, attempt, done }: {
+function StartCard({ woId, day, op, people, productLots, attempt, done, splitOp }: {
   woId: string; day: number; op: Op; people: PersonOpt[]; productLots: PlOpt[];
-  attempt: number; done: boolean;
+  attempt: number; done: boolean; splitOp: string | null;
 }) {
   const [state, action, pending] = useActionState<FormState, FormData>(startRecord, {});
   const [rotation, setRotation] = useState('');
@@ -589,10 +599,11 @@ function StartCard({ woId, day, op, people, productLots, attempt, done }: {
 
       {op.after_cutting && (
         <div>
-          <span className="label">제품 로트 (재단 이후 공정)</span>
+          <span className="label">제품 로트{splitOp ? ` (${splitOp} 이후 공정)` : ''}</span>
           {productLots.length === 0 ? (
             <p className="rounded-md bg-danger-bg px-3 py-2.5 text-sm text-danger">
-              아직 재단하지 않았습니다. 재단 전에는 이 공정을 기록할 수 없습니다.
+              아직 제조번호가 붙지 않았습니다.
+              {splitOp ? ` ${splitOp} 전에는 ` : ' 그 전에는 '}이 공정을 기록할 수 없습니다.
             </p>
           ) : (
             <div className="grid gap-2 sm:grid-cols-2">
@@ -707,8 +718,9 @@ function StartCard({ woId, day, op, people, productLots, attempt, done }: {
 
 /* -------------------------------------------------------------------------- */
 
-function RunningCard({ woId, op, rec, lots, sheets }: {
+function RunningCard({ woId, op, rec, lots, sheets, loadUnit }: {
   woId: string; op: Op; rec: Rec; lots: LotOpt[]; sheets: number;
+  loadUnit: string | null;
 }) {
   const [tab, setTab] = useState<'material' | 'end'>('material');
   const recorded = new Set(rec.issues.map((x) => x.item_id));
@@ -738,7 +750,8 @@ function RunningCard({ woId, op, rec, lots, sheets }: {
       </div>
 
       {tab === 'material' ? (
-        <MaterialForm woId={woId} rec={rec} op={op} lots={lots} sheets={sheets} />
+        <MaterialForm woId={woId} rec={rec} op={op} lots={lots} sheets={sheets}
+                      loadUnit={loadUnit} />
       ) : (
         <EndForm woId={woId} rec={rec} op={op} missing={missing} />
       )}
@@ -746,8 +759,9 @@ function RunningCard({ woId, op, rec, lots, sheets }: {
   );
 }
 
-function MaterialForm({ woId, rec, op, lots, sheets }: {
+function MaterialForm({ woId, rec, op, lots, sheets, loadUnit }: {
   woId: string; rec: Rec; op: Op; lots: LotOpt[]; sheets: number;
+  loadUnit: string | null;
 }) {
   const [state, action, pending] = useActionState<FormState, FormData>(issueMaterial, {});
   const [lotId, setLotId] = useState('');
@@ -807,7 +821,7 @@ function MaterialForm({ woId, rec, op, lots, sheets }: {
         })}
       </ul>
       <p className="mt-2 text-xs leading-relaxed text-faint">
-        예상 수량은 자재 구성표와 장입 {sheets}장으로 계산한 값입니다. 실제로 넣은
+        예상 수량은 자재 구성표와 장입 {sheets}{loadUnit ?? ''}으로 계산한 값입니다. 실제로 넣은
         양이 다르면 그대로 적으십시오.
       </p>
     </div>
@@ -870,7 +884,7 @@ function MaterialForm({ woId, rec, op, lots, sheets }: {
           hint={
             need !== null ? (
               <>
-                자재 구성표 기준 장입 {sheets}장의 <b className="text-ink">예상</b> 소요량{' '}
+                자재 구성표 기준 장입 {sheets}{loadUnit ?? ''}의 <b className="text-ink">예상</b> 소요량{' '}
                 <b className="text-ink tnum">{need} {lot.usage_uom}</b>을 미리 채웠습니다.
                 실제로 넣은 양이 다르면 고쳐 입력하십시오.
               </>
@@ -1036,9 +1050,10 @@ function CloseDayCard({ woId, day, batchNo, openOps }: {
    샘플 수를 시스템이 정하지 않는다. 검사 기준이 정하고 제품표준서에 옮겨 적힌
    값을 읽어 올 뿐이다. 등록된 값이 없으면 아무것도 안내하지 않는다 (§1).
 --------------------------------------------------------------------------- */
-function CutPanel({ woId, finished, lots, sampleTiers, sampleBasis, band }: {
+function CutPanel({ woId, finished, lots, sampleTiers, sampleBasis, band, splitOp }: {
   woId: string; finished: FinOpt[]; lots: PlOpt[];
   sampleTiers: SampleTier[]; sampleBasis: string | null; band: string | null;
+  splitOp: string | null;
 }) {
   /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
   const uid = useId();
@@ -1087,7 +1102,7 @@ function CutPanel({ woId, finished, lots, sampleTiers, sampleBasis, band }: {
   return (
     <div className="border-t border-line bg-canvas p-4">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h3 className="text-base font-bold text-ink">재단 결과</h3>
+        <h3 className="text-base font-bold text-ink">{splitOp ?? '제조번호 부여'} 결과</h3>
         <p className="text-xs leading-relaxed text-muted">
           형명별로 몇 장이 나왔는지 적으면 제조번호가 붙습니다.
           {band && <> 이 배치의 두께 구간은 <b className="text-ink">{band}</b> 입니다.</>}

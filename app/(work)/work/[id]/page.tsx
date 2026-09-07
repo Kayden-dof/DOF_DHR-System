@@ -35,6 +35,8 @@ interface Wo {
   id: string; batch_no: string; wo_no: string; sheet_count: number; status: string;
   item_name: string; item_code: string; dmr_revision: string;
   raw_lot_no: string; thickness_band: string | null; device_master_id: string;
+  /* 화면의 낱말이 제품에서 나온다 (0101) */
+  split_op: string | null; load_unit: string | null;
 }
 
 export default async function WorkBatchPage({ params }: { params: Promise<{ id: string }> }) {
@@ -45,6 +47,7 @@ export default async function WorkBatchPage({ params }: { params: Promise<{ id: 
     const wo = await db.one<Wo>(
       `select wo.id, wo.batch_no, wo.wo_no, wo.sheet_count, wo.status::text as status,
               wo.dmr_revision, wo.device_master_id,
+              split_op_name(dm.id) as split_op, dm.load_unit,
               i.name as item_name, i.code as item_code,
               ml.lot_no as raw_lot_no, ml.thickness_band
          from work_order wo
@@ -198,6 +201,8 @@ export default async function WorkBatchPage({ params }: { params: Promise<{ id: 
         woId={wo.id}
         batchNo={wo.batch_no}
         sheets={wo.sheet_count}
+        splitOp={wo.split_op}
+        loadUnit={wo.load_unit}
         ops={d.ops}
         records={d.records}
         lots={d.lots}

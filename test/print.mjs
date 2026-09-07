@@ -235,7 +235,7 @@ function say(line = '') { out.push(line); console.log(line); }
    봤다. 그래서 이런 일이 벌어졌다.
 
      · 모든 종이에 "2026-09-02 14:33" 인쇄 일시가 있다. 그래서 '2' '20' 같은
-       한두 자리 기대값(투입 수량 · 장입 장수)은 **그 칸이 틀려도, 비어도**
+       한두 자리 기대값(투입 수량 · 장입 수량)은 **그 칸이 틀려도, 비어도**
        통과했다.
      · 공통 다섯 항목은 기대값이 자기 이름표였다 - { label: '인쇄자',
        value: '인쇄자' }. 값 칸을 통째로 떼어도 이름표가 남아 통과했다.
@@ -488,7 +488,7 @@ await sheet('① 작업 지시서', `/print/work-order/${wo.id}`, [
   ...containerExpect.map((c) => ({
     label: `필요 용기 ${c.uom}`, value: `${c.n} ${c.uom}`, cell: '필요 용기 수',
   })),
-  { label: '장입 장수',         value: String(wo.sheet_count), cell: '장입 장수' },
+  { label: '장입 수량',         value: String(wo.sheet_count), cell: '장입 수량' },
   { label: '배치번호',          value: wo.batch_no },
   // 제품 자리에는 최상위 관리 코드가 나가고, 형명(PD…)은 규격으로 함께 적힌다
   { label: '제품 관리 코드',    value: wo.product_code ?? wo.item_code },
@@ -580,7 +580,7 @@ await sheet('④ 편철 표지', `/print/cover/${wo.id}`, [
   { label: '지시서번호',      value: wo.wo_no },
   { label: '원재료 로트번호', value: wo.raw_lot_no },
   { label: '성적서 번호',     value: wo.coa_no },
-  { label: '장입 장수',       value: String(wo.sheet_count) },
+  { label: '장입 수량',       value: String(wo.sheet_count) },
   // 공정이 보통 몇 일차인지. 참고값이지만 종이에 나와야 계획을 세운다
   ...(wo.typical_days ?? []).map((d, i) => ({
     label: `공정 ${i + 1} 보통 일차`, value: String(d),

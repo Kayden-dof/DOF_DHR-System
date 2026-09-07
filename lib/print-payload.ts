@@ -50,6 +50,8 @@ export function hashable(p: { head: unknown; records: RecRow[] }) {
 
 export interface Head {
   batch_no: string; wo_no: string; sheet_count: number; dmr_revision: string;
+  /* 종이의 낱말이 제품에서 나온다 (0101). 갈림 공정 이름과 장입 단위 */
+  split_op: string | null; load_unit: string | null;
   item_code: string; item_name: string;
   raw_lot_no: string; raw_item_code: string; raw_supplier: string;
   raw_coa_no: string; raw_coa_date: string; raw_thickness: string | null;
@@ -80,6 +82,7 @@ export async function dayRecordPayload(
 ): Promise<DayRecordPayload | null> {
   const head = await db.one<Head>(
     `select wo.batch_no, wo.wo_no, wo.sheet_count, wo.dmr_revision,
+            split_op_name(dm.id) as split_op, dm.load_unit,
             i.code as item_code, i.name as item_name,
             ml.lot_no as raw_lot_no, ri.code as raw_item_code,
             s.name as raw_supplier, ml.coa_no as raw_coa_no,

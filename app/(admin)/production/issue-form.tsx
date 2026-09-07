@@ -11,6 +11,10 @@ export interface DmOpt {
   product_code: string | null; product_name: string | null;
   sheet_min: number | null; sheet_max: number | null;
   verified_at: Date | null; op_count: number;
+  /** 갈림 공정 이름. 갈림이 없으면 null (0101) */
+  split_op: string | null;
+  /** 장입 수량의 단위. 비면 숫자만 보여 준다 */
+  load_unit: string | null;
 }
 export interface RawLotOpt {
   id: string; lot_no: string; item_code: string; item_name: string;
@@ -138,7 +142,7 @@ export default function IssueForm({ masters, rawLots, finished, users, today }: 
           */}
         <div>
           <label className="label" htmlFor={`${uid}-sheet_count`}>
-            장입 장수{' '}
+            장입 수량{dmSel?.load_unit ? ` (${dmSel.load_unit})` : ''}{' '}
             <span className="text-faint">
               ({lo}
               {hi === null ? '장 이상' : `~${hi}`})
@@ -163,7 +167,8 @@ export default function IssueForm({ masters, rawLots, finished, users, today }: 
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <label className="label mb-0">예정 생산 수량</label>
             <span className="text-xs text-muted">
-              포장재 소요량 계산에 씁니다. 비워 두면 재단 후 확정으로 인쇄됩니다.
+              포장재 소요량 계산에 씁니다. 비워 두면
+              {dmSel?.split_op ? ` ${dmSel.split_op} 후 확정` : ' 나중에 확정'}으로 인쇄됩니다.
             </span>
           </div>
           <input
@@ -177,8 +182,8 @@ export default function IssueForm({ masters, rawLots, finished, users, today }: 
             className="input mt-1.5 w-44 tnum"
           />
           <p className="mt-1.5 text-xs leading-relaxed text-muted">
-            어떤 형명이 몇 개 나올지는 재단에서 정해집니다. 지시서에는 개수만
-            나가고, 형명별 수량은 재단 기록에 남습니다.
+            어떤 형명이 몇 개 나올지는 {dmSel?.split_op ?? '제조번호 부여'}에서 정해집니다.
+            지시서에는 개수만 나가고, 형명별 수량은 그 기록에 남습니다.
           </p>
         </div>
 
@@ -227,7 +232,7 @@ export default function IssueForm({ masters, rawLots, finished, users, today }: 
       {pv.requirements && pv.requirements.length > 0 && (
         <div className="mt-3 rounded-md border border-line bg-canvas p-3">
           <p className="text-xs font-bold text-ink">
-            장입 {sheets}장 기준 소요량 (작업 지시서에 인쇄됩니다)
+            장입 {sheets}{dmSel?.load_unit ?? ''} 기준 소요량 (작업 지시서에 인쇄됩니다)
           </p>
           <div className="mt-2 overflow-x-auto">
             <table className="w-full">
@@ -260,7 +265,8 @@ export default function IssueForm({ masters, rawLots, finished, users, today }: 
             </table>
           </div>
           <p className="mt-2 text-xs leading-relaxed text-faint">
-            제품 개수 기준 자재는 재단 후 수량이 정해지므로 여기서는 계산하지 않습니다.
+            제품 개수 기준 자재는 {dmSel?.split_op ? `${dmSel.split_op} 후` : '나중에'} 수량이
+            정해지므로 여기서는 계산하지 않습니다.
             지시서에는 예정이, 기록서에는 실제가 나옵니다.
           </p>
         </div>

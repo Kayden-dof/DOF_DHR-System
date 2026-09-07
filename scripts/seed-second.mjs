@@ -177,12 +177,14 @@ const dm = await val(
   `insert into device_master (item_id, revision, status, effective_from,
                               verified_by, verified_at, license_no,
                               sheet_min, sheet_max, steril_box_qty,
-                              expected_units, product_code, product_name, sample_basis)
+                              expected_units, product_code, product_name, sample_basis,
+                              load_unit)
    values ($1,'Rev.01','ACTIVE',current_date - 20,$2,now(),$3,
-           1,8,20,48,'CG3100','콜라겐 지혈재','예시 값 · 검사기준서의 표로 바꾸십시오')
+           1,8,20,48,'CG3100','콜라겐 지혈재','예시 값 · 검사기준서의 표로 바꾸십시오',
+           'L')
    returning id`,
   [fin, admin.id, '제허 26-9999호 (시험 자료)']);
-say('제품표준서 CG3100 Rev.01 · 장입 1~8 · 멸균 박스 20 · 사용기간 24개월');
+say('제품표준서 CG3100 Rev.01 · 장입 1~8 L · 멸균 박스 20 · 사용기간 24개월');
 
 /* --- 5) 공정. 전부 재단 이전이다 (§12) ------------------------------------- */
 const OPS = [

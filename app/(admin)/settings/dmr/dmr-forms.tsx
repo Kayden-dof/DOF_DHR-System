@@ -53,12 +53,12 @@ export function NewDeviceMaster({ items }: { items: ItemOption[] }) {
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <label className="label" htmlFor={`${uid}-product_code`}>제품 코드</label>
-          <input id={`${uid}-product_code`} name="product_code" required placeholder="DX2401" autoComplete="off"
+          <input id={`${uid}-product_code`} name="product_code" required placeholder="제품 관리 코드" autoComplete="off"
                  className="input font-mono" />
         </div>
         <div>
           <label className="label" htmlFor={`${uid}-product_name`}>제품명</label>
-          <input id={`${uid}-product_name`} name="product_name" placeholder="돈피 진피" autoComplete="off"
+          <input id={`${uid}-product_name`} name="product_name" placeholder="제품명" autoComplete="off"
                  className="input" />
         </div>
         {/*
@@ -266,8 +266,8 @@ function verifyRows(s: VerifySheet) {
     const eq = s.equipmentByOp[op.id] ?? [];
     rows.push({
       key: `op-${op.id}`, group: `공정 ${op.seq}`,
-      label: `${op.name} · 순서 · 코드 · 재단 전후 · 설비가 서면과 같습니까?`,
-      value: [op.code, op.after_cutting ? '재단 이후' : '재단 이전',
+      label: `${op.name} · 순서 · 코드 · 기록 단위 · 설비가 서면과 같습니까?`,
+      value: [op.code, op.after_cutting ? '제품 로트 단위' : '배치 단위',
               eq.length ? eq.join(' · ') : '설비 없음'].join(' · '),
     });
     for (const b of op.bom) {
@@ -278,7 +278,7 @@ function verifyRows(s: VerifySheet) {
           ? `제품 1개당 ${Number(b.qty_per_unit)} ${b.usage_uom}`
           : b.tiers.length
             ? b.tiers.map((t) =>
-                `${t.min_sheets}~${t.max_sheets ?? ''}장 ${Number(t.qty)} ${b.usage_uom}`).join(' / ')
+                `${t.min_sheets}~${t.max_sheets ?? ''} ${Number(t.qty)} ${b.usage_uom}`).join(' / ')
             : '장입 구간 미등록',
       });
     }
@@ -309,7 +309,7 @@ export function AddOperationForm({ dm, nextSeq }: { dm: string; nextSeq: number 
         </div>
         <div>
           <label className="label" htmlFor={`${uid}-code`}>공정 코드</label>
-          <input id={`${uid}-code`} name="code" required placeholder="WS-DX2401-01" autoComplete="off"
+          <input id={`${uid}-code`} name="code" required placeholder="공정 코드" autoComplete="off"
                  className="input font-mono" />
         </div>
         <div className="lg:col-span-2">
@@ -318,7 +318,7 @@ export function AddOperationForm({ dm, nextSeq }: { dm: string; nextSeq: number 
         </div>
         <label className="flex items-center gap-2 self-end pb-2 text-sm text-ink">
           <input type="checkbox" name="after_cutting" className="size-4 accent-brand" />
-          재단 이후 공정
+          제품 로트 단위 공정
         </label>
         <label className="flex items-center gap-2 text-sm text-ink">
           <input type="checkbox" name="takes_rework" className="size-4 accent-brand" />
@@ -326,7 +326,7 @@ export function AddOperationForm({ dm, nextSeq }: { dm: string; nextSeq: number 
         </label>
       </div>
       <p className="mt-2 text-xs leading-relaxed text-muted">
-        재단 이후 공정은 기록이 <b className="text-ink">제품 로트</b>에 붙고, 그 이전은
+        제품 로트 단위 공정은 기록이 <b className="text-ink">제품 로트</b>에 붙고, 그 앞은
         <b className="text-ink"> 배치</b>에 붙습니다. <b className="text-ink">갈라지는 공정
         자체는 이전</b>입니다 - 자르는 일은 아직 배치 하나로 일어납니다.
         보통 일차는 참고값이며 실제 기록 일차를 제약하지 않습니다.
@@ -444,7 +444,7 @@ export function EditOperationForm({ dm, op }: { dm: string; op: OperationRow }) 
         </div>
         <label className="flex h-9 items-center gap-1.5 text-xs text-ink">
           <input type="checkbox" name="after_cutting" defaultChecked={op.after_cutting} />
-          재단 이후
+          제품 로트 단위
         </label>
         <label className="flex h-9 items-center gap-1.5 text-xs text-ink">
           <input type="checkbox" name="takes_rework" defaultChecked={op.takes_rework} />
@@ -457,7 +457,7 @@ export function EditOperationForm({ dm, op }: { dm: string; op: OperationRow }) 
                 className="btn-ghost h-9 px-3 text-xs">취소</button>
       </div>
       <p className="mt-1.5 text-xs leading-relaxed text-faint">
-        공정 코드와 이름, 보통 일차는 작업 지시서에 인쇄됩니다. 재단 이후로 바꾸면
+        공정 코드와 이름, 보통 일차는 작업 지시서에 인쇄됩니다. 제품 로트 단위로 바꾸면
         그 공정의 기록이 제품 로트에 붙습니다. <b className="text-ink">재작업 수량</b>을
         켜면 현장 마감 화면에 그 칸이 납니다 - 제조기록서에 인쇄됩니다.
       </p>
@@ -613,7 +613,7 @@ export function OperationCard({ dm, op, items, editable, equipment = [] }: {
         <code className="font-mono text-xs text-muted">{op.code}</code>
         <span className="text-sm font-semibold text-ink">{op.name}</span>
         <Tag tone={op.after_cutting ? 'brand' : 'quiet'}>
-          {op.after_cutting ? '재단 이후' : '재단 이전'}
+          {op.after_cutting ? '제품 로트 단위' : '배치 단위'}
         </Tag>
         {/* 참고값이라 조용히 둔다. 적히지 않았으면 아무것도 나오지 않는다 */}
         {op.typical_day !== null && (
@@ -703,7 +703,7 @@ export function OperationCard({ dm, op, items, editable, equipment = [] }: {
                             {b.tiers.map((tr) => (
                               <tr key={tr.id}>
                                 <td className="td tnum text-xs">
-                                  {tr.min_sheets} ~ {tr.max_sheets ?? '제한 없음'} 장
+                                  {tr.min_sheets} ~ {tr.max_sheets ?? '제한 없음'}
                                 </td>
                                 <td className="td tnum text-right text-xs">
                                   {Number(tr.qty)} {b.usage_uom}
@@ -748,8 +748,12 @@ export function OperationCard({ dm, op, items, editable, equipment = [] }: {
    범위는 여기서 정한다. 상한을 비우면 상한이 없다.
 --------------------------------------------------------------------------- */
 export function DmrLimitsForm({
-  id, sheetMin, sheetMax, boxQty,
-}: { id: string; sheetMin: number | null; sheetMax: number | null; boxQty: number | null }) {
+  id, sheetMin, sheetMax, boxQty, loadUnit,
+}: {
+  id: string; sheetMin: number | null; sheetMax: number | null; boxQty: number | null;
+  /** 장입 수량의 단위 (0101). 비면 숫자만 보여 준다 */
+  loadUnit: string | null;
+}) {
   /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
   const uid = useId();
 
@@ -770,6 +774,17 @@ export function DmrLimitsForm({
                placeholder="없음" className="input h-9 tnum text-xs" />
       </div>
       <div className="w-40">
+        <label className="label" htmlFor={`${uid}-load_unit`}>장입 단위</label>
+        {/*
+          * 장입 수량의 단위 (0101). `장` 은 이 제조소의 값이지 프로그램의
+          * 성질이 아니다 - 액상이면 L, 분말이면 kg 다. 비우면 화면과 종이가
+          * 숫자만 보여 준다. 지어낸 단위를 붙이는 것보다 낫다 (§2.0).
+          */}
+        <input id={`${uid}-load_unit`} name="load_unit" defaultValue={loadUnit ?? ''}
+               autoComplete="off" placeholder="예: 장 · L · kg" className="input" />
+      </div>
+
+      <div>
         <label className="label" htmlFor={`${uid}-steril_box_qty`}>멸균 박스 한 개 수량</label>
         <input id={`${uid}-steril_box_qty`} name="steril_box_qty" type="number" min={1} defaultValue={boxQty ?? ''}
                placeholder="없음" className="input h-9 tnum text-xs" />
@@ -805,7 +820,7 @@ export function ExpectedUnitsForm({ id, value }: { id: string; value: number | n
         저장
       </button>
       <span className="pb-2 text-xs leading-relaxed text-faint">
-        실제 수량은 재단에서 정해집니다. 발행을 제약하지 않습니다.
+        실제 수량은 제조번호가 붙을 때 정해집니다. 발행을 제약하지 않습니다.
       </span>
       <Msg state={state} className="w-full" />
     </form>
@@ -862,7 +877,8 @@ export function SamplePlanForm({ id, tiers, basis }: {
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <span className="label mb-0">완제품검사 시료 채취 기준</span>
         <span className="text-xs leading-relaxed text-faint">
-          생산 수량 구간별 시료 수입니다. 현장 재단 화면이 이 표를 보고 안내합니다.
+          생산 수량 구간별 시료 수입니다. 현장의 제조번호 부여 화면이 이 표를 보고
+          안내합니다.
         </span>
       </div>
 
@@ -919,7 +935,7 @@ export function SamplePlanForm({ id, tiers, basis }: {
         <div className="min-w-0 flex-1">
           <label className="label" htmlFor={`${uid}-sample_basis`}>근거</label>
           <input id={`${uid}-sample_basis`} name="sample_basis" defaultValue={basis ?? ''}
-                 placeholder="예: 검사기준서 QC-DX2401-01 표3"
+                 placeholder="예: 검사기준서 문서번호와 표 번호"
                  className="input h-9 text-xs" />
         </div>
         <button type="submit" disabled={bPending} className="btn-ghost h-9 px-3 text-xs">
@@ -997,12 +1013,12 @@ export function ProductCodeForm({ id, code, name, itemCode, license }: {
       <input type="hidden" name="id" value={id} />
       <div className="w-40">
         <label className="label" htmlFor={`${uid}-product_code`}>제품 코드 (관리 코드)</label>
-        <input id={`${uid}-product_code`} name="product_code" defaultValue={code ?? ''} placeholder="DX2401"
+        <input id={`${uid}-product_code`} name="product_code" defaultValue={code ?? ''} placeholder="제품 관리 코드"
                autoComplete="off" className="input h-9 font-mono text-xs" />
       </div>
       <div className="w-56">
         <label className="label" htmlFor={`${uid}-product_name`}>제품명</label>
-        <input id={`${uid}-product_name`} name="product_name" defaultValue={name ?? ''} placeholder="돈피 진피"
+        <input id={`${uid}-product_name`} name="product_name" defaultValue={name ?? ''} placeholder="제품명"
                autoComplete="off" className="input h-9 text-xs" />
       </div>
       <div className="w-52">
@@ -1109,27 +1125,32 @@ export function OperationSetForm({
       <p className="text-sm font-semibold text-ink">공정 흐름 적기</p>
       <p className="mt-1 text-xs leading-relaxed text-muted">
         한 줄에 공정 하나입니다. <code className="font-mono">공정코드 | 공정명</code> 이고,
-        재단 이후 공정이면 뒤에 <code className="font-mono">| 재단이후</code> 를 붙입니다.
+        제품 로트 단위 공정이면 뒤에 <code className="font-mono">| 로트단위</code> 를
+        붙입니다.
         적은 차례가 곧 공정 순서입니다. 엑셀에서 붙여 넣어도 됩니다.
       </p>
+      {/*
+        * 예시를 defaultValue 로 두면 **그대로 제출된다.** 다른 제조소가 이
+        * 회사의 공정을 자기 제품표준서로 등록하게 된다 (전수 감사
+        * 2026-09-07). 힌트로 내린다 - 지우고 쓰는 것과 채워 넣는 것은
+        * 다른 일이다.
+        */}
       <textarea
         name="flow"
         required
         rows={10}
         spellCheck={false}
-        defaultValue={`WS-DX2402-01 | NaCl 처리·세척 |      | 1
-WS-DX2402-02 | 초임계 가공     |      | 1
-PI-DX2402-01 | 1차 반제품 검사 |      | 2
-WS-DX2402-07 | 재단           |      | 3
-WS-DX2402-08 | 포장(1·2차)     | 재단이후 | 3
-FI-DX2402-01 | 완제품 검사     | 재단이후 | 4`}
+        placeholder={`공정코드-01 | 첫 공정 이름   |          | 1
+공정코드-02 | 다음 공정 이름 |          | 1
+공정코드-03 | 분기 공정      |          | 2
+공정코드-04 | 그 뒤 공정     | 로트단위 | 3`}
         className="input mt-3 h-auto font-mono text-xs leading-relaxed"
       />
       <p className="mt-2 text-xs leading-relaxed text-muted">
-        칸은 <b className="text-ink">공정 코드 | 공정명 | 재단이후 | 보통 일차</b> 순입니다.
-        뒤 두 칸은 비워도 됩니다. 재단 이후 공정은 기록이
+        칸은 <b className="text-ink">공정 코드 | 공정명 | 로트단위 | 보통 일차</b> 순입니다.
+        뒤 두 칸은 비워도 됩니다. 제품 로트 단위 공정은 기록이
         <b className="text-ink"> 제품 로트</b>에 붙고 그 이전은
-        <b className="text-ink"> 배치</b>에 붙으며, 재단 자체는 이전 공정입니다.
+        <b className="text-ink"> 배치</b>에 붙습니다. 갈라지는 공정 자체는 배치 단위입니다.
         보통 일차는 참고값입니다. 한 줄이라도 어긋나면 아무것도 넣지 않습니다.
       </p>
       <Msg state={bulkState} />
@@ -1183,7 +1204,7 @@ export function NewProduct({
         </div>
         <div>
           <label className="label" htmlFor={`${uid}-product_name`}>제품명</label>
-          <input id={`${uid}-product_name`} name="product_name" autoComplete="off" placeholder="우피 진피"
+          <input id={`${uid}-product_name`} name="product_name" autoComplete="off" placeholder="새 제품명"
                  className="input" />
         </div>
         <div>
@@ -1229,7 +1250,7 @@ export function NewProduct({
           <div className="mt-2.5 grid gap-3 sm:grid-cols-2">
             <div>
               <label className="label" htmlFor={`${uid}-new_item_code`}>형명 코드</label>
-              <input id={`${uid}-new_item_code`} name="new_item_code" autoComplete="off" placeholder="PD05050510"
+              <input id={`${uid}-new_item_code`} name="new_item_code" autoComplete="off" placeholder="완제품 형명"
                      className="input font-mono" />
             </div>
             <div>
@@ -1241,7 +1262,7 @@ export function NewProduct({
         )}
         <p className="mt-2 text-xs leading-relaxed text-faint">
           형명은 규격입니다. 제품 하나에 규격이 여럿이고, 실제로 어느 규격이 나오는지는
-          재단에서 정해집니다. 나머지 규격은 등록 후 <b className="text-ink">완제품 형명
+          제조번호가 붙을 때 정해집니다. 나머지 규격은 등록 후 <b className="text-ink">완제품 형명
           생성</b>으로 한꺼번에 만듭니다.
         </p>
       </div>

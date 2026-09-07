@@ -575,12 +575,12 @@ export function WipNonconformityForm({ woId, today, ops, sheets }: {
   return (
     <>
       <button onClick={() => setOpen(true)} className="btn-ghost h-9 px-3 text-xs">
-        재단 전 부적합
+        반제품 부적합
       </button>
       <Dialog open={open} onClose={() => setOpen(false)} wide
-              title="재단 전 부적합 기록"
+              title="반제품 부적합 기록"
               note={<>장입 <span className="tnum">{sheets}</span>장 · 단위는 <b>장</b>입니다.
-                재단 이후 부적합은 제품 로트에 적습니다.</>}>
+                제품 로트가 갈린 뒤의 부적합은 제품 로트에 적습니다.</>}>
         <form action={action} className="space-y-4">
           <input type="hidden" name="work_order_id" value={woId} />
           <input type="hidden" name="outcome" value={outcome} />
@@ -651,7 +651,7 @@ export function WipNonconformityForm({ woId, today, ops, sheets }: {
           )}
 
           <p className="text-xs leading-relaxed text-muted">
-            장입 장수는 줄지 않습니다. 발행 시점에 장입하기로 한 수이고 이미 일어난
+            장입 수량은 줄지 않습니다. 발행 시점에 장입하기로 한 수이고 이미 일어난
             일입니다. 버린 사실을 따로 적을 뿐입니다.
           </p>
 

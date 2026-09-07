@@ -6,7 +6,7 @@ import { SubNav } from '../../nav';
 import { settingsNav } from '../../sections';
 import { ITEM_TYPES } from '@/lib/forms';
 import { Panel, Empty, Tag } from '@/components/ui';
-import { NewItemForm, GenerateFinished, ItemRowView, type ItemRow } from './item-forms';
+import { NewItemForm, GenerateFinished, ItemRowView, type ItemRow, type SchemeOpt } from './item-forms';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,9 +36,26 @@ export default async function ItemsPage({ searchParams }: { searchParams: Search
     /* 품목마다 어디서 사는지 고를 수 있게 (6차 감사 N7) */
     suppliers: await db.rows<{ id: string; name: string }>(
       `select id, name from supplier order by status desc, name`),
-    schemes: await db.rows<{ id: string; name: string; prefix: string }>(
-      `select id, name, prefix from model_scheme
-        where is_active order by prefix`),
+    /*
+     * 자리 모양까지 함께 읽는다 (0100). 형명 생성 화면의 라벨과 자릿수가
+     * 여기서 나온다 - 전에는 `가로2+세로2` 라고 박혀 있어 다른 품목에서
+     * 화면이 거짓말을 했다 (사용자 지적 2026-09-07).
+     */
+    schemes: await db.rows<SchemeOpt>(
+      `select s.id, s.name, s.prefix,
+              coalesce(sum(g.digits) filter (where g.role is distinct from 'BAND'), 0)::int
+                as head,
+              coalesce(sum(g.digits) filter (where g.role = 'BAND'), 0)::int
+                as tail,
+              coalesce(string_agg(g.label, ' + ' order by g.seq)
+                       filter (where g.role is distinct from 'BAND'), '') as size_labels,
+              coalesce(string_agg(g.label, ' + ' order by g.seq)
+                       filter (where g.role = 'BAND'), '') as band_labels
+         from model_scheme s
+         left join model_segment g on g.scheme_id = s.id
+        where s.is_active
+        group by s.id, s.name, s.prefix
+        order by s.prefix`),
     items: await db.rows<ItemRow>(
       `select i.*, count(ml.id)::int as lot_count
          from item i

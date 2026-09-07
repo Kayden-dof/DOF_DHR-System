@@ -327,7 +327,7 @@ if (!dm) {
   // 제품 최상위 관리 코드. 형명(PD…)은 그 아래의 규격이다
   await c.query(
     `update device_master
-        set expected_units = 204,
+        set expected_units = 204, load_unit = '장',
             product_code = 'DX2401', product_name = '돈피 진피',
             sample_basis = '예시 값 · 실제 검사기준서의 표로 바꾸십시오'
       where id = $1`, [dm]);

@@ -16,6 +16,8 @@ export const dynamic = 'force-dynamic';
 
 interface Head {
   batch_no: string; wo_no: string; status: string; sheet_count: number;
+  /* 종이의 낱말이 제품에서 나온다 (0101). 갈림 공정 이름과 장입 단위 */
+  split_op: string | null; load_unit: string | null;
   dmr_revision: string; issued_at: Date; item_code: string; item_name: string;
   product_code: string | null; product_name: string | null;
   /** 서면 허가증의 번호 (0095) */
@@ -46,6 +48,7 @@ export default async function CoverSheet({ params }: { params: Promise<{ id: str
   const d = await withActor(user.id, async (db) => {
     const head = await db.one<Head>(
       `select wo.batch_no, wo.wo_no, wo.status::text as status, wo.sheet_count,
+              split_op_name(dm.id) as split_op, dm.load_unit,
               wo.dmr_revision, wo.issued_at, wo.cancelled_reason,
               i.code as item_code, i.name as item_name,
               dm.product_code, dm.product_name, dm.license_no,
@@ -138,7 +141,7 @@ export default async function CoverSheet({ params }: { params: Promise<{ id: str
   const open = [
     head.status !== 'DONE' && head.status !== 'CANCELLED' && '배치 미종료',
     openDays > 0 && `기록서 미발행 ${openDays}건`,
-    lots.length === 0 && '재단 전',
+    lots.length === 0 && (head.split_op ? `${head.split_op} 전` : '제조번호 전'),
   ].filter(Boolean) as string[];
 
   /*
@@ -201,7 +204,7 @@ export default async function CoverSheet({ params }: { params: Promise<{ id: str
             <td>{head.supplier_name} / {head.coa_no}</td>
           </tr>
           <tr>
-            <th>장입 장수</th>
+            <th>장입 수량</th>
             <td className="tnum">{head.sheet_count} 장</td>
             <th>발행</th>
             <td className="tnum">
@@ -245,7 +248,7 @@ export default async function CoverSheet({ params }: { params: Promise<{ id: str
         </thead>
         <tbody>
           {lots.length === 0 ? (
-            <tr><td colSpan={7} className="text-center">재단하지 않았습니다.</td></tr>
+            <tr><td colSpan={7} className="text-center">제조번호가 붙지 않았습니다.</td></tr>
           ) : lots.map((l) => (
             <tr key={l.lot_no}>
               <td className="font-mono font-bold">{l.lot_no}</td>
@@ -394,7 +397,7 @@ export default async function CoverSheet({ params }: { params: Promise<{ id: str
                 { name: '제조기록서 (일차 · 작업자별)',
                   fact: <>{days.length}묶음{days.some((r) => r.prints === 0) &&
                           ` · 미발행 ${days.filter((r) => r.prints === 0).length}건`}
-                          {' '}· 재단 일차는 생산 규격 기록지 포함</>,
+                          {head.split_op ? <>{' '}· {head.split_op} 일차는 생산 규격 기록지 포함</> : null}</>,
                   pages: String(dayPages || '-') },
                 { name: '라벨요청서',
                   fact: lp ? <>최종 {lp.latest}회차 발행분</> : '발행 이력 없음',

@@ -382,7 +382,7 @@ export async function recordWipNonconformity(
     bump(woId);
     const label = outcome === 'REWORK' ? '재작업'
       : outcome === 'CONCESSION' ? '특채' : '불량';
-    return { ok: true, message: `${label} ${sheets}장을 기록했습니다.` };
+    return { ok: true, message: `${label} ${sheets}을(를) 기록했습니다.` };
   } catch (e) {
     return { error: dbMessage(e) };
   }

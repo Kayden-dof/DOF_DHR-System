@@ -152,7 +152,7 @@ export default function ReceiveForm({ items, suppliers, orders, today }: {
       {isRaw && (
         <p className="mt-2 rounded-md bg-brand-soft px-3 py-2 text-xs leading-relaxed text-ink">
           원재료입니다. 여기서 넣은 <b>두께 구간</b>이 배치를 거쳐 제품 로트로 상속됩니다.
-          한 배치는 하나의 두께 구간이므로 재단에서 나올 수 있는 형명이 좁혀집니다.
+          한 배치는 하나의 구간이므로 그 배치에서 나올 수 있는 형명이 좁혀집니다.
         </p>
       )}
 

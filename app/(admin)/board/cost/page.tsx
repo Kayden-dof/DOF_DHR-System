@@ -170,8 +170,8 @@ export default async function CostPage() {
                   <th className="th">배치</th>
                   <th className="th">발행일</th>
                   <th className="th text-right">원재료</th>
-                  <th className="th text-right">재단 전 공정</th>
-                  <th className="th text-right">재단 후 공정</th>
+                  <th className="th text-right">배치 단위 공정</th>
+                  <th className="th text-right">제품 로트 단위 공정</th>
                   <th className="th text-right">공수</th>
                   <th className="th text-right">설비</th>
                   <th className="th text-right">합계</th>
@@ -306,14 +306,14 @@ export default async function CostPage() {
         <h3 className="text-xs font-bold text-ink">계산 방식</h3>
         <ul className="mt-2 space-y-1.5 text-xs leading-relaxed text-muted">
           <li>
-            · <b className="text-ink">원재료</b>는 로트 단가 x 장입 장수입니다.
+            · <b className="text-ink">원재료</b>는 로트 단가 x 장입 수량입니다.
           </li>
           <li>
-            · <b className="text-ink">재단 전 공정 자재</b>는 배치 전체에 걸리므로 제품 로트에
+            · <b className="text-ink">배치 단위 공정 자재</b>는 배치 전체에 걸리므로 제품 로트에
             생산 수량 비율로 배분합니다.
           </li>
           <li>
-            · <b className="text-ink">재단 후 공정 자재</b>는 제품 로트별로 이미 갈려 있어 그대로 붙습니다.
+            · <b className="text-ink">제품 로트 단위 공정 자재</b>는 이미 로트별로 갈려 있어 그대로 붙습니다.
           </li>
           <li>
             · <b className="text-ink">폐기분은 제품 원가에 넣지 않습니다.</b> 재고 증감으로 빠진

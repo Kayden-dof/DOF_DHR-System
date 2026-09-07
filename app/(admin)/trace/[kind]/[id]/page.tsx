@@ -46,6 +46,8 @@ interface MaterialLot {
 }
 interface BatchHead {
   id: string; batch_no: string; wo_no: string; sheet_count: number; status: string;
+  /* 화면의 낱말이 제품에서 나온다 (0101) */
+  split_op: string | null; load_unit: string | null;
   dmr_revision: string; issued_at: Date; item_code: string; item_name: string;
   raw_lot_id: string; raw_lot_no: string; raw_item_code: string;
   thickness_band: string | null; supplier_name: string; coa_no: string; coa_date: string;
@@ -162,7 +164,7 @@ async function MaterialView({ me, id }: { me: Me; id: string }) {
                   {d.batches.map((b) => (
                     <tr key={b.id}>
                       <td className="td font-mono text-xs font-semibold">{b.batch_no}</td>
-                      <td className="td tnum text-right">{b.sheet_count}장</td>
+                      <td className="td tnum text-right">{b.sheet_count}</td>
                       <td className="td text-xs">{b.status}</td>
                       <td className="td text-right">
                         <Link href={`/trace/batch/${b.id}`} className="btn-ghost h-8 px-3 text-xs">
@@ -230,7 +232,8 @@ async function BatchView({ me, kind, id }: {
               wo.dmr_revision, wo.issued_at, i.code as item_code, i.name as item_name,
               ml.id as raw_lot_id, ml.lot_no as raw_lot_no, ri.code as raw_item_code,
               ml.thickness_band, s.name as supplier_name, ml.coa_no, ml.coa_date,
-              up.full_name as prod_name, uq.full_name as qa_name
+              up.full_name as prod_name, uq.full_name as qa_name,
+              split_op_name(dm.id) as split_op, dm.load_unit
          from work_order wo
          join device_master dm on dm.id = wo.device_master_id
          join item i on i.id = dm.item_id
@@ -319,7 +322,9 @@ async function BatchView({ me, kind, id }: {
           </Field>
           <Field label="품목"><span className="font-mono">{wo.raw_item_code}</span></Field>
           <Field label="두께 구간">{wo.thickness_band ?? ''}</Field>
-          <Field label="장입"><span className="tnum">{wo.sheet_count}장</span></Field>
+          <Field label="장입">
+            <span className="tnum">{wo.sheet_count}{wo.load_unit ?? ''}</span>
+          </Field>
           <Field label="공급자">{wo.supplier_name}</Field>
           <Field label="성적서">
             <span className="font-mono">{wo.coa_no}</span>
@@ -332,7 +337,7 @@ async function BatchView({ me, kind, id }: {
 
       <Panel title="생성된 제품 로트">
         {lots.length === 0 ? (
-          <Empty>재단하지 않았습니다.</Empty>
+          <Empty>제조번호가 붙지 않았습니다.</Empty>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -428,11 +433,11 @@ async function BatchView({ me, kind, id }: {
         )}
       </Panel>
 
-      <Panel title="재단 전 투입 자재">
+      <Panel title="배치 단위 투입 자재">
         {pre.length === 0 ? <Empty>기록이 없습니다.</Empty> : <GenTable rows={pre} />}
       </Panel>
 
-      <Panel title="재단 후 투입 자재">
+      <Panel title="제품 로트 단위 투입 자재">
         {post.length === 0 ? <Empty>기록이 없습니다.</Empty> : (
           <GenTable rows={post} lots={lots} />
         )}

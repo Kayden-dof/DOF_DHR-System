@@ -122,11 +122,11 @@ export default async function TracePage({ searchParams }: { searchParams: Search
               제품 로트에서 배치를 거쳐 원재료 로트까지 한 줄로 이어집니다.
             </li>
             <li>
-              · <b className="text-ink">시약과 공정 자재</b>는 재단 전 공정 기록에 붙습니다.
+              · <b className="text-ink">시약과 공정 자재</b>는 배치 단위 공정 기록에 붙습니다.
               배치 전체에 걸립니다.
             </li>
             <li>
-              · <b className="text-ink">포장재</b>는 재단 후 공정 기록에 붙습니다. 제품 로트별로
+              · <b className="text-ink">포장재</b>는 제품 로트 단위 공정 기록에 붙습니다. 로트별로
               갈립니다.
             </li>
             <li>

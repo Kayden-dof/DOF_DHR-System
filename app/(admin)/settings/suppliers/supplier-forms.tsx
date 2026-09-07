@@ -256,7 +256,7 @@ export function ShelfLifeForm({ items, today }: { items: ItemOption[]; today: st
       <p className="mt-3 rounded-md bg-warn-bg px-3 py-2 text-xs leading-relaxed text-ink">
         <b>이미 만들어진 제품 로트의 유효기한은 바뀌지 않습니다.</b> 유효기한은 로트 생성
         시점 값으로 고정되고 참조한 이력 행도 함께 남습니다. 여기서 등록한 값은
-        <b> 이후에 재단되는 로트부터 </b>적용됩니다.
+        <b> 이후에 제조번호가 붙는 로트부터 </b>적용됩니다.
       </p>
       <Msg state={state} />
       <div className="mt-3">

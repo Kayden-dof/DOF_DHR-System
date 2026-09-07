@@ -120,10 +120,25 @@ export default function FlowDiagram({
         })}
       </ol>
 
+      {/*
+        * 갈림 공정의 이름을 그대로 쓴다 (전수 감사 2026-09-07). `재단` 은
+        * 이 제조소의 공정 이름이지 프로그램의 낱말이 아니다 - 그 공정을
+        * `절단` 이라 부르는 곳에서는 화면이 다른 말을 해야 한다.
+        *
+        * 갈림이 없는 품목이면 이 문장 자체가 뜻이 없으므로 쓰지 않는다 (§12).
+        */}
       <p className="mt-1 text-xs leading-relaxed text-muted">
-        재단 이전 공정은 기록이 <b className="text-ink">배치</b>에, 이후 공정은
-        <b className="text-ink"> 제품 로트</b>에 붙습니다. 들여쓴 공정이 제품 로트
-        단위입니다.
+        {cutIndex >= 0 ? (
+          <>
+            <b className="text-ink">{operations[cutIndex].name}</b> 이전 공정은 기록이{' '}
+            <b className="text-ink">배치</b>에, 이후 공정은
+            <b className="text-ink"> 제품 로트</b>에 붙습니다. 들여쓴 공정이 제품 로트
+            단위입니다.
+          </>
+        ) : (
+          <>갈라지는 공정이 없습니다. 모든 기록이 <b className="text-ink">배치</b>에
+          붙고, 제품 로트는 배치마다 하나입니다.</>
+        )}
       </p>
     </div>
   );

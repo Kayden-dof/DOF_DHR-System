@@ -28,6 +28,8 @@ interface Wo {
   raw_lot_no: string; thickness_band: string | null; raw_item_code: string;
   supplier_name: string; supplier_lot_no: string; coa_no: string; coa_date: string;
   prod_name: string; qa_name: string; device_master_id: string;
+  /* 종이의 낱말이 제품에서 나온다 (0101). 갈림 공정 이름과 장입 단위 */
+  split_op: string | null; load_unit: string | null;
 }
 interface OpRow {
   seq: number; code: string; name: string; after_cutting: boolean;
@@ -43,12 +45,12 @@ interface OpRow {
  * 갈라진다. 딸린 말이니 아래 줄로 내리고 작게 둔다. 이름이 먼저 읽히고,
  * 재단 전후는 그 아래에서 한 덩어리로 남는다.
  */
-function opName(o: { name: string; after_cutting: boolean }) {
+function opName(o: { name: string; after_cutting: boolean }, splitOp: string | null) {
   return (
     <>
       {o.name}
-      {o.after_cutting && (
-        <div className="nb text-[10px]">재단 이후</div>
+      {o.after_cutting && splitOp && (
+        <div className="nb text-[10px]">{splitOp} 이후</div>
       )}
     </>
   );
@@ -56,8 +58,10 @@ function opName(o: { name: string; after_cutting: boolean }) {
 
 
 /* 공정 표. 장이 여럿일 때 이어지는 장이 같은 표를 그린다 (§10 복제는 갈라진다) */
-function OpTable({ rows, title, today, units }: {
+function OpTable({ rows, title, today, units, splitOp }: {
   rows: OpRow[]; title: string; today?: string | null; units: number;
+  /** 갈림 공정 이름. 없으면 그 말을 쓰지 않는다 (0101) */
+  splitOp: string | null;
 }) {
   return (
       <>
@@ -106,7 +110,7 @@ function OpTable({ rows, title, today, units }: {
                   <td className="text-center tnum">{o.seq}</td>
                   <td className="text-center tnum">{o.typical_day ?? ''}</td>
                   <td className="font-mono">{o.code}</td>
-                  <td>{opName(o)}</td>
+                  <td>{opName(o, splitOp)}</td>
                   <td className="text-center">-</td>
                   <td />
                   {equipCell}
@@ -119,7 +123,7 @@ function OpTable({ rows, title, today, units }: {
                         <td rowSpan={rows} className="text-center tnum">{o.seq}</td>
                         <td rowSpan={rows} className="text-center tnum">{o.typical_day ?? ''}</td>
                         <td rowSpan={rows} className="font-mono">{o.code}</td>
-                        <td rowSpan={rows}>{opName(o)}</td>
+                        <td rowSpan={rows}>{opName(o, splitOp)}</td>
                       </>
                     )}
                     <td>{m.item_name} ({m.item_code})</td>
@@ -131,7 +135,9 @@ function OpTable({ rows, title, today, units }: {
                         * 다르므로 모를 때는 모른다고 적는다.
                         */}
                       {m.required === null || (m.basis === 'PER_UNIT' && units === 0)
-                        ? (m.basis === 'PER_UNIT' ? '재단 후 확정' : '구간 없음')
+                        ? (m.basis === 'PER_UNIT'
+                            ? `${splitOp ? `${splitOp} 후` : '나중에'} 확정`
+                            : '구간 없음')
                         : `${Number(m.required)} ${m.usage_uom}`}
                     </td>
                     {i === 0 && equipCell}
@@ -153,7 +159,8 @@ export default async function WorkOrderSheet({ params }: { params: Promise<{ id:
     const wo = await db.one<Wo>(
       `select wo.wo_no, wo.batch_no, wo.sheet_count, wo.dmr_revision, wo.issued_at,
               wo.planned_units,
-              wo.device_master_id, i.code as item_code, i.name as item_name,
+              wo.device_master_id, split_op_name(dm.id) as split_op, dm.load_unit,
+              i.code as item_code, i.name as item_name,
               dm.product_code, dm.product_name,
               ml.lot_no as raw_lot_no, ml.thickness_band, ri.code as raw_item_code,
               s.name as supplier_name, ml.supplier_lot_no, ml.coa_no, ml.coa_date,
@@ -210,6 +217,8 @@ export default async function WorkOrderSheet({ params }: { params: Promise<{ id:
 
   if (!d) notFound();
   const { wo, ops, today } = d;
+  /* 종이의 낱말이 제품에서 나온다 (0101) */
+  const splitOp = wo.split_op;
   /* 예정 제품 개수. 0 이면 아직 정해지지 않은 것이지 0 개가 아니다 */
   const units = wo.planned_units ?? 0;
 
@@ -267,7 +276,8 @@ export default async function WorkOrderSheet({ params }: { params: Promise<{ id:
         <Sheet key={k} meta={meta} page={k + 2}
                title="작업 지시서"
                subtitle={<>배치 {wo.batch_no} · 지시서 {wo.wo_no} · 이어짐</>}>
-          <OpTable rows={rows} title="공정 순서 및 자재 소요량 (이어짐)" today={today} units={units} />
+          <OpTable rows={rows} title="공정 순서 및 자재 소요량 (이어짐)" today={today} units={units}
+                    splitOp={splitOp} />
         </Sheet>
       ))}
     >
@@ -304,8 +314,8 @@ export default async function WorkOrderSheet({ params }: { params: Promise<{ id:
             <td>{wo.coa_no} ({fmtDate(wo.coa_date)})</td>
           </tr>
           <tr>
-            <th>장입 장수</th>
-            <td className="tnum font-bold">{wo.sheet_count} 장</td>
+            <th>장입 수량</th>
+            <td className="tnum font-bold">{wo.sheet_count} {wo.load_unit ?? ''}</td>
             <th>필요 용기 수</th>
             <td className="tnum font-bold">
               {containerParts.length > 0 ? containerParts.join(' · ') : '해당 없음'}
@@ -333,7 +343,7 @@ export default async function WorkOrderSheet({ params }: { params: Promise<{ id:
       {units > 0 && (
         <p className="mt-2 text-[10px] leading-relaxed text-black">
           위 표의 제품 개수 기준 자재는 <b>예정 생산 {units}개</b>로 계산했습니다.
-          어떤 형명이 몇 개 나올지는 재단에서 정해지며, 실제와 달라도 시스템이
+          어떤 형명이 몇 개 나올지는 {splitOp ?? '제조번호 부여'}에서 정해지며, 실제와 달라도 시스템이
           보정하지 않습니다.
         </p>
       )}
@@ -343,7 +353,8 @@ export default async function WorkOrderSheet({ params }: { params: Promise<{ id:
         * 공정 하나가 표에서 한 묶음이므로, 그 공정의 설비와 밸리데이션 만료일도
         * 같은 줄에서 읽히는 편이 종이에서 자연스럽다. 발행 시점의 사실이다.
         */}
-      <OpTable rows={opPages[0]} title="공정 순서 및 자재 소요량" today={today} units={units} />
+      <OpTable rows={opPages[0]} title="공정 순서 및 자재 소요량" today={today} units={units}
+                splitOp={splitOp} />
 
       <p className="mt-2 text-[10px] leading-relaxed text-black">
         일차는 보통 며칠째에 하는 공정인지를 적은 참고값입니다. 실제 작업 일차는

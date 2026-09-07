@@ -185,7 +185,7 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
     { label: '오늘 생산', value: day?.produced ?? 0, unit: '개',
       detail: rows(todayRows.map((r) => ({
         left: mono(r.item_code), sub: r.item_name, right: `${r.produced}개`,
-      })), '오늘 재단한 제품이 없습니다.') },
+      })), '오늘 제조번호가 붙은 제품이 없습니다.') },
     { label: '오늘 제조번호', value: day?.lots ?? 0, unit: '건',
       detail: rows(d.todayLots.map((l) => ({
         left: <b className="font-mono">{l.lot_no}</b>, sub: l.item_code,
@@ -304,7 +304,7 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
       {/* 오늘 ── 무엇이 나왔나 --------------------------------------------- */}
       <Panel title="오늘" note={fmtDate(today)}>
         {todayRows.length === 0 ? (
-          <Empty>오늘 재단한 제품이 없습니다.</Empty>
+          <Empty>오늘 제조번호가 붙은 제품이 없습니다.</Empty>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -352,7 +352,7 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
 
         <div className="border-t border-line-soft bg-canvas px-4 py-3">
           <dl className="grid gap-x-6 gap-y-1.5 text-xs leading-relaxed sm:grid-cols-2">
-            <Def term="생산">재단에서 제조번호가 붙은 개수입니다. 시료를 포함합니다.</Def>
+            <Def term="생산">제조번호가 붙은 개수입니다. 시료를 포함합니다.</Def>
             <Def term="재작업">다시 해서 제품이 된 수량입니다. 생산 수량으로 나눕니다.</Def>
             <Def term="특채">
               부적합인 채로 서면 승인을 받아 내보낸 수량입니다.
@@ -361,7 +361,7 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
             <Def term="불량">
               재작업을 했는데도 제품이 되지 못한 수량입니다. 생산 수량으로 나눕니다.
             </Def>
-            <Def term="재단 전">
+            <Def term="반제품">
               아직 제품이 아닌 단계의 부적합이라 단위가 <b className="text-ink">장</b>입니다.
               제품 개수와 더하지 않습니다.
             </Def>
@@ -423,12 +423,12 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
         <div className="border-t border-line-soft bg-canvas px-4 py-3">
           <dl className="grid gap-x-6 gap-y-1.5 text-xs leading-relaxed sm:grid-cols-2">
             <Def term="배치 공통">
-              원재료와 재단 전 공정 자재입니다. 배치 안에서 <b className="text-ink">조각
+              원재료와 배치 단위 공정 자재입니다. 배치 안에서 <b className="text-ink">조각
               면적에 비례해</b> 나눕니다. 개수로 나누면 5x5 한 장과 10x10 한 장이
               같은 값을 집니다.
             </Def>
             <Def term="형명 자체">
-              재단 뒤에 이 형명에만 들어간 자재입니다. 포장재와 라벨이 여기 옵니다.
+              제품 로트가 갈린 뒤 이 형명에만 들어간 자재입니다. 포장재와 라벨이 여기 옵니다.
             </Def>
           </dl>
           <p className="mt-2.5 text-xs leading-relaxed text-faint">
@@ -442,7 +442,7 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
 
       {/* 재단 전 부적합 ── 단위가 달라 따로 둔다 --------------------------- */}
       {d.wipNc.length > 0 && (
-        <Panel title="재단 전 부적합"
+        <Panel title="반제품 부적합"
                note="단위가 장입니다. 제품 개수와 더하지 않습니다">
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -468,7 +468,7 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
                           : w.outcome === 'CONCESSION' ? '특채' : '재작업'}
                       </Tag>
                     </td>
-                    <td className="td tnum text-right font-bold">{w.sheets}장</td>
+                    <td className="td tnum text-right font-bold">{w.sheets}</td>
                   </tr>
                 ))}
               </tbody>
@@ -511,7 +511,7 @@ function PeriodTable({ rows, label, total, won, pct, empty }: {
             <th className="th text-right">특채</th>
             <th className="th text-right">불량</th>
             <th className="th text-right">불량률</th>
-            <th className="th text-right">재단 전 폐기 (장)</th>
+            <th className="th text-right">반제품 폐기</th>
             <th className="th text-right">자재 지출</th>
           </tr>
         </thead>

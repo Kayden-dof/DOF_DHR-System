@@ -306,10 +306,12 @@ export async function addOperation(_p: FormState, form: FormData): Promise<FormS
  *
  * 한 줄에 공정 하나. 구분자는 | 또는 탭이다.
  *   WS-DX2402-01 | NaCl 처리·세척
- *   WS-DX2402-08 | 포장(1·2차) | 재단이후 | 3
+ *   공정코드-04 | 그 뒤 공정 | 로트단위 | 3
  *
  * 순번은 적힌 차례를 그대로 쓴다. 사람이 흐름을 적는 순서가 곧 공정 순서다.
- * 세 번째 칸에 "재단이후"(또는 after)가 있으면 재단 이후 공정이 된다.
+ * 세 번째 칸에 "로트단위"(또는 재단이후 · after · y)가 있으면 기록이 제품 로트에
+ * 붙는 공정이 된다. `재단이후` 는 이 제조소가 쓰던 말이라 그대로 받아 준다 -
+ * 이미 손에 든 표를 붙여 넣는 사람을 막지 않는다 (전수 감사 2026-09-07).
  * 네 번째 칸은 보통 몇 일차에 하는 공정인지다. 참고값이라 비워도 된다.
  *
  * 한 줄이라도 어긋나면 아무것도 넣지 않는다. 절반만 들어간 공정 흐름은
@@ -338,7 +340,8 @@ export async function addOperationsBulk(_p: FormState, form: FormData): Promise<
       const day = Number((cell[3] ?? '').trim());
       rows.push({
         seq: seq++, code: cell[0], name: cell[1],
-        after: flag === '재단이후' || flag === 'after' || flag === 'y',
+        after: flag === '로트단위' || flag === '재단이후'
+               || flag === 'after' || flag === 'y',
         day: Number.isInteger(day) && day > 0 ? day : null,
       });
     }
@@ -593,9 +596,11 @@ export async function setDmrLimits(_p: FormState, form: FormData): Promise<FormS
     await withActor(me.id, (db) =>
       db.rows(
         `update device_master
-            set sheet_min = $2, sheet_max = $3, steril_box_qty = $4
+            set sheet_min = $2, sheet_max = $3, steril_box_qty = $4,
+                load_unit = $5
           where id = $1`,
-        [String(form.get('id') ?? ''), lo, hi, num('steril_box_qty')]),
+        [String(form.get('id') ?? ''), lo, hi, num('steril_box_qty'),
+         String(form.get('load_unit') ?? '').trim() || null]),
       { reason: '제품표준서 장입 범위 · 멸균 박스 수량 변경' });
     path();
     return { ok: true, message: '장입 범위를 저장했습니다.' };

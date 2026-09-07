@@ -90,6 +90,49 @@ const codes = (v: FormDataEntryValue | null) =>
     .map((x) => x.trim())
     .filter(Boolean);
 
+/* ---------------------------------------------------------------------------
+   만들기 전에 무엇이 나오는지 보여 준다 (0100)
+
+   화면이 스스로 조합하지 않는다. 크기 목록과 구간 목록을 곱하는 것은 여기서도
+   두 줄이지만, **자리 수 검사와 이름 짓기가 함께 붙어 있다.** 그것을 화면이
+   다시 쓰면 같은 셈이 두 곳에 생기고 §10 이 적은 대로 복제는 갈라진다 -
+   규격 문구가 실제로 그렇게 갈라져 라벨 업체에 10배 작은 치수가 나갔다.
+
+   `preview_finished_items()` 는 `generate_finished_items()` 와 같은 셈을 쓴다.
+   미리보기가 보여 준 것과 실제로 만들어지는 것이 어긋날 자리가 없다.
+
+   아무것도 만들지 않으므로 읽기 전용이다.
+--------------------------------------------------------------------------- */
+export interface PreviewRow {
+  item_code: string; item_name: string; spec: string;
+  size_part: string; band_part: string; already: boolean;
+}
+export type PreviewResult = { rows?: PreviewRow[]; error?: string };
+
+export async function previewFinished(form: FormData): Promise<PreviewResult> {
+  try {
+    const me = await admin();
+    const sizes = codes(form.get('sizes'));
+    const bands = codes(form.get('bands'));
+    const prefix = String(form.get('prefix') ?? '').trim();
+    const scheme = String(form.get('scheme_id') ?? '').trim();
+
+    if (sizes.length === 0 || bands.length === 0) {
+      return { error: '크기와 구간을 각각 하나 이상 입력하십시오' };
+    }
+    if (!prefix) return { error: '이름 앞머리를 적으십시오' };
+    if (!scheme) return { error: '어느 형명 체계로 만들지 고르십시오' };
+
+    const rows = await withActor(me.id, (db) =>
+      db.rows<PreviewRow>(
+        `select * from preview_finished_items($1::text[], $2::text[], '{}'::text[], $3, $4)`,
+        [sizes, bands, prefix, scheme]), { readOnly: true });
+    return { rows };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
 export async function generateFinished(_p: GenResult, form: FormData): Promise<GenResult> {
   try {
     const me = await admin();

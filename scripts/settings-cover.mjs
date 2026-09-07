@@ -52,7 +52,7 @@ const TABLES = [
   ['제품표준서', 'device_master', [
     'revision', 'effective_from', 'expected_units', 'product_code',
     'product_name', 'sample_basis', 'note', 'sheet_min', 'sheet_max',
-    'steril_box_qty', 'license_no']],
+    'steril_box_qty', 'license_no', 'load_unit']],
   ['공정', 'dmr_operation', ['seq', 'code', 'name', 'after_cutting', 'typical_day', 'takes_rework']],
   ['자재 구성표', 'dmr_bom', ['component_item_id', 'basis', 'qty_per_unit']],
   ['장입 구간', 'dmr_bom_tier', ['min_sheets', 'max_sheets', 'qty']],
