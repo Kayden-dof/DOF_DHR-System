@@ -89,16 +89,23 @@ export async function amendMaterialLot(_p: FormState, form: FormData): Promise<F
 
     const lotNo = await withActor(me.id, async (db) => {
       await db.rows(
+        /*
+         * 합격판정일자도 고칠 수 있게 둔다. 로트번호는 이미 굳어 있어
+         * (material_lot_coa_once) 고쳐도 번호는 그대로다 - 그래도 **적힌
+         * 날짜는 참이어야 한다.** 틀린 채로 두면 종이와 시스템이 갈라진다.
+         * 바뀐 사실과 이전 값은 감사추적에 남는다 (§1).
+         */
         `update material_lot
             set coa_no = $2, coa_date = $3::date, supplier_lot_no = $4,
                 thickness_band = $5, expiry_date = $6::date,
-                location = $7, unit_price = $8
+                location = $7, unit_price = $8, qc_passed_on = $9::date
           where id = $1`,
         [id, coa, coaDate, supplierLot,
          txt(form.get('thickness_band')),
          txt(form.get('expiry_date')),
          txt(form.get('location')),
-         numOrNull(form.get('unit_price'), '단가')]);
+         numOrNull(form.get('unit_price'), '단가'),
+         txt(form.get('qc_passed_on'))]);
       return db.val<string>(`select lot_no from material_lot where id = $1`, [id]);
     }, { reason: `자재 로트 정정 · ${reason}` });
 
@@ -124,13 +131,29 @@ export async function receiveMaterial(_p: FormState, form: FormData): Promise<Fo
       if (!item) throw new Error('품목을 찾을 수 없습니다');
 
       const usageQty = purchaseQty * Number(item.conversion);
-      const lotNo = await db.val<string>(`select next_number('MATERIAL_LOT', $1)`, [itemId]);
+
+      /*
+       * 로트번호는 **합격판정일자**로 만든다 (0097 · 사용자 결정 2026-09-07).
+       * 사내 번호 체계가 `R{YYMMDD}-{일련}` 이고 그 날짜가 서면 합격 판정의
+       * 날짜다. 등록하는 날이 아니다 - 판정 서류가 며칠 늦게 와도 번호는
+       * 판정일로 서야 한다.
+       *
+       * 시스템이 판정하지 않는다 (§1). 품질팀이 서면으로 받은 결과의 날짜를
+       * 옮겨 적을 뿐이고, 그 값이 번호에 쓰인다.
+       */
+      const qcOn = String(form.get('qc_passed_on') ?? '').trim();
+      if (!qcOn) throw new Error('합격판정일자를 입력하십시오. 로트번호가 이 날짜로 만들어집니다');
+
+      const lotNo = await db.val<string>(
+        `select next_number('MATERIAL_LOT', $1, $2::date)`, [itemId, qcOn]);
 
       await db.rows(
         `insert into material_lot (item_id, lot_no, supplier_id, supplier_lot_no,
            purchase_order_id, coa_no, coa_date, received_at, registered_by,
-           qty_received, qty_available, unit_price, expiry_date, location, thickness_band)
-         values ($1,$2,$3,$4,$5,$6,$7::date,$8::timestamptz,$9,$10,$10,$11,$12::date,$13,$14)`,
+           qty_received, qty_available, unit_price, expiry_date, location, thickness_band,
+           qc_passed_on)
+         values ($1,$2,$3,$4,$5,$6,$7::date,$8::timestamptz,$9,$10,$10,$11,$12::date,$13,$14,
+                 $15::date)`,
         [itemId, lotNo,
          String(form.get('supplier_id') ?? ''),
          String(form.get('supplier_lot_no') ?? '').trim(),
@@ -142,7 +165,8 @@ export async function receiveMaterial(_p: FormState, form: FormData): Promise<Fo
          numOrNull(form.get('unit_price'), '단가'),
          txt(form.get('expiry_date')),
          txt(form.get('location')),
-         txt(form.get('thickness_band'))]);
+         txt(form.get('thickness_band')),
+         qcOn]);
 
       const po = txt(form.get('purchase_order_id'));
       if (po) {

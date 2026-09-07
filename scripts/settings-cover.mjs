@@ -46,7 +46,7 @@ const TABLES = [
     'vendor_contact_name', 'vendor_phone', 'vendor_email', 'vendor_site',
     'vendor_address']],
   ['채번 규칙', 'numbering_rule', [
-    'target', 'item_id', 'pattern', 'reset', 'seq_width', 'effective_from']],
+    'target', 'item_id', 'item_type', 'pattern', 'reset', 'seq_width', 'effective_from']],
   ['형명 체계', 'model_scheme', ['name', 'prefix', 'spec_pattern', 'name_pattern']],
   ['형명 자리', 'model_segment', ['seq', 'digits', 'divisor', 'decimals', 'label', 'role']],
   ['제품표준서', 'device_master', [
@@ -64,7 +64,7 @@ const TABLES = [
   ['자재 로트', 'material_lot', [
     'item_id', 'supplier_id', 'supplier_lot_no', 'purchase_order_id',
     'coa_no', 'coa_date', 'unit_price', 'expiry_date', 'location',
-    'thickness_band']],
+    'thickness_band', 'qc_passed_on']],
 ];
 
 /**

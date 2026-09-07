@@ -57,6 +57,12 @@ export async function saveRule(_prev: FormState, form: FormData): Promise<FormSt
   // 빈 문자열은 "공통 규칙"이다. 품목을 고르지 않은 것과 고를 수 없는 것을
   // 같게 다룬다 - null 이 곧 공통이라는 뜻이다 (§4.10)
   const itemId = String(form.get('item_id') ?? '').trim() || null;
+  /*
+   * 품목 종류별 규칙 (0097). 자재 로트 접두어가 원자재 R · 포장재 P · 시약 M
+   * 으로 갈리는데, 품목마다 규칙을 만들면 규칙이 품목 수만큼 생긴다.
+   * 품목과 종류는 함께 지정할 수 없다 (numbering_rule_scope).
+   */
+  const itemType = String(form.get('item_type') ?? '').trim() || null;
 
   try {
     const issued = await withActor(user.id, async (db) => {
@@ -67,10 +73,12 @@ export async function saveRule(_prev: FormState, form: FormData): Promise<FormSt
       }
       return db.one<{ id: string; pattern: string }>(
         `insert into numbering_rule
-           (target, item_id, pattern, reset, seq_width, effective_from, registered_by)
-         values ($1::numbering_target, $7::uuid, $2, $3::reset_cycle, $4, $5::date, $6)
+           (target, item_id, item_type, pattern, reset, seq_width, effective_from,
+            registered_by)
+         values ($1::numbering_target, $7::uuid, $8::item_type, $2, $3::reset_cycle,
+                 $4, $5::date, $6)
          returning id, pattern`,
-        [target, pattern, reset, seqWidth, effectiveFrom, user.id, itemId],
+        [target, pattern, reset, seqWidth, effectiveFrom, user.id, itemId, itemType],
       );
     });
 

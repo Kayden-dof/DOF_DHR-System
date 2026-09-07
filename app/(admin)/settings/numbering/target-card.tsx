@@ -6,6 +6,21 @@ import { RESET_CYCLES, type FormState } from '@/lib/forms';
 import { retireRule } from './actions';
 import RuleForm, { type ItemOption } from './rule-form';
 
+/*
+ * 자재 로트만 종류별 규칙을 낸다 (0097). 사내 번호 체계가 원자재 R · 포장재 P ·
+ * 시약과 소모품 M 으로 접두어를 가르기 때문이다.
+ *
+ * 완제품(FIN)은 여기 없다. 완제품은 자재 로트가 아니라 제품 로트로 선다.
+ * 이 목록은 설정이 아니라 스키마의 열거형이다 - 품목 종류가 무엇무엇인지는
+ * 표가 정하지 제조소가 정하지 않는다.
+ */
+const MATERIAL_TYPES = [
+  { value: 'RAW', label: '원자재' },
+  { value: 'REAGENT', label: '시약' },
+  { value: 'PROCESS', label: '공정 자재 · 소모품' },
+  { value: 'PACK', label: '포장재' },
+];
+
 export interface RuleRow {
   id: string;
   target: string;
@@ -195,6 +210,7 @@ export default function TargetCard({
               : null
           }
           items={[]}
+          types={code === 'MATERIAL_LOT' ? MATERIAL_TYPES : undefined}
           today={today}
           onDone={() => setOpen(null)}
         />

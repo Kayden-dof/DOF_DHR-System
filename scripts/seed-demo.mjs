@@ -218,18 +218,36 @@ await price(label, supC, 60);
 console.log('단가 6건');
 
 // --- 채번 규칙 ----------------------------------------------------------------
-const rule = (target, pattern, width, reset = 'YEARLY') =>
+/*
+ * 사내에서 정한 번호 체계다 (사용자 결정 2026-09-07).
+ *
+ *   자재 로트   R/P/M{YYMMDD}-{일련 2}   접두어가 품목 종류를 따른다
+ *   작업지시    WO-{YYMMDD}-{일련 2}
+ *   배치        B{YYMMDD}-{일련 2}       날짜는 배치생산시작일 (= 작업지시일)
+ *   제조번호    GM-{YYMMDD}{일련 2}      날짜는 제조일
+ *
+ * 시연 자료가 실제 체계를 쓰게 둔다. 그래야 `npm run fresh` 와 인쇄 대조가
+ * 종류별 규칙과 날짜 인자(0097)를 **실제로 지나간다.** 시연만 옛 형식으로
+ * 두면 새 길이 시험에서 잠들어 있게 된다.
+ *
+ * 멸균 배치와 일탈은 아직 사내 형식이 정해지지 않았다. 정해지면 바꾼다.
+ */
+const rule = (target, pattern, width, reset = 'DAILY', type = null) =>
   c.query(
-    `insert into numbering_rule (target, pattern, reset, seq_width, effective_from, registered_by)
-     values ($1::numbering_target,$2,$3::reset_cycle,$4,current_date,$5)
-     on conflict do nothing`, [target, pattern, reset, width, admin]);
-await rule('MATERIAL_LOT', 'ML-{YY}{MM}-{SEQ:4}', 4);
-await rule('WORK_ORDER',   'WO-{YY}{MM}-{SEQ:4}', 4);
-await rule('BATCH',        'B{YY}{MM}-{SEQ:4}', 4);
-await rule('PRODUCT_LOT',  'P{YY}{MM}-{SEQ:4}', 4);
-await rule('STERIL_BATCH', 'ST-{YY}{MM}-{SEQ:3}', 3);
-await rule('DEVIATION',    'DV-{YY}-{SEQ:3}', 3);
-console.log('채번 규칙 6종');
+    `insert into numbering_rule (target, item_type, pattern, reset, seq_width,
+                                 effective_from, registered_by)
+     values ($1::numbering_target,$6::item_type,$2,$3::reset_cycle,$4,current_date,$5)
+     on conflict do nothing`, [target, pattern, reset, width, admin, type]);
+await rule('MATERIAL_LOT', 'R{YY}{MM}{DD}-{SEQ:2}', 2, 'DAILY', 'RAW');
+await rule('MATERIAL_LOT', 'P{YY}{MM}{DD}-{SEQ:2}', 2, 'DAILY', 'PACK');
+await rule('MATERIAL_LOT', 'M{YY}{MM}{DD}-{SEQ:2}', 2, 'DAILY', 'REAGENT');
+await rule('MATERIAL_LOT', 'M{YY}{MM}{DD}-{SEQ:2}', 2, 'DAILY', 'PROCESS');
+await rule('WORK_ORDER',   'WO-{YY}{MM}{DD}-{SEQ:2}', 2);
+await rule('BATCH',        'B{YY}{MM}{DD}-{SEQ:2}', 2);
+await rule('PRODUCT_LOT',  'GM-{YY}{MM}{DD}{SEQ:2}', 2);
+await rule('STERIL_BATCH', 'ST-{YY}{MM}-{SEQ:3}', 3, 'YEARLY');
+await rule('DEVIATION',    'DV-{YY}-{SEQ:3}', 3, 'YEARLY');
+console.log('채번 규칙 9종 (자재 로트는 품목 종류별 4종)');
 
 // --- 제품표준서 ---------------------------------------------------------------
 const fin = await val(`select id from item where code = 'PD05050510'`);
@@ -428,16 +446,22 @@ if (!dm) {
 }
 
 // --- 자재 입고 ----------------------------------------------------------------
+/*
+ * 로트번호는 합격판정일자로 만든다 (0097). 화면이 그렇게 하므로 시연도 같은
+ * 자리에서 같은 값을 준다 - 여기만 오늘로 채우면 시연 번호와 실제 번호의
+ * 모양이 갈린다.
+ */
 const receive = async (it, sup, qty, price, opts = {}) => {
-  const lot = await val(`select next_number('MATERIAL_LOT', $1)`, [it]);
+  const qcOn = opts.qc ?? (await val(`select (timezone('Asia/Seoul', now()))::date`));
+  const lot = await val(`select next_number('MATERIAL_LOT', $1, $2::date)`, [it, qcOn]);
   return val(
     `insert into material_lot (item_id, lot_no, supplier_id, supplier_lot_no, coa_no,
        coa_date, received_at, registered_by, qty_received, qty_available, unit_price,
-       expiry_date, location, thickness_band)
-     values ($1,$2,$3,$4,$5,current_date,now(),$6,$7,$7,$8,$9::date,$10,$11)
+       expiry_date, location, thickness_band, qc_passed_on)
+     values ($1,$2,$3,$4,$5,current_date,now(),$6,$7,$7,$8,$9::date,$10,$11,$12::date)
      returning id`,
     [it, lot, sup, opts.slot ?? 'SL-' + lot.slice(-4), opts.coa ?? 'COA-' + lot.slice(-4),
-     admin, qty, price, opts.expiry ?? null, opts.loc ?? null, opts.band ?? null]);
+     admin, qty, price, opts.expiry ?? null, opts.loc ?? null, opts.band ?? null, qcOn]);
 };
 
 /* ---------------------------------------------------------------------------

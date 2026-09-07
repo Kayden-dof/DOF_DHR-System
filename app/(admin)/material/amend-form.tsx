@@ -34,6 +34,8 @@ export interface AmendLot {
   location: string | null;
   unit_price: string | null;
   thickness_band: string | null;
+  /** 합격판정일자. 로트번호가 이 날짜로 만들어졌다 (0097) */
+  qc_passed_on: string | null;
 }
 
 /** YYYY-MM-DD 로 자른다. date 입력이 그 모양만 받는다 */
@@ -76,6 +78,14 @@ export default function AmendLotForm({ lot }: { lot: AmendLot }) {
               <label className="label" htmlFor={`${uid}-coa_date`}>성적서 일자</label>
               <input id={`${uid}-coa_date`} name="coa_date" type="date" required
                      defaultValue={day(lot.coa_date)} className="input tnum" />
+            </div>
+            <div>
+              <label className="label" htmlFor={`${uid}-qc`}>합격판정일자</label>
+              <input id={`${uid}-qc`} name="qc_passed_on" type="date"
+                     defaultValue={day(lot.qc_passed_on)} className="input tnum" />
+              <p className="mt-1 text-xs text-faint">
+                로트번호는 이미 굳어 바뀌지 않습니다. 적힌 날짜만 바로잡습니다.
+              </p>
             </div>
             <div>
               <label className="label" htmlFor={`${uid}-slot`}>공급자 로트번호</label>

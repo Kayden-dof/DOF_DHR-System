@@ -209,13 +209,16 @@ await unitBom(ops['PK-CG31-01'], pouch, 1);
 say('자재 구성표 2 · 전부 PER_UNIT (SHEET_TIER 0건)');
 
 /* --- 7) 입고 -------------------------------------------------------------- */
+/* 로트번호는 합격판정일자로 만든다 (0097). 화면이 그렇게 하므로 여기도 같다 */
 const receive = async (it, qty, price) => {
-  const lot = await val(`select next_number('MATERIAL_LOT', $1)`, [it]);
+  const qcOn = await val(`select (timezone('Asia/Seoul', now()))::date`);
+  const lot = await val(`select next_number('MATERIAL_LOT', $1, $2::date)`, [it, qcOn]);
   return val(
     `insert into material_lot (item_id, lot_no, supplier_id, supplier_lot_no, coa_no,
-       coa_date, received_at, registered_by, qty_received, qty_available, unit_price)
-     values ($1,$2,$3,$4,$5,current_date,now(),$6,$7,$7,$8) returning id`,
-    [it, lot, sup, 'SL-' + lot.slice(-4), 'COA-' + lot.slice(-4), admin.id, qty, price]);
+       coa_date, received_at, registered_by, qty_received, qty_available, unit_price,
+       qc_passed_on)
+     values ($1,$2,$3,$4,$5,current_date,now(),$6,$7,$7,$8,$9::date) returning id`,
+    [it, lot, sup, 'SL-' + lot.slice(-4), 'COA-' + lot.slice(-4), admin.id, qty, price, qcOn]);
 };
 const rawLot = await receive(raw, 40, 180000);
 await receive(rgAcid, 20, 24000);
@@ -364,9 +367,17 @@ check('PD 규격 문구가 그대로', pdSpec === '5x5cm · 두께 0.5~1.0mm', `
 const csName = await val(`select name from item where code = 'CS10201'`);
 check('완제품 이름이 CS 틀에서 나옴', /^콜라겐 10x20mm 1등급$/.test(csName), `"${csName}"`);
 
-const mm = String(new Date().getMonth() + 1).padStart(2, '0');
-check('제조번호가 품목별 규칙을 탐',
-  new RegExp(`^CS-\\d{2}${mm}-\\d{3}$`).test(lotRow.lot_no), lotRow.lot_no);
+/*
+ * 제조번호의 연월은 **제조일**을 따른다 (0097). 오늘이 아니다.
+ *
+ * 처음에는 오늘 달로 견주었다가 어긋났다 - 이 배치의 제조일이 지난달이라
+ * 번호도 지난달로 섰다. 어긋난 것이 아니라 그게 맞는 동작이었다
+ * (2026-09-07). 소급 입력해도 번호가 제조일과 같아야 한다.
+ */
+const mm = lotRow.manufactured_on.slice(2, 7).replace('-', '');
+check('제조번호가 품목별 규칙을 탐 (연월은 제조일)',
+  new RegExp(`^CS-${mm}-\\d{3}$`).test(lotRow.lot_no),
+  `${lotRow.lot_no} · 제조일 ${lotRow.manufactured_on}`);
 
 const months = Math.round(
   (new Date(lotRow.expiry_date) - new Date(lotRow.manufactured_on)) / 86400000 / 30.44);

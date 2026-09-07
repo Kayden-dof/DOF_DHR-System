@@ -13,12 +13,22 @@ async function newItem(t) {
     [`NT-${String(itemSeq).padStart(4, '0')}`, `채번시험품목${itemSeq}`]);
 }
 
-async function mkRule(t, { target, item = null, pattern, reset = 'YEARLY', width = 4 }) {
+async function mkRule(t, { target, item = null, type = null, pattern,
+                           reset = 'YEARLY', width = 4 }) {
   return t.val(
     `insert into numbering_rule
-       (target, item_id, pattern, reset, seq_width, effective_from, registered_by)
-     values ($1,$2,$3,$4,$5, current_date, $6) returning id`,
-    [target, item, pattern, reset, width, t.fx.admin]);
+       (target, item_id, item_type, pattern, reset, seq_width, effective_from, registered_by)
+     values ($1,$2,$3::item_type,$4,$5,$6, current_date, $7) returning id`,
+    [target, item, type, pattern, reset, width, t.fx.admin]);
+}
+
+/** 종류별 규칙 시험용 품목. 종류를 골라 만든다 (0097) */
+async function newTyped(t, type, tag) {
+  itemSeq += 1;
+  return t.val(
+    `insert into item (code, name, type, purchase_uom, usage_uom)
+     values ($1, $2, $3::item_type, 'EA', 'EA') returning id`,
+    [`NT-${tag}-${String(itemSeq).padStart(4, '0')}`, `채번시험${tag}${itemSeq}`, type]);
 }
 
 const kstDate  = (t) => t.val(`select to_char(timezone('Asia/Seoul', now()), 'YYYY-MM-DD')`);
@@ -480,6 +490,114 @@ export default [
     t.ok(await t.val(
       `select count(*)::int from audit_log where table_name = 'numbering_rule'`) > 0,
       'numbering_rule 은 감사 대상이어야 한다');
+  },
+},
+
+
+/* ---------------------------------------------------------------------------
+   0097 - 종류별 규칙과 날짜 인자
+
+   사내 번호 체계가 자재 로트 접두어를 품목 종류로 가르고(원자재 R · 포장재 P ·
+   시약 M), 날짜를 **합격판정일자**로 쓰기로 정해졌다 (2026-09-07). 둘 다 전에는
+   표현되지 않던 것이라 여기서 확인한다.
+--------------------------------------------------------------------------- */
+
+{
+  id: 'N-27', expect: '종류별로 갈림',
+  name: '자재 로트 접두어가 품목 종류를 따른다 (0097)',
+  async run(t) {
+    const raw  = await newTyped(t, 'RAW',     'RAW');
+    const pack = await newTyped(t, 'PACK',    'PAK');
+    const rg   = await newTyped(t, 'REAGENT', 'RGT');
+
+    await mkRule(t, { target: 'MATERIAL_LOT', type: 'RAW',
+                      pattern: 'R{YY}{MM}{DD}-{SEQ:2}', reset: 'DAILY', width: 2 });
+    await mkRule(t, { target: 'MATERIAL_LOT', type: 'PACK',
+                      pattern: 'P{YY}{MM}{DD}-{SEQ:2}', reset: 'DAILY', width: 2 });
+    await mkRule(t, { target: 'MATERIAL_LOT', type: 'REAGENT',
+                      pattern: 'M{YY}{MM}{DD}-{SEQ:2}', reset: 'DAILY', width: 2 });
+
+    const at = `'2026-09-05'`;
+    t.eq(await t.val(`select next_number('MATERIAL_LOT',$1,${at})`, [raw]),
+      'R260905-01', '원자재');
+    t.eq(await t.val(`select next_number('MATERIAL_LOT',$1,${at})`, [pack]),
+      'P260905-01', '포장재');
+    t.eq(await t.val(`select next_number('MATERIAL_LOT',$1,${at})`, [rg]),
+      'M260905-01', '시약');
+
+    /* 종류마다 순번이 따로 센다. 같이 세면 R 과 P 가 서로 번호를 밀어낸다 */
+    t.eq(await t.val(`select next_number('MATERIAL_LOT',$1,${at})`, [raw]),
+      'R260905-02', '원자재 둘째');
+    t.eq(await t.val(`select next_number('MATERIAL_LOT',$1,${at})`, [pack]),
+      'P260905-02', '포장재 둘째');
+  },
+},
+
+{
+  id: 'N-28', expect: '준 날짜로 센다',
+  name: '날짜 인자가 패턴과 순번 양쪽에 쓰인다 (0097)',
+  async run(t) {
+    const it = await newTyped(t, 'PROCESS', 'PRC');
+    await mkRule(t, { target: 'MATERIAL_LOT', type: 'PROCESS',
+                      pattern: 'M{YY}{MM}{DD}-{SEQ:2}', reset: 'DAILY', width: 2 });
+
+    t.eq(await t.val(`select next_number('MATERIAL_LOT',$1,'2026-09-05')`, [it]),
+      'M260905-01', '5일 첫 번째');
+    t.eq(await t.val(`select next_number('MATERIAL_LOT',$1,'2026-09-06')`, [it]),
+      'M260906-01', '6일은 다시 01');
+    /*
+     * 5일로 돌아오면 그날 순번을 이어받아야 한다. 주기 키에 날짜를 안 쓰면
+     * 여기서 M260905-01 이 다시 나와 로트번호가 겹친다.
+     */
+    t.eq(await t.val(`select next_number('MATERIAL_LOT',$1,'2026-09-05')`, [it]),
+      'M260905-02', '5일로 돌아오면 이어짐');
+  },
+},
+
+{
+  id: 'N-29', expect: '품목별이 먼저',
+  name: '고르는 차례가 품목별 > 종류별 > 공통이다 (0097)',
+  async run(t) {
+    const a = await newTyped(t, 'RAW', 'ORD');
+    const b = await newTyped(t, 'RAW', 'ORE');
+
+    /*
+     * 02 가 이미 DEVIATION 공통 규칙을 세워 두었다. 활성 규칙은 자리마다
+     * 하나뿐이므로 먼저 내린다 - 11_deviation 도 같은 수를 쓴다.
+     */
+    await t.rows(
+      `update numbering_rule set is_active = false
+        where target = 'DEVIATION' and is_active`);
+    await mkRule(t, { target: 'DEVIATION', pattern: 'COMMON-{SEQ:2}',
+                      reset: 'NEVER', width: 2 });
+    t.eq((await t.val(`select next_number('DEVIATION',$1)`, [a])).slice(0, 6),
+      'COMMON', '공통만 있을 때');
+
+    await mkRule(t, { target: 'DEVIATION', type: 'RAW', pattern: 'TYPE-{SEQ:2}',
+                      reset: 'NEVER', width: 2 });
+    t.eq((await t.val(`select next_number('DEVIATION',$1)`, [a])).slice(0, 4),
+      'TYPE', '종류별이 공통을 이긴다');
+
+    await mkRule(t, { target: 'DEVIATION', item: a, pattern: 'ITEM-{SEQ:2}',
+                      reset: 'NEVER', width: 2 });
+    t.eq((await t.val(`select next_number('DEVIATION',$1)`, [a])).slice(0, 4),
+      'ITEM', '품목별이 종류별을 이긴다');
+    t.eq((await t.val(`select next_number('DEVIATION',$1)`, [b])).slice(0, 4),
+      'TYPE', '다른 품목은 그대로 종류별');
+    t.eq((await t.val(`select next_number('DEVIATION')`)).slice(0, 6),
+      'COMMON', '품목이 없으면 공통');
+  },
+},
+
+{
+  id: 'N-30', expect: '예외',
+  name: '한 규칙에 품목과 종류를 함께 지정할 수 없다 (0097)',
+  async run(t) {
+    const it = await newTyped(t, 'PACK', 'BTH');
+    await t.rejects(() => mkRule(t, {
+      target: 'STERIL_BATCH', item: it, type: 'PACK',
+      pattern: 'X-{SEQ:2}', reset: 'NEVER', width: 2,
+    }), { message: 'numbering_rule_scope' });
   },
 },
 

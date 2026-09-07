@@ -116,8 +116,14 @@ async function pickWorkOrder() {
    * 그랬다 (2026-09-02). 지금은 오늘에서 세어 정한다.
    */
   const id = await as(mgrUser.id, async () => {
-    const woNo = await val(`select next_number('WORK_ORDER')`);
-    const batchNo = await val(`select next_number('BATCH')`);
+    /*
+     * 번호의 날짜는 **발행일**이다 (0097). 이 지시는 오늘에서 FLOW_DAYS 만큼
+     * 뒤로 물려 발행하므로 번호도 그 날짜로 서야 한다. 오늘로 채우면 종이의
+     * 발행일과 번호에 박힌 날짜가 갈린다.
+     */
+    const at = `(timezone('Asia/Seoul', now()))::date - ${FLOW_DAYS}`;
+    const woNo = await val(`select next_number('WORK_ORDER', null, ${at})`);
+    const batchNo = await val(`select next_number('BATCH', null, ${at})`);
     return val(
       `insert into work_order (wo_no, batch_no, device_master_id, dmr_revision,
                                material_lot_id, sheet_count, issued_by_prod, issued_by_qa,
@@ -593,18 +599,31 @@ const rawItem = await val(`select id from item where code = 'RM-006'`);
  */
 async function history(day, sheets, cuts, extra = {}) {
   /* 원재료 로트부터. 배치 하나에 로트 하나다 (§4.5) */
-  const rawLot = await val(`select next_number('MATERIAL_LOT', $1)`, [rawItem]);
+  /* 지난 기록이므로 번호도 그날 날짜로 선다 (0097) */
+  const rawLot = await val(`select next_number('MATERIAL_LOT', $1, $2::date)`, [rawItem, day]);
+  /*
+   * 유효기한과 합격판정일자를 함께 채운다.
+   *
+   * 유효기한이 비어 있으면 자재 라벨 대조에서 그 칸이 **건너뛰어진다** - 값이
+   * 비면 종이도 비는 것이 맞으므로 어긋남이 아니고, 그래서 그 확인이 잠들어
+   * 있게 된다 (2026-09-07). 제조소 표시와 편철 표지에서 이미 같은 일이 있었다.
+   *
+   * 번호 꼬리를 붙여 만들던 성적서 번호도 고친다. 로트번호가 `R260714-01` 로
+   * 바뀌면서 뒤 네 글자가 `4-01` 이 되어 `COA-4-01` 같은 글이 나왔다.
+   */
+  const tag = rawLot.replace(/[^0-9]/g, '').slice(-6);
   const rawId = await as(mgrUser.id, () => val(
     `insert into material_lot (item_id, lot_no, supplier_id, supplier_lot_no, coa_no,
        coa_date, received_at, registered_by, qty_received, qty_available, unit_price,
-       thickness_band)
-     values ($1,$2,$3,$4,$5,$6::date,$6::date,$7,$8,$8,22000,'0510') returning id`,
-    [rawItem, rawLot, supHist, 'SL-' + rawLot.slice(-4), 'COA-' + rawLot.slice(-4),
+       thickness_band, expiry_date, qc_passed_on)
+     values ($1,$2,$3,$4,$5,$6::date,$6::date,$7,$8,$8,22000,'0510',
+             ($6::date + interval '18 months')::date, $6::date) returning id`,
+    [rawItem, rawLot, supHist, 'SL-' + tag, 'COA-' + tag,
      day, admin.id, sheets + 10]));
 
   const woId = await as(mgrUser.id, async () => {
-    const woNo = await val(`select next_number('WORK_ORDER')`);
-    const batchNo = await val(`select next_number('BATCH')`);
+    const woNo = await val(`select next_number('WORK_ORDER', null, $1::date)`, [day]);
+    const batchNo = await val(`select next_number('BATCH', null, $1::date)`, [day]);
     return val(
       `insert into work_order (wo_no, batch_no, device_master_id, dmr_revision,
          material_lot_id, sheet_count, issued_by_prod, issued_by_qa, issued_at,

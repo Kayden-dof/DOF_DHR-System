@@ -29,7 +29,7 @@ interface LotRow {
   coa_no: string; coa_date: string;
   qty_received: string; qty_available: string;
   status: string; expiry_date: string | null;
-  thickness_band: string | null; used_in: number;
+  thickness_band: string | null; qc_passed_on: string | null; used_in: number;
   /* 정정 화면이 지금 값을 그대로 들고 열려야 한다 (5차 감사 A1) */
   unit_price: string | null; location: string | null;
 }
@@ -56,6 +56,7 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
               s.name as supplier_name, s.status as supplier_status, ml.supplier_lot_no,
               ml.coa_no, ml.coa_date, ml.qty_received, ml.qty_available,
               ml.status::text as status, ml.expiry_date, ml.thickness_band,
+              ml.qc_passed_on,
               ml.unit_price, ml.location,
               (select count(distinct pr.work_order_id)::int
                  from material_issue mi join process_record pr on pr.id = mi.process_record_id
@@ -204,6 +205,7 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
                         location: l.location ?? null,
                         unit_price: l.unit_price,
                         thickness_band: l.thickness_band,
+                        qc_passed_on: l.qc_passed_on as unknown as string | null,
                       }} />}
                     </Td>}
                   </tr>

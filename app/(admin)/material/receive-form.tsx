@@ -95,6 +95,16 @@ export default function ReceiveForm({ items, suppliers, orders, today }: {
           <input id={`${uid}-coa_date`} name="coa_date" type="date" required defaultValue={today} className="input tnum" />
         </div>
         <div>
+          <label className="label" htmlFor={`${uid}-qc_passed_on`}>합격판정일자 (필수)</label>
+          <input id={`${uid}-qc_passed_on`} name="qc_passed_on" type="date" required
+                 defaultValue={today} className="input tnum" />
+          <p className="mt-1 text-xs text-muted">
+            서면 합격 판정 서류의 날짜입니다. <b className="text-ink">로트번호가 이 날짜로
+            만들어집니다.</b>
+          </p>
+        </div>
+
+        <div>
           <label className="label" htmlFor={`${uid}-received_at`}>입고일</label>
           <input id={`${uid}-received_at`} name="received_at" type="date" required defaultValue={today} className="input tnum" />
         </div>

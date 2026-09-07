@@ -11,6 +11,7 @@ export interface ExistingRule {
   reset: string;
   seq_width: number;
   item_id: string | null;
+  item_type?: string | null;
 }
 
 export interface ItemOption { id: string; code: string; name: string }
@@ -32,6 +33,7 @@ export default function RuleForm({
   targetLabel,
   existing,
   items,
+  types,
   fixedItemId,
   today,
   onDone,
@@ -41,6 +43,8 @@ export default function RuleForm({
   existing: ExistingRule | null;
   /** 품목별 규칙을 만들 수 있는 대상이면 목록이 온다. 빈 배열이면 공통만 */
   items: ItemOption[];
+  /** 품목 종류 고르개. 주면 종류별 규칙을 낼 수 있다 (0097) */
+  types?: { value: string; label: string }[];
   /** 교체일 때 그 규칙이 이미 매인 품목. 바꾸지 못한다 */
   fixedItemId?: string | null;
   today: string;
@@ -51,6 +55,8 @@ export default function RuleForm({
   const [reset, setReset] = useState(existing?.reset ?? 'YEARLY');
   const [seqWidth, setSeqWidth] = useState(existing?.seq_width ?? 4);
   const [itemId, setItemId] = useState(fixedItemId ?? existing?.item_id ?? '');
+  /* 품목 종류별 규칙 (0097). 종류를 고르면 그 종류의 품목이 전부 이 형식이 된다 */
+  const [itemType, setItemType] = useState(existing?.item_type ?? '');
   const [preview, setPreview] = useState<Preview>({});
 
   const itemCode = items.find((i) => i.id === itemId)?.code ?? null;
@@ -150,6 +156,30 @@ export default function RuleForm({
             </select>
             <p className="mt-1 text-xs leading-relaxed text-faint">
               품목을 선택하면 그 품목만 이 형식으로 채번되고, 나머지는 공통 규칙을 씁니다.
+            </p>
+          </div>
+        )}
+
+        {types && items.length === 0 && (
+          /*
+           * 종류별 규칙 (0097). 사내 번호 체계가 자재 로트 접두어를 원자재 R ·
+           * 포장재 P · 시약 M 으로 가른다. 품목마다 규칙을 만들면 품목 수만큼
+           * 규칙이 생기므로 종류로 한 번에 건다.
+           *
+           * 고르는 차례는 품목별 > 종류별 > 공통이다. 좁은 것이 먼저다.
+           */
+          <div className="sm:col-span-2">
+            <label className="label" htmlFor={`type-${target}`}>적용 품목 종류</label>
+            <select id={`type-${target}`} name="item_type" value={itemType}
+                    onChange={(e) => setItemType(e.target.value)} className="input">
+              <option value="">종류를 가리지 않음 (공통 규칙)</option>
+              {types.map((t) => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs leading-relaxed text-faint">
+              종류를 고르면 그 종류의 품목만 이 형식으로 채번되고, 나머지는 공통 규칙을
+              씁니다. 품목별 규칙이 있으면 그쪽이 먼저입니다.
             </p>
           </div>
         )}
