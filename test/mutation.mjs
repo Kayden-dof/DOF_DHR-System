@@ -66,6 +66,15 @@ const MUTATIONS = [
           drop trigger if exists material_issue_s04 on material_issue`,
     cases: ['S04-01', 'S04-02'] },
 
+  /*
+   * 남의 비밀번호를 바꾸는 것은 그 사람 이름으로 기록을 남길 수 있게 되는
+   * 일이다 (0018). 0098 이 그 자리를 시스템관리자까지 넓혔으므로, 넓힌 뒤에도
+   * 아무나는 여전히 막히는지 여기서 되묻는다.
+   */
+  { id: 'M-PINRESET', rule: '남의 비밀번호는 시스템관리자나 개발 계정만 (0098)',
+    sql: `drop trigger if exists app_user_pin_reset on app_user`,
+    cases: ['U-13', 'U-13b'] },
+
   { id: 'M-MLLOCK', rule: '자재 로트에서 계보가 걸린 넷은 잠긴다 (0090)',
     sql: `drop trigger if exists material_lot_coa_once on material_lot`,
     cases: ['ML-02', 'RV2-10'] },

@@ -140,14 +140,51 @@ export default [
 
 {
   id: 'U-13', expect: '예외',
-  name: '비밀번호 초기화: 개발 계정이 아니면 남의 비밀번호를 못 바꾼다',
+  name: '비밀번호 초기화: 아무나는 남의 비밀번호를 못 바꾼다',
   async run(t) {
+    /* 역할이 없는 계정이다. 시스템관리자도 개발 계정도 아니다 */
     const actor  = await t.newUser({ is_developer: false });
     const victim = await t.newUser();
     await t.setActor(actor);
     await t.rejects(
       () => t.rows(`update app_user set pin_hash = 'x' where id = $1`, [victim]),
-      { code: 'P0001', message: '개발 계정만' });
+      { code: 'P0001', message: '시스템관리자나 개발 계정만' });
+    await t.setActor(null);
+  },
+},
+
+{
+  id: 'U-13a', expect: '통과',
+  name: '비밀번호 초기화: 시스템관리자는 남의 비밀번호를 바꾼다 (0098)',
+  async run(t) {
+    /*
+     * 0018 은 개발 계정만 허용했다. 그러면 현장에서 비밀번호를 잊을 때마다
+     * 개발자를 불러야 하고, 그것이 §2.0 이 막으려는 상태다 (2026-09-07).
+     */
+    const actor  = await t.newUser({ is_developer: false });
+    await t.rows(`insert into user_role (user_id, role) values ($1,'SYS_ADMIN')`, [actor]);
+    const victim = await t.newUser();
+    await t.setActor(actor);
+    await t.resolves(
+      () => t.rows(`update app_user set pin_hash = 'y' where id = $1`, [victim]));
+    await t.setActor(null);
+    t.eq(await t.val(`select pin_hash from app_user where id = $1`, [victim]), 'y',
+      '바뀐 값');
+  },
+},
+
+{
+  id: 'U-13b', expect: '예외',
+  name: '비밀번호 초기화: 생산관리자는 남의 비밀번호를 못 바꾼다 (0098)',
+  async run(t) {
+    /* 넓힌 것은 시스템관리자 한 자리뿐이다. 나머지 역할은 그대로 막힌다 */
+    const actor  = await t.newUser({ is_developer: false });
+    await t.rows(`insert into user_role (user_id, role) values ($1,'PROD_MGR')`, [actor]);
+    const victim = await t.newUser();
+    await t.setActor(actor);
+    await t.rejects(
+      () => t.rows(`update app_user set pin_hash = 'z' where id = $1`, [victim]),
+      { code: 'P0001', message: '시스템관리자나 개발 계정만' });
     await t.setActor(null);
   },
 },

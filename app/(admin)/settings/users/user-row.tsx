@@ -274,16 +274,27 @@ function FlagPanel({ u, isMe, sysAdmin }: { u: UserRow; isMe: boolean; sysAdmin:
           </button>
         </form>
 
+{/*
+          * 개발 계정 표시는 **켜기만** 낸다 (0052 · 사용자 결정 2026-09-07).
+          *
+          * 전에는 `해제` 단추가 있었는데 눌러도 DB 가 거부했다
+          * (app_user_dev_sticky). 차단이 맞고 단추가 틀렸다 - 화면이 못 하는
+          * 일을 내놓고 있었다. 되돌릴 수 없다는 것을 단추 대신 글로 적는다.
+          */}
         {sysAdmin && (
         <form action={devAction} className="flex items-center gap-2">
           <input type="hidden" name="id" value={u.id} />
-          <input type="hidden" name="next" value={String(!u.is_developer)} />
+          <input type="hidden" name="next" value="true" />
           <span className="flex-1 text-sm text-ink">
             {u.is_developer ? '개발 계정' : '일반 계정'}
           </span>
-          <button type="submit" disabled={a2} className="btn-ghost h-7 px-2 text-xs">
-            {u.is_developer ? '해제' : '개발 계정으로'}
-          </button>
+          {u.is_developer ? (
+            <span className="text-xs text-faint">되돌릴 수 없음</span>
+          ) : (
+            <button type="submit" disabled={a2} className="btn-ghost h-7 px-2 text-xs">
+              개발 계정으로
+            </button>
+          )}
         </form>
         )}
       </div>

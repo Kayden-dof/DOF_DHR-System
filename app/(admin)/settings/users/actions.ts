@@ -97,9 +97,12 @@ export async function createUser(_prev: FormState, form: FormData): Promise<Form
  * 비밀번호 초기화.
  *
  * 남의 비밀번호를 바꾸면 그 사람 이름으로 기록을 남길 수 있게 된다. 기록은
- * 지울 수 없어 사후 복구가 안 되므로 개발 계정만 할 수 있다. DB 트리거가
- * 같은 것을 막고 있고, 여기서는 화면에 단추를 내주기 전에 한 번 거른다.
- * 자기 비밀번호는 누구나 바꾼다.
+ * 지울 수 없어 사후 복구가 안 된다. 그래서 **시스템관리자나 개발 계정만**
+ * 한다 (0098). 전에는 개발 계정만이었는데, 그러면 현장에서 비밀번호를 잊을
+ * 때마다 개발자를 불러야 해서 §2.0 이 막으려는 상태가 된다.
+ *
+ * DB 트리거가 같은 것을 막고 있고, 여기서는 화면에 단추를 내주기 전에 한 번
+ * 거른다. 자기 비밀번호는 누구나 바꾼다.
  */
 export async function setPin(_prev: FormState, form: FormData): Promise<FormState> {
   try {
@@ -107,8 +110,8 @@ export async function setPin(_prev: FormState, form: FormData): Promise<FormStat
     const id = String(form.get('id') ?? '');
     const pin = String(form.get('pin') ?? '');
     if (!pin) return { error: '새 비밀번호를 입력하십시오' };
-    if (id !== me.id && !me.is_developer) {
-      return { error: '다른 사람의 비밀번호는 개발 계정만 초기화할 수 있습니다' };
+    if (id !== me.id && !me.is_developer && !me.roles.includes('SYS_ADMIN')) {
+      return { error: '다른 사람의 비밀번호는 시스템관리자나 개발 계정만 초기화할 수 있습니다' };
     }
 
     /*
