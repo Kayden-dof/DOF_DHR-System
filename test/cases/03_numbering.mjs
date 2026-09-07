@@ -601,4 +601,58 @@ export default [
   },
 },
 
+
+{
+  id: 'N-31', expect: '배치가 들어간다',
+  name: '{BATCH} 토큰이 생산 배치번호로 바뀐다 (0099)',
+  async run(t) {
+    await t.rows(
+      `update numbering_rule set is_active = false
+        where target = 'STERIL_BATCH' and is_active`);
+    await mkRule(t, { target: 'STERIL_BATCH', pattern: '{BATCH}',
+                      reset: 'NEVER', width: 2 });
+    t.eq(await t.val(`select next_number('STERIL_BATCH', null, null, 'B260907-01')`),
+      'B260907-01', '배치번호 그대로');
+
+    /* 섞어 쓸 수도 있어야 한다 - 다른 제조소는 회차를 붙일 수 있다 */
+    await t.rows(
+      `update numbering_rule set is_active = false
+        where target = 'STERIL_BATCH' and is_active`);
+    await mkRule(t, { target: 'STERIL_BATCH', pattern: '{BATCH}-{SEQ:1}',
+                      reset: 'NEVER', width: 1 });
+    const a = await t.val(`select next_number('STERIL_BATCH', null, null, 'B260907-01')`);
+    const b = await t.val(`select next_number('STERIL_BATCH', null, null, 'B260907-01')`);
+    t.ok(a !== b, `회차가 붙으면 갈린다 (${a} · ${b})`);
+  },
+},
+
+{
+  id: 'N-32', expect: '예외',
+  name: '{BATCH} 가 있는데 배치를 안 주면 거절한다 (0099)',
+  async run(t) {
+    /*
+     * 풀리지 않은 토큰을 그대로 내보내면 번호에 `{BATCH}` 라는 글자가 박힌다.
+     * 품목 토큰과 같은 수로 막는다.
+     */
+    await t.rows(
+      `update numbering_rule set is_active = false
+        where target = 'STERIL_BATCH' and is_active`);
+    await mkRule(t, { target: 'STERIL_BATCH', pattern: 'ST-{BATCH}',
+                      reset: 'NEVER', width: 2 });
+    await t.rejects(() => t.val(`select next_number('STERIL_BATCH')`),
+      { code: 'P0001', message: '배치가 지정되지 않았습니다' });
+
+    /*
+     * 배치를 요구하는 규칙을 그대로 두고 나가면 뒤 시험이 STERIL_BATCH 를
+     * 못 쓴다 (SH-01 이 실제로 넘어갔다). 시험은 DB 를 쓸 수 있는 상태로
+     * 돌려놓는다.
+     */
+    await t.rows(
+      `update numbering_rule set is_active = false
+        where target = 'STERIL_BATCH' and is_active`);
+    await mkRule(t, { target: 'STERIL_BATCH', pattern: 'ST-{SEQ:3}',
+                      reset: 'NEVER', width: 3 });
+  },
+},
+
 ];

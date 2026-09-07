@@ -297,10 +297,29 @@ step('되살린 것이 원본과 같은지 대조한다');
 /* 백업이 UTC 로 찍었으므로 여기서도 UTC 로 읽는다 (backup.mjs 참조) */
 await c.query(`set time zone 'UTC'`);
 
+/*
+ * 못 본 것은 어긋난 것이 아니다.
+ *
+ * 빈 백업(방금 세운 설치)을 되살리면 제품 로트도 품목도 없다. 그때 "역추적
+ * 불일치" 라고 적으면 **거짓 경보**다 - 되살리기는 멀쩡한데 볼 자료가 없었을
+ * 뿐이다. 실제로 운영 백업(24행)에 대고 돌렸다가 두 건이 그렇게 떴다
+ * (2026-09-07).
+ *
+ * 거짓 경보는 잠든 확인만큼 나쁘다. 한쪽은 없는 문제를 만들고 다른 쪽은 있는
+ * 문제를 감추는데, 둘 다 사람이 이 출력을 안 믿게 만든다.
+ *
+ * 그래서 셋으로 가른다 - 일치 · 불일치 · **못 봄**. 못 본 것은 실패로 세지
+ * 않되 맺음말에 낱낱이 적어, 통과로 읽히지 않게 한다.
+ */
+const unseen = [];
 const fail = [];
 const ok = (cond, label, detail = '') => {
   console.log(`  ${cond ? '일치' : '불일치'}  ${label}${detail ? '  ' + detail : ''}`);
   if (!cond) fail.push(label);
+};
+const skip = (label, why) => {
+  console.log(`  못 봄  ${label}  ${why}`);
+  unseen.push(`${label} - ${why}`);
 };
 
 /* 4-1. 표마다 행 수와 내용 해시 */
@@ -348,8 +367,12 @@ const gen = (await c.query(
      join work_order wo on wo.id = pl.work_order_id
      join material_lot ml on ml.id = wo.material_lot_id
     order by pl.lot_no limit 1`)).rows[0];
-ok(!!gen, '제품 로트에서 원재료 로트까지 역추적',
-   gen ? `${gen.lot_no} → ${gen.batch_no} → ${gen.raw}` : '');
+if (gen) {
+  ok(true, '제품 로트에서 원재료 로트까지 역추적',
+     `${gen.lot_no} → ${gen.batch_no} → ${gen.raw}`);
+} else {
+  skip('제품 로트에서 원재료 로트까지 역추적', '이 백업에 제품 로트가 없습니다');
+}
 
 /* 4-4. 인쇄물 자료 식별자가 그대로인가. 종이와 시스템을 잇는 고리다 */
 const rp = (await c.query(
@@ -367,13 +390,22 @@ ok(seqOk, '시퀀스 현재값', Object.keys(man.sequences ?? {}).join(' · '));
 
 /* 4-6. 규칙이 되살아나 있는가. 트리거를 껐다 켰으니 확인해야 한다 */
 let guarded = false;
-try {
-  await c.query(`delete from item where false`);
-  await c.query(`delete from item`);
-} catch (e) {
-  guarded = String(e.message).includes('S03');
+/*
+ * 행이 하나도 없으면 행 단위 트리거가 아예 돌지 않는다. 그때 "차단이 안
+ * 되살아났다" 고 적으면 거짓말이다 - 지울 것이 없었을 뿐이다.
+ */
+const items = (await c.query(`select count(*)::int n from item`)).rows[0].n;
+if (Number(items) === 0) {
+  skip('S03 삭제 차단이 되살아났는가', '이 백업에 품목이 없어 지워 볼 것이 없습니다');
+} else {
+  try {
+    await c.query(`delete from item where false`);
+    await c.query(`delete from item`);
+  } catch (e) {
+    guarded = String(e.message).includes('S03');
+  }
+  ok(guarded, 'S03 삭제 차단이 되살아났는가');
 }
-ok(guarded, 'S03 삭제 차단이 되살아났는가');
 
 /* ---------------------------------------------------------------------------
    4-7. 시연 자료 표시
@@ -402,6 +434,12 @@ if (fail.length === 0) {
 } else {
   console.log(` 어긋난 항목 ${fail.length}건`);
   for (const f of fail) console.log(`   · ${f}`);
+}
+if (unseen.length) {
+  console.log(` 이 백업으로는 ${unseen.length}가지를 보지 못했습니다`);
+  for (const u of unseen) console.log(`   · ${u}`);
+  console.log(`   자료가 든 백업으로 한 번 더 돌리십시오. 되살리기는 확인됐지만`);
+  console.log(`   계보와 삭제 차단은 아직 확인되지 않았습니다.`);
 }
 console.log(` 되살리는 데 ${restoreSec}초 · 대조까지 ${total}초`);
 console.log(` 이 시간이 실제 RTO 입니다. 사내문서/백업과 복구.md 에 적으십시오.`);

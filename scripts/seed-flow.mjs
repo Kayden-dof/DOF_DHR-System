@@ -369,7 +369,8 @@ await closeDay(w2, 3);
 console.log('\n[멸균] 외부 위탁');
 
 const sb = await as(mgrUser.id, async () => {
-  const no = await val(`select next_number('STERIL_BATCH')`);
+  /* 멸균 배치번호가 생산 배치번호를 따른다 (0099). 화면도 이렇게 부른다 */
+  const no = await val(`select next_number('STERIL_BATCH', null, null, $1)`, [wo.batch_no]);
   const id = await val(
     `insert into steril_batch (batch_no, request_no, vendor_name, registered_by)
      values ($1,$2,$3,$4) returning id`,

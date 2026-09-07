@@ -245,7 +245,8 @@ await rule('MATERIAL_LOT', 'M{YY}{MM}{DD}-{SEQ:2}', 2, 'DAILY', 'PROCESS');
 await rule('WORK_ORDER',   'WO-{YY}{MM}{DD}-{SEQ:2}', 2);
 await rule('BATCH',        'B{YY}{MM}{DD}-{SEQ:2}', 2);
 await rule('PRODUCT_LOT',  'GM-{YY}{MM}{DD}{SEQ:2}', 2);
-await rule('STERIL_BATCH', 'ST-{YY}{MM}-{SEQ:3}', 3, 'YEARLY');
+/* 멸균 배치번호는 생산 배치번호와 같다 - 한 발송이 한 배치다 (0099) */
+await rule('STERIL_BATCH', '{BATCH}', 2, 'NEVER');
 await rule('DEVIATION',    'DV-{YY}-{SEQ:3}', 3, 'YEARLY');
 console.log('채번 규칙 9종 (자재 로트는 품목 종류별 4종)');
 

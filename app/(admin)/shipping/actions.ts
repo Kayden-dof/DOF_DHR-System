@@ -45,7 +45,29 @@ export async function createSterilBatch(_p: FormState, form: FormData): Promise<
     if (lots.length === 0) return { error: '동봉할 제품 로트와 수량을 선택하십시오' };
 
     const batchNo = await withActor(me.id, async (db) => {
-      const no = await db.val<string>(`select next_number('STERIL_BATCH')`);
+      /*
+       * 멸균 배치번호는 채번 규칙이 정한다 (0099). 사내 규칙은 `{BATCH}` 하나라
+       * 생산 배치번호가 그대로 서지만, 그것은 **설정에 적힌 것**이지 여기 박힌
+       * 것이 아니다 - 다른 제조소는 자기 형식을 쓴다 (§2.0).
+       *
+       * 고른 로트가 어느 배치 것인지 알아야 그 토큰을 채운다. 한 발송이 한
+       * 배치라는 것도 여기서 드러난다 - 두 배치가 섞이면 배치번호를 하나로
+       * 고를 수 없다.
+       */
+      const batches = await db.rows<{ batch_no: string }>(
+        `select distinct w.batch_no
+           from product_lot pl join work_order w on w.id = pl.work_order_id
+          where pl.id = any($1::uuid[])
+          order by w.batch_no`, [lots.map((l) => l.id)]);
+      if (batches.length > 1) {
+        throw new Error(
+          `고른 로트가 배치 ${batches.length}건에 걸쳐 있습니다 `
+          + `(${batches.map((b) => b.batch_no).join(' · ')}). `
+          + '한 번의 멸균 발송은 한 배치입니다.');
+      }
+
+      const no = await db.val<string>(
+        `select next_number('STERIL_BATCH', null, null, $1)`, [batches[0]?.batch_no ?? null]);
       const id = await db.val<string>(
         `insert into steril_batch (batch_no, request_no, vendor_name, registered_by)
          values ($1,$2,$3,$4) returning id`,
