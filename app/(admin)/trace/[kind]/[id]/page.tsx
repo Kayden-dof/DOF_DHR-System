@@ -184,7 +184,9 @@ async function MaterialView({ me, id }: { me: Me; id: string }) {
           note="공정 기록을 경유한 계보입니다"
         >
           {d.products.length === 0 ? (
-            <Empty>아직 공정에 투입되지 않았습니다.</Empty>
+            <Empty hint="현장 화면에서 이 로트를 투입 자재로 적으면 계보가 이어집니다.">
+              아직 공정에 투입되지 않았습니다.
+            </Empty>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -337,7 +339,9 @@ async function BatchView({ me, kind, id }: {
 
       <Panel title="생성된 제품 로트">
         {lots.length === 0 ? (
-          <Empty>제조번호가 붙지 않았습니다.</Empty>
+          <Empty hint="현장 화면에서 재단 공정을 적으면 형명별로 제조번호가 나뉩니다.">
+            제조번호가 붙지 않았습니다.
+          </Empty>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -381,7 +385,9 @@ async function BatchView({ me, kind, id }: {
         */}
       <Panel title="공정 기록" note="누가 언제 무엇을 했는가">
         {d.work.length === 0 ? (
-          <Empty>기록된 공정이 없습니다.</Empty>
+          <Empty hint="현장 화면에서 이 배치의 공정을 시작하면 여기 쌓입니다.">
+            기록된 공정이 없습니다.
+          </Empty>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -434,11 +440,15 @@ async function BatchView({ me, kind, id }: {
       </Panel>
 
       <Panel title="배치 단위 투입 자재">
-        {pre.length === 0 ? <Empty>기록이 없습니다.</Empty> : <GenTable rows={pre} />}
+        {pre.length === 0 ? (
+          <Empty hint="재단 이전 공정에서 적은 자재가 여기 모입니다.">기록이 없습니다.</Empty>
+        ) : <GenTable rows={pre} />}
       </Panel>
 
       <Panel title="제품 로트 단위 투입 자재">
-        {post.length === 0 ? <Empty>기록이 없습니다.</Empty> : (
+        {post.length === 0 ? (
+          <Empty hint="재단 이후 공정에서 적은 자재가 여기 모입니다.">기록이 없습니다.</Empty>
+        ) : (
           <GenTable rows={post} lots={lots} />
         )}
       </Panel>

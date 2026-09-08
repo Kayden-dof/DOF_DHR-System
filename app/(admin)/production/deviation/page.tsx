@@ -97,7 +97,9 @@ export default async function DeviationPage() {
 
       <Panel>
         {d.rows.length === 0 ? (
-          <Empty>대장에 오른 일탈이 없습니다.</Empty>
+          <Empty hint="오른쪽 위 일탈 등록에서 번호를 붙이고, 서면 보고서 번호를 함께 적습니다.">
+            대장에 오른 일탈이 없습니다.
+          </Empty>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">

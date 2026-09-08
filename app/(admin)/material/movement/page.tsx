@@ -74,7 +74,9 @@ export default async function MovementPage() {
 
       <Panel title="최근 기록">
         {d.moves.length === 0 ? (
-          <Empty>기록이 없습니다.</Empty>
+          <Empty hint="위에서 반납 · 폐기 · 조정이나 용액 제조를 적으면 여기 남습니다.">
+            기록이 없습니다.
+          </Empty>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">

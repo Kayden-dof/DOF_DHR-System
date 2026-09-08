@@ -69,8 +69,8 @@ export default async function ShipPage() {
 
       <Panel title="출고 가능" note="유효기한이 이른 것부터">
         {d.lots.length === 0 ? (
-          <Empty>
-            출고할 수 있는 제품 로트가 없습니다. 출하 승인을 먼저 기록하십시오.
+          <Empty hint="출하 승인 화면에서 서면 승인 내용을 먼저 옮겨 적습니다.">
+            출고할 수 있는 제품 로트가 없습니다.
           </Empty>
         ) : (
           <ShipList lots={d.lots} today={d.today ?? ''} />
@@ -79,7 +79,9 @@ export default async function ShipPage() {
 
       <Panel title="출고 이력">
         {d.shipments.length === 0 ? (
-          <Empty>출고 기록이 없습니다.</Empty>
+          <Empty hint="위에서 거래처와 수량을 적어 출고하면 여기 남습니다.">
+            출고 기록이 없습니다.
+          </Empty>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">

@@ -130,7 +130,11 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
 
       <Panel>
         {d.lots.length === 0 ? (
-          <Empty>해당하는 자재 로트가 없습니다.</Empty>
+          <Empty hint={status || q
+            ? '위에서 상태를 전체로 돌리거나 검색어를 지워 보십시오.'
+            : '오른쪽 위 자재 입고 등록에서 성적서 번호와 함께 넣습니다.'}>
+            해당하는 자재 로트가 없습니다.
+          </Empty>
         ) : (
           <Table>
             <thead>

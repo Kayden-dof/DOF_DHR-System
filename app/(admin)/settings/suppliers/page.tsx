@@ -82,7 +82,9 @@ export default async function SuppliersPage() {
 
       <Panel>
         {d.suppliers.length === 0 ? (
-          <Empty>등록된 공급자가 없습니다.</Empty>
+          <Empty hint="오른쪽 위 공급자 등록에서 넣습니다. 자재 입고와 단가가 여기 등록된 공급자를 가리킵니다.">
+            등록된 공급자가 없습니다.
+          </Empty>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">

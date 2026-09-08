@@ -72,7 +72,9 @@ export default async function ReleasePage() {
         note="배치에서 생산된 규격 중 미출고 잔여를 선택해 발행합니다. 요청서 번호는 발행되는 순간 종이에 찍힙니다."
       >
         {groups.length === 0 ? (
-          <Empty>요청할 잔여가 있는 제품 로트가 없습니다.</Empty>
+          <Empty hint="재단에서 제조번호가 붙고 아직 출고되지 않은 로트만 나옵니다.">
+            요청할 잔여가 있는 제품 로트가 없습니다.
+          </Empty>
         ) : (
           <RequestBuilder groups={groups} />
         )}
@@ -80,7 +82,9 @@ export default async function ReleasePage() {
 
       <Panel title="승인 기록" note="서면 요청서에 서명받은 내용을 옮겨 기재합니다. 유효기한이 이른 것부터.">
         {pending.length === 0 ? (
-          <Empty>승인을 기다리는 제품 로트가 없습니다.</Empty>
+          <Empty hint="위에서 요청서를 발행하면 그 로트가 여기 모입니다.">
+            승인을 기다리는 제품 로트가 없습니다.
+          </Empty>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -126,7 +130,9 @@ export default async function ReleasePage() {
 
       <Panel title="승인 완료">
         {approved.length === 0 ? (
-          <Empty>승인된 제품 로트가 없습니다.</Empty>
+          <Empty hint="서면 요청서에 받은 승인 내용을 위의 승인 기록에 옮겨 적으면 여기로 넘어옵니다.">
+            승인된 제품 로트가 없습니다.
+          </Empty>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">

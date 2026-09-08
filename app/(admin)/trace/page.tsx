@@ -93,7 +93,9 @@ export default async function TracePage({ searchParams }: { searchParams: Search
       {q && (
         <Panel title={`검색 결과 ${d.hits.length}건`}>
           {d.hits.length === 0 ? (
-            <Empty>해당하는 번호가 없습니다.</Empty>
+            <Empty hint="번호 일부만 넣어도 찾습니다. 성적서 번호로도 찾습니다.">
+              해당하는 번호가 없습니다.
+            </Empty>
           ) : (
             <div className="divide-y divide-line">
               {d.hits.map((h) => (

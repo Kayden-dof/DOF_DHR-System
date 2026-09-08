@@ -207,7 +207,9 @@ export default async function BackupPage() {
         note="되돌린 사실은 복구가 덮지 않습니다. 이 표만은 그대로 쌓입니다."
       >
         {d.restores.length === 0 ? (
-          <Empty>되돌린 적이 없습니다.</Empty>
+          <Empty hint="위의 백업 파일 넣기로 되돌리면 여기 남습니다.">
+            되돌린 적이 없습니다.
+          </Empty>
         ) : (
           <TableWrap>
             <table className="w-full min-w-[44rem]">

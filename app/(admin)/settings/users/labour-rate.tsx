@@ -108,7 +108,9 @@ export function LabourRates({ rows, today, writable = true }: {
       )}
 
       {rows.length === 0 ? (
-        <Empty>등록된 공수 단가가 없습니다.</Empty>
+        <Empty hint="위에서 역할별 시간당 단가를 넣으면 원가에 공수가 잡힙니다.">
+          등록된 공수 단가가 없습니다.
+        </Empty>
       ) : (
         <Table>
           <thead>

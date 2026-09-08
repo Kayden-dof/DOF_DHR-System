@@ -161,7 +161,9 @@ export default async function CostPage() {
 
       <Panel title="배치별 원가">
         {d.batches.length === 0 ? (
-          <Empty>배치가 없습니다.</Empty>
+          <Empty hint="생산에서 작업 지시를 발행하면 그 배치의 원가가 여기 잡힙니다.">
+            배치가 없습니다.
+          </Empty>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -208,7 +210,9 @@ export default async function CostPage() {
         note="배치 공통분은 생산 수량 비율로 배분합니다"
       >
         {d.lots.length === 0 ? (
-          <Empty>제품 로트가 없습니다.</Empty>
+          <Empty hint="재단에서 제조번호가 붙어야 배치 원가가 로트별로 나뉩니다.">
+            제품 로트가 없습니다.
+          </Empty>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -256,7 +260,9 @@ export default async function CostPage() {
 
       <Panel title="자재 지출" note="매입 기준">
         {d.spend.length === 0 ? (
-          <Empty>입고 기록이 없습니다.</Empty>
+          <Empty hint="자재 입고 등록에 매입 단가를 함께 넣으면 달별로 쌓입니다.">
+            입고 기록이 없습니다.
+          </Empty>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">

@@ -120,7 +120,11 @@ export async function DmrWorkbench({
       </div>
 
       {d.masters.length === 0 ? (
-        <Panel><Empty>등록된 제품표준서가 없습니다. 완제품 형명을 먼저 만드십시오.</Empty></Panel>
+        <Panel>
+          <Empty hint="설정 · 품목에서 완제품 형명을 먼저 만들고, 위의 제품표준서 개정 추가를 누릅니다.">
+            등록된 제품표준서가 없습니다.
+          </Empty>
+        </Panel>
       ) : (
         <>
           <div className="flex flex-wrap gap-2">

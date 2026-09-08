@@ -122,7 +122,11 @@ export default async function ItemsPage({ searchParams }: { searchParams: Search
 
       <Panel>
         {items.length === 0 ? (
-          <Empty>해당하는 품목이 없습니다.</Empty>
+          <Empty hint={type || q
+            ? '위에서 유형을 전체로 돌리거나 검색어를 지워 보십시오.'
+            : '오른쪽 위 품목 등록에서 자재를, 완제품 형명 생성에서 제품을 넣습니다.'}>
+            해당하는 품목이 없습니다.
+          </Empty>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">

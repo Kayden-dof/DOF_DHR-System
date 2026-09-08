@@ -89,7 +89,11 @@ export default async function MaterialItemsPage({ searchParams }: { searchParams
 
       <Panel>
         {items.length === 0 ? (
-          <Empty>해당하는 품목이 없습니다.</Empty>
+          <Empty hint={type || q
+            ? '위에서 유형을 전체로 돌리거나 검색어를 지워 보십시오.'
+            : '오른쪽 위 품목 등록에서 원재료 · 시약 · 공정 자재 · 포장재를 넣습니다.'}>
+            해당하는 품목이 없습니다.
+          </Empty>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">

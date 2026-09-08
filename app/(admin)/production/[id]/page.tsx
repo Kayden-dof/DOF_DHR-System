@@ -360,7 +360,9 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
         ) : null}
       >
         {d.lots.length === 0 ? (
-          <Empty>아직 제조번호가 붙지 않았습니다.</Empty>
+          <Empty hint="현장 화면에서 재단 공정을 적으면 형명별로 제조번호가 붙습니다.">
+            아직 제조번호가 붙지 않았습니다.
+          </Empty>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -446,7 +448,9 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
         ) : undefined}
       >
         {d.days.length === 0 ? (
-          <Empty>아직 공정 기록이 없습니다. 현장 화면에서 작성합니다.</Empty>
+          <Empty hint="현장 화면에서 작업자가 공정을 시작하면 일차가 생깁니다.">
+            아직 공정 기록이 없습니다.
+          </Empty>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -501,7 +505,9 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
         }
       >
         {d.records.length === 0 ? (
-          <Empty>기록이 없습니다.</Empty>
+          <Empty hint="현장 화면에서 적은 공정이 일차별로 여기 모입니다.">
+            기록이 없습니다.
+          </Empty>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">

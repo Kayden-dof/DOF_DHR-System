@@ -108,7 +108,9 @@ export default async function OrdersPage() {
 
       <Panel>
         {d.orders.length === 0 ? (
-          <Empty>등록된 발주가 없습니다.</Empty>
+          <Empty hint="오른쪽 위 발주 등록에서 품목과 공급자를 골라 넣습니다.">
+            등록된 발주가 없습니다.
+          </Empty>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">

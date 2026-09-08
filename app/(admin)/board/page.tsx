@@ -304,7 +304,9 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
       {/* 오늘 ── 무엇이 나왔나 --------------------------------------------- */}
       <Panel title="오늘" note={fmtDate(today)}>
         {todayRows.length === 0 ? (
-          <Empty>오늘 제조번호가 붙은 제품이 없습니다.</Empty>
+          <Empty hint="재단에서 제조번호를 붙이면 그 제조일로 여기 올라옵니다.">
+            오늘 제조번호가 붙은 제품이 없습니다.
+          </Empty>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -340,7 +342,8 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
         <PeriodTable rows={list('day', 10).filter((b) => b.bucket >= weekFrom)}
                      label={(b) => fmtDate(b.bucket)}
                      total={week} won={won} pct={pct}
-                     empty="이번 주 기록이 없습니다." />
+                     empty="이번 주 기록이 없습니다."
+                     hint="생산과 출고가 기록되면 날짜별로 나뉩니다." />
       </Panel>
 
       {/* 달별 ── 어디쯤인가 ------------------------------------------------ */}
@@ -348,7 +351,8 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
         <PeriodTable rows={list('month', 6)}
                      label={(b) => b.bucket.slice(0, 7)}
                      won={won} pct={pct}
-                     empty="기록이 없습니다." />
+                     empty="기록이 없습니다."
+                     hint="생산과 출고가 기록되면 달별로 나뉩니다." />
 
         <div className="border-t border-line-soft bg-canvas px-4 py-3">
           <dl className="grid gap-x-6 gap-y-1.5 text-xs leading-relaxed sm:grid-cols-2">
@@ -387,7 +391,9 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
       <Panel title="제품코드별 자재 원가"
              note="배치 공통분은 면적으로 나눕니다">
         {d.itemCost.length === 0 ? (
-          <Empty>원가를 낼 자료가 없습니다.</Empty>
+          <Empty hint="자재 로트에 매입 단가가 있고 그 자재가 공정에 투입되어야 값이 나옵니다.">
+            원가를 낼 자료가 없습니다.
+          </Empty>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -489,15 +495,16 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
    재단 전(장)과 재단 후(개)를 나란히 두되 더하지 않는다. 열 머리에 단위를
    적어 둔다.
 --------------------------------------------------------------------------- */
-function PeriodTable({ rows, label, total, won, pct, empty }: {
+function PeriodTable({ rows, label, total, won, pct, empty, hint }: {
   rows: Bucket[];
   label: (b: Bucket) => string;
   total?: Bucket;
   won: (v?: string | null) => string;
   pct: (v?: string | null) => string;
   empty: string;
+  hint?: string;
 }) {
-  if (rows.length === 0) return <Empty>{empty}</Empty>;
+  if (rows.length === 0) return <Empty hint={hint}>{empty}</Empty>;
 
   return (
     <div className="overflow-x-auto">

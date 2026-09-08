@@ -95,7 +95,9 @@ export default async function SterilPage() {
 
       <Panel>
         {d.batches.length === 0 ? (
-          <Empty>멸균 배치가 없습니다.</Empty>
+          <Empty hint="오른쪽 위 멸균 배치 만들기에서 보낼 제품 로트를 골라 묶습니다.">
+            멸균 배치가 없습니다.
+          </Empty>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">

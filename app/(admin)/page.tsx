@@ -474,7 +474,9 @@ export default async function Dashboard() {
           }
         >
           {d.pending.length === 0 ? (
-            <Empty>마감을 기다리는 일차가 없습니다.</Empty>
+            <Empty hint="현장 화면에서 공정 기록이 시작되면 그 일차가 여기 모입니다.">
+              마감을 기다리는 일차가 없습니다.
+            </Empty>
           ) : (
             <Table>
               <thead>

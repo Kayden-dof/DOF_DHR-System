@@ -110,7 +110,9 @@ export default async function StockPage() {
 
       <Panel title="완제품" note="유효기한 순">
         {d.finished.length === 0 ? (
-          <Empty>출하 가능한 완제품이 없습니다.</Empty>
+          <Empty hint="재단에서 제조번호가 붙으면 잔여 수량이 여기 잡힙니다.">
+            출하 가능한 완제품이 없습니다.
+          </Empty>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
