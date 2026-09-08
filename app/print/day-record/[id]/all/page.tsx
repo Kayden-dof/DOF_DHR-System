@@ -2,6 +2,8 @@ import { notFound } from 'next/navigation';
 import { requireUser } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import { PrintBar } from '@/components/print-frame';
+import { printGate } from '@/lib/print';
+import Denied from '@/components/denied';
 import { DayRecordDoc } from '../[day]/[worker]/page';
 
 export const dynamic = 'force-dynamic';
@@ -41,6 +43,19 @@ interface DayRow {
 export default async function DayRecordBundle({ params }: {
   params: Promise<{ id: string }>;
 }) {
+  /*
+   * 묶음은 발행 전용이다. 열람은 회차 하나를 여는 자리이고 묶음은 여러 묶음을
+   * 한 문서로 내므로 회차가 하나로 서지 않는다.
+   */
+  const { denied } = await printGate(false);
+  if (denied) {
+    return (
+      <Denied what="발행" need="생산관리자 또는 시스템관리자">
+        인쇄물을 뽑으면 인쇄 기록이 남고 제조기록서는 그 묶음이 잠깁니다.
+        이미 나간 종이를 보려면 인쇄 이력의 <b>보기</b>로 여십시오.
+      </Denied>
+    );
+  }
   const user = await requireUser();
   const { id } = await params;
 

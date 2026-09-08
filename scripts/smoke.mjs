@@ -109,6 +109,17 @@ const ADMIN = [
   ids.wo && `/trace/batch/${ids.wo}`,
   ids.mat && `/trace/material/${ids.mat}`,
   ids.day && `/print/day-record/${ids.day.work_order_id}/${ids.day.day_no}/${ids.day.worker_id}`,
+
+  /*
+   * 열람 (0103). 위 인쇄 경로가 이미 한 번씩 뽑아 놓았으므로 여기서는 나간
+   * 회차가 있다. **대장 줄 수는 늘지 않아야 한다** - 아래 셈이 그것을 센다.
+   */
+  ids.wo && `/print/work-order/${ids.wo}?view=1`,
+  ids.wo && `/print/cover/${ids.wo}?view=1`,
+  ids.wo && `/print/label-request/${ids.wo}?view=1`,
+  ids.mat && `/print/label/${ids.mat}?view=1`,
+  ids.eq && `/print/equipment-log/${ids.eq}?view=1`,
+  ids.day && `/print/day-record/${ids.day.work_order_id}/${ids.day.day_no}/${ids.day.worker_id}?view=1`,
 ].filter(Boolean);
 
 const WORKER = ['/work', ids.wo && `/work/${ids.wo}`].filter(Boolean);

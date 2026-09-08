@@ -2,7 +2,8 @@ import { notFound } from 'next/navigation';
 import { requireUser } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import { fmtDate } from '@/lib/fmt';
-import { logPrint } from '@/lib/print';
+import { logPrint, printGate, viewParam } from '@/lib/print';
+import Denied from '@/components/denied';
 import { chunkRows } from '@/lib/print-pages';
 import PrintFrame, { Sheet } from '@/components/print-frame';
 
@@ -76,10 +77,23 @@ function UseTable({ rows }: { rows: Use[] }) {
 }
 
 export default async function EquipmentLogSheet({
-  params,
-}: { params: Promise<{ id: string }> }) {
-  const user = await requireUser();
+  params, searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ view?: string }>;
+}) {
   const { id } = await params;
+  const view = viewParam((await searchParams).view);
+  const { denied } = await printGate(!!view);
+  if (denied) {
+    return (
+      <Denied what="발행" need="생산관리자 또는 시스템관리자">
+        인쇄물을 뽑으면 인쇄 기록이 남고 제조기록서는 그 묶음이 잠깁니다.
+        이미 나간 종이를 보려면 인쇄 이력의 <b>보기</b>로 여십시오.
+      </Denied>
+    );
+  }
+  const user = await requireUser();
 
   const d = await withActor(user.id, async (db) => {
     const head = await db.one<Head>(
@@ -135,6 +149,7 @@ export default async function EquipmentLogSheet({
   const usePages = chunkRows(uses, 22, 34);
 
   const meta = await logPrint({
+    view,
     actorId: user.id, actorName: user.full_name, kind: 'EQUIPMENT_LOG',
     equipmentId: id,
     payload: { head, vals, uses },

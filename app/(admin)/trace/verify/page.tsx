@@ -3,7 +3,7 @@ import Denied from '@/components/denied';
 import { requireUser, blocksViewer } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import { fmtDateTime } from '@/lib/fmt';
-import { KIND_LABEL, dataHash } from '@/lib/print';
+import { KIND_LABEL, dataHash, viewHref } from '@/lib/print';
 import { dayRecordPayload, hashable } from '@/lib/print-payload';
 import { Panel, Empty, Tag, Field } from '@/components/ui';
 import { PageShell } from '@/components/shell';
@@ -44,6 +44,8 @@ interface Hit {
   equipment_code: string | null; equipment_name: string | null;
   newer_count: number; latest_seq: number;
   data_hash: string;
+  /* 그 회차를 다시 여는 주소를 세우는 데 쓴다 (0103 · viewHref) */
+  worker_id: string | null; material_lot_id: string | null; equipment_id: string | null;
   /* 지금 자료로 다시 계산한 값. 대조할 수 없는 양식이면 null */
   recomputed?: string | null;
 }
@@ -169,6 +171,22 @@ export default async function VerifyPage({
                       <span className="tnum">{h.pages}장</span>
                     </Field>
                   </div>
+
+                  {/*
+                    * 손에 든 종이를 화면에서 다시 펼친다 (사용자 요청 2026-09-08).
+                    *
+                    * 여기가 종이를 들고 오는 자리이므로 "이게 그거 맞나" 를 묻는
+                    * 자리도 여기다. 열람은 대장에 아무것도 남기지 않으므로 이
+                    * 화면을 여는 사람이면 누구나 누를 수 있다.
+                    */}
+                  {viewHref(h)
+                    ? <Link href={viewHref(h)!} className="btn-ghost h-8 px-3 text-xs">
+                        그 회차 펼쳐 보기
+                      </Link>
+                    : <p className="text-xs text-muted">
+                        이 양식은 담긴 내용이 대장에 남지 않아 펼칠 수 없습니다.
+                        종이로 확인하십시오.
+                      </p>}
 
                   {/*
                     * 지금 자료로 다시 계산한 값.

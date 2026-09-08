@@ -21,6 +21,24 @@ export interface PrintMeta {
   /** 소재지 · 사업자등록번호 · 대표자를 이어 붙인 한 줄. 비면 안 나온다 */
   orgLine?: string;
   logoUrl: string | null;
+  /**
+   * 열람 모드일 때만 있다. 이 값이 있으면 대장에 아무것도 남지 않았다는 뜻이고,
+   * 화면은 발행이 아니라 **이미 나간 회차를 다시 보는 자리**가 된다.
+   */
+  view?: ViewMeta | null;
+}
+
+export interface ViewMeta {
+  /** 그 양식이 아직 한 번도 나간 적이 없다 */
+  neverIssued: boolean;
+  /** 그때 종이에 찍힌 자료 식별자 */
+  issuedHash: string;
+  /** 지금 자료로 다시 만든 값 */
+  currentHash: string;
+  /** 둘이 다른가. 다르면 그 뒤에 자료가 바뀌었다는 뜻이다 */
+  changed: boolean;
+  retrievedAt: string | null;
+  retrieveReason: string | null;
 }
 
 /* ---------------------------------------------------------------------------
@@ -46,21 +64,87 @@ export default function PrintFrame({
   return (
     <>
       {!bare && (
-        <PrintBar back={back} label={meta.kindLabel}
+        <PrintBar back={back} label={meta.kindLabel} view={!!meta.view}
                   right={
-                    <>
-                      인쇄 회차 <b className="tnum text-ink">{meta.seq}</b>
-                      {meta.seq > 1 && <span className="ml-1.5 font-bold text-warn">재발행</span>}
-                    </>
+                    meta.view
+                      ? (meta.view.neverIssued
+                          ? <>아직 발행된 적이 없습니다</>
+                          : <>
+                              <b className="tnum text-ink">{meta.seq}</b>회차를 봅니다 ·
+                              {' '}{meta.printedAt} {meta.printedBy}
+                            </>)
+                      : <>
+                          인쇄 회차 <b className="tnum text-ink">{meta.seq}</b>
+                          {meta.seq > 1 && <span className="ml-1.5 font-bold text-warn">재발행</span>}
+                        </>
                   } />
       )}
 
-      <Sheet meta={meta} title={title} subtitle={subtitle} page={1}>
-        {children}
-      </Sheet>
+      {meta.view && <ViewNote v={meta.view} seq={meta.seq} />}
 
-      {after}
+      {/*
+        * 나간 적이 없으면 내용을 그리지 않는다.
+        *
+        * 열람은 **이미 나간 회차**를 다시 보는 자리다. 안 나간 것을 여기서
+        * 보여 주면 미리보기가 되고, 그러면 "본 것과 찍힌 것이 다르다" 가
+        * 성립할 자리가 생긴다 (lib/print.ts 머리 주석).
+        */}
+      {!meta.view?.neverIssued && (
+        <>
+          <Sheet meta={meta} title={title} subtitle={subtitle} page={1}>
+            {children}
+          </Sheet>
+          {after}
+        </>
+      )}
     </>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   열람 알림
+
+   판정하지 않는다 (§8.5). 두 값이 같은지 다른지만 적고, 무엇이 어떻게
+   바뀌었는지는 말하지 않는다 - 그건 감사추적이 답할 일이다.
+--------------------------------------------------------------------------- */
+function ViewNote({ v, seq }: { v: ViewMeta; seq: number }) {
+  if (v.neverIssued) {
+    return (
+      <div className="no-print mx-auto mb-5 max-w-[210mm] rounded-lg border border-line bg-surface-sub px-4 py-3">
+        <p className="text-sm leading-relaxed text-ink">
+          이 양식은 아직 발행된 적이 없습니다.
+        </p>
+        <p className="mt-1 text-xs leading-relaxed text-muted">
+          열람은 이미 나간 회차를 다시 보는 자리입니다. 종이가 필요하면 발행하십시오.
+        </p>
+      </div>
+    );
+  }
+  const tone = v.changed
+    ? 'border-warn/40 bg-warn-bg'
+    : 'border-line bg-surface-sub';
+  return (
+    <div className={`no-print mx-auto mb-5 max-w-[210mm] rounded-lg border px-4 py-3 ${tone}`}>
+      <p className="text-sm leading-relaxed text-ink">
+        <b>{seq}회차</b>로 나간 종이를 지금 자료로 다시 그린 것입니다.
+        {' '}이 화면은 인쇄 대장에 남지 않습니다.
+      </p>
+      <p className="mt-1.5 text-xs leading-relaxed text-muted">
+        그때 자료 식별자 <span className="font-mono text-ink">{v.issuedHash.slice(0, 12)}</span>
+        {' · '}지금 <span className="font-mono text-ink">{v.currentHash.slice(0, 12)}</span>
+      </p>
+      <p className="mt-1.5 text-sm leading-relaxed text-ink">
+        {v.changed
+          ? '두 값이 다릅니다. 그 종이가 나간 뒤에 자료가 바뀌었습니다.'
+          : '두 값이 같습니다. 그 종이에 찍힌 자료 그대로입니다.'}
+      </p>
+      {v.retrievedAt && (
+        <p className="mt-1.5 text-xs leading-relaxed text-muted">
+          이 회차는 {v.retrievedAt} 에 회수되었습니다
+          {v.retrieveReason ? ` · ${v.retrieveReason}` : ''}.
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -72,8 +156,10 @@ export default function PrintFrame({
    묶음 발행 화면이 여러 양식을 한 문서로 내므로, 막대를 양식에서 떼어 둔다.
    떼지 않으면 묶음 문서에 막대가 여러 번 나온다.
 --------------------------------------------------------------------------- */
-export function PrintBar({ back, label, right }: {
+export function PrintBar({ back, label, right, view = false }: {
   back?: string; label: string; right?: React.ReactNode;
+  /** 열람 모드. 인쇄 단추를 내지 않는다 */
+  view?: boolean;
 }) {
   const [ready, setReady] = useState(false);
   useEffect(() => setReady(true), []);
@@ -83,13 +169,22 @@ export function PrintBar({ back, label, right }: {
       <div className="mx-auto flex max-w-[210mm] flex-wrap items-center gap-3 px-2 py-3">
         {back && <Link href={back} className="btn-ghost h-9">돌아가기</Link>}
         <div className="leading-tight">
-          <div className="text-[0.8125rem] font-bold text-ink">{label}</div>
+          <div className="flex items-center gap-1.5">
+            <div className="text-[0.8125rem] font-bold text-ink">{label}</div>
+            {view && <span className="chip bg-info-bg text-info">열람</span>}
+          </div>
           {right && <div className="text-xs text-muted">{right}</div>}
         </div>
-        <button onClick={() => window.print()} disabled={!ready}
-                className="btn-primary ml-auto h-9">
-          인쇄
-        </button>
+        {/*
+          * 열람에는 인쇄 단추를 내지 않는다. 브라우저의 Ctrl+P 까지 막을 수는
+          * 없으므로 종이 쪽에 "열람용 · 정본 아님" 을 깔아 둔다 (Sheet).
+          */}
+        {!view && (
+          <button onClick={() => window.print()} disabled={!ready}
+                  className="btn-primary ml-auto h-9">
+            인쇄
+          </button>
+        )}
       </div>
     </div>
   );
@@ -111,6 +206,18 @@ export function Sheet({
   page?: number;
   children: React.ReactNode;
 }) {
+  /*
+   * 나간 적이 없으면 장을 그리지 않는다.
+   *
+   * PrintFrame 안에서 한 번 걸렀는데도 여기 한 번 더 두는 이유가 있다 - 편철
+   * 표지처럼 **PrintFrame 바깥에 장을 더 다는 양식**이 있다. 틀에서만 막으면
+   * 그 장이 그대로 나온다 (실제로 나왔다).
+   *
+   * 막는 자리를 장 자체에 둔다. 어느 양식이 어떻게 조립하든 열람은 나간 회차만
+   * 연다는 규율이 한 자리에서 선다.
+   */
+  if (meta.view?.neverIssued) return null;
+
   const short = meta.dataHash.slice(0, 12);
   const reissued = meta.seq > 1;
 
@@ -136,7 +243,7 @@ export function Sheet({
           * 1회차에는 아무것도 넣지 않는다. 평소와 다른 것에만 표시가 붙어야
           * 그 표시가 눈에 들어온다.
           */}
-        {reissued && (
+        {reissued && !meta.view && (
           <div
             aria-hidden
             className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden"
@@ -145,6 +252,33 @@ export function Sheet({
               재발행 {meta.seq}회차
             </span>
           </div>
+        )}
+
+        {/*
+          * 열람용 표시.
+          *
+          * 열람 화면에는 인쇄 단추를 내지 않지만 브라우저의 Ctrl+P 까지 막을
+          * 수는 없다. 그렇게 나간 종이는 **대장에 없는 종이**다 - 이 시스템이
+          * 가장 막고 싶어 하는 상태다 (§10 "대장에는 실제 종이만 남는다").
+          *
+          * 재발행 표시보다 진하게, 그리고 종이 위쪽에 한 줄을 더 얹는다.
+          * 멀리서도, 뒤집어 놓아도, 한 장만 주워도 정본이 아닌 것이 보여야 한다.
+          */}
+        {meta.view && (
+          <>
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden"
+            >
+              <span className="-rotate-[24deg] whitespace-nowrap text-[64px] font-bold tracking-[0.1em] text-black/[0.13]">
+                열람용 · 정본 아님
+              </span>
+            </div>
+            <p className="mb-2 border border-black px-2 py-1 text-center text-[10px] font-bold">
+              열람용입니다. 발행된 종이가 아니며 인쇄 대장에 남지 않았습니다.
+              {meta.view.changed && ' 그 종이가 나간 뒤에 자료가 바뀌었습니다.'}
+            </p>
+          </>
         )}
 
         <header className="relative mb-4 border-b-2 border-black pb-2">

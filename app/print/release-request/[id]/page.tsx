@@ -2,7 +2,8 @@ import { notFound } from 'next/navigation';
 import { requireUser } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import { fmtDate } from '@/lib/fmt';
-import { logPrint } from '@/lib/print';
+import { logPrint, printGate, viewParam } from '@/lib/print';
+import Denied from '@/components/denied';
 import PrintFrame from '@/components/print-frame';
 
 export const dynamic = 'force-dynamic';
@@ -51,11 +52,22 @@ export default async function ReleaseRequestSheet({
   params, searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ sel?: string }>;
+  searchParams: Promise<{ sel?: string; view?: string }>;
 }) {
-  const user = await requireUser();
   const { id } = await params;
-  const sel = parseSel((await searchParams).sel);
+  const sp = await searchParams;
+  const view = viewParam(sp.view);
+  const { denied } = await printGate(!!view);
+  if (denied) {
+    return (
+      <Denied what="발행" need="생산관리자 또는 시스템관리자">
+        인쇄물을 뽑으면 인쇄 기록이 남고 제조기록서는 그 묶음이 잠깁니다.
+        이미 나간 종이를 보려면 인쇄 이력의 <b>보기</b>로 여십시오.
+      </Denied>
+    );
+  }
+  const user = await requireUser();
+  const sel = parseSel(sp.sel);
   if (sel.size === 0) notFound();
 
   const d = await withActor(user.id, async (db) => {
@@ -93,6 +105,7 @@ export default async function ReleaseRequestSheet({
   const total = rows.reduce((a, r) => a + (sel.get(r.id) ?? 0), 0);
 
   const meta = await logPrint({
+    view,
     actorId: user.id, actorName: user.full_name, kind: 'RELEASE_REQUEST',
     workOrderId: id,
     payload: { head, rows: rows.map((r) => ({ lot: r.lot_no, qty: sel.get(r.id) })) },

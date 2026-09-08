@@ -89,6 +89,21 @@ const MUTATIONS = [
           end $mut$`,
     cases: ['PO-01', 'PO-03', 'PO-06'] },
 
+  /*
+   * 0104 를 되돌린다 - 열람 역할이 채번을 다시 부를 수 있게 한다.
+   *
+   * 이 구멍은 IQ 가 먼저 짚었다 (2026-09-08). 0043 이 서명을 손으로 적어
+   * 걷어 두었는데 0097 · 0099 가 next_number 를 다시 만들면서 그 서명이 없는
+   * 것이 되었고, 같은 0043 의 `alter default privileges` 가 새 함수를 열어
+   * 주고 있었다. security definer 라 열람 계정이 부르면 번호가 소진된다.
+   *
+   * VW-02 는 그때도 있었다. **PGlite 에서만 돌고 있었을 뿐이다** (§8.0).
+   */
+  { id: 'M-ROEXEC', rule: '쓰는 함수는 열람 역할이 못 부른다 (0043 · 0104)',
+    sql: `grant execute on function next_number(numbering_target, uuid, date, text)
+            to app_readonly`,
+    cases: ['VW-02'] },
+
   { id: 'M-MLLOCK', rule: '자재 로트에서 계보가 걸린 넷은 잠긴다 (0090)',
     sql: `drop trigger if exists material_lot_coa_once on material_lot`,
     cases: ['ML-02', 'RV2-10'] },

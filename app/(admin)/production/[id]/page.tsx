@@ -5,7 +5,7 @@ import { isViewerOnly } from '@/lib/roles';
 import { withUser } from '@/lib/db';
 import { fmtDate, fmtDateTime } from '@/lib/fmt';
 import { WO_STATUS_LABEL, PL_STATUS_LABEL } from '@/lib/forms';
-import { KIND_LABEL } from '@/lib/print';
+import { KIND_LABEL, viewHref } from '@/lib/print';
 import Denied from '@/components/denied';
 import { Panel, Empty, Tag, Field, Caution } from '@/components/ui';
 import {
@@ -54,7 +54,9 @@ interface PrintRow {
   printed_at: Date; printed_by_name: string;
   retrieved_at: Date | null; retrieve_reason: string | null;
   newer_count: number; day_no: number | null; worker_name: string | null;
+  worker_id: string | null; material_lot_id: string | null; equipment_id: string | null;
 }
+
 interface RecRow {
   id: string; day_no: number; work_date: string; attempt: number;
   operation_code: string; operation_name: string; after_cutting: boolean;
@@ -165,7 +167,8 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
       prints: await db.rows<PrintRow>(
         `select v.id, v.kind, v.short_hash, v.seq, v.pages, v.printed_at,
                 v.printed_by_name, v.retrieved_at, v.retrieve_reason,
-                v.newer_count, v.day_no, v.worker_name
+                v.newer_count, v.day_no, v.worker_name,
+                v.worker_id, v.material_lot_id, v.equipment_id
            from v_print_lookup v
           where v.work_order_id = $1 order by v.printed_at desc limit 40`, [id]),
     };
@@ -619,9 +622,25 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                       )}
                     </td>
                     <td className="td sticky right-0 bg-surface text-right">
-                      {!p.retrieved_at && p.newer_count > 0 && (
-                        !viewer && <RetrieveForm id={p.id} woId={wo.id} label={p.short_hash} />
-                      )}
+                      {/*
+                        * 이미 나간 회차를 다시 보는 자리 (2026-09-08).
+                        *
+                        * 열람은 대장에 아무것도 남기지 않는다. 그래서 열람자와
+                        * 품질책임자에게도 열어 둔다 - 종이에 이름이 오르는
+                        * 사람이 그 종이를 시스템에서 못 보는 상태였다.
+                        */}
+                      <span className="inline-flex gap-1.5">
+                        {viewHref(p)
+                          ? <Link href={viewHref(p)!} className="btn-quiet h-8 px-2 text-xs">
+                              보기
+                            </Link>
+                          : <span className="text-xs text-faint" title="담긴 로트와 수량이 주소에만 있어 되살릴 수 없습니다">
+                              보기 없음
+                            </span>}
+                        {!p.retrieved_at && p.newer_count > 0 && (
+                          !viewer && <RetrieveForm id={p.id} woId={wo.id} label={p.short_hash} />
+                        )}
+                      </span>
                     </td>
                   </tr>
                 ))}

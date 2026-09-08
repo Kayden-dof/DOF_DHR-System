@@ -15,6 +15,23 @@ import type { PrintMeta } from '@/components/print-frame';
    화면을 여는 것만으로 회차가 오르는 것이 맞는가: 맞다. 종이가 정본이므로
    화면에 나온 시점의 자료가 곧 발행 후보다. 미리보기와 발행을 나누면 "본 것과
    찍힌 것이 다르다"가 성립할 수 있다.
+
+   ── 다만 이미 나간 종이는 다시 볼 수 있어야 한다 (사용자 요청 2026-09-08) ──
+   위 문장 때문에 **다시 보는 길이 통째로 없었다.** 지난 배치의 편철 표지를
+   확인만 하려 해도 열면 회차가 오르고 앞 종이가 회수 대상이 되었고,
+   품질책임자는 자기가 서명한 종이를 시스템에서 볼 길이 아예 없었다 - 읽기
+   전용 세션은 인쇄 화면에 들어오지 못한다.
+
+   열람은 위 걱정과 다른 일이다. 걱정은 **아직 안 나간 것**을 미리 보여 주면
+   본 것과 찍힌 것이 갈릴 수 있다는 것이었다. 열람은 **이미 나간 회차**만
+   연다. 발행 후보를 만들지 않으므로 그 갈림이 생길 자리가 없다.
+
+   그리고 자료 식별자가 바로 이 자리를 위해 있는 값이다 - "같은 자료가 같은
+   값을 내야 재인쇄 때 자료가 바뀌었는지 알 수 있다" (§10). 열람은 지금
+   자료로 다시 그린 값을 그때 찍힌 값과 견줘, 그 사이에 자료가 바뀌었는지를
+   말한다. 판정하지 않는다 - 두 값이 같은지 다른지만 적는다 (§8.5).
+
+   열람은 대장에 아무것도 남기지 않는다. 대장에는 실제 종이만 남는다 (§10).
 --------------------------------------------------------------------------- */
 
 export const KIND_LABEL: Record<string, string> = {
@@ -124,6 +141,148 @@ interface LogArgs {
   /** 제조기록서는 인쇄와 동시에 그 묶음이 잠긴다 (S04). */
   lockDay?: boolean;
 
+  /**
+   * 열람 모드. 대장에 쓰지 않고 **이미 나간 회차**를 연다.
+   *
+   * true 면 마지막 회차, 숫자면 그 회차. 그런 회차가 없으면 아무것도 열지
+   * 않는다 - 아직 안 나간 것을 미리 보여 주는 자리가 아니다.
+   */
+  view?: boolean | number;
+}
+
+/* ---------------------------------------------------------------------------
+   누가 어느 모드로 들어올 수 있는가
+
+   전에는 이 문을 app/print/layout.tsx 이 지켰다. 그 자리는 주소의 물음표
+   뒤를 못 본다 - Next 의 레이아웃에는 searchParams 가 오지 않는다. 그래서
+   "발행은 막고 열람은 연다" 를 거기서 가를 수 없다.
+
+   양식 화면마다 첫 줄에서 부른다. 셈은 여기 하나에 있고 부르는 자리만 일곱이다.
+
+   **진짜 문은 DB 다.** 읽기 전용 세션은 app_readonly 로 돌아 record_print 에
+   쓰지 못한다 (0043). 여기서 막는 것은 그 거절을 사람이 읽을 수 있는 말로
+   바꾸는 일이다 (4차 감사 B3).
+--------------------------------------------------------------------------- */
+export async function printGate(view: boolean) {
+  const me = await requireUser();
+  return { me, denied: !view && isReadOnly(me.roles) };
+}
+
+/* ---------------------------------------------------------------------------
+   그 회차를 다시 여는 주소
+
+   `record_print` 한 줄이 가리키는 대상만으로 주소가 서는 양식에만 붙는다.
+
+   **출하 승인 요청서는 서지 않는다.** 그 종이에 무엇이 담겼는지가 주소의
+   `sel` 에만 있었고 대장에는 남지 않는다 - 어느 제품 로트를 몇 개씩 올렸는지가
+   기록되지 않는다. 지어내면 그때 나간 종이와 다른 것을 보여 주게 되므로,
+   되살릴 수 없다고 말한다.
+
+   부르는 자리가 둘이다 (배치 상세의 인쇄 이력 · 인쇄물 조회). 셈을 여기 둔다.
+--------------------------------------------------------------------------- */
+export interface PrintTarget {
+  kind: string; seq: number;
+  work_order_id?: string | null;
+  day_no?: number | null;
+  worker_id?: string | null;
+  material_lot_id?: string | null;
+  equipment_id?: string | null;
+}
+
+export function viewHref(p: PrintTarget): string | null {
+  const v = `?view=${p.seq}`;
+  switch (p.kind) {
+    case 'WORK_ORDER':
+      return p.work_order_id ? `/print/work-order/${p.work_order_id}${v}` : null;
+    case 'COVER':
+      return p.work_order_id ? `/print/cover/${p.work_order_id}${v}` : null;
+    case 'LABEL_REQUEST':
+      return p.work_order_id ? `/print/label-request/${p.work_order_id}${v}` : null;
+    case 'DAY_RECORD':
+      return p.work_order_id && p.day_no !== null && p.day_no !== undefined && p.worker_id
+        ? `/print/day-record/${p.work_order_id}/${p.day_no}/${p.worker_id}${v}` : null;
+    case 'LABEL':
+      return p.material_lot_id ? `/print/label/${p.material_lot_id}${v}` : null;
+    case 'EQUIPMENT_LOG':
+      return p.equipment_id ? `/print/equipment-log/${p.equipment_id}${v}` : null;
+    default:
+      return null;   // RELEASE_REQUEST
+  }
+}
+
+/** 주소의 view 를 읽는다. `?view=1` 은 마지막 회차, `?view=3` 은 3회차 */
+export function viewParam(v?: string | string[]): boolean | number {
+  const s = Array.isArray(v) ? v[0] : v;
+  if (s === undefined) return false;
+  const n = Number(s);
+  return Number.isInteger(n) && n > 0 ? n : true;
+}
+
+/** 종이에 찍히는 시각 표기. 발행과 열람이 같은 자리에서 만든다 (§10) */
+function kstStamp(t: Date): string {
+  return new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  }).format(t);
+}
+
+/*
+ * 제조소를 가리키는 한 줄 (5차 감사 D1 · 0094).
+ *
+ * 적힌 것만 이어 붙인다. 다 비면 빈 문자열이고 종이에 아무것도 나오지 않는다 -
+ * 서면 양식이 이미 갖고 있으면 시스템이 낼 이유가 없다.
+ *
+ * ── 주소가 둘이다 ────────────────────────────────────────────────────────
+ * 제조기록서에 찍히는 주소는 **그 기록이 만들어진 자리**여야 한다. GMP 제조소는
+ * 본사와 다른 자리인 것이 보통이므로 (사용자 지적 2026-09-02) 제조소를 먼저
+ * 적고, 본사가 그와 다를 때만 뒤에 붙인다.
+ *
+ * 제조소가 비어 있으면 본사를 **이름표 없이** 적는다. 본사 주소에 "제조소" 라고
+ * 이름을 달면 그것은 종이 위의 거짓말이다.
+ *
+ * 만드는 자리를 하나로 둔다. 양식마다, 또 발행과 열람이 각자 이어 붙이면
+ * 갈라진다 (§10 복제는 갈라진다).
+ */
+function orgLine(b: Awaited<ReturnType<typeof getBrand>>): string {
+  return [
+    b.plantAddress ? `제조소 ${b.plantAddress}` : b.address,
+    b.plantAddress && b.address && b.address !== b.plantAddress
+      ? `본사 ${b.address}` : '',
+    b.bizNo ? `사업자등록번호 ${b.bizNo}` : '',
+    b.ceoName ? `대표자 ${b.ceoName}` : '',
+  ].filter(Boolean).join(' · ');
+}
+
+/* ---------------------------------------------------------------------------
+   열람 - 그때 나간 회차를 찾아 지금 자료와 견준다
+--------------------------------------------------------------------------- */
+interface PastPrint {
+  seq: number; data_hash: string; printed_at: Date; pages: number;
+  printed_by: string; retrieved_at: Date | null; retrieve_reason: string | null;
+}
+
+async function pastPrint(a: LogArgs): Promise<PastPrint | null> {
+  const want = typeof a.view === 'number' ? a.view : null;
+  const row = await withActor(a.actorId, (db) =>
+    db.one<PastPrint>(
+      `select rp.seq, rp.data_hash, rp.printed_at, rp.pages,
+              u.full_name as printed_by, rp.retrieved_at, rp.retrieve_reason
+         from record_print rp
+         join app_user u on u.id = rp.printed_by
+        where rp.kind = $1::print_kind
+          and rp.work_order_id   is not distinct from $2::uuid
+          and rp.product_lot_id  is not distinct from $3::uuid
+          and rp.day_no          is not distinct from $4::int
+          and rp.worker_id       is not distinct from $5::uuid
+          and rp.material_lot_id is not distinct from $6::uuid
+          and rp.equipment_id    is not distinct from $7::uuid
+          and ($8::int is null or rp.seq = $8::int)
+        order by rp.seq desc limit 1`,
+      [a.kind, a.workOrderId ?? null, a.productLotId ?? null, a.dayNo ?? null,
+       a.workerId ?? null, a.materialLotId ?? null, a.equipmentId ?? null, want]),
+    { readOnly: true, reason: '인쇄물 열람' });
+  return row ?? null;
 }
 
 export async function logPrint(a: LogArgs): Promise<PrintMeta> {
@@ -144,6 +303,44 @@ export async function logPrint(a: LogArgs): Promise<PrintMeta> {
   const me = await requireUser();
   const readOnly = isReadOnly(me.roles);
 
+  /*
+   * 열람은 여기서 갈라진다. 아무것도 쓰지 않고, 그때 나간 회차를 그대로
+   * 되돌려 준다 - 회차 · 인쇄자 · 일시 · 자료 식별자가 전부 그때 값이다.
+   * 지금 자료로 다시 만든 값은 견주기용으로만 따로 싣는다.
+   */
+  if (a.view) {
+    const past = await pastPrint(a);
+    const base = {
+      kind: a.kind,
+      kindLabel: KIND_LABEL[a.kind] ?? a.kind,
+      pages: past?.pages ?? a.pages ?? 1,
+      companyName: brand.companyName,
+      orgLine: orgLine(brand),
+      logoUrl: brand.hasLogo ? `/logo?v=${brand.logoUpdatedAt ?? '0'}` : null,
+    };
+    if (!past) {
+      /* 아직 나간 적이 없다. 미리보기를 여는 자리가 아니므로 그렇다고 말한다 */
+      return { ...base, seq: 0, dataHash: hash, printedAt: '', printedBy: '',
+               view: { neverIssued: true, issuedHash: '', currentHash: hash,
+                       changed: false, retrievedAt: null, retrieveReason: null } };
+    }
+    return {
+      ...base,
+      seq: past.seq,
+      dataHash: past.data_hash,
+      printedAt: kstStamp(past.printed_at),
+      printedBy: past.printed_by,
+      view: {
+        neverIssued: false,
+        issuedHash: past.data_hash,
+        currentHash: hash,
+        changed: past.data_hash !== hash,
+        retrievedAt: past.retrieved_at ? kstStamp(past.retrieved_at) : null,
+        retrieveReason: past.retrieve_reason,
+      },
+    };
+  }
+
   const row = await withActor(a.actorId, (db) =>
     a.lockDay
       ? db.one<{ seq: number; printed_at: Date }>(
@@ -163,39 +360,12 @@ export async function logPrint(a: LogArgs): Promise<PrintMeta> {
     kindLabel: KIND_LABEL[a.kind] ?? a.kind,
     seq: row?.seq ?? 1,
     dataHash: hash,
-    printedAt: new Intl.DateTimeFormat('sv-SE', {
-      timeZone: 'Asia/Seoul',
-      year: 'numeric', month: '2-digit', day: '2-digit',
-      hour: '2-digit', minute: '2-digit', hour12: false,
-    }).format(row?.printed_at ?? new Date()),
+    printedAt: kstStamp(row?.printed_at ?? new Date()),
     printedBy: a.actorName,
     pages: a.pages ?? 1,
     /* 종이 머리에 나가는 회사 표시. 설정에서 온다 (§2.0 · 0070) */
     companyName: brand.companyName,
-    /*
-     * 제조소를 가리키는 한 줄 (5차 감사 D1 · 0094).
-     *
-     * 적힌 것만 이어 붙인다. 다 비면 빈 문자열이고 종이에 아무것도 나오지
-     * 않는다 - 서면 양식이 이미 갖고 있으면 시스템이 낼 이유가 없다.
-     *
-     * ── 주소가 둘이다 ──────────────────────────────────────────────────
-     * 제조기록서에 찍히는 주소는 **그 기록이 만들어진 자리**여야 한다. GMP
-     * 제조소는 본사와 다른 자리인 것이 보통이므로 (사용자 지적 2026-09-02)
-     * 제조소를 먼저 적고, 본사가 그와 다를 때만 뒤에 붙인다.
-     *
-     * 제조소가 비어 있으면 본사를 **이름표 없이** 적는다. 본사 주소에
-     * "제조소" 라고 이름을 달면 그것은 종이 위의 거짓말이다.
-     *
-     * 만드는 자리를 여기 하나로 둔다. 양식마다 각자 이어 붙이면 갈라진다
-     * (§10 복제는 갈라진다).
-     */
-    orgLine: [
-      brand.plantAddress ? `제조소 ${brand.plantAddress}` : brand.address,
-      brand.plantAddress && brand.address && brand.address !== brand.plantAddress
-        ? `본사 ${brand.address}` : '',
-      brand.bizNo ? `사업자등록번호 ${brand.bizNo}` : '',
-      brand.ceoName ? `대표자 ${brand.ceoName}` : '',
-    ].filter(Boolean).join(' · '),
+    orgLine: orgLine(brand),
     logoUrl: brand.hasLogo ? `/logo?v=${brand.logoUpdatedAt ?? '0'}` : null,
   };
 }

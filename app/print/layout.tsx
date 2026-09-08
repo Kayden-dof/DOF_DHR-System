@@ -1,5 +1,4 @@
-import { requireUser, blocksReadOnly } from '@/lib/session';
-import Denied from '@/components/denied';
+import { requireUser } from '@/lib/session';
 import BackFab from '@/components/back-fab';
 
 /* ---------------------------------------------------------------------------
@@ -15,32 +14,25 @@ import BackFab from '@/components/back-fab';
 export default async function PrintLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
 
-  /*
-   * 열람자는 인쇄 화면에 들어오지 못한다.
-   *
-   * 이 시스템에서 인쇄는 보기가 아니라 쓰기다. 화면을 여는 것만으로
-   * record_print 행이 생기고, 제조기록서라면 그 묶음이 잠긴다 (S04). 잠금을
-   * 푸는 방법은 없다. 보려고 들어온 사람이 작업 중인 일차를 잠그면 작업자가
-   * 더 이상 기록하지 못한다.
-   *
-   * 종이가 필요하면 생산관리자가 뽑는다. 열람자 세션은 DB 에서도 읽기 전용이라
-   * 여기를 지나쳐도 인쇄 기록 자체가 남지 않는다 (0043).
-   */
-  /*
-   * 읽기 전용 세션은 전부 막는다 (4차 감사 B3).
-   *
-   * 전에는 순수 열람자만 걸렀다. 품질책임자도 읽기 전용인데 인쇄 화면에
-   * 닿았고, 화면을 여는 것만으로 record_print 에 회차가 박혔다. 다음에
-   * 실제로 뽑는 첫 종이가 2회차가 되어 재발행 워터마크를 달고 나갔다.
-   */
-  if (blocksReadOnly(user)) {
-    return (
-      <Denied what="인쇄" need="생산관리자 또는 시스템관리자">
-        인쇄물을 뽑으면 인쇄 기록이 남고 제조기록서는 그 묶음이 잠깁니다.
-        열람 계정은 인쇄하지 않습니다. 종이가 필요하면 생산관리자에게 요청하십시오.
-      </Denied>
-    );
-  }
+  /* ---------------------------------------------------------------------
+     문은 양식 화면마다 선다 (2026-09-08)
+
+     전에는 여기서 읽기 전용 세션을 통째로 막았다. 이 시스템에서 인쇄는 보기가
+     아니라 쓰기라, 화면을 여는 것만으로 record_print 행이 생기고 제조기록서면
+     그 묶음이 잠기기 때문이다 (S04 · 4차 감사 B3). 그것은 지금도 맞다.
+
+     막을 것과 열 것이 갈라졌다 - **발행은 여전히 막고, 이미 나간 회차를 다시
+     보는 열람은 연다.** 그런데 이 자리는 주소의 물음표 뒤를 못 본다. Next 의
+     레이아웃에는 searchParams 가 오지 않으므로 여기서는 둘을 가릴 수 없다.
+
+     그래서 문을 양식 화면으로 내렸다 (lib/print.ts 의 printGate). 여기는
+     로그인만 확인하고 틀만 세운다.
+
+     **진짜 문은 DB 다.** 읽기 전용 세션은 app_readonly 로 돌아 record_print 에
+     쓰지 못한다 (0043). 화면의 문은 그 거절을 사람이 읽을 수 있는 말로 바꾸는
+     자리일 뿐이고, 응용에만 두면 검증이 아니다 (§1-2).
+  --------------------------------------------------------------------- */
+  void user;
   return (
     <div className="min-h-screen bg-canvas py-6 print:bg-white print:py-0">
       {children}

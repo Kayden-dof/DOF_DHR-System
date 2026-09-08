@@ -2,7 +2,8 @@ import { notFound } from 'next/navigation';
 import { requireUser } from '@/lib/session';
 import { withActor, dbMessage } from '@/lib/db';
 import { fmtDate, fmtDateTime } from '@/lib/fmt';
-import { logPrint } from '@/lib/print';
+import { logPrint, printGate, viewParam } from '@/lib/print';
+import Denied from '@/components/denied';
 import PrintFrame, { Sheet, SignRow } from '@/components/print-frame';
 import { dayRecordPayload, hashable, type RecRow } from '@/lib/print-payload';
 import { chunkRows } from '@/lib/print-pages';
@@ -171,11 +172,22 @@ function RecordTable({ rows, title }: { rows: RecRow[]; title: string }) {
   );
 }
 
-export default async function DayRecordSheet({ params }: {
+export default async function DayRecordSheet({ params, searchParams }: {
   params: Promise<{ id: string; day: string; worker: string }>;
+  searchParams: Promise<{ view?: string }>;
 }) {
   const { id, day, worker } = await params;
-  return <DayRecordDoc id={id} dayNo={Number(day)} worker={worker} />;
+  const view = viewParam((await searchParams).view);
+  const { denied } = await printGate(!!view);
+  if (denied) {
+    return (
+      <Denied what="발행" need="생산관리자 또는 시스템관리자">
+        인쇄물을 뽑으면 인쇄 기록이 남고 제조기록서는 그 묶음이 잠깁니다.
+        이미 나간 종이를 보려면 인쇄 이력의 <b>보기</b>로 여십시오.
+      </Denied>
+    );
+  }
+  return <DayRecordDoc id={id} dayNo={Number(day)} worker={worker} view={view} />;
 }
 
 /* ---------------------------------------------------------------------------
@@ -190,8 +202,13 @@ export default async function DayRecordSheet({ params }: {
    줄**이 남아야 회차가 성립한다 (§7). 열 일차를 한 번에 뽑으면 열 줄이 남고
    각자 제 회차를 갖는다.
 --------------------------------------------------------------------------- */
-export async function DayRecordDoc({ id, dayNo, worker, bare = false }: {
+export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = false }: {
   id: string; dayNo: number; worker: string; bare?: boolean;
+  /*
+   * 열람. 묶음 발행(bare)은 받지 않는다 - 열람은 회차 하나를 여는 자리이고
+   * 묶음은 여러 묶음을 한 문서로 내는 자리라 회차가 하나로 서지 않는다.
+   */
+  view?: boolean | number;
 }) {
   const user = await requireUser();
 
@@ -256,6 +273,7 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false }: {
   let meta;
   try {
     meta = await logPrint({
+      view,
       actorId: user.id, actorName: user.full_name, kind: 'DAY_RECORD',
       workOrderId: id, dayNo, workerId: worker,
       payload: hashable({ head, records }),
