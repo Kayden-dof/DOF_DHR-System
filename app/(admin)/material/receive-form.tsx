@@ -87,32 +87,50 @@ export default function ReceiveForm({ items, suppliers, orders, today, presetPo,
     setOpen(true);
   };
 
-  /* 적은 것이 발주와 다른가. 막지 않고 짚기만 한다 (§2 "경고만") */
+  /* ---------------------------------------------------------------------
+     적은 것이 발주와 다른가
+
+     ── 단위 뒤에 조사를 붙이지 않는다 ──────────────────────────────────
+     `usage_uom` 은 제조소가 설정에서 정한다 (§2.0). 받침이 있을지 없을지
+     코드는 모른다 - `장은` 이 맞고 `EA은` 은 틀리다. 그래서 숫자와 단위
+     뒤는 `입니다` 나 문장 끝으로 받고 조사를 얹지 않는다.
+
+     띄어쓰기도 같은 이유로 붙인다. `2 만` 이라고 띄우니 **2만(20,000)**
+     으로 읽혔다 (사용자 지적 2026-09-08).
+
+     ── 모자란 것은 경고가 아니다 ───────────────────────────────────────
+     처음에는 넷을 다 "확인하고 진행하십시오" 아래 두었다. 그런데 발주보다
+     적게 들어오는 것은 **이 화면이 지원하는 정상 경로**다 - 나눠 들어오는
+     발주를 다루려고 0102 를 만들었는데, 그것을 쓸 때마다 경고가 뜨면 경고가
+     경고가 아니게 된다.
+
+     모자란 것은 조용한 안내로 내리고, 확인이 필요한 넷만 경고로 둔다.
+  --------------------------------------------------------------------- */
+  const left = po ? remain(po) : 0;
+  const uom = item?.usage_uom ?? '';
+  const short = po && qty && usageQty < left - 1e-9;   // 나눠 들어온다
+  const num = (n: number) => Number(n.toFixed(6)).toLocaleString();
+
   const gaps: { kind: string; detail: string }[] = [];
   if (po) {
     if (supplierId && supplierId !== po.supplier_id) {
       const want = suppliers.find((s) => s.id === po.supplier_id)?.name ?? '(알 수 없음)';
       const got = suppliers.find((s) => s.id === supplierId)?.name ?? '(알 수 없음)';
-      gaps.push({ kind: '공급자', detail: `발주는 ${want}, 여기는 ${got} 입니다` });
+      gaps.push({ kind: '공급자',
+        detail: `발주에 적힌 곳은 ${want}입니다. 지금 고른 곳은 ${got}입니다.` });
     }
     if (itemId && itemId !== po.item_id) {
-      gaps.push({ kind: '품목', detail: `발주 ${po.po_no} 의 품목이 아닙니다` });
+      const want = items.find((i) => i.id === po.item_id);
+      gaps.push({ kind: '품목',
+        detail: `발주에 적힌 품목은 ${want?.code} ${want?.name}입니다.` });
     }
-    const left = remain(po);
-    if (qty && Math.abs(usageQty - left) > 1e-9) {
-      gaps.push({
-        kind: '수량',
-        detail: usageQty > left
-          ? `남은 발주 ${left} ${item?.usage_uom} 보다 ${Number((usageQty - left).toFixed(6))} 많습니다`
-          : `남은 발주 ${left} ${item?.usage_uom} 중 ${usageQty} 만 들어옵니다. `
-            + '발주는 발주중으로 남고 나머지를 다음에 붙일 수 있습니다',
-      });
+    if (qty && usageQty > left + 1e-9) {
+      gaps.push({ kind: '수량',
+        detail: `남은 발주 ${num(left)}${uom}보다 ${num(usageQty - left)}${uom} 많습니다.` });
     }
     if (price && po.unit_price && Math.abs(Number(price) - Number(po.unit_price)) > 1e-9) {
-      gaps.push({
-        kind: '단가',
-        detail: `발주 단가는 ${Number(po.unit_price).toLocaleString()} 입니다`,
-      });
+      gaps.push({ kind: '단가',
+        detail: `발주에 적힌 단가는 ${Number(po.unit_price).toLocaleString()}입니다.` });
     }
   }
 
@@ -241,6 +259,17 @@ export default function ReceiveForm({ items, suppliers, orders, today, presetPo,
         <p className="mt-2 rounded-md bg-brand-soft px-3 py-2 text-xs leading-relaxed text-ink">
           원재료입니다. 여기서 넣은 <b>두께 구간</b>이 배치를 거쳐 제품 로트로 상속됩니다.
           한 배치는 하나의 구간이므로 그 배치에서 나올 수 있는 형명이 좁혀집니다.
+        </p>
+      )}
+
+      {/*
+        * 나눠 들어오는 것은 정상이므로 조용히 알리기만 한다. 무엇이 남고
+        * 그 뒤에 무슨 일이 되는지가 이 줄이 할 말의 전부다.
+        */}
+      {short && (
+        <p className="mt-3 rounded-md bg-info-bg px-3 py-2 text-xs leading-relaxed text-ink">
+          남은 발주 {num(left)}{uom} 가운데 {num(usageQty)}{uom}입니다.
+          발주는 <b>발주중</b>으로 남고, 다음 입고에 {num(left - usageQty)}{uom} 붙일 수 있습니다.
         </p>
       )}
 
