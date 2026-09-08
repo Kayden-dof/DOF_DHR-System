@@ -2,6 +2,8 @@
 
 import { useActionState, useState } from 'react';
 import { Dialog } from '@/components/dialog';
+import { Msg } from '@/components/ui';
+import Toasts from '@/components/toast';
 import { ROLE_LABEL, ROLE_NOTE, ROLE_ORDER, type RoleCode } from '@/lib/roles';
 import { PIN_MIN_LENGTH } from '@/lib/auth-const';
 import type { FormState } from '@/lib/forms';
@@ -185,8 +187,10 @@ function RolePanel({ u, isMe, sysAdmin }: {
         </form>
       )}
 
-      <Msg state={grantState} />
-      <Msg state={revokeState} />
+      {/*
+        * 단추만 있는 자리다. 결과가 아래에 붙으면 행이 밀린다 (2026-09-08).
+        */}
+      <Toasts states={[grantState, revokeState]} />
       {u.is_developer && (
         <p className="mt-2 text-xs leading-relaxed text-warn">
           개발 계정에는 품질책임자 역할을 부여할 수 없습니다.
@@ -302,8 +306,7 @@ function FlagPanel({ u, isMe, sysAdmin }: { u: UserRow; isMe: boolean; sysAdmin:
         계정은 삭제하지 않습니다. 쓰지 않는 계정은 비활성화합니다 - 기록을 남긴 계정을
         지우면 그 기록의 작성자를 설명할 수 없습니다.
       </p>
-      <Msg state={activeState} />
-      <Msg state={devState} />
+      <Toasts states={[activeState, devState]} />
     </Panel>
   );
 }
@@ -319,20 +322,13 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
   );
 }
 
-export function Msg({ state }: { state: FormState }) {
-  if (state.error) {
-    return (
-      <p role="alert" className="mt-2 rounded bg-danger-bg px-2 py-1.5 text-xs leading-relaxed text-danger">
-        {state.error}
-      </p>
-    );
-  }
-  if (state.ok && state.message) {
-    return (
-      <p className="mt-2 rounded bg-ok-bg px-2 py-1.5 text-xs leading-relaxed text-ok">
-        {state.message}
-      </p>
-    );
-  }
-  return null;
-}
+/*
+ * 여기 있던 `Msg` 를 걷었다 (2026-09-08).
+ *
+ * components/ui.tsx 에 같은 이름 같은 일을 하는 것이 이미 있었고, 이쪽만
+ * 아이콘이 없고 글자가 작았다. 같은 말을 화면마다 다른 모양으로 하면
+ * 사용자는 그것을 다른 종류의 말로 읽는다 (§10 · 복제는 갈라진다).
+ *
+ * 이 화면의 결과 대부분은 이제 알림으로 뜨고, 비밀번호 칸에 딸린 말 하나만
+ * 남았다. 그 하나 때문에 따로 만들 까닭이 없다.
+ */

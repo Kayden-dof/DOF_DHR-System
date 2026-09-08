@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useState, useId } from 'react';
 import type { FormState } from '@/lib/forms';
 import { Msg, Warnings } from '@/components/ui';
+import Toasts from '@/components/toast';
 import { issueWorkOrder } from './actions';
 import { previewIssue, type IssuePreview } from './preview';
 
@@ -90,7 +91,11 @@ export default function IssueForm({ masters, rawLots, finished, users, today }: 
                 disabled={ready.length === 0 || rawLots.length === 0}>
           작업 지시 발행
         </button>
-        <div className="max-w-lg"><Msg state={state} /></div>
+      {/*
+        * 결과는 화면 오른쪽 위에 띄운다. 여기 아래에 붙이면 뒤 내용이 밀린다
+        * (사용자 지시 2026-09-08).
+        */}
+      <Toasts states={[state]} />
         {ready.length === 0 && (
           <p className="text-xs text-faint">서면 대조가 확인된 제품표준서가 필요합니다.</p>
         )}

@@ -7,6 +7,7 @@ import { fmtDate } from '@/lib/fmt';
 import { daysUntilKST } from '@/lib/kst';
 import type { FormState } from '@/lib/forms';
 import { Msg, Tag, Caution } from '@/components/ui';
+import Toasts from '@/components/toast';
 import { createSterilBatch, updateSterilBatch, approveRelease, ship } from './actions';
 
 export interface PlOpt {
@@ -80,7 +81,11 @@ export function SterilForm({ lots, today, boxQty }: {
         <button onClick={() => setOpen(true)} className="btn-primary" disabled={lots.length === 0}>
           멸균 배치 만들기
         </button>
-        <div className="max-w-md"><Msg state={state} /></div>
+      {/*
+        * 결과는 화면 오른쪽 위에 띄운다. 여기 아래에 붙이면 뒤 내용이 밀린다
+        * (사용자 지시 2026-09-08).
+        */}
+      <Toasts states={[state]} />
       </div>
     );
   }

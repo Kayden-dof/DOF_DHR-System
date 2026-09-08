@@ -3,6 +3,7 @@
 import { useActionState, useState, useId } from 'react';
 import { openDeviation, closeDeviation } from './actions';
 import { Msg, Tag } from '@/components/ui';
+import Toasts from '@/components/toast';
 import { Dialog, useDialog } from '@/components/dialog';
 import type { FormState } from '@/lib/forms';
 
@@ -57,7 +58,11 @@ export function OpenDeviation({ opts, today }: { opts: DevOpts; today: string })
     return (
       <div className="flex flex-col items-end gap-2">
         <button onClick={() => setOpen(true)} className="btn-primary">일탈 등록</button>
-        <div className="max-w-md"><Msg state={state} /></div>
+      {/*
+        * 결과는 화면 오른쪽 위에 띄운다. 여기 아래에 붙이면 뒤 내용이 밀린다
+        * (사용자 지시 2026-09-08).
+        */}
+      <Toasts states={[state]} />
       </div>
     );
   }

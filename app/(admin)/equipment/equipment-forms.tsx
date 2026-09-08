@@ -3,6 +3,7 @@
 import { useActionState, useState, useId } from 'react';
 import type { FormState } from '@/lib/forms';
 import { Msg, Tag } from '@/components/ui';
+import Toasts from '@/components/toast';
 import { Dialog, useDialog } from '@/components/dialog';
 import Link from 'next/link';
 import { fmtDate } from '@/lib/fmt';
@@ -387,9 +388,11 @@ export function EquipCard({ e, ops, warnDays }: {
             );
           });
         })()}
-        {linkState.error && (
-          <p role="alert" className="mt-2 text-sm text-danger">{linkState.error}</p>
-        )}
+        {/*
+          * 공정 연결은 단추만 있는 자리다. 결과가 아래에 붙으면 목록이 밀린다
+          * (사용자 지시 2026-09-08).
+          */}
+        <Toasts states={[linkState]} />
       </div>
     </section>
   );

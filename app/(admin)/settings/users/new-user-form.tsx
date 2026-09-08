@@ -5,7 +5,7 @@ import { Dialog, useDialog } from '@/components/dialog';
 import { PIN_MIN_LENGTH } from '@/lib/auth-const';
 import type { FormState } from '@/lib/forms';
 import { createUser } from './actions';
-import { Msg } from './user-row';
+import { Msg } from '@/components/ui';
 
 export default function NewUserForm({ sysAdmin }: { sysAdmin: boolean }) {
   const [state, action, pending] = useActionState<FormState, FormData>(createUser, {});
