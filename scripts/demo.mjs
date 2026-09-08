@@ -30,7 +30,26 @@ await client.connect();
 console.log('스키마 비우기');
 await client.query(`drop schema if exists public cascade`);
 await client.query(`create schema public`);
-await client.query(`drop role if exists app_role`);
+
+/*
+ * 역할은 지워지면 지우고, 안 지워지면 그냥 둔다.
+ *
+ * `app_role` 은 **DB 를 가로질러 하나**다. 이 장비에는 시험용 DB 가 여럿
+ * 있고(dhr_mut · dhr_restore · dhr_volume_check) 그것들이 같은 역할에 권한을
+ * 걸고 있어서, 여기서 지우려 하면 "some objects depend on it" 으로 막힌다.
+ * 개발 장비에서는 그게 정상 상태인데 데모가 그걸 못 견디고 죽었다
+ * (사용자 지적 2026-09-08).
+ *
+ * 안 지워도 된다. 이관이 없으면 만들고 있으면 그대로 쓰며, 스키마를 새로
+ * 만들었으니 옛 권한은 지운 객체와 함께 사라졌다.
+ */
+try {
+  await client.query(`drop owned by app_role`);
+  await client.query(`drop role if exists app_role`);
+  console.log('  역할 app_role 을 지웠습니다');
+} catch {
+  console.log('  역할 app_role 은 다른 DB 가 쓰고 있어 그대로 둡니다 (이관이 다시 맞춥니다)');
+}
 await client.end();
 
 // 자식 프로세스에 로컬 주소를 못 박는다. deploy-db 는 .env.deploy 의

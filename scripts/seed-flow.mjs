@@ -704,6 +704,72 @@ await history('2026-08-26', 16, [['PD05050510', 60, 3]],
   { shipQty: 25, scrap: 1, customer: '서울아산병원' });
 
 /* ---------------------------------------------------------------------------
+   일탈 대장
+
+   대장이 비어 있으면 그 화면이 무엇을 하는 자리인지 시연에서 안 보인다.
+   열린 것 하나와 서면으로 닫힌 것 하나를 둔다 - 두 상태가 어떻게 다르게
+   보이는지가 그 화면의 전부다.
+
+   시스템은 무엇이 일탈인지도 얼마나 중대한지도 판정하지 않는다 (§9.1).
+   서면 보고서의 결론과 그 번호를 옮겨 적을 뿐이고, 여기 값은 지어낸 것이다.
+--------------------------------------------------------------------------- */
+console.log('\n[일탈] 대장');
+
+const eqDev = await val(`select id from equipment order by code limit 1`);
+
+/* 열려 있는 것. 아직 서면 결론이 없으므로 종결 칸이 비어 있다 */
+await as(mgrUser.id, async () => {
+  const no = await val(`select next_number('DEVIATION')`);
+  await client.query(
+    `insert into deviation (deviation_no, occurred_on, title, detail,
+       work_order_id, registered_by)
+     values ($1, (timezone('Asia/Seoul', now()))::date - 3, $2, $3, $4, $5)`,
+    [no, '세척 공정 시간이 작업표준서보다 짧았다',
+     '작업자가 다음 공정 준비와 겹쳐 진행했다고 진술. 서면 조사 진행 중.',
+     wo.id, mgrUser.id]);
+  say(`${no} 열림 · 배치 ${wo.batch_no}`);
+});
+
+/* 서면으로 닫힌 것. 보고서 번호 · 결론 · 승인자 · 승인일이 다 있어야 닫힌다 */
+await as(mgrUser.id, async () => {
+  const no = await val(`select next_number('DEVIATION')`);
+  await client.query(
+    `insert into deviation (deviation_no, occurred_on, title, detail,
+       equipment_id, report_no, outcome, approved_by, approved_on, closed_on,
+       registered_by)
+     values ($1, (timezone('Asia/Seoul', now()))::date - 30, $2, $3, $4, $5, $6, $7,
+             (timezone('Asia/Seoul', now()))::date - 20,
+             (timezone('Asia/Seoul', now()))::date - 18, $8)`,
+    [no, '동결건조기 챔버 온도가 설정값보다 낮게 기록되었다',
+     '설비 표시부와 기록지의 값이 달랐다. 교정 성적서 대조 후 서면 종결.',
+     eqDev, 'DEV-2026-002 (시연 자료)',
+     '서면 보고서 결론: 제품 품질에 영향 없음. 표시부 교정 실시.',
+     '정품질', mgrUser.id]);
+  say(`${no} 종결 · 보고서 DEV-2026-002`);
+});
+
+/* ---------------------------------------------------------------------------
+   백업 이력
+
+   백업 화면이 비어 있으면 "마지막 백업이 언제인가" 를 보여 주는 자리가
+   시연에서 안 보인다. 두 줄을 둔다 - 지난달 것과 최근 것.
+
+   **파일은 없다.** 대장에 줄만 있는 것이고, 시연 표식과 함께 지워진다.
+   실제로 되살릴 수 있는지는 npm run restore:check 가 파일로 확인한다.
+--------------------------------------------------------------------------- */
+console.log('\n[백업] 이력');
+for (const [days, rows, note] of [[34, 640, '월 정기'], [4, 697, '월 정기']]) {
+  await as(mgrUser.id, () => client.query(
+    `insert into backup_log (taken_at, taken_by, file_name, byte_size, total_rows,
+       table_count, data_sha256, migration_count, note)
+     values (now() - ($1 || ' days')::interval, $2, $3, $4, $5, 42, $6, 101, $7)`,
+    [days, mgrUser.id,
+     `dhr-시연-${days}일전.ndjson.gz`, 41000 + rows * 20, rows,
+     'demo'.padEnd(64, '0'), `${note} (시연 자료 · 파일 없음)`]));
+}
+say('백업 대장 2건 (시연 자료 · 실제 파일은 없습니다)');
+
+/* ---------------------------------------------------------------------------
    시연 자료가 검토 지원을 울리지 않는가
 
    §8.5 는 검토 지원이 **어긋난 것만** 짚게 해 두었다. 이상이 없으면 아무것도

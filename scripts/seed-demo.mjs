@@ -505,13 +505,52 @@ if (BASE_ONLY) {
   console.log('자재 로트 11건');
 }
 
-// --- 발주 ---------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+   사용기간 연장 이력
+
+   이것이 없으면 출하 승인 요청서의 **유효기한 근거** 칸이 늘 "품목 기본값
+   (안정성 보고서 미등록)" 으로만 나온다. 품질책임자가 그 종이 위에 서명하는데
+   근거가 한 종류뿐이면 그 칸이 무엇을 하는 자리인지 시연에서 안 보인다 (§7).
+
+   시스템이 판정하지 않는다 (§1). 서면 안정성 시험 보고서의 결론과 번호를
+   옮겨 적을 뿐이고, 여기 값도 지어낸 것이다.
+--------------------------------------------------------------------------- */
 if (!BASE_ONLY) {
-  await c.query(
-    `insert into purchase_order (po_no, item_id, supplier_id, qty, unit_price,
-       ordered_at, expected_at, ordered_by)
-     values ('PO-2026-001',$1,$2,20,22000,current_date,current_date+30,$3)
-     on conflict (po_no) do nothing`, [raw, supA, admin]);
+  const finLots = await c.query(
+    `select id from item where type = 'FIN' order by code limit 3`);
+  for (const [i, f] of finLots.rows.entries()) {
+    await c.query(
+      `insert into shelf_life_history (item_id, months, effective_from,
+         study_report_no, study_date, approved_by)
+       values ($1, 24, current_date - 200, $2, current_date - 210, $3)
+       on conflict do nothing`,
+      [f.id, `STB-2026-${String(i + 1).padStart(3, '0')} (시연 자료)`, admin]);
+  }
+  console.log(`사용기간 연장 이력 ${finLots.rows.length}건 (24개월 · 안정성 보고서)`);
+}
+
+// --- 발주 ---------------------------------------------------------------------
+/*
+ * 상태를 섞어 둔다. 발주 화면이 "주문함 · 입고됨 · 취소" 를 어떻게 갈라
+ * 보여 주는지가 한 건으로는 안 보인다.
+ */
+if (!BASE_ONLY) {
+  const po = (no, item, sup, qty, price, days, status) =>
+    c.query(
+      `insert into purchase_order (po_no, item_id, supplier_id, qty, unit_price,
+         ordered_at, expected_at, status, ordered_by)
+       values ($1,$2,$3,$4,$5,
+               (current_date - ($6 || ' days')::interval)::date,
+               (current_date - ($6 || ' days')::interval)::date + 30,$7,$8)
+       on conflict (po_no) do nothing`,
+      [no, item, sup, qty, price, days, status, admin]);
+
+  await po('PO-2026-001', raw,   supA, 20,  22000, 0,  'ORDERED');
+  await po('PO-2026-002', rgAlk, supB, 12,  48000, 5,  'ORDERED');
+  await po('PO-2026-003', tyvek, supC, 400, 320,   40, 'RECEIVED');
+  await po('PO-2026-004', pouch, supC, 800, 140,   40, 'RECEIVED');
+  await po('PO-2026-005', rgH2O2, supB, 6,  52000, 20, 'CANCELLED');
+  console.log('발주 5건 (주문 2 · 입고 2 · 취소 1)');
 }
 
 console.log('\n완료. 로그인 계정');
