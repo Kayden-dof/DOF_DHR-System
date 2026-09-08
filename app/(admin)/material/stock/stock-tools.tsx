@@ -2,7 +2,8 @@
 
 import { useActionState } from 'react';
 import type { FormState } from '@/lib/forms';
-import { Msg, Tag } from '@/components/ui';
+import { Tag } from '@/components/ui';
+import Toasts from '@/components/toast';
 import { suggestMinStock, runExpiry } from '../actions';
 
 export default function StockTools({ alerts }: { alerts: number }) {
@@ -24,10 +25,11 @@ export default function StockTools({ alerts }: { alerts: number }) {
           </button>
         </form>
       </div>
-      <div className="max-w-md">
-        <Msg state={s1} />
-        <Msg state={s2} />
-      </div>
+      {/*
+        * 결과는 화면 오른쪽 위에 띄운다. 여기 아래에 붙이면 표가 밀린다
+        * (사용자 지적 2026-09-08).
+        */}
+      <Toasts states={[s1, s2]} />
     </div>
   );
 }
