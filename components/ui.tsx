@@ -73,9 +73,19 @@ export function TableWrap({ children }: { children: React.ReactNode }) {
 
 export function Empty({ children, hint }: { children: React.ReactNode; hint?: React.ReactNode }) {
   return (
+    /*
+     * 빈 상태의 글자를 한 단계씩 올렸다 (2026-09-08).
+     *
+     * 전에는 본문이 faint 이고 안내가 `faint/80` 이었다. **무엇을 해야 하는지
+     * 알려 주는 줄이 화면에서 제일 안 읽히는 글자**였다 - 흰 바탕에서 3.23,
+     * 캔버스에서 2.95 로 AA 근처에도 못 갔다.
+     *
+     * 본문을 muted, 안내를 faint 로 올린다. 안내가 본문보다 조용한 차례는
+     * 그대로이고 둘 다 읽힌다 (5.17 · 4.74).
+     */
     <div className="px-4 py-10 text-center">
-      <p className="text-sm text-faint">{children}</p>
-      {hint && <p className="mt-1.5 text-xs text-faint/80">{hint}</p>}
+      <p className="text-sm text-muted">{children}</p>
+      {hint && <p className="mt-1.5 text-xs text-faint">{hint}</p>}
     </div>
   );
 }

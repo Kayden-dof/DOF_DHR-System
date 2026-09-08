@@ -121,6 +121,24 @@
   --color-line:        #E4E0E6;
   --color-line-soft:   #EFECF0;
   --color-line-strong: #D4D1CD;
+  /*
+   * 카드 가장자리만 한 단계 진하다 (2026-09-08).
+   *
+   * 바탕을 CI 값(#F2F0EF)으로 올리면서 카드 면과 바탕의 차이가 1.19 에서
+   * 1.14 로 줄었다. 카드가 덜 떠 보인다는 뜻이다.
+   *
+   * 그렇다고 **가만히 있는 카드에 그림자를 얹지 않는다** - 이 화면은
+   * "깊이는 상태를 말할 때만 쓴다" 로 정해져 있고 (아래 .card-raised 주석),
+   * 쉬는 카드에 그림자를 지우면 손을 얹었을 때 뜨는 그 신호가 죽는다.
+   *
+   * 대신 가장자리를 진하게 한다. 테두리가 바탕과 갈리는 폭이 1.148 에서
+   * 1.215 로 올라 잃은 것보다 더 벌충된다.
+   *
+   * `--color-line` 자체는 건드리지 않는다. 그것은 표 줄과 입력칸에도 쓰이는
+   * 일반 구분선이고, 다 같이 진해지면 화면이 무거워진다. 짚는 자리는
+   * **카드의 가장자리 하나**다.
+   */
+  --color-card-edge:   #DEDAE0;
 
   /* 브랜드 */
   --color-brand:       #562C8D;
@@ -329,7 +347,7 @@ input, textarea, [contenteditable] { caret-color: var(--color-brand); }
    */
   .card {
     background: var(--color-surface);
-    border: 1px solid var(--color-line);
+    border: 1px solid var(--color-card-edge);
     border-radius: var(--r-lg);
   }
   /* 카드 안의 표는 카드 모서리에 맞춰 잘린다 */
@@ -345,7 +363,7 @@ input, textarea, [contenteditable] { caret-color: var(--color-brand); }
    */
   .card-raised {
     background: var(--color-surface);
-    border: 1px solid var(--color-line);
+    border: 1px solid var(--color-card-edge);
     border-radius: var(--r-lg);
     transition: box-shadow 160ms var(--ease), border-color 160ms var(--ease);
   }
