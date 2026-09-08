@@ -11,6 +11,8 @@ export interface OrderRow {
   ordered_at: string; expected_at: string | null; status: string;
   item_code: string; item_name: string; usage_uom: string;
   supplier_name: string; ordered_by_name: string; lot_count: number;
+  /** 그 발주로 들어온 양 (사용 단위). 0102 의 po_received */
+  received: string;
 }
 export interface ItemOpt {
   id: string; code: string; name: string; usage_uom: string; type: string;

@@ -169,12 +169,12 @@ export async function newMaterialLot(t, m, itemId, opts = {}) {
   return t.val(
     `insert into material_lot (item_id, lot_no, supplier_id, supplier_lot_no, coa_no,
        coa_date, received_at, registered_by, qty_received, qty_available, unit_price,
-       expiry_date, thickness_band)
-     values ($1,$2,$3,$4,$5, current_date, now(), $6, $7, $7, $8, $9, $10)
+       expiry_date, thickness_band, purchase_order_id)
+     values ($1,$2,$3,$4,$5, current_date, now(), $6, $7, $7, $8, $9, $10, $11)
      returning id`,
     [itemId, lotNo, opts.supplier ?? m.supplier, opts.supplier_lot_no ?? 'SL-001',
      opts.coa_no ?? 'COA-001', m.admin, opts.qty ?? 100, opts.unit_price ?? 1000,
-     opts.expiry ?? null, opts.thickness_band ?? null]);
+     opts.expiry ?? null, opts.thickness_band ?? null, opts.po ?? null]);
 }
 
 /** 작업지시 하나. 원재료 로트 1건에 대응한다. */

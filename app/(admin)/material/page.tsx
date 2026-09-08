@@ -79,8 +79,13 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
          from item where is_active order by type, code`),
     suppliers: await db.rows<SupplierOpt>(
       `select id, name, status from supplier order by status desc, name`),
+    /*
+     * 발주중인 것만 담는다. 부분 입고면 누계가 발주 수량에 닿기 전까지
+     * ORDERED 로 남으므로 (0102), 나눠 들어오는 발주가 목록에 계속 있다.
+     */
     orders: await db.rows<OrderOpt>(
-      `select id, po_no, item_id, supplier_id, qty, unit_price
+      `select id, po_no, item_id, supplier_id, qty, unit_price,
+              po_received(id) as received
          from purchase_order where status = 'ORDERED' order by ordered_at desc`),
     today: await db.val<string>(`select to_char(timezone('Asia/Seoul', now()),'YYYY-MM-DD')`),
     counts: await db.rows<{ status: string; n: number }>(

@@ -75,6 +75,20 @@ const MUTATIONS = [
     sql: `drop trigger if exists app_user_pin_reset on app_user`,
     cases: ['U-13', 'U-13b'] },
 
+  /*
+   * 0102 이전의 모양으로 되돌린다 - 수량을 안 보고 첫 입고에 통째로 닫던 때.
+   * 그것이 실제로 있던 결함이므로, 되돌렸을 때 새 시험이 잡아야 한다.
+   */
+  { id: 'M-POPART', rule: '발주는 누계가 닿아야 입고 완료 (0102)',
+    sql: `create or replace function sync_po_status(p_po uuid)
+          returns void language plpgsql
+          set search_path = public, pg_temp as $mut$
+          begin
+            update purchase_order set status = 'RECEIVED'
+             where id = p_po and status = 'ORDERED';
+          end $mut$`,
+    cases: ['PO-01', 'PO-03', 'PO-06'] },
+
   { id: 'M-MLLOCK', rule: '자재 로트에서 계보가 걸린 넷은 잠긴다 (0090)',
     sql: `drop trigger if exists material_lot_coa_once on material_lot`,
     cases: ['ML-02', 'RV2-10'] },
@@ -254,7 +268,7 @@ const FILES = [
   '01_users.mjs', '02_s03_audit.mjs', '03_numbering.mjs', '04_rules_m1_m4.mjs',
   '05_genealogy.mjs', '06_review.mjs', '07_immutable.mjs',
   '09_review2.mjs', '10_review3.mjs', '11_deviation.mjs', '12_model_scheme.mjs',
-  '13_cost.mjs',
+  '13_cost.mjs', '14_purchase.mjs',
 ];
 
 const byId = new Map();

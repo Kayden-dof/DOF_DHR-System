@@ -462,11 +462,12 @@ const receive = async (it, sup, qty, price, opts = {}) => {
   return val(
     `insert into material_lot (item_id, lot_no, supplier_id, supplier_lot_no, coa_no,
        coa_date, received_at, registered_by, qty_received, qty_available, unit_price,
-       expiry_date, location, thickness_band, qc_passed_on)
-     values ($1,$2,$3,$4,$5,current_date,now(),$6,$7,$7,$8,$9::date,$10,$11,$12::date)
+       expiry_date, location, thickness_band, qc_passed_on, purchase_order_id)
+     values ($1,$2,$3,$4,$5,current_date,now(),$6,$7,$7,$8,$9::date,$10,$11,$12::date,$13)
      returning id`,
     [it, lot, sup, opts.slot ?? 'SL-' + lot.slice(-4), opts.coa ?? 'COA-' + lot.slice(-4),
-     admin, qty, price, opts.expiry ?? null, opts.loc ?? null, opts.band ?? null, qcOn]);
+     admin, qty, price, opts.expiry ?? null, opts.loc ?? null, opts.band ?? null, qcOn,
+     opts.po ?? null]);
 };
 
 /* ---------------------------------------------------------------------------
@@ -535,22 +536,36 @@ if (!BASE_ONLY) {
  * 보여 주는지가 한 건으로는 안 보인다.
  */
 if (!BASE_ONLY) {
-  const po = (no, item, sup, qty, price, days, status) =>
-    c.query(
+  /*
+   * 상태를 손으로 박지 않는다 (0102).
+   *
+   * 전에는 RECEIVED 로 적어 두었는데 그 발주로 들어온 자재 로트가 하나도
+   * 없었다 - 화면이 "입고 완료 · 입고 0" 을 보이게 된다. 이제 상태는 입고
+   * 누계가 정하므로, 들어왔다고 하려면 실제로 넣는다.
+   *
+   * 취소만 예외다. 그것은 누계가 아니라 사람이 내린 결정이다.
+   */
+  const po = async (no, item, sup, qty, price, days, opts = {}) => {
+    const id = await val(
       `insert into purchase_order (po_no, item_id, supplier_id, qty, unit_price,
          ordered_at, expected_at, status, ordered_by)
        values ($1,$2,$3,$4,$5,
                (current_date - ($6 || ' days')::interval)::date,
                (current_date - ($6 || ' days')::interval)::date + 30,$7,$8)
-       on conflict (po_no) do nothing`,
-      [no, item, sup, qty, price, days, status, admin]);
+       on conflict (po_no) do update set po_no = excluded.po_no
+       returning id`,
+      [no, item, sup, qty, price, days, opts.cancelled ? 'CANCELLED' : 'ORDERED', admin]);
+    if (opts.got) await receive(item, sup, opts.got, price, { po: id });
+    return id;
+  };
 
-  await po('PO-2026-001', raw,   supA, 20,  22000, 0,  'ORDERED');
-  await po('PO-2026-002', rgAlk, supB, 12,  48000, 5,  'ORDERED');
-  await po('PO-2026-003', tyvek, supC, 400, 320,   40, 'RECEIVED');
-  await po('PO-2026-004', pouch, supC, 800, 140,   40, 'RECEIVED');
-  await po('PO-2026-005', rgH2O2, supB, 6,  52000, 20, 'CANCELLED');
-  console.log('발주 5건 (주문 2 · 입고 2 · 취소 1)');
+  await po('PO-2026-001', raw,    supA, 20,  22000, 0);
+  /* 절반만 들어온 발주. 남은 7 이 화면에 뜨고 다음 입고를 여기 붙일 수 있다 */
+  await po('PO-2026-002', rgAlk,  supB, 12,  48000, 5,  { got: 5 });
+  await po('PO-2026-003', tyvek,  supC, 400, 320,   40, { got: 400 });
+  await po('PO-2026-004', pouch,  supC, 800, 140,   40, { got: 800 });
+  await po('PO-2026-005', rgH2O2, supB, 6,   52000, 20, { cancelled: true });
+  console.log('발주 5건 (발주중 1 · 부분 입고 1 · 입고 완료 2 · 취소 1)');
 }
 
 console.log('\n완료. 로그인 계정');

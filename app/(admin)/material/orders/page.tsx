@@ -9,6 +9,8 @@ import { fmtDate } from '@/lib/fmt';
 import { Panel, Empty, Tag } from '@/components/ui';
 import { NewOrder, CancelOrder,
          type OrderRow, type ItemOpt, type SupplierOpt } from './order-forms';
+import ReceiveForm, { type ItemOpt as ReceiveItemOpt,
+                      type OrderOpt } from '../receive-form';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,7 +41,8 @@ export default async function OrdersPage() {
       `select po.id, po.po_no, po.qty, po.unit_price, po.ordered_at, po.expected_at,
               po.status, i.code as item_code, i.name as item_name, i.usage_uom,
               s.name as supplier_name, u.full_name as ordered_by_name,
-              (select count(*)::int from material_lot ml where ml.purchase_order_id = po.id) as lot_count
+              (select count(*)::int from material_lot ml where ml.purchase_order_id = po.id) as lot_count,
+              po_received(po.id) as received
          from purchase_order po
          join item i on i.id = po.item_id
          join supplier s on s.id = po.supplier_id
@@ -52,6 +55,18 @@ export default async function OrdersPage() {
         where is_active and type <> 'FIN' order by type, code`),
     suppliers: await db.rows<SupplierOpt>(
       `select id, name, status from supplier order by status desc, name`),
+    /*
+     * 입고 폼이 쓰는 품목 정보는 발주 폼이 쓰는 것과 다르다 - 구매 단위와
+     * 환산율이 필요하다. 폼을 복제하지 않는 대신 자료를 한 벌 더 읽는다.
+     */
+    receiveItems: await db.rows<ReceiveItemOpt>(
+      `select id, code, name, type::text as type, purchase_uom, usage_uom, conversion,
+              shelf_life_months
+         from item where is_active order by type, code`),
+    receiveOrders: await db.rows<OrderOpt>(
+      `select id, po_no, item_id, supplier_id, qty, unit_price,
+              po_received(id) as received
+         from purchase_order where status = 'ORDERED' order by ordered_at desc`),
     alerts: await db.rows<{ id: string; code: string; name: string; usage_uom: string;
       on_hand: string; on_order: string; min_stock: string; lead_days: number | null }>(
       `select id, code, name, usage_uom, on_hand, on_order, min_stock, lead_days
@@ -120,6 +135,7 @@ export default async function OrdersPage() {
                   <th className="th">품목</th>
                   <th className="th">공급자</th>
                   <th className="th text-right">수량</th>
+                  <th className="th text-right">입고</th>
                   <th className="th text-right">단가</th>
                   <th className="th">발주일</th>
                   <th className="th">입고 예정</th>
@@ -139,6 +155,23 @@ export default async function OrdersPage() {
                       </td>
                       <td className="td text-xs">{o.supplier_name}</td>
                       <td className="td tnum text-right">{Number(o.qty)} {o.usage_uom}</td>
+                      {/*
+                        * 얼마나 들어왔는지를 줄에서 바로 보인다. 전에는 상태
+                        * 조각 하나뿐이라, 절반 들어온 발주와 다 들어온 발주가
+                        * 같아 보였다.
+                        */}
+                      <td className="td tnum text-right">
+                        {Number(o.received) > 0 ? (
+                          <>
+                            {Number(o.received)}
+                            {Number(o.received) < Number(o.qty) && (
+                              <span className="ml-1 text-xs text-warn">
+                                남은 {Number(o.qty) - Number(o.received)}
+                              </span>
+                            )}
+                          </>
+                        ) : <span className="text-faint">0</span>}
+                      </td>
                       <td className="td tnum text-right text-muted">
                         {o.unit_price ? Number(o.unit_price).toLocaleString() : ''}
                       </td>
@@ -148,8 +181,22 @@ export default async function OrdersPage() {
                         <Tag tone={st.tone}>{st.label}</Tag>
                         {o.lot_count > 0 && <Tag tone="quiet">로트 {o.lot_count}</Tag>}
                       </td>
+                      {/*
+                        * 발주 줄에서 바로 입고로 간다 (사용자 결정 2026-09-08).
+                        *
+                        * 전에는 취소 단추 하나뿐이라 "이거 들어왔다" 를 여기서
+                        * 시작할 수 없었다. 자재 로트 화면으로 건너가 입고 등록을
+                        * 열고 거기서 이 발주를 다시 찾아야 했다.
+                        */}
                       <td className="td text-right">
-                        {o.status === 'ORDERED' && <CancelOrder id={o.id} poNo={o.po_no} />}
+                        {o.status === 'ORDERED' && !viewer && (
+                          <span className="inline-flex gap-1.5">
+                            <ReceiveForm items={d.receiveItems} suppliers={d.suppliers}
+                                         orders={d.receiveOrders} today={d.today ?? ''}
+                                         presetPo={o.id} label="입고 등록" />
+                            <CancelOrder id={o.id} poNo={o.po_no} />
+                          </span>
+                        )}
                       </td>
                     </tr>
                   );

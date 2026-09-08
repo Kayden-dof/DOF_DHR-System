@@ -168,10 +168,16 @@ export async function receiveMaterial(_p: FormState, form: FormData): Promise<Fo
          txt(form.get('thickness_band')),
          qcOn]);
 
-      const po = txt(form.get('purchase_order_id'));
-      if (po) {
-        await db.rows(`update purchase_order set status = 'RECEIVED' where id = $1`, [po]);
-      }
+      /*
+       * 발주 상태는 여기서 안 건드린다 (0102).
+       *
+       * 전에는 수량과 상관없이 RECEIVED 로 넘겼다. 300개 발주에 100개만
+       * 들어와도 발주가 통째로 닫혀, 두 번째 입고를 그 발주에 못 붙이고
+       * 최소 재고선 알림도 남은 미입고분을 못 셌다.
+       *
+       * 이제 `material_lot` 트리거가 입고 누계로 정한다. 같은 것을 두 곳에서
+       * 정하면 갈라진다 (§10).
+       */
       return { lotNo, usageQty, uom: item.usage_uom, code: item.code };
     });
 

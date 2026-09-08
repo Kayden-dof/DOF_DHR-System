@@ -2,7 +2,7 @@
 
 import { useActionState, useMemo, useState, useId } from 'react';
 import type { FormState } from '@/lib/forms';
-import { Msg } from '@/components/ui';
+import { Msg, Warnings } from '@/components/ui';
 import { Dialog, useDialog } from '@/components/dialog';
 import { receiveMaterial } from './actions';
 
@@ -15,6 +15,8 @@ export interface SupplierOpt { id: string; name: string; status: string }
 export interface OrderOpt {
   id: string; po_no: string; item_id: string; supplier_id: string; qty: string;
   unit_price: string | null;
+  /** 그 발주로 이미 들어온 양 (사용 단위). 0102 의 po_received */
+  received: string;
 }
 
 /* ---------------------------------------------------------------------------
@@ -23,8 +25,20 @@ export interface OrderOpt {
    관리자가 책상에서 쓰는 화면이라 키보드 입력을 그대로 둔다.
    성적서 번호는 S02로 필수이며, 로트번호는 채번 규칙이 만든다.
 --------------------------------------------------------------------------- */
-export default function ReceiveForm({ items, suppliers, orders, today }: {
+/** 아직 안 들어온 양 (사용 단위) */
+const remain = (o: OrderOpt) => Math.max(Number(o.qty) - Number(o.received ?? 0), 0);
+
+export default function ReceiveForm({ items, suppliers, orders, today, presetPo, label }: {
   items: ItemOpt[]; suppliers: SupplierOpt[]; orders: OrderOpt[]; today: string;
+  /**
+   * 발주 줄에서 열 때 그 발주. 열릴 때마다 이 값으로 되돌린다.
+   *
+   * 폼을 하나 더 만들지 않는다 - 두 화면이 각자 입고 폼을 그리면 칸이 조금씩
+   * 갈라지고, 한쪽만 고치는 일이 생긴다 (§10).
+   */
+  presetPo?: string;
+  /** 단추 글씨. 발주 줄에서는 짧게 */
+  label?: string;
 }) {
   /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
   const uid = useId();
@@ -32,7 +46,9 @@ export default function ReceiveForm({ items, suppliers, orders, today }: {
   const [state, action, pending] = useActionState<FormState, FormData>(receiveMaterial, {});
   const { open, setOpen } = useDialog(state);
   const [itemId, setItemId] = useState('');
+  const [supplierId, setSupplierId] = useState('');
   const [qty, setQty] = useState('');
+  const [price, setPrice] = useState('');
   const [poId, setPoId] = useState('');
 
   const pool = useMemo(() => items.filter((i) => i.type !== 'FIN'), [items]);
@@ -41,10 +57,70 @@ export default function ReceiveForm({ items, suppliers, orders, today }: {
   const usageQty = Number(qty || 0) * conv;
   const isRaw = item?.type === 'RAW';
   const poPool = orders.filter((o) => !itemId || o.item_id === itemId);
+  const po = orders.find((o) => o.id === poId);
+
+  /*
+   * 발주를 고르면 그 발주의 값으로 채운다.
+   *
+   * 전에는 고르기만 하고 아무것도 안 채웠다. 공급자 · 수량 · 단가가 발주에
+   * 이미 있는데 다시 쳐야 했고, 다시 치는 자리마다 발주와 어긋날 수 있었다.
+   *
+   * 채우고 나서도 잠그지 않는다. 실제로 온 것이 발주와 다를 수 있고, 그때
+   * 적어야 하는 것은 **실제로 온 것**이다. 다르면 아래에서 짚는다.
+   */
+  const takePo = (id: string) => {
+    setPoId(id);
+    const o = orders.find((x) => x.id === id);
+    if (!o) return;
+    const it = pool.find((x) => x.id === o.item_id);
+    setItemId(o.item_id);
+    setSupplierId(o.supplier_id);
+    /* 남은 양은 사용 단위다. 폼이 받는 것은 구매 단위이므로 되돌려 넣는다 */
+    const left = remain(o) / Number(it?.conversion ?? 1);
+    setQty(left > 0 ? String(Number(left.toFixed(6))) : '');
+    setPrice(o.unit_price ? String(Number(o.unit_price)) : '');
+  };
+
+  /* 발주 줄에서 열면 늘 그 발주로 시작한다 */
+  const start = () => {
+    if (presetPo) takePo(presetPo);
+    setOpen(true);
+  };
+
+  /* 적은 것이 발주와 다른가. 막지 않고 짚기만 한다 (§2 "경고만") */
+  const gaps: { kind: string; detail: string }[] = [];
+  if (po) {
+    if (supplierId && supplierId !== po.supplier_id) {
+      const want = suppliers.find((s) => s.id === po.supplier_id)?.name ?? '(알 수 없음)';
+      const got = suppliers.find((s) => s.id === supplierId)?.name ?? '(알 수 없음)';
+      gaps.push({ kind: '공급자', detail: `발주는 ${want}, 여기는 ${got} 입니다` });
+    }
+    if (itemId && itemId !== po.item_id) {
+      gaps.push({ kind: '품목', detail: `발주 ${po.po_no} 의 품목이 아닙니다` });
+    }
+    const left = remain(po);
+    if (qty && Math.abs(usageQty - left) > 1e-9) {
+      gaps.push({
+        kind: '수량',
+        detail: usageQty > left
+          ? `남은 발주 ${left} ${item?.usage_uom} 보다 ${Number((usageQty - left).toFixed(6))} 많습니다`
+          : `남은 발주 ${left} ${item?.usage_uom} 중 ${usageQty} 만 들어옵니다. `
+            + '발주는 발주중으로 남고 나머지를 다음에 붙일 수 있습니다',
+      });
+    }
+    if (price && po.unit_price && Math.abs(Number(price) - Number(po.unit_price)) > 1e-9) {
+      gaps.push({
+        kind: '단가',
+        detail: `발주 단가는 ${Number(po.unit_price).toLocaleString()} 입니다`,
+      });
+    }
+  }
 
   return (
     <>
-      <button onClick={() => setOpen(true)} className="btn-primary">자재 입고 등록</button>
+      <button onClick={start} className={label ? 'btn-ghost h-8 px-2 text-xs' : 'btn-primary'}>
+        {label ?? '자재 입고 등록'}
+      </button>
       <Dialog open={open} onClose={() => setOpen(false)} wide title="자재 입고 등록">
         <form action={action}>
       <h3 className="text-sm font-bold text-ink">자재 입고</h3>
@@ -61,7 +137,9 @@ export default function ReceiveForm({ items, suppliers, orders, today }: {
 
         <div>
           <label className="label" htmlFor={`${uid}-supplier_id`}>공급자</label>
-          <select id={`${uid}-supplier_id`} name="supplier_id" required className="input">
+          <select id={`${uid}-supplier_id`} name="supplier_id" required
+                  value={supplierId || suppliers[0]?.id || ''}
+                  onChange={(e) => setSupplierId(e.target.value)} className="input">
             {suppliers.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}{s.status !== 'APPROVED' ? ' (미승인)' : ''}
@@ -73,12 +151,21 @@ export default function ReceiveForm({ items, suppliers, orders, today }: {
         <div>
           <label className="label" htmlFor={`${uid}-purchase_order_id`}>연결할 발주</label>
           <select id={`${uid}-purchase_order_id`} name="purchase_order_id" value={poId}
-                  onChange={(e) => setPoId(e.target.value)} className="input">
+                  onChange={(e) => takePo(e.target.value)} className="input">
             <option value="">연결 안 함</option>
             {poPool.map((o) => (
-              <option key={o.id} value={o.id}>{o.po_no} · {Number(o.qty)}</option>
+              <option key={o.id} value={o.id}>
+                {o.po_no} · 남은 {remain(o)}
+                {Number(o.received ?? 0) > 0 ? ` (발주 ${Number(o.qty)})` : ''}
+              </option>
             ))}
           </select>
+          {po && Number(po.received ?? 0) > 0 && (
+            <p className="mt-1 text-xs text-muted">
+              이미 <b className="tnum text-ink">{Number(po.received)}</b> 들어왔습니다.
+              나눠 들어오는 발주입니다.
+            </p>
+          )}
         </div>
 
         <div>
@@ -122,7 +209,8 @@ export default function ReceiveForm({ items, suppliers, orders, today }: {
         </div>
         <div>
           <label className="label" htmlFor={`${uid}-unit_price`}>단가 ({item?.usage_uom}당)</label>
-          <input id={`${uid}-unit_price`} name="unit_price" type="number" step="any" min="0" className="input tnum" />
+          <input id={`${uid}-unit_price`} name="unit_price" type="number" step="any" min="0"
+                 value={price} onChange={(e) => setPrice(e.target.value)} className="input tnum" />
         </div>
         <div>
           <label className="label" htmlFor={`${uid}-expiry_date`}>유효기한</label>
@@ -155,6 +243,12 @@ export default function ReceiveForm({ items, suppliers, orders, today }: {
           한 배치는 하나의 구간이므로 그 배치에서 나올 수 있는 형명이 좁혀집니다.
         </p>
       )}
+
+      {/*
+        * 발주와 다른 자리를 짚는다. 막지 않는다 - 실제로 온 것을 적는 자리이고,
+        * 판정은 사람이 한다 (§1 · §2).
+        */}
+      {gaps.length > 0 && <div className="mt-3"><Warnings items={gaps} /></div>}
 
       <Msg state={state} />
 

@@ -238,6 +238,8 @@ const WRITE_FUNCS = [
   'next_number(numbering_target, uuid, date, text)',
   'make_solution(uuid[], numeric[], text, text)',
   'purge_demo_data()',
+  /* 0102 · 발주 상태를 쓴다. 자재 로트 트리거가 부른다 */
+  'sync_po_status(uuid)',
 ];
 const leaky = [];
 for (const f of WRITE_FUNCS) {
