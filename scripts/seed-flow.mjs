@@ -67,6 +67,31 @@ const w2 = users['200200'];
  */
 const FLOW_DAYS = 30;
 
+/* ---------------------------------------------------------------------------
+   지난 날짜의 자재 로트
+
+   전에는 이 일을 두 곳이 따로 했다 - 지난 기록 배치는 제 날짜로 만들고, 주
+   배치는 seed-demo 가 **오늘** 만들어 둔 로트를 집었다. 그래서 주 배치만
+   합격판정일이 발행일보다 한 달 늦었다 (2026-09-08).
+
+   번호도 그날 날짜로 선다 (0097). 번호에 박힌 날짜와 합격판정일이 갈리면
+   그 번호가 무엇을 가리키는지 알 수 없다.
+--------------------------------------------------------------------------- */
+async function backdatedLot(itemId, day, qty, { band = null, price = null } = {}) {
+  const no = await val(`select next_number('MATERIAL_LOT', $1, $2::date)`, [itemId, day]);
+  /* 번호 꼬리를 그대로 쓰면 `COA-4-01` 같은 글이 나온다. 숫자만 남긴다 */
+  const tag = no.replace(/[^0-9]/g, '').slice(-6);
+  const sup = await val(`select id from supplier order by code limit 1`);
+  const id = await as(mgrUser.id, () => val(
+    `insert into material_lot (item_id, lot_no, supplier_id, supplier_lot_no, coa_no,
+       coa_date, received_at, registered_by, qty_received, qty_available, unit_price,
+       thickness_band, expiry_date, qc_passed_on)
+     values ($1,$2,$3,$4,$5,$6::date,$6::date,$7,$8,$8,$9,$10,
+             ($6::date + interval '18 months')::date, $6::date) returning id`,
+    [itemId, no, sup, 'SL-' + tag, 'COA-' + tag, day, admin.id, qty, price, band]));
+  return { id, no };
+}
+
 /** 진행할 배치를 찾는다. 없으면 화면과 같은 절차로 하나 발행한다. */
 async function pickWorkOrder() {
   const found = await one(
@@ -94,12 +119,23 @@ async function pickWorkOrder() {
   const dm = await one(
     `select dm.id, dm.revision from device_master dm
       where dm.verified_at is not null order by dm.effective_from desc limit 1`);
-  const raw = await one(
-    `select ml.id from material_lot ml join item i on i.id = ml.item_id
-      where i.type = 'RAW' and ml.status = 'AVAILABLE'
-        and not exists (select 1 from work_order w where w.material_lot_id = ml.id)
-      order by ml.received_at limit 1`);
-  if (!dm || !raw) return null;
+  const rawItemId = await val(`select id from item where type = 'RAW' order by code limit 1`);
+  if (!dm || !rawItemId) return null;
+
+  /*
+   * 이 배치의 원재료를 **발행일에 맞춰** 새로 받는다.
+   *
+   * 전에는 seed-demo 가 오늘 만들어 둔 로트를 집었다. 지시는 30일 전으로
+   * 물리면서 자재는 오늘 것을 쓰니, 계보에 "받기 한 달 전에 그 자재로 지시를
+   * 냈다" 가 남았다. 원재료 로트번호는 작업 지시서에 인쇄되므로 (§7) 종이에도
+   * 그대로 나갔다.
+   *
+   * seed-demo 의 로트는 그대로 재고에 남는다 - 발행 화면 고르개에 뜰 것이
+   * 있어야 시연에서 지시서를 새로 낼 수 있다.
+   */
+  const flowDay = await val(
+    `select ((timezone('Asia/Seoul', now()))::date - ${FLOW_DAYS})::text`);
+  const raw = await backdatedLot(rawItemId, flowDay, 30, { band: '0510', price: 22000 });
 
   /*
    * 발행자는 생산과 품질 두 사람이어야 한다 (work_order 검사 제약).
@@ -228,10 +264,22 @@ async function runOp(actor, opCode, { day, lot = null, attempt = 1, units = 0, r
     const qty = await val(`select required_qty($1,$2,$3,$4)`,
       [op.id, b.component_item_id, wo.sheet_count, units]);
     if (qty === null) continue;
+    /*
+     * 투입 시각도 그 일차의 시각이다.
+     *
+     * 전에는 기본값(now())에 맡겼다. 공정은 30일 전으로 물려 놓고 투입만
+     * 오늘로 찍히니, 계보 화면의 "투입 일시" 칸이 작업일보다 한 달 뒤에
+     * 있었다 (2026-09-08). 종료 시각에서 이미 같은 일을 한 번 겪었다.
+     */
     await as(actor.id, () =>
       client.query(
-        `insert into material_issue (process_record_id, material_lot_id, qty, issued_by)
-         values ($1,$2,$3,$4)`, [prId, b.lot_id, qty, actor.id]));
+        `insert into material_issue (process_record_id, material_lot_id, qty, issued_by,
+                                     issued_at)
+         values ($1,$2,$3,$4,
+                 timezone('Asia/Seoul',
+                   ((timezone('Asia/Seoul', now()))::date - (${FLOW_DAYS} - $5))
+                   + ($6 || ' minutes')::interval))`,
+        [prId, b.lot_id, qty, actor.id, day, startMin + 5]));
   }
 
   /*
@@ -577,9 +625,20 @@ if (wo2) {
    한다. 시연 자료가 전부 오늘 것이면 세 숫자가 똑같이 나와 기간을 나눈 뜻이
    사라진다 (사용자 요청).
 
-   여기서는 화면 흐름을 다시 밟지 않고 결과만 넣는다. 공정 기록까지 지난
-   날짜로 지어내면 기록서가 실제로 없는 종이를 가리키게 된다. 배치와 제조번호,
-   출고, 부적합만 남긴다 - 대시보드가 세는 것이 그것들이다.
+   ── 공정 기록까지 넣는다 (2026-09-08) ────────────────────────────────────
+   전에는 결과만 넣었다 - 배치 · 제조번호 · 출고 · 부적합. "공정 기록까지
+   지어내면 기록서가 없는 종이를 가리킨다" 는 이유였다.
+
+   그 이유가 이 배치들을 **모순된 상태**로 만들었다. status 가 DONE 이고
+   제품이 나갔는데 공정 기록이 하나도 없어서, 열면 "기록서 0 장 · 제품 로트
+   2 건" 이 뜬다. 제조기록 없이 제품이 나온 배치다.
+
+   없는 종이를 가리키는 것은 주 배치도 같다 - 거기도 기록서 발행 줄이 있고
+   실물은 없다. 화면 맨 위 띠가 "지어낸 배치 기록이 들어 있습니다" 라고 이미
+   말한다. 한쪽만 지어내고 다른 쪽을 비워 두면 비워 둔 쪽이 모순으로 읽힌다.
+
+   자재도 그 날짜로 받는다. 오늘 받은 시약을 지난달 공정에 넣으면 계보가
+   "받기 전에 썼다" 가 된다.
 -------------------------------------------------------------------------- */
 
 console.log('\n[지난 기록] 주 · 달이 갈리도록');
@@ -634,14 +693,127 @@ async function history(day, sheets, cuts, extra = {}) {
        day, cuts.reduce((a, c) => a + c[1], 0)]);
   });
 
+  /* ── 그 날짜의 공정 기록 ────────────────────────────────────────────── */
+  const hOps = await all(
+    `select id, seq, code, name, after_cutting from dmr_operation
+      where device_master_id = $1 order by seq`, [dmHist.id]);
+
+  /*
+   * 자재도 그날 받는다.
+   *
+   * 넉넉히 받지 않는다 - 필요한 만큼 먼저 세고 그보다 조금 더 받는다. 재고
+   * 화면에 시약이 몇천 통 있는 것으로 뜨면 그 화면이 아무 말도 못 한다.
+   */
+  const need = new Map();
+  for (const op of hOps) {
+    /*
+     * 재단 이후 공정은 **제품 로트마다 한 번씩** 적힌다 (§4.6). 장입 구간
+     * 기준 자재는 로트 수만큼 곱해 나가는데, 한 번만 세면 그만큼 모자라
+     * 재고 검사에 걸린다 - 실제로 걸렸다.
+     */
+    const runs = op.after_cutting ? cuts.map((c) => c[1]) : [0];
+    for (const b of await all(
+      `select component_item_id from dmr_bom where operation_id = $1`, [op.id])) {
+      for (const u of runs) {
+        const q = Number(await val(`select required_qty($1,$2,$3,$4)`,
+          [op.id, b.component_item_id, sheets, u]) ?? 0);
+        if (q > 0) need.set(b.component_item_id, (need.get(b.component_item_id) ?? 0) + q);
+      }
+    }
+  }
+  const hLot = new Map();
+  for (const [itemId, q] of need) {
+    const { id } = await backdatedLot(itemId, day, Math.ceil(q * 1.2));
+    hLot.set(itemId, id);
+  }
+
+  /* 시계는 일차마다 아침으로 돌아온다 (위 runOp 와 같은 규율) */
+  let hClock = 0;
+  let hClockDay = null;
+
+  /** 시작 → 자재 → 마감. 그 배치의 날짜로 찍는다 */
+  async function hRun(op, dayNo, lotId, lotUnits) {
+    if (hClockDay !== dayNo) { hClock = 0; hClockDay = dayNo; }
+    const startMin = 480 + hClock * 40;
+    hClock += 1;
+    const equip = await val(`select id from operation_equipment_list($1) limit 1`, [op.id]);
+    /* 작업일은 발행일에서 일차만큼 뒤다. 발행보다 앞서면 0052 가 막는다 */
+    const at = `($2::date + ($3 - 1))`;
+
+    const prId = await as(w1.id, () => val(
+      `insert into process_record (work_order_id, product_lot_id, operation_id, attempt,
+         day_no, work_date, worker_id, equipment_ref, started_at)
+       values ($1,$4,$5,1,$3, ${at}, $6, $7,
+               timezone('Asia/Seoul', ${at} + ($8 || ' minutes')::interval))
+       returning id`,
+      [woId, day, dayNo, lotId, op.id, w1.id, equip, startMin]));
+
+    for (const b of await all(
+      `select component_item_id from dmr_bom where operation_id = $1`, [op.id])) {
+      const lot = hLot.get(b.component_item_id);
+      if (!lot) continue;
+      const qty = await val(`select required_qty($1,$2,$3,$4)`,
+        [op.id, b.component_item_id, sheets, lotUnits]);
+      if (qty === null || Number(qty) <= 0) continue;
+      await as(w1.id, () => client.query(
+        `insert into material_issue (process_record_id, material_lot_id, qty, issued_by,
+                                     issued_at)
+         values ($1,$2,$3,$4,
+                 timezone('Asia/Seoul', ($5::date + ($6 - 1))
+                          + ($7 || ' minutes')::interval))`,
+        [prId, lot, qty, w1.id, day, dayNo, startMin + 5]));
+    }
+
+    await as(w1.id, () => client.query(
+      `update process_record
+          set ended_at = timezone('Asia/Seoul', ($2::date + ($3 - 1))
+                         + ($4 || ' minutes')::interval)
+        where id = $1`, [prId, day, dayNo, startMin + 30]));
+    await as(w1.id, () => client.query(`select complete_process($1)`, [prId]));
+  }
+
+  /** 일차 마감. 기록서를 발행하면 그 묶음이 잠긴다 (S04) */
+  async function hClose(dayNo) {
+    const payload = await all(
+      `select pr.id, pr.day_no, o.code, pr.started_at, pr.ended_at
+         from process_record pr join dmr_operation o on o.id = pr.operation_id
+        where pr.work_order_id = $1 and pr.day_no = $2 and pr.worker_id = $3
+        order by o.seq`, [woId, dayNo, w1.id]);
+    if (payload.length === 0) return;
+    const hash = createHash('sha256').update(JSON.stringify(payload)).digest('hex');
+    await as(w1.id, async () => {
+      await client.query(
+        `insert into record_print (kind, work_order_id, day_no, worker_id, seq,
+                                   data_hash, printed_by, printed_at)
+         values ('DAY_RECORD',$1,$2,$3,1,$4,$3,
+                 timezone('Asia/Seoul', ($5::date + ($2 - 1)) + interval '18 hours'))`,
+        [woId, dayNo, w1.id, hash, day]);
+      await client.query(
+        `insert into day_lock (work_order_id, day_no, worker_id, locked_by, locked_at)
+         values ($1,$2,$3,$3,
+                 timezone('Asia/Seoul', ($4::date + ($2 - 1)) + interval '18 hours'))
+         on conflict do nothing`, [woId, dayNo, w1.id, day]);
+    });
+  }
+
+  /* 1일차 · 재단까지 */
+  for (const op of hOps.filter((o) => !o.after_cutting)) await hRun(op, 1, null, 0);
+
   const made = [];
   for (const [code, qty, sample] of cuts) {
     const itemId = await val(`select id from item where code = $1`, [code]);
     const id = await as(mgrUser.id, () => val(
       `select cut_product_lot($1,$2,$3,$4,$5::date)`, [woId, itemId, qty, sample, day]));
     made.push(await one(
-      `select id, lot_no, qty_sample, qty_available from product_lot where id = $1`, [id]));
+      `select id, lot_no, qty_produced, qty_sample, qty_available from product_lot
+        where id = $1`, [id]));
   }
+  await hClose(1);
+
+  /* 2일차 · 재단 이후. 제품 로트마다 따로 적힌다 (§4.6) */
+  for (const op of hOps.filter((o) => o.after_cutting))
+    for (const m of made) await hRun(op, 2, m.id, Number(m.qty_produced));
+  await hClose(2);
 
   if (extra.shipQty) {
     const lot = made[0];
@@ -681,7 +853,9 @@ async function history(day, sheets, cuts, extra = {}) {
   }
 
   const total = cuts.reduce((a, c) => a + c[1], 0);
-  say(`${day} 장입 ${sheets}장 → 생산 ${total}개${
+  const prN = await val(
+    `select count(*)::int from process_record where work_order_id = $1`, [woId]);
+  say(`${day} 장입 ${sheets}장 → 생산 ${total}개 · 공정 ${prN}건${
     extra.shipQty ? ` · 출고 ${extra.shipQty}` : ''}${
     extra.scrap ? ` · 불량 ${extra.scrap}` : ''}`);
 }

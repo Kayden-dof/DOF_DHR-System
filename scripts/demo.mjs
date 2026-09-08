@@ -19,6 +19,18 @@ import pg from 'pg';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const url = process.env.DATABASE_URL ?? '';
 
+/*
+ * 주소가 없는 것과 원격인 것은 다른 일이다 (2026-09-08).
+ *
+ * package.json 의 demo 가 --env-file 없이 돌던 때 DATABASE_URL 이 비어
+ * 있었는데, 이 검사가 "로컬 DB가 아닙니다" 라고 답했다. **원격을 가리키고
+ * 있다는 뜻으로 읽히지만 사실은 아무 데도 안 가리키고 있었다.** 고칠 곳을
+ * 엉뚱한 데서 찾게 만드는 말이다.
+ */
+if (!url) {
+  console.error('DATABASE_URL 이 없습니다. --env-file=.env.local 로 주십시오.');
+  process.exit(2);
+}
 if (!/@(localhost|127\.0\.0\.1)[:/]/.test(url)) {
   console.error('로컬 DB가 아닙니다. 이 도구는 개발 장비에서만 씁니다.');
   process.exit(2);
