@@ -10,8 +10,8 @@
    localhost가 아니면 거부한다. 기록은 지워지지 않는 것이 원칙이므로 이 도구는
    개발 장비 밖으로 나가면 안 된다.
 --------------------------------------------------------------------------- */
-import { spawnSync } from 'node:child_process';
-import { readdirSync, readFileSync } from 'node:fs';
+import { spawn, spawnSync } from 'node:child_process';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
@@ -68,14 +68,62 @@ await client.end();
 // MIGRATION_DATABASE_URL 을 우선하므로, 비워 두면 원격으로 가 버린다.
 const childEnv = { ...process.env, MIGRATION_DATABASE_URL: url, DATABASE_URL: url };
 
-const run = (label, args) => {
+const run = (label, args, extra = {}) => {
   console.log(`\n${label}`);
-  const r = spawnSync(process.execPath, args, { cwd: ROOT, stdio: 'inherit', env: childEnv });
+  const r = spawnSync(process.execPath, args,
+    { cwd: ROOT, stdio: 'inherit', env: { ...childEnv, ...extra } });
   if (r.status !== 0) process.exit(r.status ?? 1);
 };
 
 run('마이그레이션', [path.join(ROOT, 'scripts', 'deploy-db.mjs')]);
 run('기준정보', [path.join(ROOT, 'scripts', 'seed-demo.mjs')]);
-run('전 공정 진행', [path.join(ROOT, 'scripts', 'seed-flow.mjs')]);
+/* ---------------------------------------------------------------------------
+   종이는 인쇄 화면이 뽑는다 (§10)
+
+   시드가 record_print 에 직접 넣지 않는다. 넣으면 자료 식별자를 만드는 자리가
+   둘이 되고, 실제로 갈라져 있었다 - 시드는 sha256, 앱은 PRINT_SECRET 을 섞은
+   HMAC 이라 값이 아예 달라서, 시연 자료의 종이를 열람하면 전부 "그 뒤에 자료가
+   바뀌었습니다" 가 떴다 (2026-09-09).
+
+   그래서 여기서 서버를 잠깐 세우고 시드가 화면을 열게 한다. 회차도 잠금도
+   해시도 앱이 만든 하나가 된다.
+
+   빌드가 없으면 세우지 않는다. 그때는 종이 없이 자료만 서고, **그렇다고
+   말한다** - 조용히 넘어가면 편철 표지가 "기록서 0 장" 인 까닭을 알 수 없다.
+--------------------------------------------------------------------------- */
+const PORT = process.env.DEMO_PRINT_PORT ?? '3191';
+let srv = null;
+let base = '';
+
+console.log('\n인쇄용 서버');
+if (existsSync(path.join(ROOT, '.next', 'BUILD_ID'))) {
+  srv = spawn(process.execPath,
+    [path.join(ROOT, 'node_modules', 'next', 'dist', 'bin', 'next'), 'start', '-p', PORT],
+    { cwd: ROOT, env: childEnv, stdio: 'ignore' });
+  base = `http://localhost:${PORT}`;
+
+  let up = false;
+  for (let i = 0; i < 40 && !up; i += 1) {
+    await new Promise((r) => setTimeout(r, 500));
+    try { up = (await fetch(`${base}/login`)).status === 200; } catch { /* 아직 */ }
+  }
+  if (!up) {
+    srv.kill();
+    console.error(`  서버가 ${PORT} 에 뜨지 않았습니다.`);
+    process.exit(1);
+  }
+  console.log(`  ${PORT} 에 세웠습니다`);
+} else {
+  console.log('  .next 빌드가 없어 세우지 않습니다. **종이를 안 뽑습니다** -');
+  console.log('  일차가 잠기지 않고 편철 표지의 기록서 매수가 0 으로 섭니다.');
+  console.log('  npm run build 뒤에 다시 돌리면 종이까지 함께 섭니다.');
+}
+
+try {
+  run('전 공정 진행', [path.join(ROOT, 'scripts', 'seed-flow.mjs')],
+      base ? { PRINT_BASE: base } : {});
+} finally {
+  if (srv) srv.kill();
+}
 
 console.log('\n시연 자료를 다시 만들었습니다.');

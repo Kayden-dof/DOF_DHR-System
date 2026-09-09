@@ -187,8 +187,13 @@ try {
   /* --- 6) 배치 하나를 끝까지 흘리고 종이를 뽑아 본다 ----------------------- */
   if (bad === 0) {
     console.log('\n[배치 하나를 끝까지]');
+    /*
+     * 종이는 인쇄 화면이 뽑는다 (§10). 여기는 서버가 이미 서 있으므로 넘긴다 -
+     * 시드가 record_print 를 직접 만들면 자료 식별자를 만드는 자리가 둘이 되고,
+     * 실제로 갈라져 있었다 (2026-09-09).
+     */
     const sf = spawnSync(process.execPath, [path.join(ROOT, 'scripts', 'seed-flow.mjs')],
-      { env, cwd: ROOT, encoding: 'utf8' });
+      { env: { ...env, PRINT_BASE: base }, cwd: ROOT, encoding: 'utf8' });
     if (sf.status !== 0) {
       process.stdout.write(sf.stdout);
       process.stderr.write(sf.stderr);

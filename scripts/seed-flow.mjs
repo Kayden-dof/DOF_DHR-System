@@ -8,7 +8,7 @@
    운영 자료에는 쓰지 않는다. 로컬 시연 자료를 채우는 용도다.
 --------------------------------------------------------------------------- */
 import pg from 'pg';
-import { createHash } from 'node:crypto';
+import { sessionCookie } from './session-cookie.mjs';
 import { pgSsl } from './pgssl.mjs';
 
 const url = process.env.DATABASE_URL;
@@ -66,6 +66,54 @@ const w2 = users['200200'];
  * 온다 (0052 · trg_pr_workdate).
  */
 const FLOW_DAYS = 30;
+
+/* ---------------------------------------------------------------------------
+   종이는 인쇄 화면이 뽑는다
+
+   시드가 record_print 에 직접 넣지 않는다 (§10). 넣으면 자료 식별자를 만드는
+   자리가 둘이 되고, 실제로 갈라져 있었다 - 시드는 sha256, 앱은 PRINT_SECRET 을
+   섞은 HMAC 이라 값이 아예 달랐다. 그래서 시연 자료의 종이를 열람하면 전부
+   "그 뒤에 자료가 바뀌었습니다" 가 떴다 (2026-09-09).
+
+   화면을 열면 앱이 회차를 매기고 해시를 만들고 묶음을 잠근다. 하나뿐인 자리다.
+
+   PRINT_BASE 가 없으면 안 뽑는다. 그때는 잠금도 없다 - 인쇄가 곧 잠금이므로
+   (S04) 종이 없이 잠그는 길을 따로 내지 않는다.
+--------------------------------------------------------------------------- */
+const PRINT_BASE = process.env.PRINT_BASE || '';
+
+/**
+ * 출하 승인 요청서를 실제로 뽑고 그 번호를 돌려준다.
+ *
+ * 번호는 `RR-{배치}-{회차}` 이고 회차는 발행이 정한다 (app/print/release-request).
+ * 전에는 시드가 `RR-HIST-260714` 같은 값을 지어내 출고에 적었다 - **형식도
+ * 다르고 가리키는 종이도 없었다.** 시연에서 그 번호로 종이를 찾으면 안 나온다.
+ *
+ * 못 뽑으면 번호를 지어내지 않고 null 을 낸다. 출고의 승인서 번호는 비어 있게
+ * 되는데, 없는 종이를 가리키는 것보다 비어 있는 편이 낫다.
+ */
+async function releaseRequest(woId, batchNo, picks) {
+  if (!PRINT_BASE) return null;
+  const sel = picks.map((p) => `${p.id}:${p.qty}`).join(',');
+  await paper(`/print/release-request/${woId}?sel=${sel}`, mgrUser.id);
+  const seq = await val(
+    `select max(seq)::int from record_print
+      where kind = 'RELEASE_REQUEST' and work_order_id = $1`, [woId]);
+  return `RR-${batchNo}-${String(seq).padStart(2, '0')}`;
+}
+
+/** 그 사람으로 인쇄 화면을 연다. 열면 발행이다 */
+async function paper(path, userId) {
+  if (!PRINT_BASE) return null;
+  const r = await fetch(PRINT_BASE + path, {
+    headers: { cookie: sessionCookie(userId) }, redirect: 'manual',
+  });
+  if (r.status !== 200) {
+    throw new Error(`인쇄 화면이 열리지 않았습니다 (${r.status}) ${path}`);
+  }
+  await r.text();
+  return true;
+}
 
 /* ---------------------------------------------------------------------------
    지난 날짜의 자재 로트
@@ -308,38 +356,21 @@ async function runOp(actor, opCode, { day, lot = null, attempt = 1, units = 0, r
 
 /** 일차 마감. 기록서를 인쇄하면 그 묶음이 잠긴다 (S04). */
 async function closeDay(actor, day) {
-  const payload = await all(
-    `select pr.id, pr.day_no, o.code, pr.started_at, pr.ended_at
-       from process_record pr join dmr_operation o on o.id = pr.operation_id
-      where pr.work_order_id = $1 and pr.day_no = $2 and pr.worker_id = $3
-      order by o.seq`, [wo.id, day, actor.id]);
-  if (payload.length === 0) return;
+  const n = await val(
+    `select count(*)::int from process_record
+      where work_order_id = $1 and day_no = $2 and worker_id = $3`,
+    [wo.id, day, actor.id]);
+  if (!n) return;
 
-  /*
-   * 자료 식별자는 64자 그대로 넣는다.
-   *
-   * 전에는 12자로 잘라 넣었다. 화면과 종이가 앞 12자만 보여 주니 그걸로 충분해
-   * 보였는데, 그래서 인쇄 대장 한 컬럼에 12 · 32 · 64 자가 섞였다
-   * (2차 검수 결함 3). 보여 주는 길이와 적는 길이는 다른 문제다.
-   * 0054 의 형식 제약이 이제 이걸 막는다.
-   */
-  const hash = createHash('sha256').update(JSON.stringify(payload)).digest('hex');
-
-  await as(actor.id, async () => {
-    const seq = await val(
-      `select coalesce(max(seq),0) + 1 from record_print
-        where kind='DAY_RECORD' and work_order_id=$1 and day_no=$2 and worker_id=$3`,
-      [wo.id, day, actor.id]);
-    await client.query(
-      `insert into record_print (kind, work_order_id, day_no, worker_id, seq, data_hash, printed_by)
-       values ('DAY_RECORD',$1,$2,$3,$4,$5,$6)`,
-      [wo.id, day, actor.id, seq, hash, actor.id]);
-    await client.query(
-      `insert into day_lock (work_order_id, day_no, worker_id, locked_by)
-       values ($1,$2,$3,$4) on conflict do nothing`,
-      [wo.id, day, actor.id, actor.id]);
-  });
-  say(`${day}일차 ${actor.full_name} 마감 · 기록서 발행 (자료 식별자 ${hash.slice(0, 12)})`);
+  if (!(await paper(`/print/day-record/${wo.id}/${day}/${actor.id}`, actor.id))) {
+    say(`${day}일차 ${actor.full_name} - 종이를 안 뽑았습니다 (PRINT_BASE 없음)`);
+    return;
+  }
+  const seq = await val(
+    `select max(seq)::int from record_print
+      where kind = 'DAY_RECORD' and work_order_id = $1 and day_no = $2 and worker_id = $3`,
+    [wo.id, day, actor.id]);
+  say(`${day}일차 ${actor.full_name} 마감 · 기록서 ${seq}회차 발행`);
 }
 
 /* --- 1일차. 재단 전 공정 ------------------------------------------------- */
@@ -460,19 +491,30 @@ for (const lot of lots) {
 say('제품 로트 3건에 서면 승인자 정품질 기록');
 
 const ship = lots[0];
+
+/*
+ * 요청서를 **실제로 뽑고** 그 번호를 출고에 적는다 (2026-09-09).
+ *
+ * 전에는 `RR-{배치}-01` 을 지어냈다. 형식은 맞았지만 가리키는 종이가 없어서,
+ * 시연에서 그 번호로 인쇄물을 찾으면 안 나왔다. 이제 대장에 그 종이가 있고
+ * 담긴 로트와 수량도 함께 남는다 (0105).
+ */
+const requestNo = await releaseRequest(wo.id, wo.batch_no, [{ id: ship.id, qty: 40 }]);
+if (requestNo) say(`출하 승인 요청서 ${requestNo} 발행`);
+
 await as(mgrUser.id, () =>
   client.query(
     `insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by,
                            release_request_no, unit_from, unit_to)
      values ($1,$2,$3,(timezone('Asia/Seoul', now()))::date,$4,$5,$6,$7)`,
     /*
-     * 승인서 번호 없이는 출고가 기록되지 않는다 (0026). 시연 값은 1회차 형식.
+     * 승인서 번호 없이는 출고가 기록되지 않는다 (0026).
      *
      * 개체 순번도 함께 적는다 (0042). 시료가 앞 번호로 빠지므로 그 다음부터
      * 40개다. 이 값이 있어야 경영 현황에서 개체 번호를 찾았을 때 어디로 갔는지
      * 나온다.
      */
-    [ship.id, '서울대학교병원', 40, mgrUser.id, 'RR-' + wo.batch_no + '-01',
+    [ship.id, '서울대학교병원', 40, mgrUser.id, requestNo,
      ship.qty_sample + 1, ship.qty_sample + 40]));
 say(`출고 ${ship.lot_no} 40개 (${ship.qty_sample + 1}~${ship.qty_sample + 40}번) · 서울대학교병원`);
 
@@ -681,9 +723,10 @@ async function history(day, sheets, cuts, extra = {}) {
     [rawItem, rawLot, supHist, 'SL-' + tag, 'COA-' + tag,
      day, admin.id, sheets + 10]));
 
+  let batchNo;
   const woId = await as(mgrUser.id, async () => {
     const woNo = await val(`select next_number('WORK_ORDER', null, $1::date)`, [day]);
-    const batchNo = await val(`select next_number('BATCH', null, $1::date)`, [day]);
+    batchNo = await val(`select next_number('BATCH', null, $1::date)`, [day]);
     return val(
       `insert into work_order (wo_no, batch_no, device_master_id, dmr_revision,
          material_lot_id, sheet_count, issued_by_prod, issued_by_qa, issued_at,
@@ -774,26 +817,12 @@ async function history(day, sheets, cuts, extra = {}) {
 
   /** 일차 마감. 기록서를 발행하면 그 묶음이 잠긴다 (S04) */
   async function hClose(dayNo) {
-    const payload = await all(
-      `select pr.id, pr.day_no, o.code, pr.started_at, pr.ended_at
-         from process_record pr join dmr_operation o on o.id = pr.operation_id
-        where pr.work_order_id = $1 and pr.day_no = $2 and pr.worker_id = $3
-        order by o.seq`, [woId, dayNo, w1.id]);
-    if (payload.length === 0) return;
-    const hash = createHash('sha256').update(JSON.stringify(payload)).digest('hex');
-    await as(w1.id, async () => {
-      await client.query(
-        `insert into record_print (kind, work_order_id, day_no, worker_id, seq,
-                                   data_hash, printed_by, printed_at)
-         values ('DAY_RECORD',$1,$2,$3,1,$4,$3,
-                 timezone('Asia/Seoul', ($5::date + ($2 - 1)) + interval '18 hours'))`,
-        [woId, dayNo, w1.id, hash, day]);
-      await client.query(
-        `insert into day_lock (work_order_id, day_no, worker_id, locked_by, locked_at)
-         values ($1,$2,$3,$3,
-                 timezone('Asia/Seoul', ($4::date + ($2 - 1)) + interval '18 hours'))
-         on conflict do nothing`, [woId, dayNo, w1.id, day]);
-    });
+    const n = await val(
+      `select count(*)::int from process_record
+        where work_order_id = $1 and day_no = $2 and worker_id = $3`,
+      [woId, dayNo, w1.id]);
+    if (!n) return;
+    await paper(`/print/day-record/${woId}/${dayNo}/${w1.id}`, w1.id);
   }
 
   /* 1일차 · 재단까지 */
@@ -821,12 +850,18 @@ async function history(day, sheets, cuts, extra = {}) {
       `update product_lot set release_approved_by = '정품질', release_approved_on = $2::date,
               status = 'RELEASE_APPROVED'
         where id = $1`, [lot.id, day]));
+    /*
+     * 지난 배치도 요청서를 실제로 뽑는다.
+     *
+     * 전에는 `RR-HIST-0714` 를 지어냈다. 형식이 `RR-{배치}-{회차}` 와 다르고
+     * 가리키는 종이도 없어서, 시연에서 그 번호로 인쇄물을 찾으면 안 나왔다.
+     */
+    const rr = await releaseRequest(woId, batchNo, [{ id: lot.id, qty: extra.shipQty }]);
     await as(mgrUser.id, () => client.query(
       `insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by,
                              release_request_no, unit_from, unit_to)
        values ($1,$2,$3,$4::date,$5,$6,$7,$8)`,
-      [lot.id, extra.customer ?? '서울대학교병원', extra.shipQty, day, mgrUser.id,
-       'RR-HIST-' + day.slice(5).replace('-', ''),
+      [lot.id, extra.customer ?? '서울대학교병원', extra.shipQty, day, mgrUser.id, rr,
        lot.qty_sample + 1, lot.qty_sample + extra.shipQty]));
   }
 
