@@ -116,7 +116,8 @@ export async function dayRecordPayload(
                 select json_agg(json_build_object(
                   'item_code', i.code, 'item_name', i.name, 'lot_no', ml.lot_no,
                   'qty', mi.qty, 'usage_uom', i.usage_uom,
-                  'amend_reason', mi.amend_reason) order by i.code)
+                  /* 같은 품목의 로트가 둘 오면 코드만으로는 차례가 안 정해진다 */
+                  'amend_reason', mi.amend_reason) order by i.code, ml.lot_no)
                   from material_issue mi
                   join material_lot ml on ml.id = mi.material_lot_id
                   join item i on i.id = ml.item_id
@@ -142,6 +143,25 @@ export async function dayRecordPayload(
          left join item pi on pi.id = pl.item_id
          left join app_user ru on ru.id = pr.rotation_worker_id
         where pr.work_order_id = $1 and pr.day_no = $2 and pr.worker_id = $3
-        order by o.seq, pr.attempt`, [id, dayNo, worker]),
+        /*
+         * 차례가 하나로 정해져야 한다 (2026-09-09).
+         *
+         * 공정 순서와 회차만으로는 **재단 이후 공정에서 동점이 생긴다** -
+         * 그 공정은 제품 로트마다 한 줄씩이라 같은 (공정, 회차) 가 여럿이다.
+         * PostgreSQL 은 동점의 차례를 약속하지 않으므로, 같은 자료를 두 번
+         * 읽어도 배열 차례가 달라질 수 있다.
+         *
+         * 차례가 달라지면 요약값이 달라진다. 그래서 아무것도 안 바뀐 종이를
+         * 두고 인쇄물 조회가 "값이 다릅니다" 라고 말했다 - 이 파일 머리가
+         * 경계하던 바로 그 잘못된 신호다 (§8.5). 시연 자료의 제조기록서
+         * 열세 장 가운데 셋이 그랬다.
+         *
+         * 종이에 찍히는 줄 차례도 이걸로 정해진다. 두 번 뽑은 종이의 줄이
+         * 서로 다른 차례로 나오는 것도 같은 뿌리였다.
+         *
+         * 제조번호를 먼저 놓고 (재단 전 공정은 비어 있으므로 앞에 온다), 그래도
+         * 남는 동점은 행 식별자로 끊는다.
+         */
+        order by o.seq, pr.attempt, pl.lot_no nulls first, pr.id`, [id, dayNo, worker]),
   };
 }

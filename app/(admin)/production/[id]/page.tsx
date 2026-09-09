@@ -54,6 +54,7 @@ interface PrintRow {
   printed_at: Date; printed_by_name: string;
   retrieved_at: Date | null; retrieve_reason: string | null;
   newer_count: number; day_no: number | null; worker_name: string | null;
+  work_order_id: string | null;
   worker_id: string | null; material_lot_id: string | null; equipment_id: string | null;
 }
 
@@ -168,7 +169,12 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
         `select v.id, v.kind, v.short_hash, v.seq, v.pages, v.printed_at,
                 v.printed_by_name, v.retrieved_at, v.retrieve_reason,
                 v.newer_count, v.day_no, v.worker_name,
-                v.worker_id, v.material_lot_id, v.equipment_id
+                /*
+                 * 열람 주소를 세우는 데 쓴다. work_order_id 를 **거르는 데만**
+                 * 쓰고 뽑지 않았더니 viewHref 가 전부 null 을 냈고, 인쇄 이력의
+                 * 보기가 통째로 "보기 없음" 이 되어 있었다 (2026-09-09).
+                 */
+                v.work_order_id, v.worker_id, v.material_lot_id, v.equipment_id
            from v_print_lookup v
           where v.work_order_id = $1 order by v.printed_at desc limit 40`, [id]),
     };

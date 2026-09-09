@@ -228,6 +228,65 @@ console.log('\n[7] 담긴 내용은 고쳐 쓰지 못한다');
   }
 }
 
+/* ── 8. 화면의 보기가 실제로 어딘가로 가는가 ─────────────────────────── */
+//
+// 여기까지는 전부 주소를 직접 쳐서 확인했다. 그래서 **화면의 보기 단추가 죽어
+// 있어도 다 통과했다** - 실제로 죽어 있었다. 배치 상세가 work_order_id 를 거르는
+// 데만 쓰고 뽑지 않아 viewHref 가 전부 null 을 냈고, 인쇄 이력 여섯 줄이 통째로
+// "보기 없음" 이었다 (2026-09-09).
+//
+// 사람이 누르는 자리에서 확인한다.
+console.log('\n[8] 화면의 보기');
+{
+  const b = await get(`/production/${woId}`, MGR);
+  const dead = (b.text.match(/보기 없음/g) ?? []).length;
+  const live = (b.text.match(/보기/g) ?? []).length - dead;
+  ok(dead === 0, '배치 상세에 죽은 보기가 없다', `"보기 없음" ${dead}개`);
+  ok(live > 0, '배치 상세에 살아 있는 보기가 있다', `${live}개`);
+
+  /* 그 주소가 실제로 열리는가 - 링크가 있다고 열리는 것은 아니다 */
+  const m = b.text.match(/보기/) ? await rows(
+    `select id, kind::text as kind, seq, work_order_id, day_no, worker_id,
+            material_lot_id, equipment_id
+       from v_print_lookup where work_order_id = $1 limit 1`, [woId]) : [];
+  if (m.length) {
+    const p = m[0];
+    const path = p.kind === 'DAY_RECORD'
+      ? `/print/day-record/${p.work_order_id}/${p.day_no}/${p.worker_id}?view=${p.seq}`
+      : `/print/${p.kind === 'COVER' ? 'cover'
+          : p.kind === 'WORK_ORDER' ? 'work-order'
+          : p.kind === 'LABEL_REQUEST' ? 'label-request'
+          : 'release-request'}/${p.work_order_id}?view=${p.seq}`;
+    const r = await get(path, MGR);
+    ok(r.status === 200 && r.text.includes('열람'), '그 주소가 열린다', `HTTP ${r.status}`);
+  }
+
+  const h = await v(
+    `select short_hash from v_print_lookup where work_order_id = $1 limit 1`, [woId]);
+  const f = await get(`/trace/verify?q=${h.slice(0, 6)}`, MGR);
+  ok(f.text.includes('그 회차 펼쳐 보기'), '인쇄물 조회에도 펼쳐 보기가 있다');
+}
+
+/* ── 9. 같은 자료를 두 번 읽어도 요약값이 같은가 ─────────────────────── */
+//
+// 재단 이후 공정은 제품 로트마다 한 줄씩이라 (공정, 회차) 가 동점이 된다.
+// 차례가 흔들리면 아무것도 안 바뀐 종이를 두고 "값이 다릅니다" 가 뜬다 (§8.5).
+console.log('\n[9] 나간 종이가 그때와 같다고 하는가');
+{
+  const papers = await rows(
+    `select work_order_id, day_no, worker_id, seq from v_print_lookup
+      where kind = 'DAY_RECORD' order by printed_at`);
+  let same = 0; let changed = 0;
+  for (const p of papers) {
+    const r = await get(
+      `/print/day-record/${p.work_order_id}/${p.day_no}/${p.worker_id}?view=${p.seq}`, MGR);
+    if (r.text.includes('그 종이에 찍힌 자료 그대로입니다')) same += 1;
+    else if (r.text.includes('자료가 바뀌었습니다')) changed += 1;
+  }
+  ok(changed === 0 && same === papers.length,
+     '제조기록서 전부가 그때 자료 그대로다', `그대로 ${same} · 바뀜 ${changed}`);
+}
+
 await c.end();
 console.log('\n' + '='.repeat(70));
 console.log(bad === 0 ? '전부 맞음' : `${bad}건 어긋남`);
