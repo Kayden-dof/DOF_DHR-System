@@ -132,6 +132,102 @@ console.log('\n[5] 나간 적 없는 것');
   }
 }
 
+/* ── 6. 출하 승인 요청서 (0105) ──────────────────────────────────────── */
+//
+// 이 양식만 담긴 내용이 주소에 있었고 대장에 없었다. 그래서 열람이 안 됐고,
+// 발행한 뒤에는 그 종이가 무엇을 요청했는지 시스템이 몰랐다.
+console.log('\n[6] 출하 승인 요청서');
+{
+  const lots = await rows(
+    `select pl.id, pl.lot_no, pl.qty_available
+       from product_lot pl
+      where pl.work_order_id = $1 and pl.qty_available > 0
+      order by pl.lot_no limit 2`, [woId]);
+
+  if (lots.length < 2) {
+    console.log('  건너뜀  요청할 잔여가 둘 이상인 배치가 없습니다');
+  } else {
+    /* 두 로트를 담아 한 장 발행한다 */
+    const selA = `${lots[0].id}:1,${lots[1].id}:2`;
+    const a = await get(`/print/release-request/${woId}?sel=${selA}`, MGR);
+    ok(a.status === 200, '두 로트를 담아 발행', `HTTP ${a.status}`);
+
+    const seqA = await v(
+      `select max(seq)::int from record_print
+        where kind = 'RELEASE_REQUEST' and work_order_id = $1`, [woId]);
+    const saved = await rows(
+      `select l.product_lot_id, l.qty from record_print_lot l
+         join record_print rp on rp.id = l.record_print_id
+        where rp.kind = 'RELEASE_REQUEST' and rp.work_order_id = $1 and rp.seq = $2
+        order by l.qty`, [woId, seqA]);
+    ok(saved.length === 2, '담긴 내용이 대장에 남았다', `${saved.length}줄`);
+    ok(Number(saved[0]?.qty) === 1 && Number(saved[1]?.qty) === 2, '수량이 그대로');
+
+    /* 열람은 주소 없이 그 회차를 펼친다 */
+    const before = await logCount();
+    const r = await get(`/print/release-request/${woId}?view=${seqA}`, MGR);
+    const after = await logCount();
+    ok(r.status === 200 && after === before, '열람이 대장을 안 건드린다',
+       `HTTP ${r.status} · ${before} → ${after}`);
+    ok(r.text.includes(lots[0].lot_no) && r.text.includes(lots[1].lot_no),
+       '담겼던 두 로트가 그대로 나온다');
+    ok(r.text.includes('인쇄 대장에 남지 않습니다'), '열람이라고 말한다');
+
+    /* 한 로트만 담아 **다른** 요청서를 낸다 */
+    const b = await get(`/print/release-request/${woId}?sel=${lots[0].id}:1`, MGR);
+    ok(b.status === 200, '다른 내용으로 한 장 더', `HTTP ${b.status}`);
+
+    /*
+     * 요청서 번호가 RR-{배치}-{회차} 이므로 회차가 오른 것은 **다른 종이**가
+     * 나갔다는 뜻이다. 앞 종이를 회수 대상으로 세면 안 된다.
+     */
+    const stale = await v(
+      `select newer_count::int from v_print_lookup
+        where kind = 'RELEASE_REQUEST' and work_order_id = $1 and seq = $2`, [woId, seqA]);
+    ok(Number(stale) === 0, '다른 요청서를 재출력으로 세지 않는다', `뒤에 ${stale}회`);
+
+    /* 같은 내용을 다시 뽑으면 그건 재출력이다 */
+    await get(`/print/release-request/${woId}?sel=${selA}`, MGR);
+    const real = await v(
+      `select newer_count::int from v_print_lookup
+        where kind = 'RELEASE_REQUEST' and work_order_id = $1 and seq = $2`, [woId, seqA]);
+    ok(Number(real) === 1, '같은 내용을 다시 뽑으면 재출력으로 센다', `뒤에 ${real}회`);
+  }
+}
+
+/* ── 7. 담긴 내용은 고쳐 쓰지 못한다 ─────────────────────────────────── */
+console.log('\n[7] 담긴 내용은 고쳐 쓰지 못한다');
+{
+  const line = await one(
+    `select record_print_id, product_lot_id, qty from record_print_lot limit 1`);
+  if (!line) { console.log('  건너뜀  담긴 줄이 없습니다'); }
+  else {
+    let blocked = false;
+    await c.query('begin');
+    try {
+      await c.query('set local role app_role');
+      await c.query(`select set_config('app.user_id', $1, true)`, [mgr]);
+      await c.query(
+        `update record_print_lot set qty = qty + 1
+          where record_print_id = $1 and product_lot_id = $2`,
+        [line.record_print_id, line.product_lot_id]);
+      await c.query('commit');
+    } catch { blocked = true; await c.query('rollback'); }
+    ok(blocked, '수량 고쳐 쓰기가 막힌다');
+
+    let delBlocked = false;
+    await c.query('begin');
+    try {
+      await c.query('set local role app_role');
+      await c.query(`select set_config('app.user_id', $1, true)`, [mgr]);
+      await c.query(`delete from record_print_lot where record_print_id = $1`,
+                    [line.record_print_id]);
+      await c.query('commit');
+    } catch { delBlocked = true; await c.query('rollback'); }
+    ok(delBlocked, '지우기가 막힌다');
+  }
+}
+
 await c.end();
 console.log('\n' + '='.repeat(70));
 console.log(bad === 0 ? '전부 맞음' : `${bad}건 어긋남`);

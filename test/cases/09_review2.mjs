@@ -410,4 +410,101 @@ export default [
       { ...BLOCKED, message: '아직 마감되지 않은' });
   },
 },
+
+/* ---------------------------------------------------------------------------
+   출하 승인 요청서 · 회차는 재발행 회차가 아니다 (0105)
+
+   요청서 번호가 `RR-{배치}-{인쇄회차}` 다. 회차가 오른다는 것은 **다른 요청서**가
+   나갔다는 뜻이지 앞 종이를 다시 뽑았다는 뜻이 아니다. 인쇄물 조회 화면이
+   앞 종이를 "뒤에 N회 재출력" 으로 세면, 손에 든 종이가 최신인지 묻는 자리에서
+   거짓을 말하게 된다.
+--------------------------------------------------------------------------- */
+{
+  id: 'RR-01', expect: '통과',
+  name: '다른 요청서는 앞 종이의 재출력으로 세지 않는다',
+  async run(t) {
+    const m = await master(t);
+    const wo = await newWorkOrder(t, m);
+    const a = await t.val(
+      `select seq from record_print_log('RELEASE_REQUEST', md5('r1') || md5('r1'), $1)`,
+      [wo.id]);
+    /* 담긴 로트가 다르면 자료 식별자가 다르다 */
+    await t.rows(
+      `select record_print_log('RELEASE_REQUEST', md5('r2') || md5('r2'), $1)`, [wo.id]);
+
+    const n = await t.val(
+      `select newer_count from v_print_lookup
+        where kind = 'RELEASE_REQUEST' and work_order_id = $1 and seq = $2`, [wo.id, a]);
+    t.eq(Number(n), 0, '뒤에 재출력');
+  },
+},
+
+{
+  id: 'RR-02', expect: '통과',
+  name: '같은 내용을 다시 뽑으면 재출력으로 센다',
+  async run(t) {
+    const m = await master(t);
+    const wo = await newWorkOrder(t, m);
+    const a = await t.val(
+      `select seq from record_print_log('RELEASE_REQUEST', md5('s') || md5('s'), $1)`,
+      [wo.id]);
+    await t.rows(
+      `select record_print_log('RELEASE_REQUEST', md5('s') || md5('s'), $1)`, [wo.id]);
+
+    const n = await t.val(
+      `select newer_count from v_print_lookup
+        where kind = 'RELEASE_REQUEST' and work_order_id = $1 and seq = $2`, [wo.id, a]);
+    t.eq(Number(n), 1, '뒤에 재출력');
+  },
+},
+
+{
+  id: 'RR-03', expect: '통과',
+  name: '제조기록서는 자료가 바뀌어도 뒤 종이가 앞 종이를 대신한다',
+  async run(t) {
+    const m = await master(t);
+    const wo = await newWorkOrder(t, m);
+    const a = await t.val(
+      `select seq from record_print_log('WORK_ORDER', md5('w1') || md5('w1'), $1)`,
+      [wo.id]);
+    /* 자료가 바뀌어 식별자가 달라진 채로 다시 뽑았다 */
+    await t.rows(
+      `select record_print_log('WORK_ORDER', md5('w2') || md5('w2'), $1)`, [wo.id]);
+
+    /*
+     * 여기서는 세야 한다. 대상(배치)이 문서 하나를 가리키므로 뒤 종이가 앞
+     * 종이를 대신한다. 0105 가 요청서만 갈라 본 것이 맞는지 여기서 되묻는다.
+     */
+    const n = await t.val(
+      `select newer_count from v_print_lookup
+        where kind = 'WORK_ORDER' and work_order_id = $1 and seq = $2`, [wo.id, a]);
+    t.eq(Number(n), 1, '뒤에 재출력');
+  },
+},
+
+{
+  id: 'RR-04', expect: '거부',
+  name: '이미 나간 종이에 담긴 내용은 고쳐 쓰지도 지우지도 못한다',
+  async run(t) {
+    const m = await master(t);
+    const wo = await newWorkOrder(t, m);
+    const lot = await t.val(
+      `select cut_product_lot($1,$2,10,0,current_date)`, [wo.id, m.fin]);
+    const print = await t.val(
+      `select id from record_print_log('RELEASE_REQUEST', md5('x') || md5('x'), $1)`,
+      [wo.id]);
+    await t.resolves(() => t.rows(
+      `select record_print_lots($1, array[$2]::uuid[], array[3]::int[])`, [print, lot]));
+
+    const q = await t.val(
+      `select qty from record_print_lot where record_print_id = $1`, [print]);
+    t.eq(Number(q), 3, '담긴 수량');
+
+    await t.rejects(() => t.rows(
+      `update record_print_lot set qty = 9 where record_print_id = $1`, [print]), BLOCKED);
+    await t.rejects(() => t.rows(
+      `delete from record_print_lot where record_print_id = $1`, [print]), BLOCKED);
+  },
+},
+
 ];

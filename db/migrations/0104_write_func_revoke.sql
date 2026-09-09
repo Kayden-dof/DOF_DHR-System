@@ -52,7 +52,8 @@ declare
     'make_solution',
     'copy_dmr_structure',
     'purge_demo_data',
-    'sync_po_status'
+    'sync_po_status',
+    'record_print_lots'
   ];
 begin
   if not exists (select 1 from pg_roles where rolname = 'app_readonly') then

@@ -148,6 +148,51 @@ interface LogArgs {
    * 않는다 - 아직 안 나간 것을 미리 보여 주는 자리가 아니다.
    */
   view?: boolean | number;
+
+  /**
+   * 그 종이에 담긴 제품 로트와 수량 (0105).
+   *
+   * 출하 승인 요청서가 쓴다. 한 장이 여러 로트를 담으므로 `productLotId` 로는
+   * 담기지 않고, 담기지 않으니 나중에 그 종이가 무엇을 요청했는지 알 수 없었다.
+   *
+   * **발행과 같은 트랜잭션에서 적힌다** - 종이 한 줄과 그 내용이 함께 서거나
+   * 함께 물러난다. 따로 적으면 대장에는 종이가 있는데 내용이 빈 줄이 생긴다.
+   */
+  lots?: { productLotId: string; qty: number }[];
+}
+
+/* ---------------------------------------------------------------------------
+   그 회차에 담겼던 제품 로트
+
+   출하 승인 요청서를 열람할 때 부른다. 0105 이전에 나간 종이는 담긴 내용이
+   대장에 없으므로 빈 map 이 나온다 - 그때는 지어내지 않고 그렇다고 말한다.
+--------------------------------------------------------------------------- */
+export async function pastPrintLots(a: {
+  actorId: string;
+  kind: keyof typeof KIND_LABEL;
+  workOrderId?: string | null;
+  seq?: number | null;
+}): Promise<Map<string, number>> {
+  /*
+   * 종이 한 장을 먼저 고르고 그 장의 줄만 읽는다.
+   *
+   * 회차를 안 주면 마지막 회차다. 여러 회차의 줄을 한꺼번에 읽어 앞에서부터
+   * 추리면, 그 회차에 없던 로트가 옛 회차에서 섞여 들어온다.
+   */
+  const rows = await withActor(a.actorId, (db) =>
+    db.rows<{ product_lot_id: string; qty: number }>(
+      `select l.product_lot_id, l.qty
+         from record_print_lot l
+        where l.record_print_id = (
+          select rp.id from record_print rp
+           where rp.kind = $1::print_kind
+             and rp.work_order_id is not distinct from $2::uuid
+             and ($3::int is null or rp.seq = $3::int)
+           order by rp.seq desc limit 1)`,
+      [a.kind, a.workOrderId ?? null, a.seq ?? null]),
+    { readOnly: true, reason: '인쇄물 열람' });
+
+  return new Map(rows.map((r) => [r.product_lot_id, r.qty]));
 }
 
 /* ---------------------------------------------------------------------------
@@ -173,10 +218,9 @@ export async function printGate(view: boolean) {
 
    `record_print` 한 줄이 가리키는 대상만으로 주소가 서는 양식에만 붙는다.
 
-   **출하 승인 요청서는 서지 않는다.** 그 종이에 무엇이 담겼는지가 주소의
-   `sel` 에만 있었고 대장에는 남지 않는다 - 어느 제품 로트를 몇 개씩 올렸는지가
-   기록되지 않는다. 지어내면 그때 나간 종이와 다른 것을 보여 주게 되므로,
-   되살릴 수 없다고 말한다.
+   출하 승인 요청서도 선다 (0105). 담긴 제품 로트와 수량이 대장에 남게 되어,
+   그 종이가 무엇을 요청했는지를 주소가 아니라 기록에서 되살린다. 0105 이전에
+   나간 종이는 그 줄이 없으므로 화면이 그렇다고 말한다.
 
    부르는 자리가 둘이다 (배치 상세의 인쇄 이력 · 인쇄물 조회). 셈을 여기 둔다.
 --------------------------------------------------------------------------- */
@@ -205,8 +249,11 @@ export function viewHref(p: PrintTarget): string | null {
       return p.material_lot_id ? `/print/label/${p.material_lot_id}${v}` : null;
     case 'EQUIPMENT_LOG':
       return p.equipment_id ? `/print/equipment-log/${p.equipment_id}${v}` : null;
+    case 'RELEASE_REQUEST':
+      /* 담긴 로트는 화면이 대장에서 읽는다. 주소에 실어 나르지 않는다 (0105) */
+      return p.work_order_id ? `/print/release-request/${p.work_order_id}${v}` : null;
     default:
-      return null;   // RELEASE_REQUEST
+      return null;
   }
 }
 
@@ -341,19 +388,32 @@ export async function logPrint(a: LogArgs): Promise<PrintMeta> {
     };
   }
 
-  const row = await withActor(a.actorId, (db) =>
-    a.lockDay
-      ? db.one<{ seq: number; printed_at: Date }>(
-          `select seq, printed_at from print_day_record($1,$2,$3,$4,$5)`,
-          [a.workOrderId, a.dayNo, a.workerId, hash, a.pages ?? 1])
-      : db.one<{ seq: number; printed_at: Date }>(
-          `select seq, printed_at from record_print_log(
-             $1::print_kind, $2, $3, $4, $5, $6, $7, $8, $9)`,
-          [a.kind, hash, a.workOrderId ?? null, a.productLotId ?? null,
-           a.dayNo ?? null, a.workerId ?? null, a.materialLotId ?? null,
-           a.pages ?? 1, a.equipmentId ?? null]),
-    { readOnly, reason: '인쇄' },
-  );
+  const row = await withActor(a.actorId, async (db) => {
+    if (a.lockDay) {
+      return db.one<{ id: string; seq: number; printed_at: Date }>(
+        `select id, seq, printed_at from print_day_record($1,$2,$3,$4,$5)`,
+        [a.workOrderId, a.dayNo, a.workerId, hash, a.pages ?? 1]);
+    }
+    const r = await db.one<{ id: string; seq: number; printed_at: Date }>(
+      `select id, seq, printed_at from record_print_log(
+         $1::print_kind, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [a.kind, hash, a.workOrderId ?? null, a.productLotId ?? null,
+       a.dayNo ?? null, a.workerId ?? null, a.materialLotId ?? null,
+       a.pages ?? 1, a.equipmentId ?? null]);
+
+    /*
+     * 그 종이에 담긴 제품 로트를 **같은 트랜잭션에서** 적는다 (0105).
+     *
+     * 따로 적으면 대장에는 종이가 있는데 담긴 내용이 빈 줄이 생긴다. 그 줄은
+     * 나중에 채울 수 없다 - 무엇이 담겼는지 아는 것은 발행하는 이 순간뿐이다.
+     */
+    if (r && a.lots?.length) {
+      await db.rows(
+        `select record_print_lots($1::uuid, $2::uuid[], $3::int[])`,
+        [r.id, a.lots.map((l) => l.productLotId), a.lots.map((l) => l.qty)]);
+    }
+    return r;
+  }, { readOnly, reason: '인쇄' });
 
   return {
     kind: a.kind,

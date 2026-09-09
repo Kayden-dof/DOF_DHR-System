@@ -240,6 +240,8 @@ const WRITE_FUNCS = [
   'purge_demo_data()',
   /* 0102 · 발주 상태를 쓴다. 자재 로트 트리거가 부른다 */
   'sync_po_status(uuid)',
+  /* 0105 · 인쇄물에 담긴 제품 로트를 적는다 */
+  'record_print_lots(uuid, uuid[], int[])',
 ];
 const leaky = [];
 for (const f of WRITE_FUNCS) {

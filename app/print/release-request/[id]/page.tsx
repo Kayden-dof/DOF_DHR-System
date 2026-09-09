@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import { requireUser } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import { fmtDate } from '@/lib/fmt';
-import { logPrint, printGate, viewParam } from '@/lib/print';
+import { logPrint, printGate, viewParam, pastPrintLots } from '@/lib/print';
 import Denied from '@/components/denied';
 import PrintFrame from '@/components/print-frame';
 
@@ -67,7 +67,45 @@ export default async function ReleaseRequestSheet({
     );
   }
   const user = await requireUser();
-  const sel = parseSel(sp.sel);
+
+  /*
+   * 무엇이 담겼는가를 어디서 읽는가 (0105).
+   *
+   *   발행 - 화면에서 고른 것이 주소의 sel 로 온다
+   *   열람 - **대장에서 읽는다.** 그때 나간 종이가 무엇을 요청했는지는
+   *          record_print_lot 에 남아 있다
+   *
+   * 열람에서 주소를 다시 읽지 않는다. 읽으면 주소를 손으로 고쳐 그때와 다른
+   * 종이를 "그때 그것" 으로 보이게 할 수 있다.
+   */
+  const sel = view
+    ? await pastPrintLots({
+        actorId: user.id, kind: 'RELEASE_REQUEST', workOrderId: id,
+        seq: typeof view === 'number' ? view : null,
+      })
+    : parseSel(sp.sel);
+
+  /*
+   * 열람인데 담긴 내용이 없다 - 0105 이전에 나간 종이다. 지어내지 않는다.
+   * 그때 무엇을 요청했는지는 종이에만 있다.
+   */
+  if (view && sel.size === 0) {
+    return (
+      <div className="mx-auto max-w-[210mm] px-4 py-10">
+        <div className="card px-4 py-6">
+          <h1 className="text-sm font-bold text-ink">출하 승인 요청서</h1>
+          <p className="mt-2 text-sm leading-relaxed text-ink">
+            이 회차에 무엇이 담겼는지가 대장에 남아 있지 않습니다.
+          </p>
+          <p className="mt-1.5 text-xs leading-relaxed text-muted">
+            담긴 제품 로트와 수량을 기록하기 시작한 것은 2026-09-09 부터입니다
+            (0105). 그 전에 나간 종이는 종이로 확인하십시오.
+          </p>
+          <a href="/shipping" className="btn-ghost mt-4 h-9">돌아가기</a>
+        </div>
+      </div>
+    );
+  }
   if (sel.size === 0) notFound();
 
   const d = await withActor(user.id, async (db) => {
@@ -109,6 +147,11 @@ export default async function ReleaseRequestSheet({
     actorId: user.id, actorName: user.full_name, kind: 'RELEASE_REQUEST',
     workOrderId: id,
     payload: { head, rows: rows.map((r) => ({ lot: r.lot_no, qty: sel.get(r.id) })) },
+    /*
+     * 그 종이에 담긴 것을 대장에도 남긴다 (0105). 전에는 주소에만 있어서,
+     * 발행하고 나면 그 요청서가 무엇을 요청했는지 시스템이 몰랐다.
+     */
+    lots: rows.map((r) => ({ productLotId: r.id, qty: sel.get(r.id) ?? 0 })),
   });
 
   /*

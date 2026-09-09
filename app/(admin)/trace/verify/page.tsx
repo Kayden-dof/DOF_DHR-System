@@ -184,7 +184,7 @@ export default async function VerifyPage({
                         그 회차 펼쳐 보기
                       </Link>
                     : <p className="text-xs text-muted">
-                        이 양식은 담긴 내용이 대장에 남지 않아 펼칠 수 없습니다.
+                        이 종이는 가리키는 대상이 대장에 남지 않아 펼칠 수 없습니다.
                         종이로 확인하십시오.
                       </p>}
 

@@ -104,6 +104,55 @@ const MUTATIONS = [
             to app_readonly`,
     cases: ['VW-02'] },
 
+  /*
+   * 0105 이전으로 되돌린다 - 요청서 회차를 다른 양식과 같은 셈으로 본다.
+   *
+   * 그러면 각자 번호를 가진 다른 요청서가 앞 종이의 "재출력" 으로 세어져,
+   * 손에 든 종이가 최신인지 묻는 자리에서 거짓을 말하게 된다.
+   */
+  { id: 'M-RRSEQ', rule: '요청서 회차는 재발행 회차가 아니다 (0105)',
+    sql: `create or replace view v_print_lookup as
+          select rp.id, rp.kind::text as kind,
+                 lower(left(rp.data_hash, 12)) as short_hash, rp.data_hash,
+                 rp.seq, rp.pages, rp.printed_at, rp.retrieved_at, rp.retrieve_reason,
+                 u.full_name as printed_by_name, rp.work_order_id,
+                 wo.batch_no, wo.wo_no, rp.day_no, w.full_name as worker_name,
+                 rp.product_lot_id, pl.lot_no as product_lot_no,
+                 rp.material_lot_id, ml.lot_no as material_lot_no,
+                 (select count(*)::int from record_print n
+                   where n.kind = rp.kind
+                     and n.work_order_id   is not distinct from rp.work_order_id
+                     and n.product_lot_id  is not distinct from rp.product_lot_id
+                     and n.day_no          is not distinct from rp.day_no
+                     and n.worker_id       is not distinct from rp.worker_id
+                     and n.material_lot_id is not distinct from rp.material_lot_id
+                     and n.equipment_id    is not distinct from rp.equipment_id
+                     and n.seq > rp.seq) as newer_count,
+                 (select max(n.seq) from record_print n
+                   where n.kind = rp.kind
+                     and n.work_order_id   is not distinct from rp.work_order_id
+                     and n.product_lot_id  is not distinct from rp.product_lot_id
+                     and n.day_no          is not distinct from rp.day_no
+                     and n.worker_id       is not distinct from rp.worker_id
+                     and n.material_lot_id is not distinct from rp.material_lot_id
+                     and n.equipment_id    is not distinct from rp.equipment_id) as latest_seq,
+                 rp.equipment_id, eq.code as equipment_code, eq.name as equipment_name,
+                 rp.worker_id
+            from record_print rp
+            join app_user u on u.id = rp.printed_by
+            left join work_order wo   on wo.id = rp.work_order_id
+            left join product_lot pl  on pl.id = rp.product_lot_id
+            left join material_lot ml on ml.id = rp.material_lot_id
+            left join app_user w      on w.id  = rp.worker_id
+            left join equipment eq    on eq.id = rp.equipment_id`,
+    cases: ['RR-01'] },
+
+  /* 담긴 내용을 고쳐 쓰는 문을 연다 */
+  { id: 'M-RRFROZEN', rule: '나간 종이에 담긴 내용은 고쳐 쓰지 못한다 (0105)',
+    sql: `drop trigger if exists record_print_lot_frozen on record_print_lot;
+          grant update, delete on record_print_lot to app_role`,
+    cases: ['RR-04'] },
+
   { id: 'M-MLLOCK', rule: '자재 로트에서 계보가 걸린 넷은 잠긴다 (0090)',
     sql: `drop trigger if exists material_lot_coa_once on material_lot`,
     cases: ['ML-02', 'RV2-10'] },
