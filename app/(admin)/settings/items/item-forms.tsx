@@ -46,7 +46,7 @@ export function NewItemForm({ materialOnly = false }: { materialOnly?: boolean }
         <div>
           <label className="label" htmlFor="code">품목 코드</label>
           <input id="code" name="code" required autoComplete="off"
-                 placeholder="품목 코드" className="input font-mono" />
+                 className="input font-mono" />
         </div>
         <div className="lg:col-span-2">
           <label className="label" htmlFor="name">품목명</label>

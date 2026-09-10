@@ -71,8 +71,9 @@ export function NewDeviceMaster({ items }: { items: ItemOption[] }) {
             허가 번호 <span className="text-faint">(인증 · 신고 번호)</span>
           </label>
           <input id={`${uid}-license_no`} name="license_no" autoComplete="off"
-                 placeholder="서면 허가증에 적힌 번호" className="input font-mono" />
+                 className="input font-mono" />
           <p className="mt-1 text-xs leading-relaxed text-faint">
+            서면 허가증에 적힌 번호를 그대로 옮겨 적습니다.{' '}
             <b className="text-ink">라벨요청서와 편철 표지에 인쇄됩니다.</b>{' '}
             변경허가가 나면 새 개정본으로 등록하십시오 - 지시가 나간 뒤에는
             바꿀 수 없습니다.

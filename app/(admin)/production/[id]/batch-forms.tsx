@@ -511,7 +511,7 @@ export function NonconformityForm({ lot, woId, today, ops }: {
               <div className="sm:col-span-2">
                 <label className="label" htmlFor={`${uid}-concession_doc_no`}>특채 기록지 문서 코드 (필수)</label>
                 <input id={`${uid}-concession_doc_no`} name="concession_doc_no" required autoComplete="off"
-                       placeholder="예: QC-CON-2026-004" className="input font-mono" />
+                       placeholder="QC-CON-2026-004" className="input font-mono" />
               </div>
               <div>
                 <label className="label" htmlFor={`${uid}-approved_by`}>서면 승인자 (필수)</label>
@@ -636,7 +636,7 @@ export function WipNonconformityForm({ woId, today, ops, sheets }: {
               <div className="sm:col-span-2">
                 <label className="label" htmlFor={`${uid}-concession_doc_no`}>특채 기록지 문서 코드 (필수)</label>
                 <input id={`${uid}-concession_doc_no`} name="concession_doc_no" required autoComplete="off"
-                       placeholder="예: QC-CON-2026-004" className="input font-mono" />
+                       placeholder="QC-CON-2026-004" className="input font-mono" />
               </div>
               <div>
                 <label className="label" htmlFor={`${uid}-approved_by`}>서면 승인자 (필수)</label>
