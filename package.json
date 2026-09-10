@@ -32,6 +32,7 @@
     "set-pin": "node scripts/set-pin.mjs",
     "schema:baseline": "node --env-file=.env.local scripts/schema-baseline.mjs",
     "settings": "node scripts/settings-cover.mjs",
+    "font": "node scripts/font-check.mjs",
     "second": "node --env-file=.env.local scripts/seed-second.mjs",
     "volume": "node --env-file=.env.local scripts/volume-check.mjs"
   },

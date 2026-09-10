@@ -101,8 +101,8 @@ function RecordTable({ rows, title }: { rows: RecRow[]; title: string }) {
                     */}
                   {r.product_lot_no && (
                     <div className="mt-0.5">
-                      <div className="font-mono text-[9px] font-bold">
-                        제조번호 {r.product_lot_no}
+                      <div className="text-[9px] font-bold">
+                        제조번호 <span className="font-mono">{r.product_lot_no}</span>
                       </div>
                       {r.product_item_name && (
                         <div className="text-[9px]">

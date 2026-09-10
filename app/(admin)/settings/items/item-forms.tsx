@@ -250,6 +250,43 @@ export function ItemRowView({ it, suppliers }: {
                        defaultValue={it.shelf_life_months ?? ''} className="input tnum" />
               </div>
 
+              {/*
+                * 단위는 로트가 들어오기 전에만 고친다. 재고 · 불출 · 단가가
+                * 전부 사용 단위 기준의 숫자라, 로트가 있는 품목의 단위를
+                * 바꾸면 이미 적힌 숫자의 뜻이 바뀐다 (§4.2 · §2.1).
+                */}
+              {it.lot_count === 0 ? (
+                <>
+                  <div>
+                    <label className="label" htmlFor={`${uid}-purchase_uom`}>구매 단위</label>
+                    <input id={`${uid}-purchase_uom`} name="purchase_uom" required
+                           defaultValue={it.purchase_uom} autoComplete="off" className="input" />
+                  </div>
+                  <div>
+                    <label className="label" htmlFor={`${uid}-usage_uom`}>사용 단위</label>
+                    <input id={`${uid}-usage_uom`} name="usage_uom" required
+                           defaultValue={it.usage_uom} autoComplete="off" className="input" />
+                  </div>
+                  <div>
+                    <label className="label" htmlFor={`${uid}-conversion`}>환산 계수</label>
+                    <input id={`${uid}-conversion`} name="conversion" type="number"
+                           step="any" min="0.0001" defaultValue={Number(it.conversion)}
+                           className="input tnum" />
+                  </div>
+                </>
+              ) : (
+                <div className="sm:col-span-2 rounded-md bg-canvas px-3 py-2 text-xs leading-relaxed text-muted">
+                  단위는 <b className="text-ink">
+                    {it.purchase_uom === it.usage_uom
+                      ? it.usage_uom
+                      : `${it.purchase_uom} → ${it.usage_uom} (x${Number(it.conversion)})`}
+                  </b>이고 더 이상 고칠 수 없습니다.
+                  이 품목으로 들어온 로트가 {it.lot_count}건 있고, 재고 · 불출 · 단가가
+                  모두 사용 단위 기준의 숫자로 적혀 있습니다 - 단위를 바꾸면 이미
+                  적힌 숫자의 뜻이 바뀝니다.
+                </div>
+              )}
+
               <label className="flex items-center gap-2 self-end pb-2 text-sm text-ink">
                 <input type="checkbox" name="is_active" defaultChecked={it.is_active}
                        className="size-4 accent-brand" />

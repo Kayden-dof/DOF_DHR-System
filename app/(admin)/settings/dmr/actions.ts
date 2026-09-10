@@ -548,6 +548,124 @@ export async function addTier(_p: FormState, form: FormData): Promise<FormState>
   }
 }
 
+/* ---------------------------------------------------------------------------
+   자재 구성표 붙여넣기 (사용자 요청 2026-09-10)
+
+   공정은 한 번에 넣는데 자재 구성표는 한 줄씩이었다. DX2401 은 자재가 열 몇
+   줄이고 장입 구간까지 세면 서른 줄에 가깝다. 제품표준서 복사가 있으나 첫
+   등록에는 복사할 원본이 없다.
+
+   ── 한 줄에 자재 하나. 구간은 그 줄 안에 ─────────────────────────────────
+       공정코드 | 품목코드 | 기준 | 값
+
+       WS-DX2401-01 | RM-007 | 구간 | 1-10:292.2, 11-30:584.4
+       WS-DX2401-08 | PM-002 | 개당 | 1
+       WS-DX2401-09 | PM-009 | 구간 |
+
+   마지막처럼 구간을 비워 두면 자재만 걸리고 소요량은 뒤에 채운다. 작업지시서는
+   소요량이 없는 줄을 빼고 인쇄하므로 종이에 빈칸이 나가지 않는다.
+
+   ── 코드로 맞춘다 ────────────────────────────────────────────────────────
+   화면에서 고르는 대신 종이에 적힌 코드를 그대로 친다. 모르는 코드는 넣지
+   않고 그 코드를 말한다 - 짐작해서 가까운 것을 고르지 않는다.
+--------------------------------------------------------------------------- */
+export async function bulkBom(_p: FormState, form: FormData): Promise<FormState> {
+  try {
+    const me = await admin();
+    const dm = String(form.get('device_master_id') ?? '');
+    const raw = String(form.get('bom') ?? '');
+
+    type Tier = { min: number; max: number | null; qty: number };
+    const rows: { opCode: string; itemCode: string; basis: string;
+                  per: number | null; tiers: Tier[] }[] = [];
+    const bad: string[] = [];
+
+    for (const line of raw.split(new RegExp("\\r?\\n"))) {
+      const t = line.trim();
+      if (!t || t.startsWith('#')) continue;
+      const cell = t.split(new RegExp("\\s*[\\|\\t]\\s*")).map((x) => x.trim());
+      if (cell.length < 3 || !cell[0] || !cell[1]) { bad.push(t); continue; }
+
+      const b = cell[2];
+      const basis = (b === '구간' || b.toUpperCase() === 'SHEET_TIER') ? 'SHEET_TIER'
+                  : (b === '개당' || b.toUpperCase() === 'PER_UNIT') ? 'PER_UNIT'
+                  : null;
+      if (!basis) { bad.push(t); continue; }
+
+      const val = (cell[3] ?? '').trim();
+
+      if (basis === 'PER_UNIT') {
+        const per = Number(val);
+        if (!Number.isFinite(per) || per <= 0) { bad.push(t); continue; }
+        rows.push({ opCode: cell[0], itemCode: cell[1], basis, per, tiers: [] });
+        continue;
+      }
+
+      /* 구간은 `1-10:292.2, 11-:584.4` 꼴이다. 뒤 칸이 비면 상한이 없다 */
+      const tiers: Tier[] = [];
+      let ok = true;
+      if (val !== '') {
+        for (const part of val.split(',')) {
+          const m = part.trim().match(
+            new RegExp("^(\\d+)\\s*-\\s*(\\d*)\\s*:\\s*([0-9.]+)$"));
+          if (!m) { ok = false; break; }
+          const min = Number(m[1]);
+          const max = m[2] === '' ? null : Number(m[2]);
+          const qty = Number(m[3]);
+          if (!(min > 0) || !(qty > 0) || (max !== null && max < min)) { ok = false; break; }
+          tiers.push({ min, max, qty });
+        }
+      }
+      if (!ok) { bad.push(t); continue; }
+      rows.push({ opCode: cell[0], itemCode: cell[1], basis, per: null, tiers });
+    }
+
+    if (bad.length > 0) {
+      return { error: `읽을 수 없는 줄이 있습니다: ${bad.slice(0, 2).join(' / ')}` +
+        (bad.length > 2 ? ` 외 ${bad.length - 2}줄` : '') };
+    }
+    if (rows.length === 0) return { error: '자재를 한 줄 이상 입력하십시오' };
+
+    // 한 트랜잭션이다. 한 줄이라도 거부되면 전부 되돌아간다
+    await withActor(me.id, async (db) => {
+      const ops = await db.rows<{ id: string; code: string }>(
+        `select id, code from dmr_operation where device_master_id = $1`, [dm]);
+      const items = await db.rows<{ id: string; code: string }>(
+        `select id, code from item where is_active`);
+      const opMap = new Map(ops.map((o) => [o.code, o.id]));
+      const itemMap = new Map(items.map((i) => [i.code, i.id]));
+
+      for (const r of rows) {
+        const opId = opMap.get(r.opCode);
+        if (!opId) throw new Error(`이 제품표준서에 없는 공정 코드입니다: ${r.opCode}`);
+        const itemId = itemMap.get(r.itemCode);
+        if (!itemId) throw new Error(`등록되지 않은 품목 코드입니다: ${r.itemCode}`);
+
+        const bomId = (await db.val<string>(
+          `insert into dmr_bom (operation_id, component_item_id, basis, qty_per_unit)
+           values ($1,$2,$3::qty_basis,$4) returning id`,
+          [opId, itemId, r.basis, r.per]))!;
+
+        for (const t of r.tiers) {
+          await db.rows(
+            `insert into dmr_bom_tier (dmr_bom_id, min_sheets, max_sheets, qty)
+             values ($1,$2,$3,$4)`, [bomId, t.min, t.max, t.qty]);
+        }
+      }
+    });
+
+    path(dm);
+    const tierCount = rows.reduce((n, r) => n + r.tiers.length, 0);
+    return {
+      ok: true,
+      message: `자재 ${rows.length}건`
+        + (tierCount > 0 ? ` · 장입 구간 ${tierCount}건` : '') + '을 넣었습니다.',
+    };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
 /**
  * 개정 사유 (비고).
  *

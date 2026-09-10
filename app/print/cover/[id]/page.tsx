@@ -440,8 +440,14 @@ export default async function CoverSheet({ params, searchParams }: {
                 ...(concessions.length > 0 ? [{
                   name: '특채 기록지 (품질팀 발행)',
                   fact: (
-                    <span className="font-mono">
-                      {concessions.map((c) => `${c.concession_doc_no} (${c.qty}개)`).join(' · ')}
+                    <span>
+                      {concessions.map((c, i) => (
+                        <span key={c.concession_doc_no}>
+                          {i > 0 ? ' · ' : ''}
+                          <span className="font-mono">{c.concession_doc_no}</span>
+                          {' ('}{c.qty}{'개)'}
+                        </span>
+                      ))}
                     </span>
                   ),
                   pages: String(concessions.length),

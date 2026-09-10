@@ -96,7 +96,7 @@ export default function AmendLotForm({ lot }: { lot: AmendLot }) {
             <div>
               <label className="label" htmlFor={`${uid}-band`}>두께 구간</label>
               <input id={`${uid}-band`} name="thickness_band" autoComplete="off"
-                     defaultValue={lot.thickness_band ?? ''} placeholder="예: 0510"
+                     defaultValue={lot.thickness_band ?? ''} placeholder="0510"
                      className="input font-mono" />
             </div>
             <div>

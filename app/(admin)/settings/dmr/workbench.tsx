@@ -6,7 +6,7 @@ import { Panel, Empty, Tag, Field } from '@/components/ui';
 import {
   NewDeviceMaster, VerifyForm, AddOperationForm, OperationCard, ExpectedUnitsForm,
   SamplePlanForm, type SampleTier,
-  ProductCodeForm, OperationSetForm, DmrNoteForm, DmrLimitsForm,
+  ProductCodeForm, OperationSetForm, BomSetForm, DmrNoteForm, DmrLimitsForm,
   type OperationRow, type ItemOption,
 } from './dmr-forms';
 
@@ -254,6 +254,13 @@ export async function DmrWorkbench({
                 )}
                 {editable && (
                   <AddOperationForm dm={dm.id} nextSeq={(d.operations.at(-1)?.seq ?? 0) + 1} />
+                )}
+                {/*
+                  * 공정이 서면 자재 구성표를 한 번에 넣는다. 한 줄씩 열 몇 번
+                  * 누르는 대신이고, 공정 흐름 적기와 같은 자리에 둔다.
+                  */}
+                {editable && d.operations.length > 0 && (
+                  <BomSetForm dm={dm.id} opCodes={d.operations.map((o) => o.code)} />
                 )}
               </Panel>
 

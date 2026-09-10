@@ -40,7 +40,9 @@ export default function ErrorScreen({
           </pre>
         )}
         {error.digest && (
-          <p className="mt-2 font-mono text-xs text-faint">식별자 {error.digest}</p>
+          <p className="mt-2 text-xs text-faint">
+            식별자 <span className="font-mono">{error.digest}</span>
+          </p>
         )}
 
         <div className="mt-7 flex flex-wrap gap-2">

@@ -123,8 +123,38 @@ export async function updateItem(_p: FormState, form: FormData): Promise<FormSta
   try {
     const me = await admin();
     const id = String(form.get('id') ?? '');
-    await withActor(me.id, (db) =>
-      db.rows(
+    await withActor(me.id, async (db) => {
+      /*
+       * 단위와 환산 계수는 **로트가 하나라도 들어오면 잠근다** (사용자 요청
+       * 2026-09-10).
+       *
+       * 등록할 때만 받고 뒤로는 못 고치게 두었더니, 셋업에서 단위를 잘못
+       * 넣으면 빠져나올 길이 없었다 - 지울 수도 없고(S03) 고칠 수도 없어
+       * 비활성으로 내리고 새 코드로 다시 만드는 수밖에 없었다.
+       *
+       * 그렇다고 아무 때나 열 수는 없다. 재고 · 불출 · 단가가 전부 사용
+       * 단위 기준의 숫자로 적혀 있어서(§4.2), 로트가 있는 품목의 단위를
+       * 바꾸면 **이미 적힌 숫자의 뜻이 바뀐다.** 그것은 적힌 사실을 고쳐
+       * 쓰는 일이다 (§2.1).
+       *
+       * 그래서 제품표준서가 "지시가 나가면 잠근다" 로 가른 것과 같은 자리에
+       * 선을 긋는다 - 로트 0건이면 열고, 하나라도 있으면 닫는다.
+       */
+      const locked = ((await db.val<number>(
+        `select count(*)::int from material_lot where item_id = $1`, [id])) ?? 0) > 0;
+
+      const uom = (k: string) => {
+        if (locked) return null;
+        const v = String(form.get(k) ?? '').trim();
+        return v === '' ? null : v;
+      };
+      const conv = (() => {
+        if (locked) return null;
+        const n = num(form.get('conversion'));
+        return n !== null && Number.isFinite(n) && n > 0 ? n : null;
+      })();
+
+      await db.rows(
         /*
          * 기본 공급자 (6차 감사 N7). 사양 §4.2 에 있는 열인데 화면에 칸이
          * 없었고 아무도 읽지 않았다 - 발주 화면이 공급자를 미리 골라 주지
@@ -132,14 +162,18 @@ export async function updateItem(_p: FormState, form: FormData): Promise<FormSta
          */
         `update item set name = $2, min_stock = $3, lead_days = $4,
                          shelf_life_months = $5, is_active = $6,
-                         default_supplier_id = $7
+                         default_supplier_id = $7,
+                         purchase_uom = coalesce($8, purchase_uom),
+                         usage_uom    = coalesce($9, usage_uom),
+                         conversion   = coalesce($10, conversion)
           where id = $1`,
         [id, String(form.get('name') ?? '').trim(),
          num(form.get('min_stock')), num(form.get('lead_days')),
          num(form.get('shelf_life_months')), form.get('is_active') === 'on',
-         String(form.get('default_supplier_id') ?? '').trim() || null],
-      ),
-    );
+         String(form.get('default_supplier_id') ?? '').trim() || null,
+         uom('purchase_uom'), uom('usage_uom'), conv],
+      );
+    });
     revalidatePath('/settings/items');
     return { ok: true, message: '품목을 수정했습니다.' };
   } catch (e) {

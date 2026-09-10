@@ -102,7 +102,7 @@ export default async function VerifyPage({
           defaultValue={sp.q ?? ''}
           autoComplete="off"
           autoFocus
-          placeholder="자료 식별자 (예: 7f2dbdb9a018)"
+          placeholder="7f2dbdb9a018"
           className="input flex-1 font-mono uppercase"
         />
         <button className="btn-primary px-6">찾기</button>

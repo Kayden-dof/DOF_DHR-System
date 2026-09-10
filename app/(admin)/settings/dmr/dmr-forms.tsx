@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useState, useId } from 'react';
+import { useActionState, useState, useId, useEffect } from 'react';
 import type { FormState } from '@/lib/forms';
 import { Msg, Tag } from '@/components/ui';
 import { Dialog, useDialog } from '@/components/dialog';
@@ -8,7 +8,7 @@ import {
   createDeviceMaster, verifyDeviceMaster, addOperation, addBom, addTier, setExpectedUnits, setProductCode,
   addOperationsBulk, copyDmr, createProduct, addSampleTier, setSampleBasis,
   setTypicalDay, setDmrNote, setDmrLimits,
-  updateOperation, updateBom, updateTier,
+  updateOperation, updateBom, updateTier, bulkBom,
 } from './actions';
 import { linkOperation } from '../../equipment/actions';
 
@@ -53,7 +53,7 @@ export function NewDeviceMaster({ items }: { items: ItemOption[] }) {
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <label className="label" htmlFor={`${uid}-product_code`}>제품 코드</label>
-          <input id={`${uid}-product_code`} name="product_code" required placeholder="제품 관리 코드" autoComplete="off"
+          <input id={`${uid}-product_code`} name="product_code" required autoComplete="off"
                  className="input font-mono" />
         </div>
         <div>
@@ -310,7 +310,7 @@ export function AddOperationForm({ dm, nextSeq }: { dm: string; nextSeq: number 
         </div>
         <div>
           <label className="label" htmlFor={`${uid}-code`}>공정 코드</label>
-          <input id={`${uid}-code`} name="code" required placeholder="공정 코드" autoComplete="off"
+          <input id={`${uid}-code`} name="code" required autoComplete="off"
                  className="input font-mono" />
         </div>
         <div className="lg:col-span-2">
@@ -1014,7 +1014,7 @@ export function ProductCodeForm({ id, code, name, itemCode, license }: {
       <input type="hidden" name="id" value={id} />
       <div className="w-40">
         <label className="label" htmlFor={`${uid}-product_code`}>제품 코드 (관리 코드)</label>
-        <input id={`${uid}-product_code`} name="product_code" defaultValue={code ?? ''} placeholder="제품 관리 코드"
+        <input id={`${uid}-product_code`} name="product_code" defaultValue={code ?? ''}
                autoComplete="off" className="input h-9 font-mono text-xs" />
       </div>
       <div className="w-56">
@@ -1023,9 +1023,10 @@ export function ProductCodeForm({ id, code, name, itemCode, license }: {
                autoComplete="off" className="input h-9 text-xs" />
       </div>
       <div className="w-52">
-        <label className="label" htmlFor={`${uid}-license_no`}>허가 번호</label>
+        <label className="label" htmlFor={`${uid}-license_no`}>
+          허가 번호 <span className="text-faint">(인증 · 신고 번호)</span>
+        </label>
         <input id={`${uid}-license_no`} name="license_no" defaultValue={license ?? ''}
-               placeholder="인증 · 신고 번호"
                autoComplete="off" className="input h-9 font-mono text-xs" />
       </div>
       <button type="submit" disabled={pending} className="btn-ghost h-9 px-3 text-xs">
@@ -1051,6 +1052,65 @@ export function ProductCodeForm({ id, code, name, itemCode, license }: {
      흐름 적기   한 줄에 공정 하나. 엑셀에서 붙여 넣어도 된다
      복사        이미 만들어 둔 표준서의 구조를 통째로 가져온다
 --------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------
+   자재 구성표 붙여넣기 (사용자 요청 2026-09-10)
+
+   공정 흐름 적기와 같은 자리다. 다른 점 하나 - 여기는 이미 있는 공정과 품목을
+   코드로 가리키므로, 무엇을 칠 수 있는지 화면이 먼저 알려 준다.
+--------------------------------------------------------------------------- */
+
+export function BomSetForm({ dm, opCodes }: { dm: string; opCodes: string[] }) {
+  const [state, action, pending] = useActionState<FormState, FormData>(bulkBom, {});
+
+  /* 적은 것을 들고 있는다. 한 줄이 틀렸다고 서른 줄이 사라지면 안 된다 */
+  const [text, setText] = useState('');
+  useEffect(() => { if (state.ok) setText(''); }, [state.ok]);
+
+  return (
+    <form action={action} className="border-t border-line bg-canvas px-4 py-3">
+      <input type="hidden" name="device_master_id" value={dm} />
+      <p className="text-sm font-semibold text-ink">자재 구성표 붙여넣기</p>
+      <p className="mt-1 text-xs leading-relaxed text-muted">
+        한 줄에 자재 하나입니다.{' '}
+        <b className="text-ink">공정코드 | 품목코드 | 기준 | 값</b> 순이고,
+        기준은 <b className="text-ink">구간</b>(장입 장수) 또는{' '}
+        <b className="text-ink">개당</b>(제품 개수)입니다.
+        엑셀에서 붙여 넣어도 됩니다.
+      </p>
+      <textarea
+        name="bom"
+        required
+        rows={8}
+        spellCheck={false}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder={`${opCodes[0] ?? '공정코드-01'} | 시약코드 | 구간 | 1-10:292.2, 11-30:584.4
+${opCodes[1] ?? '공정코드-02'} | 포장재코드 | 개당 | 1
+${opCodes[2] ?? '공정코드-03'} | 포장재코드 | 구간 |`}
+        className="input mt-3 h-auto text-xs leading-relaxed"
+      />
+      <p className="mt-2 text-xs leading-relaxed text-muted">
+        구간은 <b className="text-ink">시작-끝:수량</b>을 쉼표로 잇습니다.
+        끝을 비우면(<b className="text-ink">21-:3</b>) 상한이 없습니다.
+        네 번째 칸을 통째로 비우면 자재만 걸리고 소요량은 뒤에 채웁니다 -
+        작업지시서는 소요량이 없는 줄을 빼고 인쇄합니다.
+        한 줄이라도 어긋나면 아무것도 넣지 않습니다.
+      </p>
+      {opCodes.length > 0 && (
+        <p className="mt-2 text-xs leading-relaxed text-faint">
+          이 제품표준서의 공정 코드 · {opCodes.join(' · ')}
+        </p>
+      )}
+      <Msg state={state} />
+      <div className="mt-3 flex gap-2">
+        <button type="submit" disabled={pending} className="btn-primary h-9 px-4 text-xs">
+          {pending ? '넣는 중' : '자재 넣기'}
+        </button>
+      </div>
+    </form>
+  );
+}
+
 export function OperationSetForm({
   dm, sources,
 }: {
@@ -1251,7 +1311,7 @@ export function NewProduct({
           <div className="mt-2.5 grid gap-3 sm:grid-cols-2">
             <div>
               <label className="label" htmlFor={`${uid}-new_item_code`}>형명 코드</label>
-              <input id={`${uid}-new_item_code`} name="new_item_code" autoComplete="off" placeholder="완제품 형명"
+              <input id={`${uid}-new_item_code`} name="new_item_code" autoComplete="off"
                      className="input font-mono" />
             </div>
             <div>
