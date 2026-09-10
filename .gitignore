@@ -6,6 +6,10 @@ node_modules/
 .env.deploy
 env.deploy
 .env*.local
+# 접속 정보가 든 파일은 이름을 하나씩 적지 않는다. 새 이름을 지을 때마다
+# 여기 적는 것을 기억해야 하면 언젠가 잊는다 - 공개 저장소다 (2026-09-10)
+.env.*
+!.env.example
 next-env.d.ts
 *.tsbuildinfo
 
