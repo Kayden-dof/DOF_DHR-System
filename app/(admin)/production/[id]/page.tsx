@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { requireUser, hasRole } from '@/lib/session';
-import { isViewerOnly } from '@/lib/roles';
+import { requireUser, hasRole, canWrite } from '@/lib/session';
 import { withUser } from '@/lib/db';
 import { fmtDate, fmtDateTime } from '@/lib/fmt';
 import { WO_STATUS_LABEL, PL_STATUS_LABEL } from '@/lib/forms';
@@ -81,7 +80,18 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
    * (record_print 가 생기고 제조기록서는 그 묶음이 잠긴다) 눌러 봐야 거부
    * 화면만 나온다. 갈 수 없는 곳으로 가는 문을 그려 두지 않는다.
    */
-  const viewer = isViewerOnly(user.roles);
+  /*
+   * 쓰지 못하는 세션이면 쓰기 단추를 그리지 않는다 (사용자 결정 2026-09-11).
+   *
+   * 전에는 `isViewerOnly` 로 갈랐다. 그러면 **품질책임자에게 발행 단추가
+   * 그대로 보인다** - 눌러도 인쇄 화면이 권한 거부를 내므로 아무 일도
+   * 일어나지 않는다. lib/session.ts 가 `canWrite` 를 만들며 적어 둔 말이
+   * 그대로 여기 남아 있었다 - "죽은 단추는 없느니만 못하다".
+   *
+   * 품질책임자가 로그인하게 되면서(§4.1) 실제로 보이게 됐다. 열람 링크
+   * (`?view=`)는 그대로 둔다 - 그쪽은 대장을 건드리지 않는다 (§7.1).
+   */
+  const readOnly = !canWrite(user);
 
   const d = await withUser(user, async (db) => {
     const wo = await db.one<Wo>(
@@ -225,12 +235,12 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
           */}
         <div className="flex flex-wrap items-center gap-2">
           {/* 옆의 배치 종료와 같은 크기로 맞춘다. 나란히 서는 단추다 */}
-          {!viewer && (
+          {!readOnly && (
             <Link href={`/print/work-order/${wo.id}`} className="btn-ghost h-9 px-3 text-xs">
               작업 지시서 인쇄
             </Link>
           )}
-          {active && !viewer && <FinishForm id={wo.id} />}
+          {active && !readOnly && <FinishForm id={wo.id} />}
         </div>
       </div>
 
@@ -361,7 +371,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
         note="형명별 · 제조번호"
         action={d.lots.length > 0 ? (
           // 라벨요청서는 재단 뒤에 뽑는다 (§7). 재단 결과가 그대로 요청 내용이다.
-          viewer ? null : (
+          readOnly ? null : (
             <Link href={`/print/label-request/${wo.id}`} className="btn-ghost h-8">
               라벨요청서
             </Link>
@@ -416,7 +426,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                     </td>
                     <td className="td text-right">
                       {/* 부적합은 기록이지 판정이 아니다. 서면 결과를 적는다 */}
-                      {!viewer && <>
+                      {!readOnly && <>
                         <NonconformityForm lot={l} woId={wo.id}
                                            today={d.today ?? ''} ops={d.ops} />
                         <LotStatusForm lot={l} woId={wo.id} />
@@ -428,7 +438,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
             </table>
           </div>
         )}
-        {active && !viewer && (
+        {active && !readOnly && (
           <CutForm woId={wo.id} options={d.finished} today={d.today ?? ''} used={usedIds}
                    band={wo.thickness_band} />
         )}
@@ -450,7 +460,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
       <Panel
         title="일차별 기록지"
         note="인쇄하면 그 묶음이 잠깁니다 (S04)"
-        action={!viewer && d.days.some((r) => r.locked) ? (
+        action={!readOnly && d.days.some((r) => r.locked) ? (
           <Link href={`/print/day-record/${wo.id}/all`} className="btn-ghost h-8 px-3 text-xs">
             묶음 발행 ({d.days.filter((r) => r.locked).length}건)
           </Link>
@@ -486,7 +496,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                     </td>
                     <td className="td tnum text-right text-muted">{r.printed || ''}</td>
                     <td className="td text-right">
-                      {!viewer && (
+                      {!readOnly && (
                         <DayPrintLink
                           href={`/print/day-record/${wo.id}/${r.day_no}/${r.worker_id}`}
                           locked={r.locked}
@@ -508,7 +518,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
             * 재단 전 부적합은 여기서 적는다. 단위가 장이라 제품 로트 표가 아니라
             * 배치 쪽에 붙는다 (0047).
             */
-          viewer ? null
+          readOnly ? null
             : <WipNonconformityForm woId={wo.id} today={d.today ?? ''} ops={d.ops}
                                     sheets={wo.sheet_count} />
         }
@@ -558,7 +568,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                         * 현장 화면은 본인 것만 보여 주므로, 자리에 없는 사람의
                         * 공정을 푸는 자리가 여기 하나다.
                         */}
-                      {!r.ended_at && !viewer && (
+                      {!r.ended_at && !readOnly && (
                         <EndForWorkerForm
                           recordId={r.id} woId={wo.id}
                           label={`${r.day_no}일차 · ${r.operation_name} · ${r.worker_name}`} />
@@ -644,7 +654,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                               보기 없음
                             </span>}
                         {!p.retrieved_at && p.newer_count > 0 && (
-                          !viewer && <RetrieveForm id={p.id} woId={wo.id} label={p.short_hash} />
+                          !readOnly && <RetrieveForm id={p.id} woId={wo.id} label={p.short_hash} />
                         )}
                       </span>
                     </td>
@@ -689,13 +699,13 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
           </div>
 
           <div className="flex shrink-0 flex-wrap items-center gap-2">
-            {!viewer && (
+            {!readOnly && (
               <Link href={`/print/cover/${wo.id}`}
                     className={remaining.length === 0 ? 'btn-primary' : 'btn-ghost'}>
                 편철 표지
               </Link>
             )}
-            {active && !viewer && <CancelForm id={wo.id} />}
+            {active && !readOnly && <CancelForm id={wo.id} />}
           </div>
         </div>
       </Panel>

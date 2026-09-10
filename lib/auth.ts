@@ -27,7 +27,7 @@ export async function hashPin(pin: string): Promise<string> {
 }
 
 export async function verifyPin(pin: string, stored: string | null): Promise<boolean> {
-  if (!stored) return false;                       // QP는 pin_hash가 null이다
+  if (!stored) return false;                       // 비밀번호가 없는 계정은 못 들어온다
   const parts = stored.split('$');
   if (parts.length !== 6 || parts[0] !== 'scrypt') return false;
 

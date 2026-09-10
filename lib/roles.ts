@@ -13,7 +13,7 @@ export const ROLE_LABEL: Record<RoleCode, string> = {
 export const ROLE_NOTE: Record<RoleCode, string> = {
   WORKER: '현장 패드에서 제조기록 작성',
   PROD_MGR: '작업 지시 발행 · 자재 · 출하 관리',
-  QP: '시스템 미사용. 인쇄물에 이름만 나온다',
+  QP: '기록과 종이를 열람한다. 판정과 서명은 종이 위에서',
   SYS_ADMIN: '기준정보 · 계정 · 채번 규칙 관리',
   VIEWER: '경영 현황과 제품 이력 열람. 기록하지 않는다',
 };
