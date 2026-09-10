@@ -1,6 +1,5 @@
 import Link from 'next/link';
-import { isViewerOnly } from '@/lib/roles';
-import { requireUser, hasRole } from '@/lib/session';
+import { requireUser, hasRole, canWrite } from '@/lib/session';
 import { withUser } from '@/lib/db';
 import { fmtDate, fmtDateTime } from '@/lib/fmt';
 import { WO_STATUS_LABEL } from '@/lib/forms';
@@ -44,7 +43,14 @@ export default async function ProductionPage({ searchParams }: { searchParams: S
     return <Denied what="생산 관리" need="생산관리자 또는 시스템관리자" />;
   }
   /* 순수 열람자면 쓰기 단추를 감춘다 */
-  const viewer = isViewerOnly(user.roles);
+  /*
+   * 쓰지 못하는 세션이면 쓰기 단추를 그리지 않는다 (사용자 결정 2026-09-11).
+   *
+   * `isViewerOnly` 로 가르면 **품질책임자에게 그대로 보인다** - 눌러도 DB 가
+   * 읽기 전용이라 아무 일도 일어나지 않는다. lib/session.ts 가 `canWrite` 를
+   * 만들며 적어 둔 말이 여기 남아 있었다 - "죽은 단추는 없느니만 못하다".
+   */
+  const readOnly = !canWrite(user);
 
 
   const sp = await searchParams;
@@ -111,7 +117,7 @@ export default async function ProductionPage({ searchParams }: { searchParams: S
         배치 하나는 원재료 로트 하나를 가공하는 단위입니다. 번호는 재사용하지 않습니다.
         공정 기록 입력은 현장 화면에서 합니다.
       </>}
-      action={viewer ? null : (<IssueForm masters={d.masters} rawLots={d.rawLots} finished={d.finished}
+      action={readOnly ? null : (<IssueForm masters={d.masters} rawLots={d.rawLots} finished={d.finished}
                          users={d.users} today={d.today ?? ''} />)}
       nav={<SubNav items={PRODUCTION_NAV} />}
     >

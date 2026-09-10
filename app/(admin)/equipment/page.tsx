@@ -162,7 +162,7 @@ export default async function EquipmentPage() {
       ) : (
         <div className="space-y-4">
           {d.equipment.map((e) => (
-            <EquipCard key={e.id} e={e} ops={d.ops} warnDays={warnDays} />
+            <EquipCard key={e.id} e={e} ops={d.ops} warnDays={warnDays} writable={writable} />
           ))}
         </div>
       )}

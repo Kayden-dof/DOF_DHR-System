@@ -35,9 +35,17 @@ interface DmRow {
 type Search = Promise<{ dm?: string }>;
 
 export async function DmrWorkbench({
-  userId, dmParam, base,
+  userId, dmParam, base, writable = true,
 }: {
   userId: string;
+  /*
+   * 쓰지 못하는 세션이면 쓰기 자리를 그리지 않는다 (사용자 결정 2026-09-11).
+   *
+   * `editable` 은 "이 개정이 아직 안 나갔는가" 를 묻는다. 그것과 별개로
+   * **이 사람이 쓸 수 있는가** 를 물어야 한다. 품질책임자는 제품표준서를
+   * 봐야 하지만 고치지는 않는다.
+   */
+  writable?: boolean;
   /** 고른 제품표준서 id (쿼리스트링) */
   dmParam?: string;
   /** 선택 링크가 돌아올 주소. '/settings/dmr' 또는 '/production/setup' */
@@ -111,13 +119,15 @@ export async function DmrWorkbench({
 
   const dm = d.masters.find((m) => m.id === d.selected) ?? null;
   const verified = !!dm?.verified_at;
-  const editable = !!dm && dm.wo_count === 0;
+  const editable = !!dm && dm.wo_count === 0 && writable;
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center gap-2">
-        <NewDeviceMaster items={d.items} />
-      </div>
+      {writable && (
+        <div className="flex flex-wrap items-center gap-2">
+          <NewDeviceMaster items={d.items} />
+        </div>
+      )}
 
       {d.masters.length === 0 ? (
         <Panel>
@@ -172,16 +182,20 @@ export async function DmrWorkbench({
                     <span className="tnum">{fmtDateTime(dm.verified_at)}</span>
                   </Field>
                 </div>
-                <ProductCodeForm id={dm.id} code={dm.product_code}
-                                 name={dm.product_name} itemCode={dm.item_code}
-                                 license={dm.license_no} />
-                <DmrNoteForm id={dm.id} note={dm.note} />
-                <DmrLimitsForm id={dm.id} sheetMin={dm.sheet_min}
-                               sheetMax={dm.sheet_max} boxQty={dm.steril_box_qty}
-                               loadUnit={dm.load_unit} />
-                <ExpectedUnitsForm id={dm.id} value={dm.expected_units} />
-                <SamplePlanForm id={dm.id} basis={dm.sample_basis}
-                                tiers={d.sampleTiers} />
+                {writable && (
+                  <>
+                    <ProductCodeForm id={dm.id} code={dm.product_code}
+                                     name={dm.product_name} itemCode={dm.item_code}
+                                     license={dm.license_no} />
+                    <DmrNoteForm id={dm.id} note={dm.note} />
+                    <DmrLimitsForm id={dm.id} sheetMin={dm.sheet_min}
+                                   sheetMax={dm.sheet_max} boxQty={dm.steril_box_qty}
+                                   loadUnit={dm.load_unit} />
+                    <ExpectedUnitsForm id={dm.id} value={dm.expected_units} />
+                    <SamplePlanForm id={dm.id} basis={dm.sample_basis}
+                                    tiers={d.sampleTiers} />
+                  </>
+                )}
                 {!editable && dm.wo_count > 0 && (
                   <p className="border-t border-line bg-canvas px-4 py-2.5 text-xs leading-relaxed text-muted">
                     이 개정으로 발행된 작업 지시가 {dm.wo_count}건 있어 공정과 자재 구성표를
@@ -194,6 +208,7 @@ export async function DmrWorkbench({
                 * 대조는 제품당 한 번뿐이다. 그 한 번에 옮겨 적은 값을 항목별로
                 * 짚게 하려면 화면이 가진 값을 그대로 넘겨야 한다 (사용자 요청).
                 */}
+              {writable && (
               <VerifyForm
                 id={dm.id}
                 verified={verified}
@@ -212,6 +227,7 @@ export async function DmrWorkbench({
                   ])),
                 }}
               />
+              )}
 
               {/*
                 * 공정을 표로만 늘어놓으면 "이 제품이 어떻게 만들어지는가"가 안

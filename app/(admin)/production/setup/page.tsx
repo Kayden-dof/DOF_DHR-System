@@ -1,4 +1,4 @@
-import { requireUser, hasRole } from '@/lib/session';
+import { requireUser, hasRole, canWrite } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import Denied from '@/components/denied';
 import { PageShell } from '@/components/shell';
@@ -59,7 +59,7 @@ export default async function ProductionSetupPage({
       action={<NewProduct finished={d.finished} today={d.today} />}
       nav={<SubNav items={PRODUCTION_NAV} />}
     >
-      <DmrWorkbench userId={user.id} dmParam={sp.dm} base="/production/setup" />
+      <DmrWorkbench userId={user.id} dmParam={sp.dm} base="/production/setup" writable={canWrite(user)} />
     </PageShell>
   );
 }

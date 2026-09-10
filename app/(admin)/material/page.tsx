@@ -1,6 +1,5 @@
-import { requireUser, blocksViewer } from '@/lib/session';
+import { requireUser, blocksViewer, canWrite } from '@/lib/session';
 import Denied from '@/components/denied';
-import { isViewerOnly } from '@/lib/roles';
 import { withUser } from '@/lib/db';
 import { getBrand } from '@/lib/brand';
 import { PageShell, FilterBar } from '@/components/shell';
@@ -42,7 +41,14 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
   if (blocksViewer(user)) return <Denied what="이 화면" need="생산관리자 또는 시스템관리자" />;
 
   /* 순수 열람자면 쓰기 단추를 아예 그리지 않는다 */
-  const viewer = isViewerOnly(user.roles);
+  /*
+   * 쓰지 못하는 세션이면 쓰기 단추를 그리지 않는다 (사용자 결정 2026-09-11).
+   *
+   * `isViewerOnly` 로 가르면 **품질책임자에게 그대로 보인다** - 눌러도 DB 가
+   * 읽기 전용이라 아무 일도 일어나지 않는다. lib/session.ts 가 `canWrite` 를
+   * 만들며 적어 둔 말이 여기 남아 있었다 - "죽은 단추는 없느니만 못하다".
+   */
+  const readOnly = !canWrite(user);
   /* 며칠 남으면 눈에 띄게 할지는 설정이 정한다 (6차 감사 N1) */
   const { expiryWarnDays: warnDays } = await getBrand();
 
@@ -107,7 +113,7 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
       section="자재"
       title="자재 로트"
       lede="입고할 때 성적서 번호가 반드시 들어갑니다 (S02). 로트번호는 채번 규칙이 만들며 바코드 값으로 씁니다."
-      action={viewer ? null : (<ReceiveForm items={d.items} suppliers={d.suppliers}
+      action={readOnly ? null : (<ReceiveForm items={d.items} suppliers={d.suppliers}
                            orders={d.orders} today={d.today ?? ''} />)}
       nav={<SubNav items={MATERIAL_NAV} />}
     >
@@ -153,7 +159,7 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
                 <Th>유효기한</Th>
                 <Th>상태</Th>
                 <Th right>사용 배치</Th>
-                {!viewer && <Th right>정정</Th>}
+                {!readOnly && <Th right>정정</Th>}
               </tr>
             </thead>
             <tbody>
@@ -201,12 +207,12 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
                       {MATERIAL_STATUS_LABEL[l.status] ?? l.status}
                     </Td>
                     <Td right className="text-muted">{l.used_in || ''}</Td>
-                    {!viewer && <Td right>
+                    {!readOnly && <Td right>
                       {/*
                         * 입고에서 한 글자 틀리면 되돌릴 곳이 여기뿐이다
                         * (5차 감사 A1). 읽기 전용 역할에는 내지 않는다.
                         */}
-                      {!viewer && <AmendLotForm lot={{
+                      {!readOnly && <AmendLotForm lot={{
                         id: l.id, lot_no: l.lot_no, item_name: l.item_name,
                         coa_no: l.coa_no, coa_date: l.coa_date as unknown as string | null,
                         supplier_lot_no: l.supplier_lot_no,

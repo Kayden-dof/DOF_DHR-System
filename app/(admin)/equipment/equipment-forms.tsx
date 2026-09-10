@@ -214,10 +214,22 @@ export function NewEquipment() {
 
 /* -------------------------------------------------------------------------- */
 
-export function EquipCard({ e, ops, warnDays }: {
+export function EquipCard({ e, ops, warnDays, writable = true }: {
   e: EquipRow; ops: OpOption[];
   /** 며칠 남으면 눈에 띄게 하는가. 설정이 정한다 (6차 감사 N1) */
   warnDays: number;
+  /*
+   * 쓰지 못하는 세션이면 쓰기 자리를 그리지 않는다 (사용자 결정 2026-09-11).
+   *
+   * 품질책임자가 로그인하게 되면서 이 카드의 단추가 그대로 보였다 - 고치기,
+   * 밸리데이션 입력, 그리고 공정 연결 토글(설비마다 공정 수만큼). 눌러도 DB 가
+   * 읽기 전용이라 아무 일도 일어나지 않는다.
+   *
+   * **보이는 것은 그대로 둔다.** 설비 코드 · 밸리데이션 유효기한과 보고서
+   * 번호 · 어느 공정에 걸렸는가는 품질책임자가 봐야 하는 값이다. 누르는
+   * 자리만 뗀다.
+   */
+  writable?: boolean;
 }) {
   /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
   const uid = useId();
@@ -255,7 +267,7 @@ export function EquipCard({ e, ops, warnDays }: {
           <Link href={`/print/equipment-log/${e.id}`} className="btn-ghost h-8 px-3 text-xs">
             사용 기록
           </Link>
-          {!edit && (
+          {writable && !edit && (
             <button onClick={() => setEdit(true)} className="btn-quiet h-8 px-2 text-xs">고치기</button>
           )}
         </div>
@@ -319,7 +331,7 @@ export function EquipCard({ e, ops, warnDays }: {
         * 현장 화면은 여기 걸린 것만 타일로 보여 준다. 전부 늘어놓으면 장갑 낀
         * 손이 긴 목록에서 하나를 찾아야 한다.
         */}
-      <ValidationPanel e={e} />
+      <ValidationPanel e={e} writable={writable} />
 
       {/*
         * 쓰는 공정 · 제품별.
@@ -370,14 +382,16 @@ export function EquipCard({ e, ops, warnDays }: {
                 <div className="flex flex-wrap gap-1.5 border-t border-line-soft px-3 py-2.5">
                   {g.ops.map((o) => {
                     const on = linked.has(o.id);
+                    const look = `chip ${on ? 'bg-brand text-white' : 'bg-canvas text-muted'}`;
+                    /* 읽기 전용이면 같은 모양을 글자로만 놓는다. 걸린 곳은 보이되 눌리지 않는다 */
+                    if (!writable) return <span key={o.id} className={look}>{o.name}</span>;
                     return (
                       <form key={o.id} action={linkAction}>
                         <input type="hidden" name="equipment_id" value={e.id} />
                         <input type="hidden" name="operation_id" value={o.id} />
                         <input type="hidden" name="on" value={on ? '0' : '1'} />
                         <button type="submit"
-                                className={`chip transition-colors ${
-                                  on ? 'bg-brand text-white' : 'bg-canvas text-muted hover:text-ink'}`}>
+                                className={`${look} transition-colors ${on ? '' : 'hover:text-ink'}`}>
                           {o.name}
                         </button>
                       </form>
@@ -404,7 +418,7 @@ export function EquipCard({ e, ops, warnDays }: {
    서면 보고서가 근거다. 여기에는 번호와 날짜만 옮겨 적는다. 이력은 고치지
    않는다 - 잘못 넣었으면 바른 값을 다시 등록하고, 최신 만료일이 상태가 된다.
 --------------------------------------------------------------------------- */
-function ValidationPanel({ e }: { e: EquipRow }) {
+function ValidationPanel({ e, writable = true }: { e: EquipRow; writable?: boolean }) {
   /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
   const uid = useId();
 
@@ -415,14 +429,17 @@ function ValidationPanel({ e }: { e: EquipRow }) {
     <div className="border-t border-line-soft">
       <div className="flex items-center gap-3 px-4 py-2.5">
         <p className="label mb-0">밸리데이션</p>
-        <button onClick={() => setOpen(true)} className="btn-ghost h-8 px-3 text-xs">
-          등록
-        </button>
+        {writable && (
+          <button onClick={() => setOpen(true)} className="btn-ghost h-8 px-3 text-xs">
+            등록
+          </button>
+        )}
         {e.history.length === 0 && (
           <span className="text-xs text-faint">등록된 이력이 없습니다.</span>
         )}
       </div>
 
+      {writable && (
       <Dialog open={open} onClose={() => setOpen(false)} wide
               title="밸리데이션 등록"
               note={<><span className="font-mono">{e.code}</span> · {e.name}</>}>
@@ -457,6 +474,7 @@ function ValidationPanel({ e }: { e: EquipRow }) {
           </button>
         </form>
       </Dialog>
+      )}
 
       {e.history.length > 0 && (
         <ul className="divide-y divide-line-soft border-t border-line-soft">
