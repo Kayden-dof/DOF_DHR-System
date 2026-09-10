@@ -3,6 +3,8 @@
 import { useActionState, useEffect, useMemo, useState, useId } from 'react';
 import Link from 'next/link';
 import type { FormState } from '@/lib/forms';
+import { daysUntilKST } from '@/lib/kst';
+import { fmtDate } from '@/lib/fmt';
 import { fmtDateTime } from '@/lib/fmt';
 import { Msg, Tag } from '@/components/ui';
 import NumPad, { PresetPicker } from '@/components/num-pad';
@@ -90,7 +92,7 @@ const REASONS = [
    사유는 미리 정한 문구에서 고른다. 되돌릴 수 없는 조작 앞에는 확인을 둔다.
 --------------------------------------------------------------------------- */
 export default function WorkPanel({
-  woId, batchNo, sheets, splitOp, loadUnit,
+  woId, batchNo, sheets, splitOp, loadUnit, expiryWarnDays,
   ops, records, lots, people, productLots, meId, lockedDays,
   cutOpId, finished, sampleTiers, sampleBasis, band, today,
 }: {
@@ -99,6 +101,8 @@ export default function WorkPanel({
   splitOp: string | null;
   /** 장입 수량의 단위. 비면 숫자만 보여 준다 */
   loadUnit: string | null;
+  /** 유효기한이 이 날 수 안으로 들어오면 눈에 띄게 적는다. 설정에서 온다 (§2.0) */
+  expiryWarnDays: number;
   ops: Op[]; records: Rec[]; lots: LotOpt[]; people: PersonOpt[];
   productLots: PlOpt[]; meId: string; lockedDays: number[];
   /** 재단 공정. 이 공정 카드에서 형명별 수량을 적는다 */
@@ -373,7 +377,7 @@ export default function WorkPanel({
         <OperationCard
           woId={woId} day={day} op={op} rec={rec} lots={lots} people={people}
           productLots={productLots} locked={locked} sheets={sheets}
-          splitOp={splitOp} loadUnit={loadUnit}
+          splitOp={splitOp} loadUnit={loadUnit} expiryWarnDays={expiryWarnDays}
           /*
            * 회차는 (공정, 제품 로트) 로 센다 (4차 감사 E2 · 0055 와 같은 기준).
            * 로트를 가리지 않고 세면 두 번째 형명을 시작할 때 2회차라고 안내한다.
@@ -480,12 +484,13 @@ function OpTile({
 
 function OperationCard({
   woId, day, op, rec, lots, people, productLots, locked, sheets, splitOp, loadUnit,
+  expiryWarnDays,
   attemptCount,
   isCut, finished, sampleTiers, sampleBasis, band,
 }: {
   woId: string; day: number; op: Op; rec: Rec | null; lots: LotOpt[];
   people: PersonOpt[]; productLots: PlOpt[]; locked: boolean; sheets: number;
-  splitOp: string | null; loadUnit: string | null;
+  splitOp: string | null; loadUnit: string | null; expiryWarnDays: number;
   attemptCount: number;
   isCut: boolean; finished: FinOpt[]; band: string | null;
   sampleTiers: SampleTier[]; sampleBasis: string | null;
@@ -516,7 +521,7 @@ function OperationCard({
                    done={!!rec?.ended_at} splitOp={splitOp} />
       ) : (
         <RunningCard woId={woId} op={op} rec={rec} lots={lots} sheets={sheets}
-                     loadUnit={loadUnit} />
+                     loadUnit={loadUnit} expiryWarnDays={expiryWarnDays} />
       )}
 
       {/*
@@ -718,9 +723,9 @@ function StartCard({ woId, day, op, people, productLots, attempt, done, splitOp 
 
 /* -------------------------------------------------------------------------- */
 
-function RunningCard({ woId, op, rec, lots, sheets, loadUnit }: {
+function RunningCard({ woId, op, rec, lots, sheets, loadUnit, expiryWarnDays }: {
   woId: string; op: Op; rec: Rec; lots: LotOpt[]; sheets: number;
-  loadUnit: string | null;
+  loadUnit: string | null; expiryWarnDays: number;
 }) {
   const [tab, setTab] = useState<'material' | 'end'>('material');
   const recorded = new Set(rec.issues.map((x) => x.item_id));
@@ -751,7 +756,7 @@ function RunningCard({ woId, op, rec, lots, sheets, loadUnit }: {
 
       {tab === 'material' ? (
         <MaterialForm woId={woId} rec={rec} op={op} lots={lots} sheets={sheets}
-                      loadUnit={loadUnit} />
+                      loadUnit={loadUnit} expiryWarnDays={expiryWarnDays} />
       ) : (
         <EndForm woId={woId} rec={rec} op={op} missing={missing} />
       )}
@@ -759,9 +764,9 @@ function RunningCard({ woId, op, rec, lots, sheets, loadUnit }: {
   );
 }
 
-function MaterialForm({ woId, rec, op, lots, sheets, loadUnit }: {
+function MaterialForm({ woId, rec, op, lots, sheets, loadUnit, expiryWarnDays }: {
   woId: string; rec: Rec; op: Op; lots: LotOpt[]; sheets: number;
-  loadUnit: string | null;
+  loadUnit: string | null; expiryWarnDays: number;
 }) {
   const [state, action, pending] = useActionState<FormState, FormData>(issueMaterial, {});
   const [lotId, setLotId] = useState('');
@@ -849,15 +854,38 @@ function MaterialForm({ woId, rec, op, lots, sheets, loadUnit }: {
       <div>
         <span className="label">자재 로트</span>
         <div className="grid gap-2 sm:grid-cols-2">
-          {pool.map((l) => (
-            <button key={l.id} type="button" onClick={() => setLotId(l.id)}
-                    data-on={lotId === l.id} className="tile">
-              <span className="font-mono text-base font-bold">{l.lot_no}</span>
-              <span className="text-xs text-muted">
-                {l.item_name} · 잔여 <span className="tnum">{Number(l.qty_available)}</span> {l.usage_uom}
-              </span>
-            </button>
-          ))}
+          {/*
+            * 로트는 유효기한 순으로 온다 (work/[id]/page.tsx 의 order by).
+            * 그런데 기한을 그리지 않아, 왜 그 차례인지도 무엇이 임박했는지도
+            * 화면에 없었다. 임박 경고는 관리자 현황 화면에만 있었고 정작
+            * 로트를 집는 사람은 못 봤다 (사용자 지적 2026-09-10).
+            *
+            * 표시일 뿐 막지 않는다. 기한이 지난 로트라도 고를 수 있다 -
+            * 차단은 S01~S05 뿐이다 (§2).
+            */}
+          {pool.map((l) => {
+            /* 날짜는 글자다. Date 산술은 자정 언저리에서 하루 밀린다 (lib/kst) */
+            const left = daysUntilKST(l.expiry_date);
+            const over = left !== null && left < 0;
+            const soon = left !== null && left >= 0 && left < expiryWarnDays;
+            return (
+              <button key={l.id} type="button" onClick={() => setLotId(l.id)}
+                      data-on={lotId === l.id} className="tile">
+                <span className="font-mono text-base font-bold">{l.lot_no}</span>
+                <span className="text-xs text-muted">
+                  {l.item_name} · 잔여 <span className="tnum">{Number(l.qty_available)}</span> {l.usage_uom}
+                </span>
+                {l.expiry_date && (
+                  <span className={`tnum text-xs ${
+                    over ? 'font-semibold text-danger'
+                    : soon ? 'font-semibold text-warn' : 'text-faint'}`}>
+                    {fmtDate(l.expiry_date)}
+                    {over ? ' · 기한 지남' : soon ? ` · ${left}일 남음` : ''}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 

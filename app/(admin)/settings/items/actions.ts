@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { withActor, dbMessage } from '@/lib/db';
 import { requireUser, hasRole } from '@/lib/session';
-import type { FormState } from '@/lib/forms';
+import { ITEM_TYPES, type FormState } from '@/lib/forms';
 
 async function admin() {
   const user = await requireUser();
@@ -41,6 +41,79 @@ export async function createItem(_p: FormState, form: FormData): Promise<FormSta
     );
     revalidatePath('/settings/items');
     return { ok: true, message: `${code} ${name} 품목을 등록했습니다.` };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   품목 붙여넣기 (사용자 요청 2026-09-10)
+
+   한 건씩 넣으면 등록에 성공할 때마다 창이 닫히고, 유형과 단위가 기본값으로
+   돌아간다. 처음 세울 때 품목이 스무 종 안팎이라 그 반복이 그대로 셋업
+   시간이 된다.
+
+   공정 흐름 적기와 같은 방식이다 - 구분자는 `|` 또는 탭이라 엑셀에서 그대로
+   붙여 넣을 수 있고, 한 줄이라도 어긋나면 아무것도 넣지 않는다.
+
+   ── 완제품은 받지 않는다 ────────────────────────────────────────────────
+   §10 이 "완제품 62종을 손으로 등록" 을 금지한다. 형명은 형명 체계에서
+   규칙으로 만든다. 여기서 받아 주면 그 규칙을 건너뛰는 길이 된다.
+--------------------------------------------------------------------------- */
+export async function bulkItems(_p: FormState, form: FormData): Promise<FormState> {
+  try {
+    const me = await admin();
+    const raw = String(form.get('items') ?? '');
+
+    const rows: { code: string; name: string; type: string;
+                  purchase: string; usage: string; conv: number }[] = [];
+    const bad: string[] = [];
+    const fin: string[] = [];
+
+    for (const line of raw.split(new RegExp("\\r?\\n"))) {
+      const t = line.trim();
+      if (!t || t.startsWith('#')) continue;
+      const cell = t.split(new RegExp("\\s*[\\|\\t]\\s*")).map((x) => x.trim());
+      if (cell.length < 3 || !cell[0] || !cell[1] || !cell[2]) { bad.push(t); continue; }
+
+      // 유형은 화면에 적힌 한글로도, 코드로도 받는다
+      const type = ITEM_TYPES.find(
+        (x) => x.label === cell[2] || x.code === cell[2].toUpperCase());
+      if (!type) { bad.push(t); continue; }
+      if (type.code === 'FIN') { fin.push(cell[0]); continue; }
+
+      // 단위를 안 적으면 EA, 환산을 안 적으면 1. 대부분이 그렇다
+      const purchase = (cell[3] || 'EA').trim();
+      const usage = (cell[4] || 'EA').trim();
+      const conv = Number(cell[5] ?? '1');
+      if (!Number.isFinite(conv) || conv <= 0) { bad.push(t); continue; }
+
+      rows.push({ code: cell[0], name: cell[1], type: type.code, purchase, usage, conv });
+    }
+
+    if (fin.length > 0) {
+      return { error: `완제품은 여기서 등록하지 않습니다 (${fin.slice(0, 3).join(' · ')}` +
+        `${fin.length > 3 ? ' 외' : ''}). 형명 체계에서 규칙으로 만드십시오.` };
+    }
+    if (bad.length > 0) {
+      return { error: `읽을 수 없는 줄이 있습니다: ${bad.slice(0, 2).join(' / ')}` +
+        (bad.length > 2 ? ` 외 ${bad.length - 2}줄` : '') };
+    }
+    if (rows.length === 0) return { error: '품목을 한 줄 이상 입력하십시오' };
+
+    // 한 트랜잭션이다. 한 줄이라도 거부되면 전부 되돌아간다
+    await withActor(me.id, async (db) => {
+      for (const r of rows) {
+        await db.rows(
+          `insert into item (code, name, type, purchase_uom, usage_uom, conversion)
+           values ($1,$2,$3::item_type,$4,$5,$6)`,
+          [r.code, r.name, r.type, r.purchase, r.usage, r.conv],
+        );
+      }
+    });
+
+    revalidatePath('/settings/items');
+    return { ok: true, message: `품목 ${rows.length}종을 등록했습니다.` };
   } catch (e) {
     return { error: dbMessage(e) };
   }

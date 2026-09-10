@@ -1,11 +1,11 @@
 'use client';
 
-import { useActionState, useState, useId, useTransition } from 'react';
+import { useActionState, useState, useId, useTransition, useEffect } from 'react';
 import type { FormState } from '@/lib/forms';
 import { ITEM_TYPES } from '@/lib/forms';
 import { Msg, Tag } from '@/components/ui';
 import { Dialog, useDialog } from '@/components/dialog';
-import { createItem, updateItem, generateFinished, previewFinished,
+import { createItem, updateItem, bulkItems, generateFinished, previewFinished,
          type GenResult, type PreviewRow } from './actions';
 
 export interface ItemRow {
@@ -102,6 +102,76 @@ export function NewItemForm({ materialOnly = false }: { materialOnly?: boolean }
         </button>
         <button type="button" onClick={() => setOpen(false)} className="btn-ghost">닫기</button>
       </div>
+        </form>
+      </Dialog>
+    </>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   품목 붙여넣기 (사용자 요청 2026-09-10)
+
+   한 건씩 넣으면 등록에 성공할 때마다 창이 닫히고 유형 · 단위가 기본값으로
+   돌아간다. 처음 세울 때 품목이 스무 종 안팎이라 그 반복이 그대로 셋업
+   시간이 된다. 제품표준서의 공정 흐름 적기와 같은 방식이다.
+--------------------------------------------------------------------------- */
+
+export function BulkItemForm() {
+  const [state, action, pending] = useActionState<FormState, FormData>(bulkItems, {});
+  const { open, setOpen } = useDialog(state);
+
+  /*
+   * 적은 것을 들고 있는다. 폼에 맡기면 제출할 때마다 비워지는데, 스무 줄을
+   * 붙여 넣고 한 줄이 틀리면 그 스무 줄이 통째로 사라진다. 오류 문구가
+   * "몇째 줄이 틀렸다" 라고 말해 주는데 고칠 원본이 없으면 소용이 없다.
+   */
+  const [text, setText] = useState('');
+  useEffect(() => { if (state.ok) setText(''); }, [state.ok]);
+
+  return (
+    <>
+      <button onClick={() => setOpen(true)} className="btn">붙여넣기</button>
+      <Dialog open={open} onClose={() => setOpen(false)} wide title="품목 붙여넣기">
+        <form action={action}>
+          <p className="text-xs leading-relaxed text-muted">
+            한 줄에 품목 하나입니다.{' '}
+            <b className="text-ink">코드 | 품목명 | 유형 | 구매 단위 | 사용 단위 | 환산 계수</b>{' '}
+            순이고, 뒤 세 칸은 비워도 됩니다 (EA · EA · 1).
+            엑셀에서 붙여 넣어도 됩니다.
+          </p>
+          {/*
+            * 예시를 defaultValue 로 두지 않는다. 그대로 제출되면 이 회사의
+            * 품목이 남의 제조소에 들어간다 (전수 감사 2026-09-07 이 공정
+            * 흐름에서 짚은 것과 같은 자리다).
+            */}
+          <textarea
+            name="items"
+            required
+            rows={12}
+            spellCheck={false}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder={`RM-007 | 염화나트륨 | 시약 | kg | g | 1000
+RM-009 | 에탄올(99.5%) | 시약 | L | L | 1
+PM-002 | PE 파우치 | 포장재
+PM-005 | 파우치 라벨 (1차) | 포장재`}
+            className="input mt-3 h-auto text-xs leading-relaxed"
+          />
+          <p className="mt-2 text-xs leading-relaxed text-muted">
+            유형은 <b className="text-ink">원재료 · 시약 · 공정 자재 · 포장재</b> 중
+            하나입니다. <b className="text-ink">완제품은 여기서 넣지 않습니다</b> -
+            형명은 형명 체계에서 규칙으로 만듭니다.
+            한 줄이라도 어긋나면 아무것도 넣지 않습니다.
+          </p>
+
+          <Msg state={state} />
+
+          <div className="mt-4 flex gap-2">
+            <button type="submit" disabled={pending} className="btn-primary">
+              {pending ? '넣는 중' : '품목 넣기'}
+            </button>
+            <button type="button" onClick={() => setOpen(false)} className="btn-ghost">닫기</button>
+          </div>
         </form>
       </Dialog>
     </>

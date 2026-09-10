@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { todayKST } from '@/lib/kst';
 import { requireUser} from '@/lib/session';
 import { withActor } from '@/lib/db';
+import { getBrand } from '@/lib/brand';
 import { fmtDate } from '@/lib/fmt';
 import { Tag } from '@/components/ui';
 import { WO_STATUS_LABEL } from '@/lib/forms';
@@ -42,6 +43,8 @@ interface Wo {
 export default async function WorkBatchPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
   const { id } = await params;
+
+  const { expiryWarnDays } = await getBrand();
 
   const d = await withActor(user.id, async (db) => {
     const wo = await db.one<Wo>(
@@ -215,6 +218,7 @@ export default async function WorkBatchPage({ params }: { params: Promise<{ id: 
         band={wo.thickness_band}
         meId={user.id}
         lockedDays={d.lockedDays.map((r) => r.day_no)}
+        expiryWarnDays={expiryWarnDays}
             today={todayKST()}
     />
     </div>

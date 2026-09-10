@@ -6,7 +6,7 @@ import { SubNav } from '../../nav';
 import { settingsNav } from '../../sections';
 import { ITEM_TYPES } from '@/lib/forms';
 import { Panel, Empty, Tag } from '@/components/ui';
-import { NewItemForm, GenerateFinished, ItemRowView, type ItemRow, type SchemeOpt } from './item-forms';
+import { NewItemForm, BulkItemForm, GenerateFinished, ItemRowView, type ItemRow, type SchemeOpt } from './item-forms';
 
 export const dynamic = 'force-dynamic';
 
@@ -94,6 +94,7 @@ export default async function ItemsPage({ searchParams }: { searchParams: Search
       action={
         <div className="flex gap-2">
           <GenerateFinished schemes={schemes} />
+          <BulkItemForm />
           <NewItemForm />
         </div>
       }
