@@ -43,6 +43,12 @@ if (!u) {
 
 const cookie = sessionCookie(u.id);
 
+/* 어떤 소켓 오류도 대리 서버를 죽이지 못하게 한다 */
+process.on('uncaughtException', (e) => {
+  if (['ECONNABORTED', 'ECONNRESET', 'EPIPE'].includes(e?.code)) return;
+  throw e;
+});
+
 const srv = http.createServer((req, res) => {
   /*
    * Origin 과 Referer 도 앞쪽 주소로 고쳐 준다.
@@ -67,7 +73,20 @@ const srv = http.createServer((req, res) => {
     res.writeHead(r.statusCode ?? 500, r.headers);
     r.pipe(res);
   });
-  p.on('error', (e) => { res.writeHead(502); res.end(String(e)); });
+  /*
+   * 브라우저가 요청을 취소하면 여기로 소켓 오류가 온다 (ECONNABORTED).
+   * 화면을 옮겨 다니면 늘 생기는 일인데, 잡아 주지 않으면 그때마다 대리
+   * 서버가 통째로 죽는다 (2026-09-11에 두 번 죽었다).
+   *
+   * 취소는 오류가 아니다. 이미 답을 보내기 시작했으면 조용히 끊고, 아니면
+   * 502 를 준다.
+   */
+  p.on('error', (e) => {
+    if (res.headersSent) { res.destroy(); return; }
+    res.writeHead(502); res.end(String(e));
+  });
+  req.on('error', () => p.destroy());
+  res.on('error', () => p.destroy());
   req.pipe(p);
 });
 
