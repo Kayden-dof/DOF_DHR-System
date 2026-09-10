@@ -774,7 +774,7 @@ export function DmrLimitsForm({
         <input id={`${uid}-sheet_max`} name="sheet_max" type="number" min={1} defaultValue={sheetMax ?? ''}
                placeholder="없음" className="input h-9 tnum text-xs" />
       </div>
-      <div className="w-40">
+      <div className="w-28">
         <label className="label" htmlFor={`${uid}-load_unit`}>장입 단위</label>
         {/*
           * 장입 수량의 단위 (0101). `장` 은 이 제조소의 값이지 프로그램의
@@ -782,10 +782,10 @@ export function DmrLimitsForm({
           * 숫자만 보여 준다. 지어낸 단위를 붙이는 것보다 낫다 (§2.0).
           */}
         <input id={`${uid}-load_unit`} name="load_unit" defaultValue={loadUnit ?? ''}
-               autoComplete="off" placeholder="예: 장 · L · kg" className="input" />
+               autoComplete="off" placeholder="장" className="input h-9 text-xs" />
       </div>
 
-      <div>
+      <div className="w-28">
         <label className="label" htmlFor={`${uid}-steril_box_qty`}>멸균 박스 한 개 수량</label>
         <input id={`${uid}-steril_box_qty`} name="steril_box_qty" type="number" min={1} defaultValue={boxQty ?? ''}
                placeholder="없음" className="input h-9 tnum text-xs" />

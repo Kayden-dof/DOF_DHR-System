@@ -46,7 +46,7 @@ export function SchemeForm({ scheme }: { scheme: Scheme | null }) {
           <input id={`${uid}-spec`} name="spec_pattern" required autoComplete="off"
                  defaultValue={scheme?.spec_pattern ?? ''}
                  placeholder="{1}x{2}cm · 두께 {3}~{4}mm"
-                 className="input text-xs" />
+                 className="input" />
           <p className="mt-1 text-xs leading-relaxed text-muted">
             <b className="text-ink">이 문구가 종이에 찍힙니다.</b> 라벨요청서와 출하 승인
             요청서의 규격 칸입니다. <code>{'{1}'}</code>은 아래 1번 자리 값으로 바뀝니다.
@@ -57,7 +57,7 @@ export function SchemeForm({ scheme }: { scheme: Scheme | null }) {
           <input id={`${uid}-nm`} name="name_pattern" autoComplete="off"
                  defaultValue={scheme?.name_pattern ?? ''}
                  placeholder="{P} {1}x{2}cm {3}~{4}mm"
-                 className="input font-mono text-xs" />
+                 className="input" />
           <p className="mt-1 text-xs text-muted">
             <code>{'{P}'}</code>는 제품 이름 접두사입니다. 형명을 한꺼번에 만들 때 씁니다.
           </p>
