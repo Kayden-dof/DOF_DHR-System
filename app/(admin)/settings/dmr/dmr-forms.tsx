@@ -1125,8 +1125,8 @@ export function OperationSetForm({
       <input type="hidden" name="device_master_id" value={dm} />
       <p className="text-sm font-semibold text-ink">공정 흐름 적기</p>
       <p className="mt-1 text-xs leading-relaxed text-muted">
-        한 줄에 공정 하나입니다. <code className="font-mono">공정코드 | 공정명</code> 이고,
-        제품 로트 단위 공정이면 뒤에 <code className="font-mono">| 로트단위</code> 를
+        한 줄에 공정 하나입니다. <b className="text-ink">공정코드 | 공정명</b> 이고,
+        제품 로트 단위 공정이면 뒤에 <b className="text-ink">| 로트단위</b> 를
         붙입니다.
         적은 차례가 곧 공정 순서입니다. 엑셀에서 붙여 넣어도 됩니다.
       </p>
@@ -1141,11 +1141,11 @@ export function OperationSetForm({
         required
         rows={10}
         spellCheck={false}
-        placeholder={`공정코드-01 | 첫 공정 이름   |          | 1
-공정코드-02 | 다음 공정 이름 |          | 1
-공정코드-03 | 분기 공정      |          | 2
-공정코드-04 | 그 뒤 공정     | 로트단위 | 3`}
-        className="input mt-3 h-auto font-mono text-xs leading-relaxed"
+        placeholder={`공정코드-01 | 첫 공정 이름
+공정코드-02 | 다음 공정 이름
+공정코드-03 | 분기 공정 | | 2
+공정코드-04 | 그 뒤 공정 | 로트단위 | 3`}
+        className="input mt-3 h-auto text-xs leading-relaxed"
       />
       <p className="mt-2 text-xs leading-relaxed text-muted">
         칸은 <b className="text-ink">공정 코드 | 공정명 | 로트단위 | 보통 일차</b> 순입니다.
