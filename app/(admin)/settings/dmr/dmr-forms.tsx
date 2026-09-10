@@ -58,7 +58,7 @@ export function NewDeviceMaster({ items }: { items: ItemOption[] }) {
         </div>
         <div>
           <label className="label" htmlFor={`${uid}-product_name`}>제품명</label>
-          <input id={`${uid}-product_name`} name="product_name" placeholder="제품명" autoComplete="off"
+          <input id={`${uid}-product_name`} name="product_name" autoComplete="off"
                  className="input" />
         </div>
         {/*
@@ -1019,7 +1019,7 @@ export function ProductCodeForm({ id, code, name, itemCode, license }: {
       </div>
       <div className="w-56">
         <label className="label" htmlFor={`${uid}-product_name`}>제품명</label>
-        <input id={`${uid}-product_name`} name="product_name" defaultValue={name ?? ''} placeholder="제품명"
+        <input id={`${uid}-product_name`} name="product_name" defaultValue={name ?? ''}
                autoComplete="off" className="input h-9 text-xs" />
       </div>
       <div className="w-52">
