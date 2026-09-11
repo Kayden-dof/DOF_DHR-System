@@ -385,6 +385,36 @@ export default async function SettingsHome() {
                 : <Tag tone="warn">어디서나 접속</Tag>}
             </dd>
           </div>
+          {/*
+            * 머리줄 표시와 같은 것을 여기에도 둔다 (사용자 제안 2026-09-11).
+            *
+            * 머리줄은 **무슨 일이 있었다**를 알리고, 여기는 경계 상태를 한 줄로
+            * 읽는 자리다 - 문이 어디까지 좁혀져 있고, 지금 내가 어디이며,
+            * 밖에서 몇 건이 두드렸는가. 셋이 이어져야 뜻이 선다.
+            *
+            * 아래 목록이 그 자세한 내용이다.
+            *
+            * ── `없음` 이라고 적지 않는다 ──────────────────────────────────
+            * 문이 열려 있으면 막히는 것이 없으므로 **아무것도 세지 않는다.**
+            * 그 상태에서 `없음` 을 띄우면 "아무도 두드리지 않았다" 로 읽히는데
+            * 그것은 사실이 아니다. 문이 닫혀 있어도 마찬가지다 - 이 표가 보는
+            * 것보다 못 보는 것이 훨씬 많다 (§8.5).
+            *
+            * 있을 때만 낸다. 빈 상태가 정상이다.
+            */}
+          {watches && blocks.length > 0 && (
+            <div>
+              <dt className="text-muted">밖에서 접속</dt>
+              <dd className="mt-0.5">
+                {/* 머리줄이 세는 것과 같은 숫자를 함께 적는다 - 이름이 같은
+                    두 숫자가 다르면 읽는 사람이 둘 다 안 믿는다 */}
+                <Tag tone={blocks.some((b) => b.who) ? 'danger' : 'quiet'}>
+                  {blocks.length}곳 · 계정 {blocks.filter((b) => b.who).length}
+                </Tag>
+                <span className="ml-1.5 text-muted">최근 14일</span>
+              </dd>
+            </div>
+          )}
           <div>
             <dt className="text-muted">지금 이 화면의 접속지</dt>
             <dd className="mt-0.5">

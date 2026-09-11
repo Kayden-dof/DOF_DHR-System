@@ -38,6 +38,25 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     gateOpen: await db.val<boolean>(`select only_demo_data()`),
   }));
 
+  /* ---------------------------------------------------------------------------
+     지정 자리 밖에서 두드린 것 (0110 · 사용자 지시 2026-09-11)
+
+     설정 > 개요에 목록을 두었더니 **그 화면을 열어야 보였다.** 알림은 찾아가서
+     보는 것이 아니라 눈에 들어오는 것이라야 한다. 그래서 머리줄에 따로 건다.
+
+     세는 것은 **계정을 들고 두드린 것뿐이다** (0110). 익명 두드림까지 세면
+     표시가 늘 켜져 있고, 늘 켜져 있는 표시는 알림이 아니라 가구다.
+
+     묻는 사람을 좁힌다. 이 표시는 개발계정과 시스템관리자의 것이고, 다른
+     사람에게는 할 일이 아니다. 질의도 그때만 돈다 - 머리줄은 화면마다
+     다시 그려지므로 아무에게나 한 번씩 더 묻게 두지 않는다.
+  --------------------------------------------------------------------------- */
+  const watches = user.is_developer || hasRole(user, 'SYS_ADMIN');
+  const outside = watches
+    ? (await withActor(user.id, (db) =>
+        db.val<number>(`select access_block_alert()`))) ?? 0
+    : 0;
+
 
   /*
    * 작업자 전용 계정은 현장 화면으로 보낸다. 열람자는 여기 남는다 - 볼 것이
@@ -173,6 +192,34 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
             {isWorker(user.roles) && (
               <Link href="/work" className="btn-ghost h-9">현장 화면</Link>
+            )}
+
+            {/* ----------------------------------------------------------------
+              * 지정 자리 밖에서 두드렸다 (사용자 지시 2026-09-11)
+              *
+              * 이름 동그라미에 붙이지 않고 **따로** 둔다. 붙이면 "그 사람의
+              * 무엇" 으로 읽히는데, 이건 계정 상태가 아니라 시스템에 지금
+              * 일어난 일이다.
+              *
+              * 붉은색은 여기서 뜻을 지고 있다. 회사 색을 따르지 않는 이유가
+              * 그것이다 - 회사 색이 초록인 제조소에서 이 표시가 초록으로 뜨면
+              * 위험을 알리는 자리가 안심을 주는 자리가 된다. 첫 설정 차례의
+              * `아직 없음` 을 회사 색으로 내린 것과 정반대의 까닭이다.
+              *
+              * 숫자를 함께 적는다. 색만으로 말하면 색을 가리지 못하는 사람에게
+              * 아무 표시도 없는 것과 같다 (components/ui.tsx 의 Tag 와 같은 이유).
+              * ---------------------------------------------------------------- */}
+            {outside > 0 && (
+              <Link
+                href="/settings"
+                className="flex h-9 shrink-0 items-center gap-2 rounded-md bg-danger px-3
+                           text-[0.8125rem] font-bold text-white"
+                title="로그인된 기기가 지정 자리 밖에서 열었습니다. 눌러서 확인하십시오"
+              >
+                <span aria-hidden className="size-2 rounded-full bg-white" />
+                <span>밖에서 접속</span>
+                <span className="tnum">{outside}</span>
+              </Link>
             )}
 
             <div className="hidden items-center gap-2.5 md:flex">
