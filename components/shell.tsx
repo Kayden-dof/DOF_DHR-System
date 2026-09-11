@@ -221,17 +221,15 @@ export function FilterBar({
 }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <nav className="inline-flex flex-wrap items-center gap-1 rounded-lg border border-line bg-surface-sub p-1">
+      {/* 모양은 globals.css 의 .segment 하나에서 나온다 - 하위 차림표와 같은 것이다 */}
+      <nav className="segment">
         {items.map((it) => (
           <Link
             key={it.href}
             href={it.href}
             aria-current={it.on ? 'page' : undefined}
-            className={`rounded-[0.3125rem] px-3 py-1.5 text-xs font-bold transition-all ${
-              it.on
-                ? 'bg-surface text-brand shadow-[0_1px_2px_rgb(31_29_36/.06)]'
-                : 'text-muted hover:text-ink'
-            }`}
+            data-on={it.on}
+            className="segment-item"
           >
             {it.label}
             {/*

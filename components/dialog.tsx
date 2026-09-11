@@ -91,7 +91,7 @@ export function Dialog({
         */}
       <div className="flex min-h-full items-center justify-center p-4"
            onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-        <div className={`card-raised w-full ${wide ? 'max-w-2xl' : 'max-w-lg'}`}>
+        <div className={`dialog-panel w-full overflow-hidden ${wide ? 'max-w-2xl' : 'max-w-lg'}`}>
           <header className="section-head">
             <div className="min-w-0">
               <h3 className="text-base font-bold text-ink">{title}</h3>

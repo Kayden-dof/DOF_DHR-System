@@ -64,8 +64,9 @@ export function SubNav({ items }: { items: NavItem[] }) {
     return hit && it.href.length > (best?.length ?? 0) ? it.href : best;
   }, null);
 
+  /* 모양은 globals.css 의 .segment 하나에서 나온다 - 거르개 줄과 같은 것이다 */
   return (
-    <nav className="inline-flex flex-wrap items-center gap-1 rounded-lg border border-line bg-surface-sub p-1">
+    <nav className="segment">
       {items.map((it) => {
         const active = it.href === current;
         return (
@@ -73,11 +74,8 @@ export function SubNav({ items }: { items: NavItem[] }) {
             key={it.href}
             href={it.href}
             aria-current={active ? 'page' : undefined}
-            className={`rounded-[0.3125rem] px-3 py-1.5 text-xs font-bold transition-all ${
-              active
-                ? 'bg-surface text-brand shadow-[0_1px_2px_rgb(31_29_36/.06)]'
-                : 'text-muted hover:text-ink'
-            }`}
+            data-on={active}
+            className="segment-item"
           >
             {it.label}
           </Link>

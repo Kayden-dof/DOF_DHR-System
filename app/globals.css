@@ -611,12 +611,32 @@ input, textarea, [contenteditable] { caret-color: var(--color-brand); }
   tbody tr:hover .td { background: var(--color-surface-sub); }
   tbody tr:hover .td.sticky { background: var(--color-surface-sub); }
 
+  /*
+   * 대화상자 (2026-09-11).
+   *
+   * 카드와 같은 얕은 가장자리로 떠 있어, 뒤가 흐려진 것 말고는 위에 있다는
+   * 신호가 없었다. 대화상자는 **상태**다 - 지금 이것부터 끝내라는 자리이므로
+   * 깊이를 준다. 쉬는 면에 그림자를 얹지 않는 규칙과 어긋나지 않는다.
+   */
+  .dialog-panel {
+    background: var(--color-surface);
+    border: 1px solid var(--color-card-edge);
+    border-radius: var(--r-xl);
+    box-shadow: var(--sh-3);
+  }
+
+  /*
+   * 상태 조각.
+   *
+   * 안쪽 여백을 조금 넓히고 모서리를 둥글린다 (2026-09-11). 글자에 바탕색만
+   * 입힌 것처럼 보이던 것이 조각으로 읽힌다. 색은 그대로다 - 뜻을 지고 있다.
+   */
   .chip {
     display: inline-flex;
     align-items: center;
     gap: 0.25rem;
-    padding: 0.125rem 0.5rem;
-    border-radius: 0.375rem;
+    padding: 0.1875rem 0.5625rem;
+    border-radius: 0.5rem;
     font-size: 0.6875rem;
     line-height: 1.125rem;
     font-weight: 700;
@@ -677,6 +697,47 @@ input, textarea, [contenteditable] { caret-color: var(--color-brand); }
   .touch .card, .touch .card-raised { border-radius: var(--r-xl); }
   .touch .section-head { padding: 1rem 1.25rem; }
 
+  /* ---------------------------------------------------------------------------
+     고르개 줄 (하위 차림표 · 거르개)
+
+     두 곳이 같은 모양을 각자 그리고 있었다. 한 자리에 모은다 - 복제는 갈라진다.
+
+     ── 트랙을 눌러 둔다 (2026-09-11) ─────────────────────────────────────────
+     바탕이 surface-sub(#FAFAF9)라 흰 화면 위에서 거의 보이지 않았다. 고르개가
+     보이지 않으면 지금 무엇으로 걸러 보고 있는지도 보이지 않는다. 트랙을 한
+     단계 누르고(canvas-deep) 고른 칸만 흰 면으로 띄운다 - 눌린 홈에 조각
+     하나가 올라앉은 모양이라 어느 것이 켜져 있는지가 형태로 읽힌다.
+
+     고른 칸의 그림자는 장식이 아니라 **상태**다. 쉬는 카드에 깊이를 주지
+     않는 규칙과 어긋나지 않는다.
+  --------------------------------------------------------------------------- */
+  .segment {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.1875rem;
+    padding: 0.25rem;
+    border: 1px solid var(--color-line);
+    border-radius: var(--r-md);
+    background: var(--color-canvas-deep);
+  }
+  .segment-item {
+    border-radius: var(--r-sm);
+    padding: 0.375rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: -0.005em;
+    color: var(--color-muted);
+    transition: background-color 140ms var(--ease), color 140ms var(--ease),
+                box-shadow 140ms var(--ease);
+  }
+  .segment-item:hover { color: var(--color-ink); }
+  .segment-item[data-on="true"] {
+    background: var(--color-surface);
+    color: var(--color-brand);
+    box-shadow: var(--sh-1);
+  }
+
   /* 큰 선택 타일. 현장에서 손가락으로 고르는 모든 것 */
   .tile {
     display: flex;
@@ -694,7 +755,18 @@ input, textarea, [contenteditable] { caret-color: var(--color-brand); }
     -webkit-tap-highlight-color: transparent;
   }
   .tile:hover { background: var(--color-surface-sub); border-color: var(--color-faint); }
-  .tile:active { background: var(--color-canvas-deep); }
+  /*
+   * 눌린 타일 (2026-09-11).
+   *
+   * canvas-deep 을 쓰고 있었다. 사무 화면에서는 연회색이지만 **현장에서는
+   * 어두운 보라(#221A44)** 다 (.touch 가 갈아 끼운다). 흰 타일이 누르는
+   * 동안 남보라로 덮이고 그 위 검은 글자가 안 읽혔다 - 장갑 낀 손이 가장
+   * 많이 누르는 자리에서.
+   *
+   * 숫자 패드 키와 같은 값을 쓴다. 두 모드 모두에서 밝고, 누른 자리가
+   * 브랜드 색으로 물들어 "지금 이걸 눌렀다" 가 형태로 남는다.
+   */
+  .tile:active { background: var(--color-brand-soft); border-color: var(--color-brand-line); }
   .tile[aria-pressed="true"], .tile[data-on="true"] {
     border-color: var(--color-brand);
     background: var(--color-brand-soft);
