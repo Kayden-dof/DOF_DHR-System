@@ -25,6 +25,12 @@ export interface Op {
    * 부르는 제조소는 그 칸을 영영 못 봤다. 제품표준서가 정한다.
    */
   takes_rework: boolean;
+  /*
+   * 이 공정에 자격 관리가 시작됐는가, 그리고 이 사람이 오늘 자격이 있는가
+   * (GMP 점검 G3 · 0108). 관리가 없으면 아무것도 묻지 않는다.
+   */
+  qual_managed: boolean;
+  qualified: boolean;
   bom: { item_id: string; item_code: string; item_name: string; usage_uom: string;
          basis: string; required: string | null }[];
   /** 이 공정에 걸린 설비. 비어 있으면 화면에 칸이 나오지 않는다 */
@@ -468,6 +474,21 @@ function OpTile({
         {o.bom.length > 0 && ` · 자재 ${o.bom.map((b) => b.item_name).join(' · ')}`}
       </div>
 
+      {/*
+        * 자격 (GMP 점검 G3 · 2026-09-11).
+        *
+        * **고르기 전에 보여야 한다.** 공정을 열고 나서 알려 주면 이미 손이
+        * 움직인 뒤다. 목표는 사람 실수를 줄이는 것이다 (사용자 2026-09-11).
+        *
+        * 막지 않는다 - 누르면 열리고 기록도 남는다 (§1 - 차단은 S01~S05 뿐).
+        * 자격 관리를 시작하지 않은 공정에는 아무것도 내지 않는다.
+        */}
+      {o.qual_managed && !o.qualified && (
+        <div className="pl-7 text-xs font-semibold text-warn">
+          이 공정의 유효한 자격이 없습니다
+        </div>
+      )}
+
       {others && state === 'none' && (
         <div className="pl-7 text-xs text-faint">
           {others.names} 님이 {others.days.join(' · ')}일차에 기록
@@ -733,6 +754,21 @@ function RunningCard({ woId, op, rec, lots, sheets, loadUnit, expiryWarnDays }: 
 
   return (
     <div>
+      {/*
+        * 자격 (GMP 점검 G3 · 2026-09-11).
+        *
+        * **막지 않는다.** 이미 하고 있는 작업을 시스템이 없던 일로 만들 수는
+        * 없다 (§1 - 차단은 S01~S05 뿐). 목표는 사람 실수를 줄이는 것이지
+        * 사람을 막는 것이 아니다 (사용자 2026-09-11).
+        *
+        * 자격 관리를 시작하지 않은 공정에는 아무것도 내지 않는다.
+        */}
+      {op.qual_managed && !op.qualified && (
+        <p className="border-b border-warn/40 bg-warn-bg px-4 py-2.5 text-sm leading-relaxed text-ink">
+          이 공정의 <b>유효한 자격이 없습니다.</b> 기록은 남길 수 있으나
+          검토에서 짚힙니다. 생산관리자에게 알리십시오.
+        </p>
+      )}
       {/* 장갑 낀 손이 누른다. 전환 단추도 조작 대상이므로 --tap 을 그대로 받는다 */}
       <div className="grid grid-cols-2 gap-1 border-b border-line p-2">
         {(['material', 'end'] as const).map((t) => (

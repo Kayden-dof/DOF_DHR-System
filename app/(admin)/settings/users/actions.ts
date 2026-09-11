@@ -336,3 +336,50 @@ export async function addLabourRate(_prev: FormState, form: FormData): Promise<F
     return { error: dbMessage(e) };
   }
 }
+
+/* ---------------------------------------------------------------------------
+   작업자 자격 (GMP 부합 점검 G3 · 2026-09-11)
+
+   `process_record.worker_id` 는 "이 사람이 눌렀다" 만 말한다. 그 사람이 그
+   공정을 해도 되는지는 시스템이 몰랐다.
+
+   **막지 않는다.** 자격이 없어도 기록은 남는다 - 사람이 이미 한 작업을
+   시스템이 없던 일로 만들 수는 없다. 현장 화면이 그 자리에서 알려 주고,
+   검토 표시가 나중에 짚는다.
+
+   **판정하지 않는다.** 무엇이 자격인지 시스템이 정하지 않는다. 서면 교육
+   기록의 번호를 옮겨 적을 뿐이다 (§1).
+--------------------------------------------------------------------------- */
+export async function saveQualification(_p: FormState, form: FormData): Promise<FormState> {
+  try {
+    const me = await admin();
+
+    const userId = String(form.get('user_id') ?? '');
+    const opCode = String(form.get('operation_code') ?? '').trim();
+    const from = String(form.get('valid_from') ?? '').trim();
+    const until = String(form.get('valid_until') ?? '').trim();
+    const docNo = String(form.get('training_doc_no') ?? '').trim();
+
+    if (!opCode) return { error: '공정을 고르십시오' };
+    if (!from) return { error: '자격 시작일을 입력하십시오' };
+    /*
+     * 근거 문서번호를 필수로 받는다. 성적서 번호(S02)나 특채 기록지 번호와
+     * 같은 자리다 - 그 종이가 자격이고 시스템은 그것을 가리킬 뿐이다.
+     */
+    if (!docNo) return { error: '교육 기록 문서번호를 입력하십시오' };
+
+    await withActor(me.id, (db) =>
+      db.rows(
+        `insert into worker_qualification
+           (user_id, operation_code, valid_from, valid_until,
+            training_doc_no, note, registered_by)
+         values ($1,$2,$3::date,nullif($4,'')::date,$5,$6,$7)`,
+        [userId, opCode, from, until, docNo,
+         String(form.get('note') ?? '').trim() || null, me.id]));
+
+    revalidatePath('/settings/users');
+    return { ok: true, message: `${opCode} 자격을 등록했습니다.` };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}

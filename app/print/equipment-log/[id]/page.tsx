@@ -81,8 +81,11 @@ function UseTable({ rows, hasCalib }: { rows: Use[];
                         * 늘 떠 있는 글자는 아무도 안 읽는다.
                         */}
                       {hasCalib && (
-                        <div className={u.calib_report ? 'font-mono text-[10px]' : 'font-bold'}>
-                          교정 {u.calib_report ?? '해당 이력 없음'}
+                        <div className="text-[10px]">
+                          교정{' '}
+                          <span className={u.calib_report ? 'font-mono' : 'font-bold'}>
+                            {u.calib_report ?? '해당 이력 없음'}
+                          </span>
                         </div>
                       )}
                     </td>

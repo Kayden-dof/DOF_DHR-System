@@ -79,10 +79,21 @@ export default async function WorkBatchPage({ params }: { params: Promise<{ id: 
                   select json_agg(json_build_object(
                     'id', q.id, 'code', q.code, 'name', q.name,
                     'valid_until', q.valid_until::text) order by q.code)
-                    from operation_equipment_list(o.id) q), '[]'::json) as equipment
+                    from operation_equipment_list(o.id) q), '[]'::json) as equipment,
+                /*
+                 * 이 사람이 오늘 이 공정 자격이 있는가 (GMP 점검 G3 · 0108).
+                 *
+                 * **자격 줄이 한 줄도 없는 공정은 묻지 않는다** - 자격 관리를
+                 * 아직 시작하지 않은 공정까지 전부 짚으면 그 표시가 늘 떠 있게
+                 * 되고, 늘 떠 있는 표시는 아무도 안 본다.
+                 */
+                exists (select 1 from worker_qualification wq
+                         where wq.operation_code = o.code) as qual_managed,
+                worker_qualified($3, o.code,
+                                 (timezone('Asia/Seoul', now()))::date) as qualified
            from dmr_operation o
           where o.device_master_id = $1 order by o.seq`,
-        [wo.device_master_id, wo.sheet_count]),
+        [wo.device_master_id, wo.sheet_count, user.id]),
       records: await db.rows<Rec>(
         `select pr.id, pr.operation_id, pr.day_no, pr.attempt, pr.product_lot_id,
                 pr.work_date::text as work_date,

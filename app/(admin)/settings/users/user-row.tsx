@@ -7,7 +7,8 @@ import Toasts from '@/components/toast';
 import { ROLE_LABEL, ROLE_NOTE, ROLE_ORDER, type RoleCode } from '@/lib/roles';
 import { PIN_MIN_LENGTH } from '@/lib/auth-const';
 import type { FormState } from '@/lib/forms';
-import { grantRole, revokeRole, setActive, setDeveloper, setPin, setFullName } from './actions';
+import { grantRole, revokeRole, setActive, setDeveloper, setPin, setFullName,
+         saveQualification } from './actions';
 
 export interface UserRow {
   id: string;
@@ -18,10 +19,13 @@ export interface UserRow {
   can_login: boolean;
   has_pin: boolean;
   roles: RoleCode[];
+  /** 이 사람의 공정 자격 (GMP 점검 G3 · 0108) */
+  quals: { operation_code: string; valid_from: string;
+           valid_until: string | null; training_doc_no: string }[];
 }
 
 export default function UserRowView(
-  { u, meId, meIsDeveloper, meIsSysAdmin, writable = true }: {
+  { u, meId, meIsDeveloper, meIsSysAdmin, opCodes, writable = true }: {
     u: UserRow; meId: string; meIsDeveloper: boolean;
     /**
      * 시스템관리자인가. 시스템관리자 역할을 주고받는 것과 개발 계정 표시는
@@ -29,6 +33,8 @@ export default function UserRowView(
      * 거절당하는 자리를 만들지 않는다.
      */
     meIsSysAdmin: boolean;
+    /** 고를 수 있는 공정 코드. 제품표준서에서 온다 (0108) */
+    opCodes: string[];
     /** 이 세션이 쓸 수 있는가. 못 쓰면 관리 단추와 그 안의 조작을 그리지 않는다 */
     writable?: boolean;
   },
@@ -93,6 +99,7 @@ export default function UserRowView(
           <PinPanel u={u} isMe={isMe} canReset={meIsDeveloper} />
           <FlagPanel u={u} isMe={isMe} sysAdmin={meIsSysAdmin} />
         </div>
+        <QualPanel u={u} opCodes={opCodes} writable={writable} />
       </Dialog>
     </>
   );
@@ -332,3 +339,90 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
  * 이 화면의 결과 대부분은 이제 알림으로 뜨고, 비밀번호 칸에 딸린 말 하나만
  * 남았다. 그 하나 때문에 따로 만들 까닭이 없다.
  */
+
+/* ---------------------------------------------------------------------------
+   작업자 자격 (GMP 부합 점검 G3 · 2026-09-11)
+
+   기록에 이름이 남는 것과 그 사람이 그 공정을 해도 되는 것은 다른 일이다.
+   13485 §6.2 가 요구하고 DHR 심사가 기록 위의 이름에 자격을 묻는다.
+
+   **막지 않는다.** 자격이 없어도 기록은 남는다 (§1 - 차단은 S01~S05 뿐).
+   현장 화면이 그 자리에서 알려 주고 검토 표시가 나중에 짚는다.
+
+   **판정하지 않는다.** 무엇이 자격인지 시스템이 정하지 않는다 - 서면 교육
+   기록의 번호를 옮겨 적는다. 특채 기록지 번호와 같은 자리다.
+--------------------------------------------------------------------------- */
+function QualPanel(
+  { u, opCodes, writable }:
+  { u: UserRow; opCodes: string[]; writable: boolean },
+) {
+  const [state, action, pending] = useActionState<FormState, FormData>(saveQualification, {});
+  const today = new Date();
+
+  return (
+    <section className="mt-5 border-t border-line pt-4">
+      <p className="label mb-0">공정 자격</p>
+      <p className="mt-1 text-xs leading-relaxed text-muted">
+        서면 교육 기록의 번호를 옮겨 적습니다. <b className="text-ink">막지 않습니다</b> -
+        자격이 없어도 기록은 남고, 현장 화면과 검토 표시가 짚습니다.
+      </p>
+
+      {u.quals.length === 0 ? (
+        <p className="mt-2 text-xs text-faint">등록된 자격이 없습니다.</p>
+      ) : (
+        <ul className="mt-2 divide-y divide-line-soft border-y border-line-soft">
+          {u.quals.map((q, i) => {
+            /* 날짜는 글자다. Date 산술은 자정 언저리에서 하루 밀린다 (lib/kst) */
+            const over = q.valid_until !== null
+              && q.valid_until < today.toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' });
+            return (
+              <li key={i} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-1.5 text-xs">
+                <span className="font-mono font-semibold text-ink">{q.operation_code}</span>
+                <span className={`tnum ${over ? 'font-semibold text-warn' : 'text-body'}`}>
+                  {q.valid_from} ~ {q.valid_until ?? '기한 없음'}
+                  {over ? ' · 지남' : ''}
+                </span>
+                <span className="font-mono text-muted">{q.training_doc_no}</span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {writable && (
+        <form action={action} className="mt-3 grid gap-2 sm:grid-cols-5">
+          <input type="hidden" name="user_id" value={u.id} />
+          <div className="sm:col-span-2">
+            <label className="label" htmlFor={`q-op-${u.id}`}>공정</label>
+            <select id={`q-op-${u.id}`} name="operation_code" required className="input h-9 text-xs">
+              <option value="">고르십시오</option>
+              {opCodes.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="label" htmlFor={`q-from-${u.id}`}>시작일</label>
+            <input id={`q-from-${u.id}`} name="valid_from" type="date" required
+                   className="input h-9 tnum text-xs" />
+          </div>
+          <div>
+            <label className="label" htmlFor={`q-until-${u.id}`}>만료일</label>
+            <input id={`q-until-${u.id}`} name="valid_until" type="date"
+                   className="input h-9 tnum text-xs" />
+          </div>
+          <div>
+            <label className="label" htmlFor={`q-doc-${u.id}`}>교육 기록 번호</label>
+            <input id={`q-doc-${u.id}`} name="training_doc_no" required autoComplete="off"
+                   placeholder="EDU-2026-001" className="input h-9 font-mono text-xs" />
+          </div>
+          <div className="sm:col-span-5 flex items-center gap-2">
+            <button type="submit" disabled={pending} className="btn-primary h-9 px-4 text-xs">
+              {pending ? '넣는 중' : '자격 등록'}
+            </button>
+            <span className="text-xs text-faint">만료일을 비우면 기한이 없습니다.</span>
+          </div>
+          <div className="sm:col-span-5"><Msg state={state} /></div>
+        </form>
+      )}
+    </section>
+  );
+}

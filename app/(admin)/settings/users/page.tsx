@@ -75,10 +75,26 @@ export default async function UsersPage({ searchParams }: { searchParams: Search
         order by r.role, r.effective_from desc, r.registered_at desc`),
     rateToday: await db.val<string>(
       `select to_char(timezone('Asia/Seoul', now()), 'YYYY-MM-DD')`),
+    /*
+     * 고를 수 있는 공정. 개정을 넘어 같은 공정을 가리키므로 코드로 모은다
+     * (0108 - dmr_operation.id 로 묶으면 개정마다 자격이 끊긴다).
+     */
+    opCodes: await db.rows<{ code: string }>(
+      `select distinct code from dmr_operation order by code`),
     users: await db.rows<UserRow>(
       `select u.id, u.login_code, u.full_name, u.is_active, u.is_developer, u.can_login,
               (u.pin_hash is not null) as has_pin,
-              array_remove(array_agg(r.role::text order by r.role), null)::text[] as roles
+              array_remove(array_agg(r.role::text order by r.role), null)::text[] as roles,
+              /* 작업자 자격 (G3). 화면이 사람마다 목록을 낸다 */
+              coalesce((
+                select json_agg(json_build_object(
+                  'operation_code', q.operation_code,
+                  'valid_from', q.valid_from::text,
+                  'valid_until', q.valid_until::text,
+                  'training_doc_no', q.training_doc_no)
+                  order by q.operation_code, q.valid_from desc)
+                  from worker_qualification q
+                 where q.user_id = u.id), '[]'::json) as quals
          from app_user u
          left join user_role r on r.user_id = u.id
         where ($1::text is null
@@ -153,6 +169,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Search
                 <UserRowView key={u.id} u={{ ...u, roles: u.roles ?? [] }}
                              meId={me.id} meIsDeveloper={me.is_developer}
                              meIsSysAdmin={hasRole(me, 'SYS_ADMIN')}
+                             opCodes={d.opCodes.map((o) => o.code)}
                              writable={writable} />
               ))}
             </tbody>
