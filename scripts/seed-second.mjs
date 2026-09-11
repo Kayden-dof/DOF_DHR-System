@@ -286,11 +286,24 @@ async function runOp(actor, code, { day, units = 0 }) {
               where ml.item_id = b.component_item_id and ml.status = 'AVAILABLE'
               order by ml.received_at limit 1) as lot_id
        from dmr_bom b where b.operation_id = $1`, [op])) {
-    if (!b.lot_id) continue;
-    const qty = Number(b.qty_per_unit) * (units || 1);
+    if (!b.lot_id || b.qty_per_unit === null) continue;
+    /*
+     * **곱셈을 DB 에서 한다.**
+     *
+     * 전에는 `Number(b.qty_per_unit) * units` 로 자바스크립트에서 곱했다.
+     * numeric 은 pg 가 글자로 돌려주므로 Number() 가 부동소수점으로 바꾸고,
+     * 0.4 × 6 이 2.4000000000000004 가 된다. 그 값이 material_issue.qty 로
+     * 들어가면 트리거가 재고에서 그만큼을 빼, 자재 화면에 잔여
+     * 17.5999999999999996 이 찍힌다 (사용자 지적 2026-09-11).
+     *
+     * 앱은 이 자리에서 늘 SQL 을 거친다 (required_qty · 재고 트리거). 시드만
+     * 자바스크립트로 셈하고 있었다 - 시험 자료가 앱이 만들 수 없는 값을
+     * 만들면 그 자료로 본 화면은 앱을 본 것이 아니다.
+     */
     await as(actor.id, () => c.query(
       `insert into material_issue (process_record_id, material_lot_id, qty, issued_by)
-       values ($1,$2,$3,$4)`, [pr, b.lot_id, qty, actor.id]));
+       values ($1,$2,$3::numeric * $4::int,$5)`,
+      [pr, b.lot_id, b.qty_per_unit, units || 1, actor.id]));
   }
 
   await as(actor.id, () => c.query(
@@ -392,6 +405,32 @@ check('재단이 없으면 배치와 제품 로트가 1:1 (§12)', plCount === 1
 const acCount = await val(
   `select count(*)::int from dmr_operation where device_master_id = $1 and after_cutting`, [dm]);
 check('재단 이후 공정 0건으로도 흐름', acCount === 0);
+
+/*
+ * 수량에 부동소수점 자국이 남지 않았는가 (2026-09-11).
+ *
+ * numeric 은 pg 가 글자로 돌려준다. 그것을 Number() 로 바꿔 자바스크립트에서
+ * 셈하면 0.4 × 6 이 2.4000000000000004 가 되고, 그 값이 그대로 저장돼 화면에
+ * 잔여 17.5999999999999996 으로 찍힌다 (사용자 지적).
+ *
+ * 앱은 이 자리에서 늘 SQL 을 거치므로(required_qty · 재고 트리거) 이런 값을
+ * 만들 수 없다. **시험 자료가 앱이 만들 수 없는 값을 만들면, 그 자료로 본
+ * 화면은 앱을 본 것이 아니다.**
+ *
+ * 소수 여섯 자리를 넘는 수량은 이 제조소에 없다. 넘으면 어디선가 또
+ * 자바스크립트로 셈한 것이다.
+ */
+const wobbly = await all(
+  `select 'material_lot ' || lot_no as what, qty_available::text as v
+     from material_lot
+    where scale(qty_available) > 6
+   union all
+   select 'material_issue ' || id::text, qty::text
+     from material_issue
+    where scale(qty) > 6`);
+check('수량에 부동소수점 자국 없음',
+      wobbly.length === 0,
+      wobbly.map((w) => `${w.what} = ${w.v}`).join(' · '));
 
 /*
  * 계보는 두 갈래로 성립한다 (§3 · §5).
