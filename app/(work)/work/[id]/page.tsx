@@ -201,6 +201,30 @@ export default async function WorkBatchPage({ params }: { params: Promise<{ id: 
               없습니다. 취소된 배치에 기록할 일이 아니면 배치 목록으로 돌아가십시오.
             </p>
           )}
+
+          {/*
+            * 종료된 배치도 같은 자리에서 말한다 (사용자 지적 2026-09-11).
+            *
+            * 취소만 알리고 종료는 조용했다. 그런데 화면은 종료된 배치에도
+            * **다음 일차를 시작할 자리를 그대로 내준다.** 들어와 보면 빈 일차가
+            * 기다리고 있으니 아직 할 일이 남은 배치로 읽힌다.
+            *
+            * 종료는 사람이 누른 것이고(생산 > 배치 종료) 그 뒤에 편철 표지가
+            * 나간다. 여기에 한 일차를 더 적으면 이미 나간 표지의 매수와
+            * 실제 묶음이 어긋난다.
+            *
+            * 막지 않는다 - 차단은 다섯 개뿐이고 (§1), 종료를 되돌리는 자리가
+            * 없으므로 여기서 막으면 정정 기록을 적을 길까지 함께 막힌다
+            * (§2.1 "막기만 하고 푸는 자리를 안 내면 그것은 덫이다").
+            */}
+          {wo.status === 'DONE' && (
+            <p className="mt-3 rounded-md border border-warn/40 bg-warn-bg px-3 py-2
+                          text-sm leading-relaxed text-ink">
+              <b>이 배치는 종료되었습니다.</b> 아래에 다음 일차를 시작할 수 있으나,
+              종료 뒤에 나간 편철 표지의 기록서 매수는 그대로입니다. 정정 기록을
+              더할 일이 아니면 배치 목록으로 돌아가십시오.
+            </p>
+          )}
           <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-sm text-muted">
             <span>지시서 <span className="font-mono text-ink">{wo.wo_no}</span></span>
             <span>장입 <b className="tnum text-ink">{wo.sheet_count}</b>장</span>

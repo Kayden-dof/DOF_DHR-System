@@ -19,8 +19,17 @@ export const metadata = { title: '현장' };
 /** 찍거나 친 값에 걸린 배치 (2026-09-11) */
 interface Candidate {
   id: string; batch_no: string; wo_no: string; status: string;
-  item_name: string; issued_at: Date; exact: boolean;
+  item_name: string; issued_at: Date; exact: boolean; open: boolean;
 }
+
+/*
+ * 현장이 손댈 수 있는 상태 (사용자 지시 2026-09-11).
+ *
+ * 끝난 배치와 취소된 배치는 여기 없다. 찾는 자리와 고르는 자리가 같은 목록을
+ * 봐야 하므로 한 곳에 적는다 - 둘이 갈라지면 목록에 없는 것이 검색으로는
+ * 열리는 상태가 생긴다.
+ */
+const LIVE = "('ISSUED','IN_PROCESS','CUT')";
 
 interface BatchTile {
   id: string; batch_no: string; wo_no: string; status: string; sheet_count: number;
@@ -85,7 +94,8 @@ export default async function WorkHome(
               (upper(w.batch_no) = upper($1) or upper(w.wo_no) = upper($1)
                or exists (select 1 from v_print_lookup v
                            where v.work_order_id = w.id
-                             and v.short_hash = lower($1))) as exact
+                             and v.short_hash = lower($1))) as exact,
+              (w.status::text in ${LIVE}) as open
          from work_order w
          join device_master dm on dm.id = w.device_master_id
          join item i on i.id = dm.item_id
@@ -95,12 +105,26 @@ export default async function WorkHome(
                        where v.work_order_id = w.id and v.short_hash = lower($1))
            or (length($1) >= 2 and (w.batch_no ilike '%' || $1 || '%'
                                     or w.wo_no  ilike '%' || $1 || '%'))
-        order by exact desc, w.issued_at desc
+        order by open desc, exact desc, w.issued_at desc
         limit 12`, [scan]));
 
+  /*
+   * ── 끝난 배치는 열지 않는다 (사용자 지시 2026-09-11) ────────────────────
+   *
+   * 현장 화면에서 여는 배치는 지금 손댈 수 있는 것뿐이다. 종료된 배치가
+   * 후보에 섞이면 고르는 자리에서 그것을 누를 수 있고, 그러면 이미 끝난
+   * 묶음을 열어 놓고 오늘 것을 찾는다.
+   *
+   * 다만 **못 찾았다고 하지 않는다.** 손에 든 종이를 찍었는데 못 찾았다고
+   * 하면 스캐너를 의심하며 같은 동작을 되풀이한다. 걸리기는 걸렸고 끝난
+   * 배치라는 사실을 그대로 말한다 - 판정이 아니라 상태다.
+   */
+  const live = candidates.filter((c) => c.open);
+  const closed = candidates.filter((c) => !c.open);
+
   /* 정확히 맞은 것이 있으면 그것 하나로 본다 - 부분 일치가 끼어들지 않는다 */
-  const exact = candidates.filter((c) => c.exact);
-  const picked = exact.length > 0 ? exact : candidates;
+  const exact = live.filter((c) => c.exact);
+  const picked = exact.length > 0 ? exact : live;
   if (picked.length === 1) redirect(`/work/${picked[0].id}`);
 
   const batches = await withActor(user.id, (db) =>
@@ -136,7 +160,7 @@ export default async function WorkHome(
          join device_master dm on dm.id = wo.device_master_id
          join item i on i.id = dm.item_id
          join material_lot ml on ml.id = wo.material_lot_id
-        where wo.status in ('ISSUED','IN_PROCESS','CUT')
+        where wo.status::text in ${LIVE}
         order by (wo.status = 'IN_PROCESS') desc, wo.issued_at desc`,
       [user.id]),
   );
@@ -155,9 +179,16 @@ export default async function WorkHome(
         * 스캐너가 없을 때의 갈래다.
         */}
       <ScanBox />
-      {scan !== '' && picked.length === 0 && (
+      {scan !== '' && picked.length === 0 && closed.length > 0 && (
         <p className="card bg-warn-bg px-4 py-3 text-base leading-relaxed text-ink">
-          <b>{scan}</b> 로는 배치를 찾지 못했습니다. 종이 아래쪽 바코드를
+          <b className="font-mono">{closed.map((c) => c.batch_no).join(', ')}</b>
+          {closed.length > 1 ? ' — 모두 ' : ' — '}
+          <b>끝난 배치</b>입니다. 현장 화면에서는 진행 중인 배치만 엽니다.
+        </p>
+      )}
+      {scan !== '' && picked.length === 0 && closed.length === 0 && (
+        <p className="card bg-warn-bg px-4 py-3 text-base leading-relaxed text-ink">
+          <b>{scan}</b> 로는 진행 중인 배치를 찾지 못했습니다. 종이 아래쪽 바코드를
           다시 찍거나, 종이 맨 위의 배치번호(<span className="font-mono">B…</span>)를
           치거나, 아래에서 배치를 고르십시오.
         </p>
