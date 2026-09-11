@@ -4,6 +4,7 @@ import { useActionState, useState, useId } from 'react';
 import { saveBrand, uploadLogo, clearLogo, uploadDarkLogo, clearDarkLogo } from './actions';
 import { Msg } from '@/components/ui';
 import type { FormState } from '@/lib/forms';
+import { brandSteps } from '@/lib/tone';
 
 /* ---------------------------------------------------------------------------
    회사 표시 입력 (M5-2)
@@ -67,6 +68,32 @@ export function BrandForm({
             이 색 하나에서 바탕 · 테두리 · 눌린 상태를 만듭니다. 현장에서 읽히도록
             바탕은 아주 밝게, 글자는 아주 어둡게 고정합니다.
           </p>
+
+          {/* --------------------------------------------------------------
+            * 고른 색에서 무엇이 나오는지 그 자리에서 보여 준다
+            * (사용자 요청 2026-09-11).
+            *
+            * 전에는 "이 색 하나에서 만듭니다" 라고 글로만 적혀 있었다. 무엇이
+            * 나오는지는 저장하고 화면을 옮겨 다녀야 알 수 있었고, 어두운 면에
+            * 어떤 색이 깔리는지는 로그인 화면을 다시 열어야 했다.
+            *
+            * 계산은 lib/tone.ts 하나에서 온다 - 화면이 따로 세면 저장한 값과
+            * 여기 보이는 값이 갈라진다 (§10).
+            * -------------------------------------------------------------- */}
+          {/^#[0-9A-Fa-f]{6}$/.test(c) && (
+            <div className="mt-3">
+              <div className="flex overflow-hidden rounded-md border border-line">
+                {brandSteps(c).map((s) => (
+                  <div key={s.name} title={`${s.label} · ${s.value}`}
+                       className="h-9 flex-1" style={{ background: s.value }} />
+                ))}
+              </div>
+              <p className="mt-1.5 text-xs text-faint">
+                왼쪽이 밝은 면, 오른쪽이 어두운 면입니다. 어두운 쪽 셋은 현장
+                머리줄과 로그인 왼쪽 면에 깔립니다.
+              </p>
+            </div>
+          )}
         </div>
       </div>
 

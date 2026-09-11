@@ -121,43 +121,17 @@ export const getBrand = cache(async (): Promise<Brand> => {
 });
 
 /* ---------------------------------------------------------------------------
-   강조색 한 개에서 일곱 단계
+   강조색 파생은 lib/tone.ts 로 옮겼다 (2026-09-11)
 
-   globals.css 가 쓰는 이름 그대로 만든다. 거기 있던 DOF 자주색의 밝기 관계를
-   비율로 옮긴 것이라, 다른 색을 넣어도 같은 짜임이 나온다.
+   회사 표시 화면이 **고른 색에서 무엇이 나오는지 그 자리에서 보여 주려면**
+   같은 계산이 브라우저에도 있어야 한다. 이 파일은 DB 를 부르므로 그쪽에서
+   부를 수 없다.
 
-     brand       그대로
-     deep        어둡게      제목 · 눌린 상태
-     mid         조금 밝게   보조
-     soft/tint   아주 밝게   바탕
-     line        중간 밝게   테두리
-     pale        연하게      비활성
-
-   ── 대비를 지킨다 ────────────────────────────────────────────────────────
-   현장은 밝은 조명에서 장갑 낀 손으로 본다. 바탕색은 아주 밝게, 글자색은 아주
-   어둡게 고정해 어떤 강조색을 넣어도 읽히게 한다.
+   화면이 자기 계산을 따로 두면 두 벌이 되고, 두 벌은 갈라진다 (§10).
+   계산만 떼어 내고 여기서 다시 내보낸다 - 부르는 자리는 그대로 둔다.
 --------------------------------------------------------------------------- */
+export { brandVars, darkTone, brandSteps, type Step } from './tone';
 
-function toRgb(hex: string): [number, number, number] {
-  const h = hex.replace('#', '');
-  return [
-    parseInt(h.slice(0, 2), 16),
-    parseInt(h.slice(2, 4), 16),
-    parseInt(h.slice(4, 6), 16),
-  ];
-}
-
-const hex = (r: number, g: number, b: number) =>
-  '#' + [r, g, b].map((v) => Math.max(0, Math.min(255, Math.round(v)))
-    .toString(16).padStart(2, '0')).join('');
-
-/** 흰색 쪽으로 t 만큼 (0=그대로 1=흰색) */
-const lighten = ([r, g, b]: [number, number, number], t: number) =>
-  hex(r + (255 - r) * t, g + (255 - g) * t, b + (255 - b) * t);
-
-/** 검정 쪽으로 t 만큼 */
-const darken = ([r, g, b]: [number, number, number], t: number) =>
-  hex(r * (1 - t), g * (1 - t), b * (1 - t));
 
 /* ---------------------------------------------------------------------------
    클라이언트 부품이 쓸 회사 표시
@@ -179,33 +153,4 @@ export function brandMarkVar(
   /* CSS 글에 들어가므로 역슬래시와 따옴표를 막는다 */
   const safe = b.companyName.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   return `--brand-mark:"${safe}"`;
-}
-
-/**
- * 어두운 면의 색. 현장 머리띠 · 주소창 · 설치 화면 바탕이 같은 값을 쓴다.
- * brandVars 의 --color-indigo 와 같은 계산이다 - 두 곳에서 만들면 갈라진다.
- */
-export function darkTone(color: string): string {
-  return darken(toRgb(color), 0.38);
-}
-
-export function brandVars(color: string): string {
-  const rgb = toRgb(color);
-  return [
-    `--color-brand:${color}`,
-    `--color-brand-deep:${darken(rgb, 0.28)}`,
-    `--color-brand-mid:${lighten(rgb, 0.22)}`,
-    `--color-brand-soft:${lighten(rgb, 0.94)}`,
-    `--color-brand-tint:${lighten(rgb, 0.91)}`,
-    `--color-brand-line:${lighten(rgb, 0.7)}`,
-    `--color-brand-pale:${lighten(rgb, 0.45)}`,
-    /*
-     * 어두운 면. 현장 화면의 머리띠와 바닥이 이 색이다. 전에는 DOF 법인
-     * 남보라(#342C68)가 globals.css 에 박혀 있었다 - 다른 제조소가 받으면
-     * 자기 로고 옆에 남의 회사 색이 깔린다.
-     */
-    `--color-indigo:${darkTone(color)}`,
-    `--color-indigo-deep:${darken(rgb, 0.58)}`,
-    `--color-indigo-soft:${darken(rgb, 0.18)}`,
-  ].join(';');
 }

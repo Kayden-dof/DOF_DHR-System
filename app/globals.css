@@ -415,23 +415,38 @@ input, textarea, [contenteditable] { caret-color: var(--color-brand); }
    * 나머지는 구분선 색으로 화면 끝까지 간다. 3px 은 굵어서 장식으로 보였다.
    * 2px 이면 문서 머리의 인쇄된 띠처럼 읽힌다.
    */
+  /*
+   * 브랜드 띠. 전사 양식 상단 띠를 화면으로 옮긴 것.
+   *
+   * 세 토막의 경계를 조금 눕혔다 (2026-09-11). 칼로 자른 듯한 경계는 인쇄물
+   * 에서는 맞지만 화면에서는 딱딱하다. 토막의 폭은 그대로라 양식과 같은 짜임
+   * 이고, 만나는 자리 몇 px 만 섞인다.
+   */
   .brand-rule {
-    height: 2px;
+    height: 3px;
     background: linear-gradient(90deg,
-      var(--color-brand) 0%, var(--color-brand) 22%,
-      var(--color-indigo) 22%, var(--color-indigo) 38%,
-      var(--color-line) 38%, var(--color-line) 100%);
+      var(--color-brand-lift) 0%, var(--color-brand) 20%,
+      var(--color-indigo) 24%, var(--color-indigo) 36%,
+      var(--color-line) 40%, var(--color-line) 100%);
   }
 
   /*
    * 어두운 면.
    *
-   * 기울기를 쓰지 않는다. 넓은 면에 깔린 그라데이션은 화면마다 계단이 지고,
-   * 무엇보다 값이 흐려서 브랜드 색이 무엇인지 말해 주지 못한다. 법인 남보라
-   * 한 값으로 평평하게 깔고, 위아래 경계선 하나로 면을 세운다.
+   * ── 규칙을 고쳐 적는다 (사용자 지시 2026-09-11) ───────────────────────────
+   * 전에는 "기울기를 쓰지 않는다" 였다. 까닭은 둘이었다 - 넓은 면에 깔면 계단이
+   * 지고, 값이 흐려져 브랜드 색이 무엇인지 말해 주지 못한다.
+   *
+   * 그 까닭은 **넓은 면**에만 닿는다. 머리띠는 56px 짜리 좁은 띠라 계단이 질
+   * 자리가 없고, 두 끝이 같은 강조색에서 파생한 값(indigo-soft ~ indigo-deep)
+   * 이라 브랜드 색이 흐려지지도 않는다.
+   *
+   * **현장 바탕(.touch 의 --color-canvas)은 그대로 평평하다.** 그쪽이 원래
+   * 까닭이 가리키던 넓은 면이다.
    */
   .band-solid {
-    background: var(--color-indigo-deep);
+    background: linear-gradient(180deg,
+      var(--color-indigo-soft) 0%, var(--color-indigo-deep) 100%);
     color: var(--color-on-dark);
     /* 위쪽 1px 은 빛을 받은 모서리, 아래쪽 2px 은 브랜드 자주 */
     box-shadow:
@@ -439,9 +454,20 @@ input, textarea, [contenteditable] { caret-color: var(--color-brand); }
       inset 0 -2px 0 var(--color-brand);
   }
 
-  /* 로고만 놓이는 큰 면. 평평하게 깔고 가장자리만 아주 얕게 떨어뜨린다 */
+  /*
+   * 로고만 놓이는 큰 면 (로그인 왼쪽).
+   *
+   * 여기는 기록을 읽는 자리가 아니라 **회사를 보여 주는 자리**다. 위에서
+   * 아래로 아주 완만하게 눕힌다 - 두 끝이 한 강조색에서 나온 값이라 색이
+   * 흐려지지 않고, 로고가 얹힌 면이 종이가 아니라 하나의 물체로 읽힌다.
+   *
+   * 각도를 비스듬히 준다. 세로로만 눕히면 띠처럼 보이고, 비스듬하면 면이 된다.
+   */
   .band-dark {
-    background: var(--color-indigo-deep);
+    background: linear-gradient(155deg,
+      var(--color-indigo-soft) 0%,
+      var(--color-indigo) 42%,
+      var(--color-indigo-deep) 100%);
     color: var(--color-on-dark);
   }
 
@@ -528,15 +554,22 @@ input, textarea, [contenteditable] { caret-color: var(--color-brand); }
    * 갈려야 장갑 낀 손이 두 번 누르지 않는다.
    */
   .btn-primary {
-    background: var(--color-brand);
+    /*
+     * 위가 조금 밝다 (2026-09-11). 40px 짜리 조각이라 계단이 질 자리가 없고,
+     * 두 끝이 같은 강조색에서 나온 값이라 무슨 색인지도 그대로 말한다.
+     * 빛을 위에서 받은 물체로 읽혀 누를 것이 저절로 먼저 보인다.
+     */
+    background: linear-gradient(180deg,
+      var(--color-brand-lift) 0%, var(--color-brand) 100%);
     color: #fff;
     border-color: var(--color-brand);
-    box-shadow: inset 0 1px 0 rgb(255 255 255 / .16), var(--sh-1);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / .18), var(--sh-1);
   }
   .btn-primary:hover:not(:disabled) {
-    background: var(--color-brand-deep);
+    background: linear-gradient(180deg,
+      var(--color-brand) 0%, var(--color-brand-deep) 100%);
     border-color: var(--color-brand-deep);
-    box-shadow: inset 0 1px 0 rgb(255 255 255 / .16), var(--sh-2);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / .18), var(--sh-2);
   }
   .btn-primary:active:not(:disabled) {
     box-shadow: inset 0 2px 4px rgb(26 26 31 / .22);
