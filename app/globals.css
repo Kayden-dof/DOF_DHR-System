@@ -409,6 +409,27 @@ input, textarea, [contenteditable] { caret-color: var(--color-brand); }
   }
 
   /*
+   * 카드 머리에 강조색 한 조각 (2026-09-11).
+   *
+   * 사무 화면에 회사 색이 나타나는 자리가 주 동작 단추 하나뿐이었다. 그래서
+   * 화면이 흑백 서류처럼 보였다 - 어느 회사 것인지도 말해 주지 않는다.
+   *
+   * 제목 앞에 짧은 막대 하나를 세운다. 면을 물들이지 않으므로 글자 대비는
+   * 그대로이고, 카드가 어디서 시작하는지도 눈이 먼저 잡는다. 색은 설정에서
+   * 온다 (§2.0) - 회사 색을 바꾸면 이 막대도 따라간다.
+   */
+  .section-head > .min-w-0::before {
+    content: "";
+    display: block;
+    width: 1.75rem;
+    height: 3px;
+    margin-bottom: 0.5rem;
+    border-radius: 99px;
+    background: linear-gradient(90deg,
+      var(--color-brand) 0%, var(--color-brand-mid) 100%);
+  }
+
+  /*
    * 브랜드 밴드. 전사 양식 상단 띠를 화면으로 옮긴 것.
    *
    * 기울기가 아니라 색이 딱 끊기는 구간 셋이다. 자주에서 남보라로 넘어가고
@@ -613,8 +634,14 @@ input, textarea, [contenteditable] { caret-color: var(--color-brand); }
     white-space: nowrap;
     background: transparent;
   }
+  /*
+   * 줄 높이 (2026-09-11).
+   *
+   * 표가 넓은 화면에서 납작한 글줄 더미로 보였다. 줄마다 숨을 주면 한 줄이
+   * 한 건으로 읽힌다 - 목록을 훑는 시간이 이 시스템 쓰는 시간의 대부분이다.
+   */
   .td {
-    padding: 0.8125rem 1rem;
+    padding: 0.9375rem 1rem;
     font-size: 0.875rem;
     line-height: 1.45;
     color: var(--color-body);
@@ -622,6 +649,22 @@ input, textarea, [contenteditable] { caret-color: var(--color-brand); }
     vertical-align: middle;
   }
   tbody tr:last-child .td { border-bottom: none; }
+
+  /*
+   * 마지막 칸은 내용만큼만 (2026-09-11).
+   *
+   * 표의 내용을 다 더해도 폭이 남으면 브라우저가 남는 만큼을 열마다 나눠
+   * 준다. 그래서 오른쪽 끝 값 하나가 앞 열과 한참 떨어져 혼자 떠 있었다 -
+   * 넓은 화면에서 화면이 "덩그러니" 보이던 까닭의 하나다.
+   *
+   * 마지막 열을 내용 폭으로 붙들면 남는 폭이 **글자 열**로 간다. 빈자리가
+   * 사라지지는 않지만, 긴 글 옆의 여백은 눈에 띄지 않고 값 옆의 여백은
+   * 띈다. 같은 여백을 눈에 안 띄는 자리로 옮기는 것이다.
+   */
+  .card table .td:last-child, .card table .th:last-child {
+    width: 1%;
+    white-space: nowrap;
+  }
 
   /* 번호는 줄바꿈하지 않는다. 로트번호가 두 줄로 갈리면 눈으로 대조를 못 한다.
      자리가 모자라면 표가 가로로 넘어가게 두고, 감싼 상자가 스크롤을 받는다. */

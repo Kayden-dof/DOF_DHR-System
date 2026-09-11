@@ -161,7 +161,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         * 얹지 않는다 - 쉬는 면에 깊이를 주지 않는 규칙 그대로다. 선 하나다.
         */}
       <header className="sticky top-0 z-30 border-b border-line-strong bg-surface/90 backdrop-blur-md">
-        <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-6 px-5 lg:gap-9">
+        <div className="mx-auto flex h-14 max-w-[1240px] items-center gap-6 px-5 lg:gap-9">
           <Link href="/" className="flex shrink-0 items-center gap-3" aria-label="현황으로">
             {/*
               * 로고 상자를 글자보다 크게 잡는다.
@@ -270,9 +270,20 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-[1400px] flex-1 px-5 py-10">{children}</main>
+      {/*
+        * 본문 폭을 1400 에서 1240 으로 좁혔다 (사용자 지적 2026-09-11
+        * "내부 화면이 너무 덩그러니 있다").
+        *
+        * 이 화면들의 내용은 900px 어치인데 1400px 을 채우려 늘어나 있었다.
+        * 한 줄짜리 표가 1400px 을 가로지르면 값들 사이가 다 비고, 화면은
+        * 꽉 찬 것이 아니라 흩어진 것으로 읽힌다.
+        *
+        * 표는 감싼 상자가 가로 스크롤을 받으므로 (overflow-x-auto) 열이
+        * 많은 화면도 잘리지 않는다.
+        */}
+      <main className="mx-auto w-full max-w-[1240px] flex-1 px-5 py-10">{children}</main>
 
-      <footer className="mx-auto w-full max-w-[1400px] px-5 pb-10 pt-6">
+      <footer className="mx-auto w-full max-w-[1240px] px-5 pb-10 pt-6">
         <div className="flex items-center justify-between gap-4 border-t border-line pt-4">
           {/* 바닥글은 눈을 끌 자리가 아니다. 흐리게 얹는다 */}
           <span className="opacity-35">

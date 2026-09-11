@@ -49,7 +49,7 @@ export default async function WorkLayout({ children }: { children: React.ReactNo
       <DemoBanner seededAt={demo ?? null} canPurge={false} />
 
       <header className="band-solid sticky top-0 z-20">
-        <div className="mx-auto flex max-w-[1400px] items-center gap-4 px-5 py-3">
+        <div className="mx-auto flex max-w-[1240px] items-center gap-4 px-5 py-3">
           <Link href="/work" className="flex shrink-0 items-center gap-3" aria-label="배치 목록으로">
             {/* 어두운 바탕용 그림은 여백이 더 넓어 상자를 더 크게 잡는다 */}
             <BrandMark className="h-9 w-auto text-[1.125rem]" dark />
@@ -97,7 +97,7 @@ export default async function WorkLayout({ children }: { children: React.ReactNo
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-[1400px] flex-1 px-5 py-6">{children}</main>
+      <main className="mx-auto w-full max-w-[1240px] flex-1 px-5 py-6">{children}</main>
 
       {/*
         * 자리 비움 잠금. 로그아웃이 아니라 화면만 덮는다. 세션은 8시간 그대로다.
@@ -106,7 +106,7 @@ export default async function WorkLayout({ children }: { children: React.ReactNo
         */}
       <IdleLock minutes={20} name={user.full_name} initial={user.full_name.slice(0, 1)} />
 
-      <footer className="mx-auto w-full max-w-[1400px] px-5 pb-8 pt-4">
+      <footer className="mx-auto w-full max-w-[1240px] px-5 pb-8 pt-4">
         <div className="flex items-center justify-between gap-4 border-t border-white/12 pt-4">
           <span className="opacity-30">
             <BrandMark className="h-3.5 w-auto text-[0.8125rem]" dark />

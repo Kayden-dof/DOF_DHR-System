@@ -43,7 +43,7 @@ export default function DemoBanner({
 
   return (
     <div className="no-print border-b border-danger/40 bg-danger-bg">
-      <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-x-3 gap-y-1.5 px-5 py-2.5">
+      <div className="mx-auto flex max-w-[1240px] flex-wrap items-center gap-x-3 gap-y-1.5 px-5 py-2.5">
         <span className="chip shrink-0 bg-danger text-white">시연 자료</span>
         <p className="min-w-0 flex-1 text-xs leading-relaxed text-ink">
           <b>지어낸 배치 기록이 들어 있습니다.</b> 실 운영을 시작하기 전에 DB를 새로

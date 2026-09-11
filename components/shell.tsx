@@ -111,6 +111,19 @@ export function PageShell({
         {stats}
       </header>
 
+      {/*
+        * 머리와 본문을 가르는 얇은 선 (사용자 지적 2026-09-11 "덩그러니").
+        *
+        * 화면마다 제목과 설명이 캔버스 위에 그냥 떠 있고 그 아래로 카드가
+        * 바로 이어졌다. 틀이 없으니 머리가 첫 카드에 딸린 글처럼 보이고,
+        * 화면 전체가 "놓여 있다" 가 아니라 "흩어져 있다" 로 읽힌다.
+        *
+        * 선 하나면 머리가 머리로 선다. 숫자 띠가 있는 화면은 그 띠가 이미
+        * 가르므로 긋지 않는다 - 가로줄이 둘이면 어느 쪽이 시작인지 흐려진다
+        * (표 머리에 띠를 깔지 않는 것과 같은 까닭).
+        */}
+      {!stats && <div className="border-t border-line-soft" />}
+
       {children}
     </div>
   );
@@ -183,7 +196,7 @@ export function StatStrip({ items }: { items: StatItem[] }) {
           </>
         );
 
-        const cls = 'relative border-l border-t border-line bg-surface px-4 py-3.5 transition-colors';
+        const cls = 'relative border-l border-t border-line bg-surface px-4 py-4 transition-colors';
         const edge = s.tone && !zero
           ? <span aria-hidden className={`absolute inset-y-0 left-0 w-[3px] ${EDGE[s.tone]}`} />
           : null;
