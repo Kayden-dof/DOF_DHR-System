@@ -182,7 +182,7 @@ export default async function WorkHome(
       {scan !== '' && picked.length === 0 && closed.length > 0 && (
         <p className="card bg-warn-bg px-4 py-3 text-base leading-relaxed text-ink">
           <b className="font-mono">{closed.map((c) => c.batch_no).join(', ')}</b>
-          {closed.length > 1 ? ' — 모두 ' : ' — '}
+          {closed.length > 1 ? ' · 모두 ' : ' · '}
           <b>끝난 배치</b>입니다. 현장 화면에서는 진행 중인 배치만 엽니다.
         </p>
       )}

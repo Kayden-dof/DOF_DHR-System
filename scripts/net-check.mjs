@@ -19,7 +19,9 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { readAllow, allows, readAddr, clientIp } from '../lib/net.ts';
+import {
+  readAllow, allows, readAddr, clientIp, readCountries, clientCountry, clientPlace,
+} from '../lib/net.ts';
 
 const BASE = process.argv[2] ?? 'http://localhost:3100';
 const ROOT = process.cwd();
@@ -76,6 +78,37 @@ is('없으면 x-forwarded-for 의 첫 자리',
    clientIp(new Headers({ 'x-forwarded-for': '5.6.7.8, 9.9.9.9' })), '5.6.7.8');
 is('아무것도 없으면 null', clientIp(new Headers()), null);
 is('주소를 못 읽으면 null', readAddr('1.2.3.4.5'), null);
+
+/* ---------------------------------------------------------------------------
+   나라 - 유동 주소에서도 안 흔들리는 잣대
+--------------------------------------------------------------------------- */
+console.log('\n접속지의 나라');
+
+is('두 글자 나라만 읽는다', readCountries('kr, JP').list.join(','), 'KR,JP');
+is('같은 것을 두 번 적어도 하나', readCountries('KR KR').list.length, 1);
+is('두 글자가 아니면 못 읽은 조각', readCountries('KOR').bad.length, 1);
+is('비어 있으면 목록도 비어 있다', readCountries('').list.length, 0);
+
+is('Vercel 이 채운 나라를 읽는다',
+   clientCountry(new Headers({ 'x-vercel-ip-country': 'kr' })), 'KR');
+is('나라 머리글이 없으면 null', clientCountry(new Headers()), null);
+is('이상한 값은 null', clientCountry(new Headers({ 'x-vercel-ip-country': 'XX1' })), null);
+
+/*
+ * 브라우저가 보내는 값은 읽지 않는다. 위치 머리글을 지어 보내도 소용없어야
+ * 한다 - 그게 이 잣대가 GPS 와 다른 이유다.
+ */
+is('브라우저가 지어낸 위치는 읽지 않는다',
+   clientCountry(new Headers({ 'x-geo-country': 'KR', 'geolocation': 'KR' })), null);
+
+is('시·도와 도시를 읽는다',
+   clientPlace(new Headers({
+     'x-vercel-ip-country-region': 'KR-41',
+     'x-vercel-ip-city': 'Seongnam',
+   })), 'KR-41 Seongnam');
+is('주소 인코딩된 한글 도시를 푼다',
+   clientPlace(new Headers({ 'x-vercel-ip-city': '%EC%84%B1%EB%82%A8%EC%8B%9C' })), '성남시');
+is('아무것도 없으면 null', clientPlace(new Headers()), null);
 
 /* ---------------------------------------------------------------------------
    ② 보안 머리글

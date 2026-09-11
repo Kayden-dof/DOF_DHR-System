@@ -13,7 +13,7 @@ import { settingsNav } from '../sections';
 import { APP_VERSION, BUILD_REF } from '@/lib/version';
 import { printKeyPinned, cronKeyPinned } from '@/lib/print';
 import { headers } from 'next/headers';
-import { allowState, clientIp } from '@/lib/net';
+import { allowState, clientIp, clientCountry, clientPlace } from '@/lib/net';
 import { getBrand } from '@/lib/brand';
 import { SetupSteps, type SetupStep } from './setup-steps';
 
@@ -101,7 +101,15 @@ export default async function SettingsHome() {
    * 그래서 이 시스템이 본 값을 그대로 찍는다. 제조소 패드에서 이 화면을 열면
    * ALLOW_FROM 에 넣을 값이 바로 여기 있다. 막힌 화면도 같은 값을 찍는다.
    */
-  const here = clientIp(await headers());
+  const h = await headers();
+  const here = clientIp(h);
+  /*
+   * 나라와 시·도를 함께 찍는다. 나라는 지금 거르는 잣대이고, 시·도는
+   * **며칠 지켜보고 좁힐 수 있는지 정하라고** 보여 주는 값이다. 유동 주소는
+   * 시·도가 흔들릴 수 있어 판정에 쓰지 않는다.
+   */
+  const hereCountry = clientCountry(h);
+  const herePlace = clientPlace(h);
   const have = new Set(d.covered.map((r) => r.target));
   const missing = NUMBERING_TARGETS.filter((t) => !have.has(t.code));
   const blocking = missing.filter((t) => M1_CRITICAL_TARGETS.includes(t.code));
@@ -311,7 +319,16 @@ export default async function SettingsHome() {
             <dt className="text-muted">접속지 제한</dt>
             <dd className="mt-0.5">
               {net.on
-                ? <span className="tnum text-ink">{net.count}개 구간에서만 접속</span>
+                ? (
+                  <span className="text-ink">
+                    {net.countries.length > 0 && (
+                      <span className="tnum">{net.countries.join('·')}</span>
+                    )}
+                    {net.countries.length > 0 && net.count > 0 && ' 안의 '}
+                    {net.count > 0 && <span className="tnum">{net.count}개 구간</span>}
+                    에서만 접속
+                  </span>
+                )
                 : <Tag tone="warn">어디서나 접속</Tag>}
             </dd>
           </div>
@@ -319,7 +336,13 @@ export default async function SettingsHome() {
             <dt className="text-muted">지금 이 화면의 접속지</dt>
             <dd className="mt-0.5">
               {here
-                ? <code className="text-ink">{here}</code>
+                ? (
+                  <span className="text-ink">
+                    <code>{here}</code>
+                    {hereCountry && <span className="tnum"> · {hereCountry}</span>}
+                    {herePlace && <span className="text-muted"> {herePlace}</span>}
+                  </span>
+                )
                 : <span className="text-muted">읽지 못했습니다</span>}
             </dd>
           </div>
@@ -346,15 +369,29 @@ export default async function SettingsHome() {
             그리고 시도 제한이 문을 지키고 있습니다. 배포 환경에
             <code> ALLOW_FROM </code>에 제조소 공인 IP를 넣으면 그 자리에서만
             열립니다 (예: <code>203.0.113.9</code> · <code>203.0.113.0/24</code>).
-            넣을 값은 <b>제조소에서 이 화면을 열었을 때</b> 위에 찍히는 주소입니다 —
+            넣을 값은 <b>제조소에서 이 화면을 열었을 때</b> 위에 찍히는 주소입니다.
             바깥 사이트가 알려 주는 값과 다를 수 있으므로 이 값을 쓰십시오.
+          </p>
+        )}
+        {!net.on && (
+          <p className="mt-2 text-xs leading-relaxed text-muted">
+            공인 IP가 유동이면 그 목록은 바뀔 때마다 고쳐야 합니다.
+            <code> ALLOW_COUNTRY=KR </code>은 주소가 바뀌어도 그대로입니다.
+            다만 한국 안이면 모두 통과하므로 <b>제조소만 남기는 것이 아니라
+            전 세계를 한국으로 줄이는 것</b>입니다. 둘 다 넣으면 둘 다 맞아야
+            열립니다.
           </p>
         )}
         {net.bad.length > 0 && (
           <p className="mt-2 text-xs leading-relaxed text-ink">
-            <code>ALLOW_FROM</code> 에서 읽지 못한 조각이 있습니다 —
-            <code> {net.bad.join(' ')}</code>. 이 조각은 어느 주소도 통과시키지
-            않습니다.
+            <code>ALLOW_FROM</code> 에서 <code>{net.bad.join(' ')}</code> 를 읽지
+            못했습니다. 이 조각은 어느 주소도 통과시키지 않습니다.
+          </p>
+        )}
+        {net.countryBad.length > 0 && (
+          <p className="mt-2 text-xs leading-relaxed text-ink">
+            <code>ALLOW_COUNTRY</code> 에서 <code>{net.countryBad.join(' ')}</code> 를
+            읽지 못했습니다. 두 글자 나라 코드만 읽습니다 (<code>KR</code>).
           </p>
         )}
         {!keyPinned && (

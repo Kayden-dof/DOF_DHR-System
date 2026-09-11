@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { readAllow, allows, clientIp } from '@/lib/net';
+import {
+  readAllow, allows, clientIp, readCountries, clientCountry,
+} from '@/lib/net';
 
 /* ---------------------------------------------------------------------------
    접속지 제한 (망 경계)
@@ -36,17 +38,40 @@ const OWN_LOCK = ['/api/daily'];
  */
 export function proxy(req: NextRequest) {
   const { rules, bad } = readAllow(process.env.ALLOW_FROM);
+  const { list: countries, bad: countryBad } = readCountries(process.env.ALLOW_COUNTRY);
   if (bad.length > 0) {
     console.warn('[net] ALLOW_FROM 에서 읽지 못한 조각', bad.join(' '));
   }
-  if (rules.length === 0) return NextResponse.next();
+  if (countryBad.length > 0) {
+    console.warn('[net] ALLOW_COUNTRY 에서 읽지 못한 조각', countryBad.join(' '));
+  }
+  if (rules.length === 0 && countries.length === 0) return NextResponse.next();
 
   const path = req.nextUrl.pathname;
   if (OWN_LOCK.some((p) => path === p || path.startsWith(p + '/'))) {
     return NextResponse.next();
   }
 
+  /*
+   * ── 적어 넣은 조건은 **전부** 만족해야 한다 ──────────────────────────────
+   *
+   * 둘 중 하나만 맞아도 열어 주면, 넓은 쪽(나라)이 좁은 쪽(주소)을 무르게
+   * 만든다. 주소를 제조소 하나로 적어 두고 나라를 한국으로 적으면 한국
+   * 어디서나 열리는 셈이다 - 규칙 하나가 다른 규칙을 넓히는 것은 §10 이
+   * 금지한 우회 갈래와 같은 것이다.
+   *
+   * 그래서 적은 것은 전부 좁힌다. 나라만 적으면 나라로만 좁고, 둘 다 적으면
+   * 둘 다 맞아야 한다.
+   */
   const ip = clientIp(req.headers);
+  const cc = clientCountry(req.headers);
+
+  if (countries.length > 0 && (!cc || !countries.includes(cc))) {
+    console.warn('[net] 막음 · 나라', cc ?? '(나라 모름)', ip ?? '', path);
+    return deny(ip, cc);
+  }
+
+  if (rules.length === 0) return NextResponse.next();
 
   /*
    * 접속지를 알 수 없으면 막는다.
@@ -60,8 +85,8 @@ export function proxy(req: NextRequest) {
    * 것은 그 단추가 곧 문이기 때문이다.
    */
   if (!ip || !allows(rules, ip)) {
-    console.warn('[net] 막음', ip ?? '(접속지 모름)', path);
-    return deny(ip);
+    console.warn('[net] 막음 · 주소', ip ?? '(접속지 모름)', path);
+    return deny(ip, cc);
   }
 
   return NextResponse.next();
@@ -74,7 +99,8 @@ export function proxy(req: NextRequest) {
  * 알고 전화를 건다. 자기 주소를 보여 주면 그대로 읽어 주면 된다 - 남의 비밀이
  * 아니라 그 사람 자신의 값이다.
  */
-function deny(ip: string | null) {
+function deny(ip: string | null, country: string | null) {
+  const where = [ip ?? '접속지를 읽지 못했습니다', country].filter(Boolean).join(' · ');
   const body = `<!doctype html><html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
@@ -91,7 +117,7 @@ function deny(ip: string | null) {
 <p>이 시스템은 등록된 접속지에서만 열립니다. 제조소 안에서 다시 열어 보십시오.</p>
 <p>제조소에서 열었는데도 이 화면이 나오면 시스템 관리자에게
    아래 주소를 알려 주십시오.</p>
-<p><code>${escapeHtml(ip ?? '접속지를 읽지 못했습니다')}</code></p>
+<p><code>${escapeHtml(where)}</code></p>
 </main></body></html>`;
 
   return new NextResponse(body, {

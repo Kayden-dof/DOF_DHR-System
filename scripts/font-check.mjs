@@ -40,7 +40,22 @@ function walk(dir, out = []) {
 }
 
 const files = [...walk(path.join(ROOT, 'app')), ...walk(path.join(ROOT, 'components'))];
-const ph = [], code = [], txt = [];
+const ph = [], code = [], txt = [], dash = [];
+
+/* ---------------------------------------------------------------------------
+   붙임표(em dash)
+
+   사용자가 화면을 보다 짚었다 (2026-09-11). 이 저장소의 화면 글은 `-` 와 `·`
+   를 쓴다. 붙임표 하나가 섞이면 그 줄만 다른 손이 쓴 것처럼 보인다.
+
+   한글 글꼴에서 `—` 는 전각 폭이라 앞뒤 여백까지 달라진다. 눈에 띄는 것은
+   글자가 아니라 그 줄의 리듬이다.
+
+   값이 아니라 **문구**를 본다. 표의 빈칸 표시(`{n.known ? n.qty : '—'}`)처럼
+   글자 하나로 "값 없음" 을 나타내는 자리는 문장이 아니므로 세지 않는다.
+--------------------------------------------------------------------------- */
+const EM = String.fromCharCode(8212);
+const RE_DASH = new RegExp('[^\\n]*' + EM + '[^\\n]*', 'g');
 
 const RE_FIELD = new RegExp('<(input|textarea)[^>]*?/>', 'g');
 const RE_PH_Q  = new RegExp('placeholder="([^"]*)"');
@@ -69,6 +84,11 @@ for (const f of files) {
     if (!HAN.test(m[2].replace(RE_EXPR, ''))) continue;
     txt.push({ rel, line: lineOf(m.index), text: m[2].trim().slice(0, 45) });
   }
+  for (const m of src.matchAll(RE_DASH)) {
+    /* 글자 하나로 "값 없음" 을 나타내는 자리는 문장이 아니다 */
+    if (m[0].includes("'" + EM + "'") || m[0].includes('"' + EM + '"')) continue;
+    dash.push({ rel, line: lineOf(m.index), text: m[0].trim().slice(0, 55) });
+  }
 }
 
 const show = (title, arr, how) => {
@@ -78,17 +98,20 @@ const show = (title, arr, how) => {
   console.log('    → ' + how);
 };
 
-console.log('\n고정폭 자리의 한글 (파일 ' + files.length + '개)');
+console.log('\n화면 글자 (파일 ' + files.length + '개)');
 show('고정폭 칸의 안내문', ph,
      '라벨을 되풀이하는 것이면 떼고, 본보기면 영숫자만 남긴다');
 show('<code> 안의 한글', code,
      'preflight 가 고정폭으로 만든다. <b className="text-ink"> 로 바꾼다');
 show('font-mono 안의 낱말', txt,
      '낱말은 밖에 두고 값만 감싼다');
+show('붙임표', dash,
+     '이 저장소의 화면 글은 ' + JSON.stringify('-') + ' 와 '
+     + JSON.stringify('·') + ' 를 쓴다');
 
-const total = ph.length + code.length + txt.length;
+const total = ph.length + code.length + txt.length + dash.length;
 if (total === 0) {
-  console.log('  한글이 고정폭으로 떨어지는 자리가 없습니다.\n');
+  console.log('  한글이 고정폭으로 떨어지는 자리도, 붙임표도 없습니다.\n');
   process.exit(0);
 }
 console.log('\n  모두 ' + total + '건.\n');

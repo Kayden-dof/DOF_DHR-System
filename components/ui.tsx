@@ -148,7 +148,12 @@ const TONE: Record<string, string> = {
   warn: 'bg-warn-bg text-warn',
   danger: 'bg-danger-bg text-danger',
   info: 'bg-info-bg text-info',
-  brand: 'bg-brand-tint text-brand',
+  /*
+   * 글자는 brand 가 아니라 brand-deep 이다. 바탕이 회사 색을 91% 밝힌 값이라,
+   * 회사 색 자체가 밝으면(노랑·연두) 같은 색 글자가 묻힌다. 어느 색을 넣어도
+   * 읽히게 하려면 글자 쪽을 어둡게 잡아야 한다 (§2.0 - 색은 설정에서 온다).
+   */
+  brand: 'bg-brand-tint text-brand-deep',
   solid: 'bg-brand text-white',
   quiet: 'bg-canvas-deep text-muted',
   faint: 'bg-canvas text-faint',

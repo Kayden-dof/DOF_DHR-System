@@ -153,13 +153,76 @@ export function clientIp(h: { get(name: string): string | null }): string | null
 }
 
 /* ---------------------------------------------------------------------------
+   접속지의 나라 (사용자 물음 2026-09-11)
+
+   제조소 공인 주소가 유동이면 주소 목록은 바뀔 때마다 사람이 고쳐야 하고,
+   고치기 전까지 제조소가 잠긴다. **나라는 주소가 바뀌어도 안 바뀐다.**
+
+   ── 브라우저 위치(GPS)와 다른 물건이다 ───────────────────────────────────
+   `navigator.geolocation` 은 **브라우저가 보내는 값**이다. 코드를 쥔 사람이
+   제조소 좌표를 지어 보내면 그대로 통과하므로, 우리가 막으려는 바로 그
+   상대에게 아무 소용이 없다. 실내 측위 오차로 멀쩡한 현장이 잠기는 위험은
+   덤이다.
+
+   여기서 읽는 것은 **Vercel 이 IP 를 보고 채운 값**이다. 브라우저가 손댈
+   자리가 없다.
+
+   ── 이것은 경계가 아니라 걸러 내기다 ──────────────────────────────────────
+   한국 안이면 전부 통과한다. "제조소만" 이 아니라 "전 세계에서 한국으로" 다.
+   줄어드는 폭은 크지만(자동 시도는 대부분 밖에서 온다) 이것 하나로 문이
+   닫혔다고 말하지 않는다.
+--------------------------------------------------------------------------- */
+export function clientCountry(h: { get(name: string): string | null }): string | null {
+  const v = h.get('x-vercel-ip-country');
+  if (!v) return null;
+  const s = v.trim().toUpperCase();
+  return /^[A-Z]{2}$/.test(s) ? s : null;
+}
+
+/** 나라 목록. `KR` · `KR,JP` 처럼 적는다. 못 읽은 조각은 함께 돌려준다. */
+export function readCountries(raw: string | undefined | null): { list: string[]; bad: string[] } {
+  const list: string[] = [];
+  const bad: string[] = [];
+  for (const part of String(raw ?? '').split(/[,\s]+/)) {
+    if (part === '') continue;
+    const s = part.trim().toUpperCase();
+    if (/^[A-Z]{2}$/.test(s)) { if (!list.includes(s)) list.push(s); } else bad.push(part);
+  }
+  return { list, bad };
+}
+
+/**
+ * 도시와 시·도. 좁힐 수 있는지 며칠 지켜보라고 화면에 찍는 값이다.
+ * 판정에 쓰지 않는다 - 유동 주소는 시·도가 흔들려 멀쩡한 현장을 잠글 수 있다.
+ */
+export function clientPlace(h: { get(name: string): string | null }): string | null {
+  const region = h.get('x-vercel-ip-country-region');
+  const raw = h.get('x-vercel-ip-city');
+  let city = raw ?? '';
+  /* 한글 도시 이름은 주소 인코딩되어 온다 */
+  try { city = decodeURIComponent(city); } catch { /* 그대로 쓴다 */ }
+  const parts = [region, city].filter((x) => x && x.trim() !== '');
+  return parts.length > 0 ? parts.join(' ') : null;
+}
+
+/* ---------------------------------------------------------------------------
    지금 켜져 있는가
 
    설정 > 개요가 이것을 화면에 적는다. 열쇠(CRON_SECRET · PRINT_SECRET)를
    다루는 방식과 같다 - **조용히 열려 있지 않게** 한다. 꺼진 것이 잘못은
    아니지만, 꺼진 줄 모르는 것은 잘못이다.
 --------------------------------------------------------------------------- */
-export function allowState(): { on: boolean; count: number; bad: string[] } {
+export function allowState(): {
+  on: boolean; count: number; bad: string[];
+  countries: string[]; countryBad: string[];
+} {
   const { rules, bad } = readAllow(process.env.ALLOW_FROM);
-  return { on: rules.length > 0, count: rules.length, bad };
+  const { list, bad: countryBad } = readCountries(process.env.ALLOW_COUNTRY);
+  return {
+    on: rules.length > 0 || list.length > 0,
+    count: rules.length,
+    bad,
+    countries: list,
+    countryBad,
+  };
 }
