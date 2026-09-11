@@ -54,6 +54,8 @@ export async function GET(req: Request) {
     const out = await withActor(null, async (db) => ({
       expired: await db.val<number>(`select expire_material_lots()`),
       swept: await db.val<number>(`select login_attempt_sweep()`),
+      /* 막힌 접속도 기록이 아니라 감시 자료다 (0109). 오래된 것은 쓸어 낸다 */
+      blocks: await db.val<number>(`select access_block_sweep()`),
     }));
 
     /*

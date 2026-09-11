@@ -318,4 +318,56 @@ export default [
   },
 },
 
+{
+  id: 'U-25', expect: '확인',
+  name: '막힌 접속: 같은 자리는 한 줄로 묶인다',
+  async run(t) {
+    await t.rows(`select access_block_note($1,$2,$3,$4,null,$5,$6)`,
+                 ['203.0.113.77', 'US', 'TX', 'Dallas', 'COUNTRY', '/login']);
+    await t.rows(`select access_block_note($1,$2,$3,$4,null,$5,$6)`,
+                 ['203.0.113.77', 'US', 'TX', 'Dallas', 'COUNTRY', '/work']);
+
+    const r = await t.rows(
+      `select hits, path from access_block where ip = '203.0.113.77'`);
+    if (r.length !== 1) throw new Error(`한 줄이어야 합니다 (${r.length}줄)`);
+    if (r[0].hits !== 2) throw new Error(`두 번이어야 합니다 (${r[0].hits})`);
+    if (r[0].path !== '/work') throw new Error('마지막으로 두드린 자리가 남아야 합니다');
+  },
+},
+
+{
+  id: 'U-26', expect: '확인',
+  name: '막힌 접속: 누구인지는 쿠키를 들고 왔을 때만 남는다',
+  async run(t) {
+    const id = await t.newUser({ full_name: '패드들고나간사람' });
+    await t.rows(`select access_block_note($1,$2,null,null,$3::uuid,$4,$5)`,
+                 ['198.51.100.9', 'JP', id, 'COUNTRY', '/work']);
+    await t.rows(`select access_block_note($1,$2,null,null,null,$3,$4)`,
+                 ['198.51.100.10', 'JP', 'COUNTRY', '/work']);
+
+    const r = await t.rows(`select ip, who from access_block_recent(1)`);
+    const known = r.find((x) => x.ip === '198.51.100.9');
+    const unknown = r.find((x) => x.ip === '198.51.100.10');
+    if (known?.who !== '패드들고나간사람') throw new Error('계정을 들고 온 줄에 이름이 없습니다');
+    if (unknown?.who !== null) throw new Error('모르는 것을 지어냈습니다');
+  },
+},
+
+{
+  id: 'U-27', expect: '확인',
+  name: '막힌 접속은 기록이 아니다 - 오래된 것은 쓸어 낸다',
+  async run(t) {
+    await t.rows(`select access_block_note($1,$2,null,null,null,$3,$4)`,
+                 ['203.0.113.99', 'US', 'COUNTRY', '/login']);
+    await t.rows(
+      `update access_block set day = day - 400 where ip = '203.0.113.99'`);
+
+    const gone = (await t.rows(`select access_block_sweep() as n`))[0].n;
+    if (gone < 1) throw new Error('쓸어 내지 못했습니다');
+
+    const left = await t.rows(`select 1 from access_block where ip = '203.0.113.99'`);
+    if (left.length !== 0) throw new Error('남아 있습니다');
+  },
+},
+
 ];

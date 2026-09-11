@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Denied from '@/components/denied';
-import { requireUser, blocksViewer, canWrite } from '@/lib/session';
+import { requireUser, blocksViewer, canWrite, hasRole } from '@/lib/session';
+import { fmtDateTime, fmtTime } from '@/lib/fmt';
 import { withActor } from '@/lib/db';
 import { NUMBERING_TARGETS, M1_CRITICAL_TARGETS } from '@/lib/forms';
 import { ROLE_ORDER } from '@/lib/roles';
@@ -33,6 +34,39 @@ interface Counts {
   supplies: number; equipment: number; dmr_issuable: number; workers: number;
   schemes: number; segments: number;
 }
+
+/** 문 앞에서 막힌 접속 한 묶음 (0109) */
+interface Block {
+  day: Date; ip: string | null;
+  country: string | null; region: string | null; city: string | null;
+  who: string | null; reason: string; path: string | null;
+  hits: number; first_at: Date; last_at: Date;
+}
+
+/*
+ * 언제부터 언제까지 두드렸는가.
+ *
+ * **몇 번인지는 적지 않는다.** 문 앞이 같은 자리를 1분에 한 번만 적으므로
+ * (proxy.ts) 그 수는 실제보다 작다. 작은 수를 횟수라 적으면 그것이 거짓말이고,
+ * 읽는 사람은 그 수를 믿는다 (§8.5). 폭은 거짓말이 아니다 - 한 번 두드렸으면
+ * 한 시각이고, 하루 종일이면 하루가 보인다.
+ */
+function span(first: Date, last: Date): string {
+  const a = fmtDateTime(first);
+  const b = fmtDateTime(last);
+  if (a === b) return a;
+  /* 같은 날이면 뒤쪽은 시각만 */
+  const day = a.slice(0, a.length - fmtTime(first).length);
+  return b.startsWith(day) ? `${a} ~ ${fmtTime(last)}` : `${a} ~ ${b}`;
+}
+
+/** 무엇이 어긋나 막혔는가. 사실만 적는다 (§8.5) */
+const BLOCK_REASON: Record<string, string> = {
+  COUNTRY: '나라',
+  REGION: '시·도',
+  CITY: '시',
+  ADDRESS: '주소',
+};
 
 export default async function SettingsHome() {
   const user = await requireUser();
@@ -81,6 +115,13 @@ export default async function SettingsHome() {
     covered: await db.rows<{ target: string }>(
       `select distinct target::text as target from numbering_rule
         where is_active and item_id is null`),
+    /*
+     * 문을 두드린 자리 (0109 · 사용자 지시 2026-09-11).
+     *
+     * 문이 닫혀 있으면 로그인 시도 자체가 일어나지 않으므로, 밖에서 무슨 일이
+     * 있었는지는 이 표 말고 알 자리가 없다.
+     */
+    blocks: await db.rows<Block>(`select * from access_block_recent(14)`),
   }));
 
   const c = d.c!;
@@ -90,6 +131,12 @@ export default async function SettingsHome() {
   const cronPinned = cronKeyPinned();
   /* 망 경계. 켜져 있는지를 화면이 말한다 - 꺼진 줄 모르는 것이 잘못이다 */
   const net = allowState();
+  /*
+   * 막힌 접속은 개발계정과 시스템관리자만 본다 (사용자 지시 2026-09-11).
+   * 현장 작업자에게는 할 일이 아니고, 품질책임자에게는 기록이 아니다.
+   */
+  const watches = user.is_developer || hasRole(user, 'SYS_ADMIN');
+  const blocks = watches ? d.blocks : [];
   /*
    * 지금 이 화면을 보고 있는 접속지 (사용자 지적 2026-09-11).
    *
@@ -369,26 +416,16 @@ export default async function SettingsHome() {
             <code> CRON_SECRET </code>을 넣으면 잠깁니다.
           </p>
         )}
-        {!net.on && (
-          <p className="mt-2 text-xs leading-relaxed text-muted">
-            지금은 인터넷 어디에서나 로그인 화면이 열립니다. 로그인 번호와 비밀번호,
-            그리고 시도 제한이 문을 지키고 있습니다. 배포 환경에
-            <code> ALLOW_FROM </code>에 제조소 공인 IP를 넣으면 그 자리에서만
-            열립니다 (예: <code>203.0.113.9</code> · <code>203.0.113.0/24</code>).
-            넣을 값은 <b>제조소에서 이 화면을 열었을 때</b> 위에 찍히는 주소입니다.
-            바깥 사이트가 알려 주는 값과 다를 수 있으므로 이 값을 쓰십시오.
-          </p>
-        )}
-        {!net.on && (
-          <p className="mt-2 text-xs leading-relaxed text-muted">
-            공인 IP가 유동이면 그 목록은 바뀔 때마다 고쳐야 합니다.
-            <code> ALLOW_COUNTRY=KR </code>은 주소가 바뀌어도 그대로입니다.
-            더 좁히려면 <code>ALLOW_REGION</code> (시·도) 과
-            <code> ALLOW_CITY</code> (시) 에 위에 찍힌 값을 넣으십시오. 이 둘은
-            나라보다 잘 흔들리므로, 며칠 지켜보고 나오는 값을 쉼표로 모두 적어
-            두는 편이 안전합니다. 적어 넣은 것은 <b>전부 맞아야</b> 열립니다.
-          </p>
-        )}
+        {/*
+          * 여는 방법을 화면에 적지 않는다 (사용자 지시 2026-09-11).
+          *
+          * `ALLOW_FROM 에 공인 IP를 넣으면…` 같은 것은 이 화면을 보는 사람이
+          * 할 일이 아니라 배포하는 사람이 읽을 글이다. 화면에는 **지금 어떤
+          * 상태인가** 만 둔다 - 켜졌는지, 지금 접속지가 무엇인지.
+          *
+          * 방법은 `.env.example` 과 CLAUDE.md §2.3 에 있다. 두 곳에 적으면
+          * 갈라지고, 갈라지면 화면 쪽이 먼저 낡는다.
+          */}
         {net.bad.length > 0 && (
           <p className="mt-2 text-xs leading-relaxed text-ink">
             <code>ALLOW_FROM</code> 에서 <code>{net.bad.join(' ')}</code> 를 읽지
@@ -415,6 +452,83 @@ export default async function SettingsHome() {
           </p>
         )}
       </section>
+
+      {/* ------------------------------------------------------------------
+        * 문을 두드린 자리 (0109 · 사용자 지시 2026-09-11)
+        *
+        * "지정 위치 외에서 로그인 시도가 들어오면 개발계정에게는 알림이 가야함.
+        * 누가 어디서 시도했는지."
+        *
+        * 문이 닫혀 있으면 로그인 시도 자체가 일어나지 않는다 - 벽에서 막히므로
+        * 사번도 비밀번호도 오지 않는다. 그래서 여기 나오는 것은 "로그인 실패"
+        * 가 아니라 **막힌 접속** 이고, 누구인지는 세션 쿠키를 들고 온 경우에만
+        * 안다. 모르는 것을 지어내지 않는다 (§1).
+        *
+        * ── 없으면 아무것도 내지 않는다 ──────────────────────────────────
+        * §8.5 가 "이상이 없으면 아무것도 표시하지 않는다. 빈 상태가 정상이다"
+        * 라고 정했다. `두드린 자리 0건` 을 띄우면 그 글자를 믿고 넘어가게
+        * 되는데, 이 표가 보는 것보다 못 보는 것이 훨씬 많다.
+        * ------------------------------------------------------------------ */}
+      {watches && blocks.length > 0 && (
+        <section className="card border-warn/40 bg-warn-bg p-4">
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h2 className="text-sm font-bold text-ink">지정 자리 밖에서 두드렸습니다</h2>
+            <span className="text-xs text-muted">
+              최근 14일 · <b className="tnum text-ink">{blocks.length}</b>곳
+            </span>
+          </div>
+
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="text-left text-muted">
+                <tr className="border-b border-line-soft">
+                  <th className="py-1.5 pr-3 font-semibold">언제</th>
+                  <th className="py-1.5 pr-3 font-semibold">접속지</th>
+                  <th className="py-1.5 pr-3 font-semibold">계정</th>
+                  <th className="py-1.5 pr-3 font-semibold">어긋난 것</th>
+                  <th className="py-1.5 pr-3 font-semibold">열려던 자리</th>
+                </tr>
+              </thead>
+              <tbody>
+                {blocks.map((b, i) => (
+                  <tr key={i} className="border-b border-line-soft last:border-0">
+                    <td className="whitespace-nowrap py-1.5 pr-3 tnum text-muted">
+                      {span(b.first_at, b.last_at)}
+                    </td>
+                    <td className="py-1.5 pr-3">
+                      <span className="text-ink">{b.ip ?? '주소를 읽지 못했습니다'}</span>
+                      {(b.country || b.region || b.city) && (
+                        <span className="text-muted">
+                          {' '}{[b.country, b.region, b.city].filter(Boolean).join(' ')}
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-1.5 pr-3">
+                      {/*
+                        * 계정을 들고 두드린 것이 실제로 위험한 쪽이다 -
+                        * 제조소 패드가 밖에 나가 있다는 뜻이다.
+                        */}
+                      {b.who
+                        ? <b className="text-danger">{b.who}</b>
+                        : <span className="text-faint">알 수 없음</span>}
+                    </td>
+                    <td className="py-1.5 pr-3 text-muted">
+                      {BLOCK_REASON[b.reason] ?? b.reason}
+                    </td>
+                    <td className="py-1.5 pr-3 text-muted">{b.path ?? ''}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <p className="mt-3 text-xs leading-relaxed text-muted">
+            계정이 <b className="text-danger">붉게</b> 적힌 줄은 이 시스템에 로그인한
+            상태의 기기가 지정 자리 밖에서 열었다는 뜻입니다. 나머지는 자격 없이
+            문만 두드린 것으로, 누구인지는 알 수 없습니다.
+          </p>
+        </section>
+      )}
 
       {/*
         * 첫 설정 차례표는 손을 쓰는 사람의 것이다. 읽기 전용 세션에는 내지

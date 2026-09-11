@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { withActor } from './db';
 import type { RoleCode } from './roles';
 import { isViewerOnly, isReadOnly } from './roles';
+import { SESSION_COOKIE as COOKIE } from './auth-const';
 
 /* ---------------------------------------------------------------------------
    세션
@@ -15,7 +16,6 @@ import { isViewerOnly, isReadOnly } from './roles';
    끈 계정이 남은 쿠키로 계속 들어오면 안 된다.
 --------------------------------------------------------------------------- */
 
-const COOKIE = 'dhr_session';
 const MAX_AGE_SEC = 8 * 60 * 60;
 
 export type { RoleCode } from './roles';
@@ -81,6 +81,29 @@ function unseal(token: string | undefined): Claim | null {
       : data.e - MAX_AGE_SEC * 1000;
     return { userId: data.u, issuedAt };
   } catch {
+    return null;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   쿠키만 보고 누구인지 짚는다 (0109 · 망 경계)
+
+   문 앞에서 막힌 요청이 세션 쿠키를 들고 있으면 그것은 **우리가 서명한** 쿠키
+   이므로 그 사람이다. 제조소 패드를 들고 밖으로 나간 경우가 여기 잡히고,
+   그게 실제로 위험한 쪽이다.
+
+   DB 를 읽지 않는다. 막힌 요청마다 계정을 조회하면 바깥에서 두드리는 만큼
+   질의가 일어난다. 여기서 필요한 것은 "누구의 쿠키였는가" 하나뿐이고,
+   이름은 화면이 그릴 때 붙인다.
+
+   **검사를 따로 만들지 않는다** - 서명과 만료를 보는 자리는 unseal 하나다.
+   두 벌로 두면 갈라지고, 갈라지면 한쪽이 먼저 낡는다 (§10).
+--------------------------------------------------------------------------- */
+export function peekSessionUser(token: string | undefined): string | null {
+  try {
+    return unseal(token)?.userId ?? null;
+  } catch {
+    /* 서명 열쇠가 없는 자리에서도 문은 서야 한다 */
     return null;
   }
 }

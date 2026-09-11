@@ -1,5 +1,14 @@
 /* 클라이언트에서도 쓰는 값. node:crypto를 끌어오지 않게 분리한다. */
 
+/**
+ * 세션 쿠키 이름.
+ *
+ * 문 앞(`proxy.ts`)도 이 이름을 봐야 한다 - 막힌 요청이 쿠키를 들고 왔는지로
+ * 누구인지를 짚기 때문이다 (0109). 그런데 `lib/session.ts` 를 통째로 부르면
+ * node:crypto 와 next/headers 가 문 앞까지 끌려 온다. 이름 하나만 여기 둔다.
+ */
+export const SESSION_COOKIE = 'dhr_session';
+
 /** 화면 안내용 권고값. 차단이 아니다 (§1 "차단하지 않는다"). */
 export const PIN_MIN_LENGTH = 6;
 

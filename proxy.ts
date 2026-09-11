@@ -1,8 +1,9 @@
-import { NextResponse, type NextRequest } from 'next/server';
+import { NextResponse, type NextRequest, type NextFetchEvent } from 'next/server';
 import {
   readAllow, allows, clientIp, readCountries, clientCountry,
   readPlaces, placeAllows, clientRegion, clientCity,
 } from '@/lib/net';
+import { SESSION_COOKIE } from '@/lib/auth-const';
 
 /* ---------------------------------------------------------------------------
    접속지 제한 (망 경계)
@@ -30,6 +31,66 @@ import {
 /** 접속지 검사를 지나가는 길. 자기 자물쇠가 따로 있는 것만 적는다. */
 const OWN_LOCK = ['/api/daily'];
 
+/* ---------------------------------------------------------------------------
+   같은 자리를 되풀이해 적지 않는다
+
+   인터넷에 열린 주소는 훑고 다니는 기계가 늘 두드린다. 요청마다 DB 를 건드리면
+   바깥에서 두드리는 만큼 쓰기가 일어난다.
+
+   표에도 (날짜 · 자리 · 계정 · 까닭) 으로 묶는 열쇠가 있지만(0109), 그건
+   **줄 수**를 묶는 것이지 **질의 수**를 묶지는 못한다. 여기서 한 번 더 거른다.
+
+   완전하지 않다 - 서버가 여럿이면 각자 자기 것만 안다. 완전할 필요도 없다.
+   줄이려는 것이지 세려는 것이 아니고, 세는 자리는 표다.
+--------------------------------------------------------------------------- */
+const QUIET_MS = 60_000;
+const seen = new Map<string, number>();
+
+function tooSoon(key: string): boolean {
+  const now = Date.now();
+  const last = seen.get(key);
+  if (last !== undefined && now - last < QUIET_MS) return true;
+  /* 오래된 것을 치운다. 램에 두는 값이라 마냥 늘게 두지 않는다 */
+  if (seen.size > 500) {
+    for (const [k, t] of seen) if (now - t > QUIET_MS) seen.delete(k);
+  }
+  seen.set(key, now);
+  return false;
+}
+
+/**
+ * 막힌 접속을 적는다. **답을 붙들지 않는다** - 적는 것이 실패해도 403 은 나간다.
+ * 문이 서는 것이 먼저이고 적는 것은 그다음이다.
+ */
+/*
+ * 꾸러미 요청은 적지 않는다.
+ *
+ * 화면 하나를 열면 스크립트와 글꼴이 줄줄이 따라온다. 그것까지 적으면 `path`
+ * 자리에 그중 아무거나 남아, 무엇을 열려 했는지가 보이지 않는다. 문서 요청이
+ * 늘 먼저 오므로 그것만 적으면 된다.
+ */
+const ASSET = /^\/(_next|fonts|favicon|manifest|logo)\b/;
+
+async function note(
+  reason: string, path: string,
+  ip: string | null, cc: string | null, region: string | null, city: string | null,
+  cookie: string | undefined,
+) {
+  if (ASSET.test(path)) return;
+  try {
+    const { peekSessionUser } = await import('@/lib/session');
+    const who = peekSessionUser(cookie);
+    if (tooSoon(`${ip ?? ''}|${who ?? ''}|${reason}`)) return;
+
+    const { withActor } = await import('@/lib/db');
+    await withActor(null, (db) => db.rows(
+      `select access_block_note($1, $2, $3, $4, $5::uuid, $6, $7)`,
+      [ip, cc, region, city, who, reason, path]));
+  } catch (e) {
+    console.warn('[net] 막힌 접속을 적지 못했습니다', (e as Error).message);
+  }
+}
+
 /*
  * matcher 를 두지 않는다. 없으면 **모든 요청**에 돈다 - 화면만이 아니라
  * 꾸러미(_next/static)와 public 까지. 바깥에 내줄 것이 없으므로 그게 맞다.
@@ -37,7 +98,7 @@ const OWN_LOCK = ['/api/daily'];
  *
  * 파일 이름은 proxy.ts 다. Next 16 에서 middleware 가 이 이름으로 바뀌었다.
  */
-export function proxy(req: NextRequest) {
+export function proxy(req: NextRequest, event: NextFetchEvent) {
   const { rules, bad } = readAllow(process.env.ALLOW_FROM);
   const { list: countries, bad: countryBad } = readCountries(process.env.ALLOW_COUNTRY);
   const { list: regions } = readPlaces(process.env.ALLOW_REGION);
@@ -73,11 +134,24 @@ export function proxy(req: NextRequest) {
   const cc = clientCountry(req.headers);
   const region = clientRegion(req.headers);
   const city = clientCity(req.headers);
-  const where = () => deny(ip, cc, region, city);
+  /*
+   * 막을 때마다 그 사실을 남긴다 (0109 · 사용자 지시 2026-09-11).
+   *
+   * 문이 닫혀 있으면 로그인 시도 자체가 일어나지 않으므로, 밖에서 무슨 일이
+   * 있었는지는 여기 말고 알 자리가 없다. 세션 쿠키를 들고 왔으면 누구인지도
+   * 함께 적는다 - 제조소 패드를 들고 나간 경우가 그것이다.
+   *
+   * `waitUntil` 로 답 뒤에 돌린다. 적는 일이 403 을 늦추지 않는다.
+   */
+  const cookie = req.cookies.get(SESSION_COOKIE)?.value;
+  const where = (reason: string) => {
+    event.waitUntil(note(reason, path, ip, cc, region, city, cookie));
+    return deny(ip, cc, region, city);
+  };
 
   if (countries.length > 0 && (!cc || !countries.includes(cc))) {
     console.warn('[net] 막음 · 나라', cc ?? '(나라 모름)', ip ?? '', path);
-    return where();
+    return where('COUNTRY');
   }
 
   /*
@@ -86,11 +160,11 @@ export function proxy(req: NextRequest) {
    */
   if (regions.length > 0 && !placeAllows(regions, region)) {
     console.warn('[net] 막음 · 시도', region ?? '(시도 모름)', ip ?? '', path);
-    return where();
+    return where('REGION');
   }
   if (cities.length > 0 && !placeAllows(cities, city)) {
     console.warn('[net] 막음 · 시', city ?? '(시 모름)', ip ?? '', path);
-    return where();
+    return where('CITY');
   }
 
   if (rules.length === 0) return NextResponse.next();
@@ -108,7 +182,7 @@ export function proxy(req: NextRequest) {
    */
   if (!ip || !allows(rules, ip)) {
     console.warn('[net] 막음 · 주소', ip ?? '(접속지 모름)', path);
-    return where();
+    return where('ADDRESS');
   }
 
   return NextResponse.next();
