@@ -21,6 +21,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import {
   readAllow, allows, readAddr, clientIp, readCountries, clientCountry, clientPlace,
+  readPlaces, placeAllows, foldPlace, clientRegion, clientCity,
 } from '../lib/net.ts';
 
 const BASE = process.argv[2] ?? 'http://localhost:3100';
@@ -109,6 +110,36 @@ is('시·도와 도시를 읽는다',
 is('주소 인코딩된 한글 도시를 푼다',
    clientPlace(new Headers({ 'x-vercel-ip-city': '%EC%84%B1%EB%82%A8%EC%8B%9C' })), '성남시');
 is('아무것도 없으면 null', clientPlace(new Headers()), null);
+
+/* ---------------------------------------------------------------------------
+   시·도와 시 - 나라보다 좁은 잣대
+--------------------------------------------------------------------------- */
+console.log('\n시·도와 시');
+
+is('대소문자와 하이픈을 지워 견준다', foldPlace('Hwaseong-si'), foldPlace('hwaseong si'));
+is('나라 접두어가 붙어도 같게 본다', foldPlace('KR-41'), foldPlace('41'));
+is('한글 이름도 읽는다', foldPlace('화성시'), '화성시');
+is('주소 인코딩을 푼다', foldPlace('%EC%84%B1%EB%82%A8%EC%8B%9C'), '성남시');
+
+/* 도시 이름에는 빈칸이 있다. 쉼표로만 나눈다 */
+const CITY = readPlaces('Hwaseong-si, Suwon-si, New York').list;
+is('쉼표로만 나눈다 (빈칸 든 이름이 쪼개지지 않는다)', CITY.length, 3);
+is('빈칸 든 이름이 한 덩이로 남는다', placeAllows(CITY, 'New York'), true);
+is('이웃 시도 함께 적어 둘 수 있다', placeAllows(CITY, 'Suwon-si'), true);
+is('목록에 없는 시는 막힌다', placeAllows(CITY, 'Seoul'), false);
+is('값을 못 읽으면 막힌다', placeAllows(CITY, null), false);
+is('적는 표기가 달라도 통과한다', placeAllows(CITY, 'hwaseong si'), true);
+
+const REGION = readPlaces('41').list;
+is('머리글이 41 로 와도 맞는다', placeAllows(REGION, '41'), true);
+is('KR-41 로 적어 두어도 맞는다', placeAllows(readPlaces('KR-41').list, '41'), true);
+is('다른 시·도는 막힌다', placeAllows(REGION, '11'), false);
+
+is('시·도 머리글을 읽는다',
+   clientRegion(new Headers({ 'x-vercel-ip-country-region': '41' })), '41');
+is('시 머리글을 읽는다',
+   clientCity(new Headers({ 'x-vercel-ip-city': 'Hwaseong-si' })), 'Hwaseong-si');
+is('시 머리글이 없으면 null', clientCity(new Headers()), null);
 
 /* ---------------------------------------------------------------------------
    ② 보안 머리글

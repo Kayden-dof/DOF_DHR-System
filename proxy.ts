@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import {
   readAllow, allows, clientIp, readCountries, clientCountry,
+  readPlaces, placeAllows, clientRegion, clientCity,
 } from '@/lib/net';
 
 /* ---------------------------------------------------------------------------
@@ -39,13 +40,18 @@ const OWN_LOCK = ['/api/daily'];
 export function proxy(req: NextRequest) {
   const { rules, bad } = readAllow(process.env.ALLOW_FROM);
   const { list: countries, bad: countryBad } = readCountries(process.env.ALLOW_COUNTRY);
+  const { list: regions } = readPlaces(process.env.ALLOW_REGION);
+  const { list: cities } = readPlaces(process.env.ALLOW_CITY);
   if (bad.length > 0) {
     console.warn('[net] ALLOW_FROM 에서 읽지 못한 조각', bad.join(' '));
   }
   if (countryBad.length > 0) {
     console.warn('[net] ALLOW_COUNTRY 에서 읽지 못한 조각', countryBad.join(' '));
   }
-  if (rules.length === 0 && countries.length === 0) return NextResponse.next();
+  if (rules.length === 0 && countries.length === 0
+      && regions.length === 0 && cities.length === 0) {
+    return NextResponse.next();
+  }
 
   const path = req.nextUrl.pathname;
   if (OWN_LOCK.some((p) => path === p || path.startsWith(p + '/'))) {
@@ -65,10 +71,26 @@ export function proxy(req: NextRequest) {
    */
   const ip = clientIp(req.headers);
   const cc = clientCountry(req.headers);
+  const region = clientRegion(req.headers);
+  const city = clientCity(req.headers);
+  const where = () => deny(ip, cc, region, city);
 
   if (countries.length > 0 && (!cc || !countries.includes(cc))) {
     console.warn('[net] 막음 · 나라', cc ?? '(나라 모름)', ip ?? '', path);
-    return deny(ip, cc);
+    return where();
+  }
+
+  /*
+   * 시·도와 시는 나라보다 잘 흔들린다. 여러 값을 적을 수 있으므로, 며칠
+   * 지켜보고 나오는 것을 다 적으면 흔들림이 잠금으로 이어지지 않는다.
+   */
+  if (regions.length > 0 && !placeAllows(regions, region)) {
+    console.warn('[net] 막음 · 시도', region ?? '(시도 모름)', ip ?? '', path);
+    return where();
+  }
+  if (cities.length > 0 && !placeAllows(cities, city)) {
+    console.warn('[net] 막음 · 시', city ?? '(시 모름)', ip ?? '', path);
+    return where();
   }
 
   if (rules.length === 0) return NextResponse.next();
@@ -86,7 +108,7 @@ export function proxy(req: NextRequest) {
    */
   if (!ip || !allows(rules, ip)) {
     console.warn('[net] 막음 · 주소', ip ?? '(접속지 모름)', path);
-    return deny(ip, cc);
+    return where();
   }
 
   return NextResponse.next();
@@ -99,8 +121,19 @@ export function proxy(req: NextRequest) {
  * 알고 전화를 건다. 자기 주소를 보여 주면 그대로 읽어 주면 된다 - 남의 비밀이
  * 아니라 그 사람 자신의 값이다.
  */
-function deny(ip: string | null, country: string | null) {
-  const where = [ip ?? '접속지를 읽지 못했습니다', country].filter(Boolean).join(' · ');
+function deny(
+  ip: string | null, country: string | null,
+  region: string | null, city: string | null,
+) {
+  /*
+   * 막힌 사람이 읽어 줄 값이다. 주소만이 아니라 **잣대로 쓰는 값을 전부** 낸다 -
+   * 시·도나 시로 좁혀 두었다면 어긋난 것이 그 둘 중 하나이고, 그 값을 목록에
+   * 더하면 바로 풀린다. 무엇 때문에 막혔는지 모르는 화면은 전화 한 통을
+   * 더 만든다.
+   */
+  const place = [region, city].filter(Boolean).join(' ');
+  const where = [ip ?? '접속지를 읽지 못했습니다', country, place || null]
+    .filter(Boolean).join(' · ');
   const body = `<!doctype html><html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">

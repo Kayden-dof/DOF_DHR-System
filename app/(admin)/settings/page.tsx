@@ -320,13 +320,19 @@ export default async function SettingsHome() {
             <dd className="mt-0.5">
               {net.on
                 ? (
+                  /*
+                   * 좁힌 잣대를 좁은 차례로 적는다 - 나라 · 시·도 · 시 ·
+                   * 주소 구간. 무엇으로 좁혀 두었는지가 한 줄에 다 보여야
+                   * 잠겼을 때 어디를 고칠지 바로 안다.
+                   */
                   <span className="text-ink">
-                    {net.countries.length > 0 && (
-                      <span className="tnum">{net.countries.join('·')}</span>
-                    )}
-                    {net.countries.length > 0 && net.count > 0 && ' 안의 '}
-                    {net.count > 0 && <span className="tnum">{net.count}개 구간</span>}
-                    에서만 접속
+                    {[
+                      net.countries.length > 0 && net.countries.join('·'),
+                      net.regions.length > 0 && net.regions.join('·'),
+                      net.cities.length > 0 && net.cities.join('·'),
+                      net.count > 0 && `주소 ${net.count}구간`,
+                    ].filter(Boolean).join(' · ')}
+                    <span className="text-muted"> 에서만 접속</span>
                   </span>
                 )
                 : <Tag tone="warn">어디서나 접속</Tag>}
@@ -377,15 +383,23 @@ export default async function SettingsHome() {
           <p className="mt-2 text-xs leading-relaxed text-muted">
             공인 IP가 유동이면 그 목록은 바뀔 때마다 고쳐야 합니다.
             <code> ALLOW_COUNTRY=KR </code>은 주소가 바뀌어도 그대로입니다.
-            다만 한국 안이면 모두 통과하므로 <b>제조소만 남기는 것이 아니라
-            전 세계를 한국으로 줄이는 것</b>입니다. 둘 다 넣으면 둘 다 맞아야
-            열립니다.
+            더 좁히려면 <code>ALLOW_REGION</code> (시·도) 과
+            <code> ALLOW_CITY</code> (시) 에 위에 찍힌 값을 넣으십시오. 이 둘은
+            나라보다 잘 흔들리므로, 며칠 지켜보고 나오는 값을 쉼표로 모두 적어
+            두는 편이 안전합니다. 적어 넣은 것은 <b>전부 맞아야</b> 열립니다.
           </p>
         )}
         {net.bad.length > 0 && (
           <p className="mt-2 text-xs leading-relaxed text-ink">
             <code>ALLOW_FROM</code> 에서 <code>{net.bad.join(' ')}</code> 를 읽지
             못했습니다. 이 조각은 어느 주소도 통과시키지 않습니다.
+          </p>
+        )}
+        {net.placeBad.length > 0 && (
+          <p className="mt-2 text-xs leading-relaxed text-ink">
+            <code>ALLOW_REGION</code> · <code>ALLOW_CITY</code> 에서
+            <code> {net.placeBad.join(' ')}</code> 를 읽지 못했습니다. 이 조각은
+            어느 자리도 통과시키지 않습니다.
           </p>
         )}
         {net.countryBad.length > 0 && (

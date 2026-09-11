@@ -192,17 +192,76 @@ export function readCountries(raw: string | undefined | null): { list: string[];
 }
 
 /**
- * 도시와 시·도. 좁힐 수 있는지 며칠 지켜보라고 화면에 찍는 값이다.
- * 판정에 쓰지 않는다 - 유동 주소는 시·도가 흔들려 멀쩡한 현장을 잠글 수 있다.
+ * 시·도와 시.
+ *
+ * ── 나라만으로는 넓다 (사용자 지적 2026-09-11) ────────────────────────────
+ * 한국 안이면 전부 통과하는 것은 걸러 내기이지 경계가 아니다. 그래서 이
+ * 값들도 잣대로 쓸 수 있게 열어 둔다.
+ *
+ * **다만 나라보다 잘 흔들린다.** 유동 주소가 새로 잡히는 날, 같은 자리인데도
+ * 통신사 대역이 이웃 시로 등록돼 있으면 다른 값이 나온다. 그때 제조소가
+ * 잠긴다.
+ *
+ * 그래서 두 가지를 함께 둔다 - 여러 값을 적을 수 있게 하고(며칠 지켜보고
+ * 나오는 것을 다 적는다), 막힌 화면이 지금 값을 그대로 보여 준다(읽어 주면
+ * 그 값을 목록에 더하면 된다). 종이가 정본이므로(§1) 잠긴 동안에도 기록은
+ * 멈추지 않는다.
  */
-export function clientPlace(h: { get(name: string): string | null }): string | null {
-  const region = h.get('x-vercel-ip-country-region');
-  const raw = h.get('x-vercel-ip-city');
-  let city = raw ?? '';
+export function clientRegion(h: { get(name: string): string | null }): string | null {
+  const v = h.get('x-vercel-ip-country-region');
+  return v && v.trim() !== '' ? v.trim() : null;
+}
+
+export function clientCity(h: { get(name: string): string | null }): string | null {
+  const v = h.get('x-vercel-ip-city');
+  if (!v || v.trim() === '') return null;
   /* 한글 도시 이름은 주소 인코딩되어 온다 */
-  try { city = decodeURIComponent(city); } catch { /* 그대로 쓴다 */ }
-  const parts = [region, city].filter((x) => x && x.trim() !== '');
+  try { return decodeURIComponent(v).trim(); } catch { return v.trim(); }
+}
+
+export function clientPlace(h: { get(name: string): string | null }): string | null {
+  const parts = [clientRegion(h), clientCity(h)].filter(Boolean);
   return parts.length > 0 ? parts.join(' ') : null;
+}
+
+/**
+ * 자리 이름을 견주기 좋게 다듬는다.
+ *
+ * 대소문자 · 하이픈 · 빈칸을 지운다. `Hwaseong-si` 와 `hwaseong si` 가 같은
+ * 것으로 읽혀야 한다 - 적는 사람이 화면에서 본 대로 옮겨 적을 뿐이고,
+ * 그 표기를 외우게 할 이유가 없다.
+ *
+ * `KR-41` 처럼 나라 접두어가 붙은 표기도 받는다. 우리가 읽는 머리글은 `41` 만
+ * 주지만, 사람은 ISO 표기를 그대로 옮겨 적기 쉽다.
+ */
+export function foldPlace(s: string | null | undefined): string {
+  if (!s) return '';
+  let t = String(s).trim();
+  try { t = decodeURIComponent(t); } catch { /* 그대로 쓴다 */ }
+  t = t.replace(/^[A-Za-z]{2}-/, '');
+  return t.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
+}
+
+/**
+ * 자리 목록. **쉼표로만 나눈다** - 도시 이름에는 빈칸이 있다 (`New York`).
+ * 나라 코드와 달리 여기서 빈칸으로 나누면 한 도시가 두 조각이 된다.
+ */
+export function readPlaces(raw: string | undefined | null): { list: string[]; bad: string[] } {
+  const list: string[] = [];
+  const bad: string[] = [];
+  for (const part of String(raw ?? '').split(',')) {
+    if (part.trim() === '') continue;
+    const f = foldPlace(part);
+    if (f === '') { bad.push(part.trim()); continue; }
+    if (!list.includes(f)) list.push(f);
+  }
+  return { list, bad };
+}
+
+/** 이 자리가 목록에 드는가. 목록이 비면 묻지 않는다(부르는 쪽 책임). */
+export function placeAllows(list: string[], value: string | null): boolean {
+  const f = foldPlace(value);
+  return f !== '' && list.includes(f);
 }
 
 /* ---------------------------------------------------------------------------
@@ -215,14 +274,21 @@ export function clientPlace(h: { get(name: string): string | null }): string | n
 export function allowState(): {
   on: boolean; count: number; bad: string[];
   countries: string[]; countryBad: string[];
+  regions: string[]; cities: string[]; placeBad: string[];
 } {
   const { rules, bad } = readAllow(process.env.ALLOW_FROM);
   const { list, bad: countryBad } = readCountries(process.env.ALLOW_COUNTRY);
+  const region = readPlaces(process.env.ALLOW_REGION);
+  const city = readPlaces(process.env.ALLOW_CITY);
   return {
-    on: rules.length > 0 || list.length > 0,
+    on: rules.length > 0 || list.length > 0
+      || region.list.length > 0 || city.list.length > 0,
     count: rules.length,
     bad,
     countries: list,
     countryBad,
+    regions: region.list,
+    cities: city.list,
+    placeBad: [...region.bad, ...city.bad],
   };
 }
