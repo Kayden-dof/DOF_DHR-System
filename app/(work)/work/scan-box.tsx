@@ -56,8 +56,7 @@ export default function ScanBox() {
         name="scan"
         autoComplete="off"
         spellCheck={false}
-        placeholder="A1B2C3D4E5F6"
-        className="input h-14 w-full text-center font-mono text-xl tracking-widest"
+        className="input h-14 w-full text-center font-mono text-xl tracking-wide"
       />
       {/*
         * 단추를 둔다. 스캐너의 Enter 만 믿지 않는다 - 스캐너 설정에 따라
@@ -69,7 +68,9 @@ export default function ScanBox() {
       </button>
       <p className="mt-1.5 text-xs leading-relaxed text-muted">
         작업지시서 · 제조기록서 · 편철 표지 <b className="text-ink">아무 것이나</b> 됩니다.
-        종이 아래쪽 바코드 하나입니다. 스캐너가 없으면 그 밑의 열두 자리를 쳐도 됩니다.
+        종이 아래쪽 바코드 하나입니다.
+        <br />
+        스캐너가 안 되면 종이 맨 위의 <b className="text-ink">배치번호</b>를 치십시오.
       </p>
     </form>
   );

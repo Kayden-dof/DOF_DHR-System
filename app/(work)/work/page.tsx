@@ -48,13 +48,26 @@ export default async function WorkHome(
    *
    * 스캐너는 대문자로 친다. 대장의 식별자는 소문자다.
    * **읽기만 한다** - 인쇄 대장에 아무것도 남기지 않는다 (§7.1).
+   *
+   * ── 손으로도 칠 수 있어야 한다 (사용자 지적 2026-09-11) ────────────────
+   * 스캐너가 안 되는 날 남는 길이 **열두 자리 16진수**뿐이면 그건 사람이 칠
+   * 물건이 아니다. 같은 칸이 **배치번호와 지시서번호**도 받는다 - 둘 다 모든
+   * 종이 맨 위에 큼직하게 찍혀 있고 뜻이 있는 글자라 치기 쉽다.
+   *
+   * 칸을 늘리지 않는다. 칸이 둘이면 "어디에 치지" 가 생긴다.
    */
-  const scan = (await searchParams).scan?.trim().toLowerCase() ?? '';
+  const scan = (await searchParams).scan?.trim() ?? '';
   if (scan !== '') {
     const hit = await withActor(user.id, (db) =>
       db.val<string>(
-        `select work_order_id::text from v_print_lookup
-          where short_hash = $1 and work_order_id is not null limit 1`, [scan]));
+        `select coalesce(
+                  (select v.work_order_id::text from v_print_lookup v
+                    where v.short_hash = lower($1) and v.work_order_id is not null
+                    limit 1),
+                  (select w.id::text from work_order w
+                    where upper(w.batch_no) = upper($1)
+                       or upper(w.wo_no)    = upper($1)
+                    limit 1))`, [scan]));
     if (hit) redirect(`/work/${hit}`);
   }
 
@@ -112,11 +125,28 @@ export default async function WorkHome(
       <ScanBox />
       {scan !== '' && (
         <p className="card bg-warn-bg px-4 py-3 text-base leading-relaxed text-ink">
-          그 바코드로는 배치를 찾지 못했습니다. 종이 아래쪽 바코드가 맞는지
-          보시고 다시 찍으십시오.
+          <b>{scan}</b> 로는 배치를 찾지 못했습니다. 종이 아래쪽 바코드를
+          다시 찍거나, 종이 맨 위의 배치번호(<span className="font-mono">B…</span>)를
+          치거나, 아래에서 배치를 고르십시오.
         </p>
       )}
 
+      {/*
+        * 배치 목록은 **접어 둔다** (사용자 지적 2026-09-11).
+        *
+        * 목록이 펼쳐져 있으면 아무도 찍지 않는다. 그런데 목록을 눈으로 훑어
+        * 고르는 그 동작이 바로 없애려던 실수 자리다 - 배치번호가 한 글자만
+        * 다르면 손이 옆으로 간다.
+        *
+        * 그래서 찍는 것이 기본이고, 목록은 **스캐너가 안 될 때 펴는 자리**다.
+        * 없애지는 않는다 - 길을 하나만 두면 그 길이 막혔을 때 손이 묶인다.
+        */}
+      <details className="group">
+        <summary className="cursor-pointer list-none rounded-md px-1 py-2 text-sm text-on-dark-mute">
+          스캐너가 안 됩니까? <b className="text-white">배치 고르기</b>
+          <span className="tnum"> ({batches.length}건)</span>
+        </summary>
+        <div className="mt-3">
       {batches.length === 0 ? (
         <div className="card p-10 text-center">
           <p className="text-lg font-semibold text-ink">진행 중인 배치가 없습니다.</p>
@@ -193,6 +223,8 @@ export default async function WorkHome(
           ))}
         </div>
       )}
+        </div>
+      </details>
 
       {/*
         * 안내는 흰 카드에 담지 않는다.
