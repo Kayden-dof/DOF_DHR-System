@@ -6,7 +6,7 @@ import { fmtDate, fmtTime } from '@/lib/fmt';
 import {
   NUMBERING_TARGETS, M1_CRITICAL_TARGETS, WO_STATUS_LABEL, PL_STATUS_LABEL, tableLabel,
 } from '@/lib/forms';
-import { Panel, Empty, Tag } from '@/components/ui';
+import { Panel, Empty, Tag, Progress } from '@/components/ui';
 import { PageShell, StatStrip, type StatItem } from '@/components/shell';
 import { statRows, mono } from '@/components/stat-rows';
 import { Table, Th, Td, IdCell, TwoLine, ActionTh, RowLink } from '@/components/table';
@@ -97,6 +97,8 @@ export default async function Dashboard() {
       item_name: string; item_code: string;
       sheet_count: number; issued_at: Date; day_count: number; lot_count: number;
       last_op: string | null;
+      /* 이 배치가 어디쯤인가. 끝난 공정 / 전체 공정 */
+      ops_done: number; ops_total: number;
     }>(
       `select wo.id, wo.batch_no, wo.wo_no, wo.status::text as status,
               i.name as item_name, i.code as item_code,
@@ -108,7 +110,22 @@ export default async function Dashboard() {
               (select o.name from process_record pr
                  join dmr_operation o on o.id = pr.operation_id
                 where pr.work_order_id = wo.id
-                order by o.seq desc, pr.attempt desc limit 1) as last_op
+                order by o.seq desc, pr.attempt desc limit 1) as last_op,
+              /*
+               * 끝난 공정을 센다. 재단 이후 공정은 제품 로트마다 기록이 갈리므로
+               * **하나라도 안 끝났으면 안 끝난 것**으로 본다 - 현장 준비 카드가
+               * 쓰는 잣대와 같다 (work-panel 의 doneOf). 두 곳이 다른 잣대를
+               * 쓰면 같은 배치가 화면마다 다른 진행을 말한다.
+               */
+              (select count(*)::int from dmr_operation o
+                where o.device_master_id = wo.device_master_id) as ops_total,
+              (select count(*)::int from dmr_operation o
+                where o.device_master_id = wo.device_master_id
+                  and exists (select 1 from process_record pr
+                               where pr.work_order_id = wo.id and pr.operation_id = o.id)
+                  and not exists (select 1 from process_record pr
+                                   where pr.work_order_id = wo.id and pr.operation_id = o.id
+                                     and pr.ended_at is null)) as ops_done
          from work_order wo
          join device_master dm on dm.id = wo.device_master_id
          join item i on i.id = dm.item_id
@@ -375,6 +392,7 @@ export default async function Dashboard() {
                   <Th>배치 · 지시서</Th>
                   <Th>제품</Th>
                   <Th>최근 공정</Th>
+                  <Th>공정 진행</Th>
                   <Th right>장입</Th>
                   <Th right>일차</Th>
                   <Th right>로트</Th>
@@ -392,6 +410,8 @@ export default async function Dashboard() {
                     />
                     <TwoLine top={b.item_name} bottom={b.item_code} />
                     <Td nowrap className="text-xs text-muted">{b.last_op ?? '착수 전'}</Td>
+                    {/* 목록을 열어 놓고 묻는 것은 늘 "이 배치가 어디쯤인가" 다 */}
+                    <Td nowrap><Progress done={b.ops_done} total={b.ops_total} /></Td>
                     <Td right>{b.sheet_count}</Td>
                     <Td right className="text-muted">{b.day_count || ''}</Td>
                     <Td right className="text-muted">{b.lot_count || ''}</Td>

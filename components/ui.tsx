@@ -139,6 +139,43 @@ export function Field({
   );
 }
 
+/* ---------------------------------------------------------------------------
+   진행 막대
+
+   ── 왜 넣는가 (사용자 지적 2026-09-11) ────────────────────────────────────
+   목록이 배치번호와 제품명과 상태만 적고 있었다. 그런데 목록을 열어 놓고 묻는
+   것은 늘 하나다 - **이 배치가 어디쯤인가.** 그 답이 화면에 없어서, 알려면
+   배치를 하나씩 열어 봐야 했다.
+
+   숫자만 적어도 되지만(4/12) 숫자는 견줘야 뜻이 산다. 여섯 줄을 훑으며 4/12 와
+   9/12 를 머릿속에서 견주는 것보다, 길이가 다른 막대 여섯 개를 보는 쪽이 빠르다.
+   장식이 아니라 답이다.
+
+   ── 판정하지 않는다 (§1) ──────────────────────────────────────────────────
+   빠르다 · 늦다를 말하지 않는다. 끝난 공정 수를 전체로 나눈 값일 뿐이고,
+   숫자를 나란히 적어 막대가 무엇을 줄인 것인지 늘 보이게 한다.
+--------------------------------------------------------------------------- */
+export function Progress({ done, total, width = '4.5rem' }: {
+  done: number; total: number; width?: string;
+}) {
+  if (total <= 0) return null;
+  const pct = Math.max(0, Math.min(100, (done / total) * 100));
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span aria-hidden className="h-1.5 shrink-0 overflow-hidden rounded-full bg-canvas-deep"
+            style={{ width }}>
+        <span className="block h-full rounded-full" style={{
+          width: `${pct}%`,
+          background: 'linear-gradient(90deg, var(--color-brand-mid), var(--color-brand))',
+        }} />
+      </span>
+      <span className="tnum text-xs text-muted">
+        <b className={done === total ? 'text-brand' : 'text-ink'}>{done}</b>/{total}
+      </span>
+    </span>
+  );
+}
+
 /** 숫자 하나를 크게 보여 주는 칸. 현황과 요약 줄에 쓴다. */
 export function Stat({
   label, value, unit, tone = 'ink', href,

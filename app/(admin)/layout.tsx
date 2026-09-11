@@ -139,8 +139,25 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   const initial = user.full_name.slice(0, 1);
 
+  /*
+   * 바탕에 아주 옅은 빛 (2026-09-11).
+   *
+   * 평평한 오프화이트 한 판 위에 흰 카드가 놓이니, 카드와 바탕의 차이가
+   * 1.14 뿐이라 면이 하나로 보였다. 위에서 빛이 드는 것처럼 넓게 밝혀
+   * 카드가 그 위에 놓인 것으로 읽히게 한다.
+   *
+   * 중립색이라 브랜드 색을 흐리지 않는다 - 원래 기울기를 막은 걱정은
+   * 브랜드를 지는 면에 대한 것이었다.
+   */
+  const lit = {
+    background:
+      'radial-gradient(110% 40% at 50% 0%, #FFFFFF 0%, transparent 70%), var(--color-canvas)',
+    backgroundAttachment: 'fixed' as const,
+  };
+
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col" style={lit}
+>
       <div className="brand-rule" />
 
       {/*
@@ -160,7 +177,15 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         * 스크롤해 카드가 올라오면 어디까지가 머리줄인지 흐려졌다. 그림자를
         * 얹지 않는다 - 쉬는 면에 깊이를 주지 않는 규칙 그대로다. 선 하나다.
         */}
-      <header className="sticky top-0 z-30 border-b border-line-strong bg-surface/90 backdrop-blur-md">
+      {/*
+        * 머리줄은 화면 위에 떠 있는 판이다 (2026-09-11).
+        *
+        * 선 하나로만 갈라 두었더니 스크롤해 카드가 올라올 때 같은 평면으로
+        * 보였다. 아주 얕은 그림자를 아래로 흘려 판이 위에 있다는 것을 형태로
+        * 말한다 - 스크롤은 상태이므로 깊이를 써도 좋다.
+        */}
+      <header className="sticky top-0 z-30 border-b border-line bg-surface/92 backdrop-blur-md
+                         shadow-[0_1px_2px_rgb(26_26_31/.04),0_8px_20px_-14px_rgb(26_26_31/.24)]">
         <div className="mx-auto flex h-14 max-w-[1240px] items-center gap-6 px-5 lg:gap-9">
           <Link href="/" className="flex shrink-0 items-center gap-3" aria-label="현황으로">
             {/*

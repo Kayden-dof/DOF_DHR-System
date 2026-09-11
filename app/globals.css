@@ -140,6 +140,19 @@
    */
   --color-card-edge:   #DEDAE0;
 
+  /*
+   * 카드 면의 아래끝 (2026-09-11).
+   *
+   * 카드에 위아래 빛을 넣을 때 아래끝으로 쓰는 값이다. **surface-sub 를 쓰지
+   * 않는다** - 현장 모드가 그 값을 #F5F2FA 로 갈아 끼우는데, 거기서
+   * faint(#767085) 가 4.28 로 떨어져 AA 를 못 넘는다. 그 글자는 160곳에서
+   * 장식이 아니라 **실제 안내**를 담는다.
+   *
+   * 여기 값에서 faint 는 4.63, muted 는 5.05 다. 두 모드 모두에서 같은 값이라
+   * 현장에서도 같은 수가 선다.
+   */
+  --color-card-floor:  #FCFCFD;
+
   /* 브랜드 */
   --color-brand:       #562C8D;
   --color-brand-deep:  #420E69;
@@ -227,9 +240,24 @@
    * 원본 슬라이드는 전부 헤어라인이고 그림자가 없다. 화면에서만, 그리고 정말로
    * 떠 있어야 하는 것에만 준다. 카드가 전부 떠 있으면 아무것도 떠 있지 않다.
    */
-  --sh-1: 0 1px 2px rgb(26 26 31 / .05);
-  --sh-2: 0 1px 3px rgb(26 26 31 / .07), 0 6px 16px -8px rgb(26 26 31 / .10);
-  --sh-3: 0 12px 32px rgb(26 26 31 / .11), 0 2px 6px rgb(26 26 31 / .05);
+  /*
+   * 깊이 (2026-09-11 · 사용자 지시로 규칙을 고쳐 적었다).
+   *
+   * 전에는 "깊이는 상태를 말할 때만" 이라 쉬는 카드가 테두리 하나로만 서 있었다.
+   * 그래서 화면이 종이에 그은 선처럼 평평했다.
+   *
+   * 규칙의 원래 걱정은 **테두리와 그림자가 겹쳐 가장자리가 두 번 그어지는 것**
+   * 이었다. 그래서 겹치지 않게 바꾼다 - 쉬는 카드는 테두리를 옅게 하고 깊이로
+   * 세우고, 손이 얹히면 더 뜬다. 가장자리를 세우는 것은 여전히 하나다.
+   *
+   * 그림자는 두 겹으로 쌓는다. 가까운 것은 좁고 진하게(닿은 자리), 먼 것은
+   * 넓고 옅게(떠 있는 높이). 한 겹만 쓰면 오려 붙인 것처럼 보인다.
+   */
+  --sh-1: 0 1px 2px rgb(26 26 31 / .04), 0 1px 3px -1px rgb(26 26 31 / .05);
+  --sh-2: 0 1px 2px rgb(26 26 31 / .05), 0 8px 20px -10px rgb(26 26 31 / .16);
+  --sh-3: 0 2px 6px rgb(26 26 31 / .06), 0 24px 48px -16px rgb(26 26 31 / .24);
+  /* 쉬는 카드. 아주 얕게, 그러나 있게 */
+  --sh-rest: 0 1px 2px rgb(26 26 31 / .04), 0 4px 14px -8px rgb(26 26 31 / .12);
 
   --ring: 0 0 0 3px rgb(110 79 162 / .28);
 
@@ -353,9 +381,16 @@ input, textarea, [contenteditable] { caret-color: var(--color-brand); }
    * 2026-09-01 "Simple 하고 Modern").
    */
   .card {
-    background: var(--color-surface);
-    border: 1px solid var(--color-card-edge);
-    border-radius: var(--r-lg);
+    /*
+     * 면에 빛을 넣는다. 위가 순백, 아래가 머리카락 한 올만큼 내려간 값이다.
+     * 눈으로 그라데이션이라고 알아볼 폭이 아니라, 면이 종이가 아니라 물체로
+     * 읽힐 만큼이다.
+     */
+    background: linear-gradient(180deg,
+      var(--color-surface) 0%, var(--color-card-floor) 100%);
+    border: 1px solid var(--color-line);
+    border-radius: var(--r-xl);
+    box-shadow: var(--sh-rest);
   }
   /* 카드 안의 표는 카드 모서리에 맞춰 잘린다 */
   .card { overflow: hidden; }
@@ -369,14 +404,18 @@ input, textarea, [contenteditable] { caret-color: var(--color-brand); }
    * 얹었다 - 눌러도 아무 일이 없었다는 뜻이다. 깊이는 상태를 말할 때만 쓴다.
    */
   .card-raised {
-    background: var(--color-surface);
-    border: 1px solid var(--color-card-edge);
-    border-radius: var(--r-lg);
-    transition: box-shadow 160ms var(--ease), border-color 160ms var(--ease);
+    background: linear-gradient(180deg,
+      var(--color-surface) 0%, var(--color-card-floor) 100%);
+    border: 1px solid var(--color-line);
+    border-radius: var(--r-xl);
+    box-shadow: var(--sh-rest);
+    transition: box-shadow 180ms var(--ease), border-color 180ms var(--ease),
+                transform 180ms var(--ease);
   }
   a.card-raised:hover, button.card-raised:hover {
     box-shadow: var(--sh-2);
     border-color: var(--color-brand-line);
+    transform: translateY(-1px);
   }
 
   /* 제목 위에 아래보다 조금 더 둔다. 제목이 앞 덩어리에 붙으면 어디의 머리인지
@@ -737,6 +776,16 @@ input, textarea, [contenteditable] { caret-color: var(--color-brand); }
    * 카드 안쪽은 관리 화면과 같은 값을 그대로 쓴다. 글자 대비를 다시 맞출 필요가
    * 없고, 같은 조각이 두 모드에서 다르게 보이지도 않는다.
    */
+  /*
+   * 현장 바탕에 광원 하나 (2026-09-11).
+   *
+   * 평평한 남보라 한 판이라 카드가 그 위에 오려 붙인 것처럼 보였다. 위에서
+   * 빛이 드는 것처럼 아주 넓은 원형 밝기를 얹는다.
+   *
+   * **띠형 기울기가 아니라 원형이다.** 넓은 면에 띠를 깔면 계단이 진다는
+   * 원래 걱정이 여기 닿지 않는다 - 원형은 경계가 없고, 밝아지는 폭도
+   * 브랜드 색을 흐릴 만큼이 아니다(강조색에서 나온 두 값 사이다).
+   */
   .touch {
     --tap: var(--tap-touch);
     font-size: 1.0625rem;
@@ -745,7 +794,11 @@ input, textarea, [contenteditable] { caret-color: var(--color-brand); }
     --color-canvas-deep: #221A44;
     --color-surface-sub: #F5F2FA;
 
-    background: var(--color-canvas);
+    background:
+      radial-gradient(120% 55% at 50% -10%,
+        var(--color-indigo-soft) 0%, transparent 62%),
+      var(--color-canvas);
+    background-attachment: fixed;
   }
 
   /*

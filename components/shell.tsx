@@ -172,8 +172,15 @@ export function StatStrip({ items }: { items: StatItem[] }) {
    * 그냥 흰 면이다.
    */
   return (
-    <div className="overflow-hidden rounded-xl border border-line bg-surface">
-    <dl className="-m-px grid"
+    /*
+      * 숫자 띠를 한 덩어리가 아니라 **카드 묶음**으로 낸다 (2026-09-11).
+      *
+      * 테두리로만 칸을 나눈 격자는 표로 읽힌다. 화면 맨 위에서 지금 상태를
+      * 말하는 자리인데 표처럼 보이면 눈이 그냥 지나간다. 칸마다 떼어 놓고
+      * 얕게 띄우면 하나하나가 "볼 것" 으로 읽힌다.
+      */
+    <div>
+    <dl className="grid gap-2.5"
         style={{ gridTemplateColumns: `repeat(auto-fit, minmax(9.5rem, 1fr))` }}>
       {items.map((s) => {
         const zero = s.value === 0 || s.value === '0';
@@ -196,9 +203,16 @@ export function StatStrip({ items }: { items: StatItem[] }) {
           </>
         );
 
-        const cls = 'relative border-l border-t border-line bg-surface px-4 py-4 transition-colors';
+        const cls = 'card relative overflow-hidden px-4 py-4 transition-all';
+        /*
+          * 눈에 띄어야 하는 값은 위쪽 가장자리를 물들인다 (2026-09-11).
+          *
+          * 전에는 왼쪽에 3px 짜리 띠였다. 칸이 테두리로 붙어 있을 때는 그것이
+          * 맞았지만, 카드로 떼어 놓으니 왼쪽 띠가 카드를 자르는 선으로 보였다.
+          * 위쪽 가장자리는 카드의 머리라 자르지 않고 물든다.
+          */
         const edge = s.tone && !zero
-          ? <span aria-hidden className={`absolute inset-y-0 left-0 w-[3px] ${EDGE[s.tone]}`} />
+          ? <span aria-hidden className={`absolute inset-x-0 top-0 h-[3px] ${EDGE[s.tone]}`} />
           : null;
 
         const tip = s.detail
@@ -206,7 +220,8 @@ export function StatStrip({ items }: { items: StatItem[] }) {
           : null;
 
         return s.href ? (
-          <Link key={s.label} href={s.href} className={`${cls} hover:bg-surface-sub`}>
+          <Link key={s.label} href={s.href}
+                className={`${cls} hover:-translate-y-px hover:shadow-[var(--sh-2)]`}>
             {edge}{body}{tip}
           </Link>
         ) : (
