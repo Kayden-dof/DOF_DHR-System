@@ -82,6 +82,16 @@ export async function saveBrand(_p: FormState, form: FormData): Promise<FormStat
       return { error: '임박으로 보는 날수는 1일에서 400일 사이입니다' };
     }
 
+    /*
+     * 기록 보존 기간 (GMP 점검 A6). 몇 년인지는 제조소와 제품이 정한다.
+     * 막는 데 쓰지 않고 편철 표지에 적는 데만 쓴다.
+     */
+    const rawKeep = String(form.get('record_retention_years') ?? '').trim();
+    const keepYears = rawKeep === '' ? 5 : Number(rawKeep);
+    if (!Number.isInteger(keepYears) || keepYears < 1 || keepYears > 100) {
+      return { error: '기록 보존 기간은 1년에서 100년 사이입니다' };
+    }
+
     await withActor(me.id, (db) =>
       db.rows(
         `update org_brand set company_name = $1, brand_color = $2,
@@ -90,11 +100,12 @@ export async function saveBrand(_p: FormState, form: FormData): Promise<FormStat
                               address = $7, plant_address = $8,
                               biz_no = $9, ceo_name = $10,
                               backup_warn_days = $11, expiry_warn_days = $12,
-                              updated_by = $13, updated_at = now()`,
+                              record_retention_years = $13,
+                              updated_by = $14, updated_at = now()`,
         [name, color, txt('system_name'), txt('system_name_long'),
          txt('system_tagline'), txt('company_tagline'),
          txt('address'), txt('plant_address'),
-         txt('biz_no'), txt('ceo_name'), warnDays, expDays, me.id]),
+         txt('biz_no'), txt('ceo_name'), warnDays, expDays, keepYears, me.id]),
       { reason: '회사 표시 변경' });
 
     bump();

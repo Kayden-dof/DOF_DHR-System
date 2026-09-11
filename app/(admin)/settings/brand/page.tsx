@@ -28,6 +28,7 @@ interface Row {
   address: string | null; plant_address: string | null;
   biz_no: string | null; ceo_name: string | null;
   backup_warn_days: number | null; expiry_warn_days: number | null;
+  record_retention_years: number | null;
   logo_name: string | null; has_logo: boolean; version: string | null;
   logo_dark_name: string | null; has_dark_logo: boolean;
   updated_by_name: string | null; updated_at: string | null;
@@ -81,7 +82,8 @@ export default async function BrandPage() {
                    address={d.address} plantAddress={d.plant_address}
                    bizNo={d.biz_no} ceoName={d.ceo_name}
                    backupWarnDays={d.backup_warn_days}
-                   expiryWarnDays={d.expiry_warn_days} />
+                   expiryWarnDays={d.expiry_warn_days}
+                   recordRetentionYears={d.record_retention_years} />
         <LogoForm hasLogo={d.has_logo} logoName={d.logo_name}
                   hasDarkLogo={d.has_dark_logo} darkName={d.logo_dark_name}
                   version={d.version} />

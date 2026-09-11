@@ -15,7 +15,7 @@ import type { FormState } from '@/lib/forms';
 
 export function BrandForm({
   name, color, sys, sysLong, tagline, companyTagline, address, plantAddress,
-  bizNo, ceoName, backupWarnDays, expiryWarnDays,
+  bizNo, ceoName, backupWarnDays, expiryWarnDays, recordRetentionYears,
 }: {
   name: string; color: string;
   sys: string | null; sysLong: string | null;
@@ -23,6 +23,7 @@ export function BrandForm({
   address: string | null; plantAddress: string | null;
   bizNo: string | null; ceoName: string | null;
   backupWarnDays: number | null; expiryWarnDays: number | null;
+  recordRetentionYears: number | null;
 }) {
   /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
   const uid = useId();
@@ -168,6 +169,23 @@ export function BrandForm({
           <p className="mt-1 text-xs leading-relaxed text-faint">
             자재 유효기한과 설비 밸리데이션이 이 날수 안에 들면 화면이 눈에 띄게
             표시합니다. 막지는 않습니다.
+          </p>
+        </div>
+        {/*
+          * 기록 보존 기간 (GMP 점검 A6 · 2026-09-11).
+          *
+          * 시스템은 이 값으로 아무것도 막지 않는다. 지우는 길이 애초에 없다
+          * (S03). 하는 일은 **편철 표지에 적어 주는 것** 하나다 - 정본은
+          * 종이이고 오프라인으로 보관하므로, 철하는 사람이 언제까지 두는지
+          * 알아야 한다.
+          */}
+        <div>
+          <label className="label" htmlFor={`${uid}-retain`}>기록 보존 기간 (년)</label>
+          <input id={`${uid}-retain`} name="record_retention_years" type="number" min="1" max="100"
+                 defaultValue={recordRetentionYears ?? 5} className="input tnum" />
+          <p className="mt-1 text-xs leading-relaxed text-faint">
+            <b className="text-ink">편철 표지에 인쇄됩니다.</b> 시스템은 이 값으로
+            아무것도 막거나 지우지 않습니다 - 기록을 지우는 길이 없습니다.
           </p>
         </div>
         </div>

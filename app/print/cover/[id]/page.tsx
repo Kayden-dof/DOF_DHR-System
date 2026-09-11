@@ -5,6 +5,7 @@ import { fmtDate, fmtDateTime } from '@/lib/fmt';
 import { logPrint, printGate, viewParam } from '@/lib/print';
 import Denied from '@/components/denied';
 import PrintFrame, { Sheet, SignRow } from '@/components/print-frame';
+import { getBrand } from '@/lib/brand';
 
 export const dynamic = 'force-dynamic';
 
@@ -58,6 +59,8 @@ export default async function CoverSheet({ params, searchParams }: {
     );
   }
   const user = await requireUser();
+  /* 보존 기간은 설정에서 온다 (§2.0 · GMP 점검 A6). 코드가 정하지 않는다 */
+  const { recordRetentionYears } = await getBrand();
 
   const d = await withActor(user.id, async (db) => {
     const head = await db.one<Head>(
@@ -472,6 +475,19 @@ export default async function CoverSheet({ params, searchParams }: {
           목록과 회차 · 매수는 시스템 발행 기록입니다. 철 확인란은 편철하는 사람이
           서류를 편철하며 대조 표시합니다. 설비 사용 기록은 배치 묶음이 아니라 설비별
           이력 파일에 철합니다.
+        </p>
+        {/*
+          * 보존 기간 (GMP 점검 A6 · 2026-09-11).
+          *
+          * 정본은 종이이고 오프라인으로 보관한다. 그러면 **철하는 사람이 언제까지
+          * 두는지 알아야 한다** - 그 사람이 보는 것은 이 표지 한 장뿐이다.
+          *
+          * 값은 설정에서 오고 인쇄 시점의 값이 찍힌다. 나중에 정책이 바뀌어도
+          * 이미 나간 종이는 그때의 값을 그대로 말한다 - 유효기한 근거를 함께
+          * 찍는 것과 같은 이유다 (§7).
+          */}
+        <p className="mt-1 text-[10px] leading-relaxed text-black">
+          이 묶음은 <b>편철일로부터 {recordRetentionYears}년</b> 보관합니다.
         </p>
 
         <SignRow roles={['생산 책임자', '품질 검토', '품질 책임자']} />

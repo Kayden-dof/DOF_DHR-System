@@ -49,6 +49,8 @@ export interface Brand {
    * 같은 것을 두 자리가 다르게 말하면 둘 다 못 믿는다.
    */
   expiryWarnDays: number;
+  /** 기록 보존 기간(년). 편철 표지에 인쇄된다 (GMP 점검 A6) */
+  recordRetentionYears: number;
 }
 
 /** 설정이 아직 없거나 읽지 못했을 때. 화면이 비어 보이지 않게만 한다 */
@@ -68,6 +70,7 @@ const FALLBACK: Brand = {
   ceoName: '',
   backupWarnDays: 35,
   expiryWarnDays: 30,
+  recordRetentionYears: 5,
 };
 
 export const getBrand = cache(async (): Promise<Brand> => {
@@ -81,6 +84,7 @@ export const getBrand = cache(async (): Promise<Brand> => {
         address: string | null; plant_address: string | null;
         biz_no: string | null; ceo_name: string | null;
         backup_warn_days: number | null; expiry_warn_days: number | null;
+        record_retention_years: number | null;
       }>(
         `select company_name, brand_color,
                 (logo_bytes is not null) as has_logo,
@@ -88,7 +92,7 @@ export const getBrand = cache(async (): Promise<Brand> => {
                 to_char(updated_at, 'YYYYMMDDHH24MISS') as logo_updated_at,
                 system_name, system_name_long, system_tagline, company_tagline,
                 address, plant_address, biz_no, ceo_name,
-                backup_warn_days, expiry_warn_days
+                backup_warn_days, expiry_warn_days, record_retention_years
            from org_brand limit 1`),
     );
     if (!row) return FALLBACK;
@@ -108,6 +112,7 @@ export const getBrand = cache(async (): Promise<Brand> => {
       ceoName: row.ceo_name ?? '',
       backupWarnDays: row.backup_warn_days ?? 35,
       expiryWarnDays: row.expiry_warn_days ?? 30,
+      recordRetentionYears: row.record_retention_years ?? 5,
     };
   } catch {
     /* 설정 표가 아직 없어도 화면이 서 버리면 안 된다 */
