@@ -102,7 +102,18 @@ export default async function LoginPage() {
       </section>
 
       {/* 입력 면 */}
-      <section className="relative flex flex-col items-center bg-canvas px-5 py-9">
+      {/*
+        * 오른쪽 면 (2026-09-11).
+        *
+        * 왼쪽 어두운 면에만 빛을 줬더니 두 면이 따로 놀았다. 여기에도 같은
+        * 각도로 아주 옅은 빛을 넣어 한 장의 화면으로 읽히게 한다. 중립색이라
+        * 브랜드 색을 흐리지 않는다.
+        */}
+      <section className="relative flex flex-col items-center px-5 py-9"
+               style={{
+                 background:
+                   'radial-gradient(120% 60% at 50% 0%, #FFFFFF 0%, transparent 68%), var(--color-canvas)',
+               }}>
         <div aria-hidden className="brand-rule absolute inset-x-0 top-0 lg:hidden" />
 
         <div className="flex w-full max-w-[25rem] flex-1 flex-col justify-center">
@@ -144,7 +155,16 @@ export default async function LoginPage() {
             </p>
           )}
 
-          <div aria-hidden className="mt-5 h-px bg-line" />
+          {/*
+            * 제목과 입력 사이를 가르는 자리. 회색 선 하나이던 것을 강조색
+            * 조각으로 바꾼다 - 이 화면에서 회사 색이 나타나는 자리가 왼쪽
+            * 면과 단추뿐이었고, 좁은 화면에서는 왼쪽 면이 접혀 사라진다.
+            */}
+          <div aria-hidden className="mx-auto mt-5 h-[3px] w-12 rounded-full"
+               style={{
+                 background:
+                   'linear-gradient(90deg, var(--color-brand), var(--color-brand-mid))',
+               }} />
 
           <LoginForm owners={owners} />
         </div>

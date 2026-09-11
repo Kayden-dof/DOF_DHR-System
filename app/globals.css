@@ -897,6 +897,16 @@ input, textarea, [contenteditable] { caret-color: var(--color-brand); }
   }
 
   /* 큰 선택 타일. 현장에서 손가락으로 고르는 모든 것 */
+  /*
+   * 고르는 타일 (2026-09-11).
+   *
+   * 화면 전체가 "면은 솟고 입력칸은 들어간다" 로 서 있는데, 타일만 테두리
+   * 두른 네모였다. 타일은 **누르는 것**이므로 솟아야 한다 - 카드와 같은
+   * 빛과 얕은 깊이를 준다.
+   *
+   * 모서리도 한 칸 넓힌다. 장갑 낀 손이 겨냥하는 물건이라 각이 날카로울
+   * 이유가 없다.
+   */
   .tile {
     display: flex;
     flex-direction: column;
@@ -904,15 +914,17 @@ input, textarea, [contenteditable] { caret-color: var(--color-brand); }
     gap: 0.1875rem;
     min-height: var(--tap-touch);
     padding: 0.875rem 1rem;
-    border: 1px solid var(--color-line-strong);
-    border-radius: var(--r-md);
-    background: var(--color-surface);
+    border: 1px solid var(--color-line);
+    border-radius: var(--r-lg);
+    background: linear-gradient(180deg,
+      var(--color-surface) 0%, var(--color-card-floor) 100%);
+    box-shadow: var(--sh-rest);
     text-align: left;
     cursor: pointer;
     transition: border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
     -webkit-tap-highlight-color: transparent;
   }
-  .tile:hover { background: var(--color-surface-sub); border-color: var(--color-faint); }
+  .tile:hover { border-color: var(--color-brand-line); box-shadow: var(--sh-2); }
   /*
    * 눌린 타일 (2026-09-11).
    *
@@ -924,11 +936,24 @@ input, textarea, [contenteditable] { caret-color: var(--color-brand); }
    * 숫자 패드 키와 같은 값을 쓴다. 두 모드 모두에서 밝고, 누른 자리가
    * 브랜드 색으로 물들어 "지금 이걸 눌렀다" 가 형태로 남는다.
    */
-  .tile:active { background: var(--color-brand-soft); border-color: var(--color-brand-line); }
+  .tile:active {
+    background: var(--color-brand-soft);
+    border-color: var(--color-brand-line);
+    box-shadow: inset 0 2px 5px rgb(26 26 31 / .14);
+    transform: translateY(1px);
+  }
+  /*
+   * 고른 타일.
+   *
+   * 테두리 두 겹(테두리 + 안쪽 테)은 그대로 둔다 - 장갑 낀 손과 밝은 조명
+   * 에서 굵기가 필요하다. 거기에 깊이를 더해, 고른 것이 **한 칸 더 솟아**
+   * 나머지와 갈린다.
+   */
   .tile[aria-pressed="true"], .tile[data-on="true"] {
     border-color: var(--color-brand);
-    background: var(--color-brand-soft);
-    box-shadow: inset 0 0 0 1px var(--color-brand), var(--sh-1);
+    background: linear-gradient(180deg,
+      var(--color-surface) 0%, var(--color-brand-soft) 100%);
+    box-shadow: inset 0 0 0 1px var(--color-brand), var(--sh-2);
   }
   .tile:disabled { opacity: 0.4; cursor: not-allowed; }
 
@@ -946,17 +971,24 @@ input, textarea, [contenteditable] { caret-color: var(--color-brand); }
     font-weight: 600;
     font-variant-numeric: tabular-nums;
     cursor: pointer;
-    box-shadow: var(--sh-1);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / .9), var(--sh-rest);
     -webkit-tap-highlight-color: transparent;
     -webkit-user-select: none;
     user-select: none;
     transition: background-color 90ms ease, box-shadow 90ms ease, transform 90ms ease;
   }
   .padkey:hover { background: var(--color-surface-sub); }
+  /*
+   * 눌린 키 (2026-09-11).
+   *
+   * 전에는 그림자만 껐다. 이제 **안으로 눌린다** - 솟아 있던 것이 들어가는
+   * 것이라, 손이 닿았다가 아니라 눌렸다가 형태로 보인다. 장갑 낀 손은
+   * 손끝의 감각이 줄어드는 만큼 눈이 대신 확인한다.
+   */
   .padkey:active {
     background: var(--color-brand-soft);
     border-color: var(--color-brand-line);
-    box-shadow: none;
+    box-shadow: inset 0 2px 5px rgb(26 26 31 / .16);
     transform: translateY(1px);
   }
   .padkey-alt {
