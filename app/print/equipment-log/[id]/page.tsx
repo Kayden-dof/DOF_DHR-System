@@ -26,19 +26,25 @@ interface Head {
 }
 interface Val {
   performed_on: string; valid_until: string; report_no: string; note: string | null;
+  /** VALIDATION 공정 밸리데이션 · CALIBRATION 계측기 교정 (GMP 점검 F4) */
+  kind: string;
 }
 interface Use {
   work_date: string; batch_no: string; op_code: string; op_name: string;
   worker_name: string; started: string | null; ended: string | null;
   attempt: number; day_no: number;
   valid_report: string | null;
+  /** 그 사용일을 덮는 교정 보고서. 교정 이력이 없는 설비는 null (F4) */
+  calib_report: string | null;
 }
 
 
 
 
 /* 사용 이력 표. 장이 여럿일 때 이어지는 장이 같은 표를 그린다 */
-function UseTable({ rows }: { rows: Use[] }) {
+function UseTable({ rows, hasCalib }: { rows: Use[];
+  /** 교정 이력이 있는 설비인가. 없으면 교정 줄을 그리지 않는다 (F4) */
+  hasCalib: boolean }) {
   return (
             <table className="print-table mt-1.5">
               <thead>
@@ -68,6 +74,17 @@ function UseTable({ rows }: { rows: Use[] }) {
                     <td className="tnum">{u.ended ?? ''}</td>
                     <td className={u.valid_report ? 'font-mono text-[10px]' : 'font-bold'}>
                       {u.valid_report ?? '해당 이력 없음'}
+                      {/*
+                        * 교정 이력이 있는 설비에만 교정 줄을 붙인다 (F4).
+                        * 교정을 아예 안 하는 설비(단순 용기 등)에까지 "교정
+                        * 해당 이력 없음" 을 적으면 그 글자가 늘 떠 있게 되고,
+                        * 늘 떠 있는 글자는 아무도 안 읽는다.
+                        */}
+                      {hasCalib && (
+                        <div className={u.calib_report ? 'font-mono text-[10px]' : 'font-bold'}>
+                          교정 {u.calib_report ?? '해당 이력 없음'}
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -112,7 +129,7 @@ export default async function EquipmentLogSheet({
           order by i.code, dm.revision desc, o.seq`, [id]),
       vals: await db.rows<Val>(
         `select performed_on::text as performed_on, valid_until::text as valid_until,
-                report_no, note
+                report_no, note, kind::text as kind
            from equipment_validation
           where equipment_id = $1
           order by valid_until desc, performed_on desc`, [id]),
@@ -124,9 +141,17 @@ export default async function EquipmentLogSheet({
                 pr.attempt, pr.day_no,
                 (select ev.report_no from equipment_validation ev
                   where ev.equipment_id = $1
+                    and ev.kind = 'VALIDATION'
                     and ev.performed_on <= pr.work_date
                     and ev.valid_until  >= pr.work_date
-                  order by ev.valid_until desc limit 1) as valid_report
+                  order by ev.valid_until desc limit 1) as valid_report,
+                /* 교정도 같은 물음을 따로 던진다 (F4). 섞으면 서로를 덮는다 */
+                (select ev.report_no from equipment_validation ev
+                  where ev.equipment_id = $1
+                    and ev.kind = 'CALIBRATION'
+                    and ev.performed_on <= pr.work_date
+                    and ev.valid_until  >= pr.work_date
+                  order by ev.valid_until desc limit 1) as calib_report
            from process_record pr
            join work_order wo on wo.id = pr.work_order_id
            join dmr_operation o on o.id = pr.operation_id
@@ -141,6 +166,8 @@ export default async function EquipmentLogSheet({
 
   if (!d) notFound();
   const { head, ops, vals, uses } = d;
+  /* 교정 이력이 한 줄이라도 있는 설비인가 (GMP 점검 F4) */
+  const hasCalib = vals.some((v) => v.kind === 'CALIBRATION');
 
   /*
    * 사용 이력을 200줄까지 뽑으면서 N 은 1 로 고정이었다 (4차 감사 B2).
@@ -167,7 +194,7 @@ export default async function EquipmentLogSheet({
                title="설비 사용 기록"
                subtitle={<>관리번호 <b className="font-mono">{head.code}</b> · 이어짐</>}>
           <h2 className="mt-5 text-sm font-bold text-black">사용 이력 (이어짐)</h2>
-          <UseTable rows={rows} />
+          <UseTable rows={rows} hasCalib={hasCalib} />
         </Sheet>
       ))}
     >
@@ -213,15 +240,17 @@ export default async function EquipmentLogSheet({
           <table className="print-table mt-1.5">
           <thead>
             <tr>
-              <th className="w-[20%]">수행일</th>
-              <th className="w-[20%]">만료일</th>
-              <th className="w-[30%]">보고서 번호</th>
-              <th className="w-[30%]">비고</th>
+              <th className="w-[14%]">종류</th>
+              <th className="w-[18%]">수행일</th>
+              <th className="w-[18%]">만료일</th>
+              <th className="w-[26%]">보고서 번호</th>
+              <th className="w-[24%]">비고</th>
             </tr>
           </thead>
           <tbody>
             {vals.map((v, i) => (
               <tr key={i}>
+                <td>{v.kind === 'CALIBRATION' ? '교정' : '밸리데이션'}</td>
                 <td className="tnum">{fmtDate(v.performed_on)}</td>
                 <td className="tnum font-bold">{fmtDate(v.valid_until)}</td>
                 <td className="font-mono">{v.report_no}</td>
@@ -236,7 +265,7 @@ export default async function EquipmentLogSheet({
       {uses.length === 0 ? (
         <p className="mt-1.5 text-xs text-black">사용 기록이 없습니다.</p>
       ) : (
-        <UseTable rows={usePages[0]} />
+        <UseTable rows={usePages[0]} hasCalib={hasCalib} />
       )}
 
       <p className="mt-2 text-[10px] leading-relaxed text-black">

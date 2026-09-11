@@ -53,9 +53,17 @@ export async function previewIssue(
            from dmr_operation o
            join operation_equipment oe on oe.operation_id = o.id and oe.is_active
            join equipment e on e.id = oe.equipment_id and e.is_active
+           /*
+            * 종류마다 따로 세고 그중 가장 이른 만료를 본다 (GMP 점검 F4).
+            * 섞어서 max 를 잡으면 **저울 교정 하나가 만료된 밸리데이션을 덮는다.**
+            * 이력이 아예 없으면 null 이 되어 아래 조건이 잡는다.
+            */
            left join lateral (
-             select max(valid_until) as valid_until
-               from equipment_validation where equipment_id = e.id
+             select min(m.valid_until) as valid_until
+               from (select kind, max(valid_until) as valid_until
+                       from equipment_validation
+                      where equipment_id = e.id
+                      group by kind) m
            ) v on true
           where o.device_master_id = $3
             and (v.valid_until is null

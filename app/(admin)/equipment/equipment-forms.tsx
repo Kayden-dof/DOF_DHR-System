@@ -34,7 +34,9 @@ export interface EquipRow extends EquipBuy {
   performed_on: string | null; valid_until: string | null; report_no: string | null;
   days_left: number | null;
   history: { performed_on: string; valid_until: string; report_no: string;
-             note: string | null; registered_by_name: string }[];
+             note: string | null; registered_by_name: string;
+             /** VALIDATION 공정 밸리데이션 · CALIBRATION 계측기 교정 (F4) */
+             kind: string }[];
 }
 
 /* ---------------------------------------------------------------------------
@@ -261,7 +263,7 @@ export function EquipCard({ e, ops, warnDays, writable = true }: {
           ) : e.days_left !== null && e.days_left <= warnDays ? (
             <Tag tone="warn">만료 {e.days_left}일 전</Tag>
           ) : (
-            <span className="tnum text-xs text-muted">만료 {fmtDate(e.valid_until)}</span>
+            <span className="tnum text-xs text-muted">밸리데이션 만료 {fmtDate(e.valid_until)}</span>
           )}
           <span className="tnum text-xs text-muted">기록 {e.used}건</span>
           <Link href={`/print/equipment-log/${e.id}`} className="btn-ghost h-8 px-3 text-xs">
@@ -441,11 +443,22 @@ function ValidationPanel({ e, writable = true }: { e: EquipRow; writable?: boole
 
       {writable && (
       <Dialog open={open} onClose={() => setOpen(false)} wide
-              title="밸리데이션 등록"
+              title="밸리데이션 · 교정 등록"
               note={<><span className="font-mono">{e.code}</span> · {e.name}</>}>
         <form action={action}>
           <input type="hidden" name="equipment_id" value={e.id} />
           <div className="grid gap-3 sm:grid-cols-2">
+            {/*
+              * 공정 밸리데이션과 계측기 교정을 가른다 (GMP 점검 F4 · 2026-09-11).
+              * 한 표에 섞여 있어 "이 저울의 교정이 유효한가" 를 물을 수 없었다.
+              */}
+            <div className="sm:col-span-2">
+              <label className="label" htmlFor={`${uid}-kind`}>종류</label>
+              <select id={`${uid}-kind`} name="kind" defaultValue="VALIDATION" className="input">
+                <option value="VALIDATION">공정 밸리데이션</option>
+                <option value="CALIBRATION">계측기 교정</option>
+              </select>
+            </div>
             <div>
               <label className="label" htmlFor={`${uid}-performed_on`}>수행일</label>
               <input id={`${uid}-performed_on`} name="performed_on" type="date" required className="input tnum" />
@@ -480,6 +493,10 @@ function ValidationPanel({ e, writable = true }: { e: EquipRow; writable?: boole
         <ul className="divide-y divide-line-soft border-t border-line-soft">
           {e.history.map((h, i) => (
             <li key={i} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 text-xs">
+              <span className={`chip shrink-0 ${h.kind === 'CALIBRATION'
+                ? 'bg-canvas text-body' : 'bg-brand/10 text-brand'}`}>
+                {h.kind === 'CALIBRATION' ? '교정' : '밸리데이션'}
+              </span>
               <span className="tnum text-body">수행 {fmtDate(h.performed_on)}</span>
               <span className={`tnum font-semibold ${i === 0 ? 'text-ink' : 'text-muted'}`}>
                 만료 {fmtDate(h.valid_until)}

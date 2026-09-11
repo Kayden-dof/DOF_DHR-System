@@ -67,17 +67,22 @@ export default async function EquipmentPage() {
               coalesce((
                 select json_agg(json_build_object(
                   'performed_on', ev.performed_on, 'valid_until', ev.valid_until,
-                  'report_no', ev.report_no, 'note', ev.note,
+                  'report_no', ev.report_no, 'note', ev.note, 'kind', ev.kind::text,
                   'registered_by_name', u.full_name)
                   order by ev.valid_until desc, ev.performed_on desc)
                   from equipment_validation ev
                   join app_user u on u.id = ev.registered_by
                  where ev.equipment_id = e.id), '[]'::json) as history
          from equipment e
+         /*
+          * 머리줄의 만료는 **공정 밸리데이션**을 말한다 (F4 · 2026-09-11).
+          * 교정이 갈라졌으므로 섞어 세면 저울 교정 하나가 초임계 장비의
+          * 밸리데이션을 덮어 버린다. 교정 만료는 아래 이력과 검토 표시가 짚는다.
+          */
          left join lateral (
            select performed_on, valid_until, report_no
              from equipment_validation
-            where equipment_id = e.id
+            where equipment_id = e.id and kind = 'VALIDATION'
             order by valid_until desc, performed_on desc limit 1
          ) v on true
         order by e.is_active desc, e.code`),

@@ -110,18 +110,29 @@ export async function saveValidation(_p: FormState, form: FormData): Promise<For
     const performedOn = String(form.get('performed_on') ?? '');
     const validUntil = String(form.get('valid_until') ?? '');
     const reportNo = txt(form.get('report_no'));
-    if (!reportNo) return { error: '밸리데이션 보고서 번호를 입력하십시오' };
+    /*
+     * 공정 밸리데이션인가 계측기 교정인가 (GMP 점검 F4 · 2026-09-11).
+     *
+     * 전에는 한 표에 섞여 "이 저울의 교정이 유효한가" 를 물을 수 없었다.
+     * 모르는 값이 오면 밸리데이션으로 둔다 - 그때까지 들어간 것이 전부
+     * 밸리데이션이었으므로 그쪽이 안전한 기본값이다.
+     */
+    const kind = String(form.get('kind') ?? '') === 'CALIBRATION'
+      ? 'CALIBRATION' : 'VALIDATION';
+    const what = kind === 'CALIBRATION' ? '교정' : '밸리데이션';
+    if (!reportNo) return { error: `${what} 보고서 번호를 입력하십시오` };
 
     await withActor(me.id, (db) =>
       db.rows(
         `insert into equipment_validation
-           (equipment_id, performed_on, valid_until, report_no, note, registered_by)
-         values ($1,$2::date,$3::date,$4,$5,$6)`,
+           (equipment_id, performed_on, valid_until, report_no, note,
+            registered_by, kind)
+         values ($1,$2::date,$3::date,$4,$5,$6,$7::equipment_check_kind)`,
         [String(form.get('equipment_id') ?? ''), performedOn, validUntil,
-         reportNo, txt(form.get('note')), me.id]));
+         reportNo, txt(form.get('note')), me.id, kind]));
 
     revalidatePath('/equipment');
-    return { ok: true, message: `밸리데이션을 등록했습니다. 만료 ${validUntil}` };
+    return { ok: true, message: `${what}을 등록했습니다. 만료 ${validUntil}` };
   } catch (e) {
     return { error: dbMessage(e) };
   }
