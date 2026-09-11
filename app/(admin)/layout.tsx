@@ -153,7 +153,14 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <DemoBanner seededAt={demo.seededAt ?? null}
                   canPurge={hasRole(user, 'SYS_ADMIN') && demo.gateOpen === true} />
 
-      <header className="sticky top-0 z-30 border-b border-line bg-surface/90 backdrop-blur-md">
+      {/*
+        * 머리줄 아래 선을 한 단계 올린다 (2026-09-11).
+        *
+        * 흰 머리줄이 흰 카드 위에 떠 있는데 경계가 일반 구분선과 같은 값이라,
+        * 스크롤해 카드가 올라오면 어디까지가 머리줄인지 흐려졌다. 그림자를
+        * 얹지 않는다 - 쉬는 면에 깊이를 주지 않는 규칙 그대로다. 선 하나다.
+        */}
+      <header className="sticky top-0 z-30 border-b border-line-strong bg-surface/90 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-6 px-5 lg:gap-9">
           <Link href="/" className="flex shrink-0 items-center gap-3" aria-label="현황으로">
             {/*

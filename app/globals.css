@@ -388,6 +388,18 @@ input, textarea, [contenteditable] { caret-color: var(--color-brand); }
    * 첫 줄과 머리가 같은 무게로 붙어 있으면 머리가 내용의 일부로 읽힌다.
    * 띠를 깔지 않는 것은 표 머리와 같은 까닭이다 - 선 하나로 가른다.
    */
+  /*
+   * 빈 자리 (2026-09-11).
+   *
+   * 화면을 열었을 때 처음 만나는 것이 빈 상태인 일이 잦다 - 아직 아무것도
+   * 없는 제조소에서는 더 그렇다. 글자 두 줄만 가운데 놓여 있으면 화면이
+   * 덜 만들어진 것처럼 보인다. 자리를 넉넉히 주고 위에 얇은 선을 하나 둔다.
+   */
+  .empty-well {
+    padding: 3.25rem 1.25rem;
+    text-align: center;
+  }
+
   .section-head {
     display: flex;
     align-items: center;
@@ -505,18 +517,30 @@ input, textarea, [contenteditable] { caret-color: var(--color-brand); }
   .btn:disabled, .btn-primary:disabled, .btn-ghost:disabled,
   .btn-danger:disabled, .btn-quiet:disabled { opacity: 0.4; cursor: not-allowed; }
 
+  /*
+   * 주 동작 단추 (2026-09-11).
+   *
+   * 화면마다 색이 들어간 자리는 이것 하나다. 그 하나가 평평한 네모이면 화면
+   * 전체가 평평해 보인다. 위 가장자리에 아주 얕은 빛을 하나 넣는다 - 면이
+   * 아니라 **모서리**라 기울기 금지와 부딪히지 않고, 브랜드 값도 그대로다.
+   *
+   * 누르면 그 빛이 꺼지고 안쪽으로 눌린다. 손이 닿은 것과 눌린 것이 눈으로
+   * 갈려야 장갑 낀 손이 두 번 누르지 않는다.
+   */
   .btn-primary {
     background: var(--color-brand);
     color: #fff;
     border-color: var(--color-brand);
-    box-shadow: var(--sh-1);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / .16), var(--sh-1);
   }
   .btn-primary:hover:not(:disabled) {
     background: var(--color-brand-deep);
     border-color: var(--color-brand-deep);
-    box-shadow: var(--sh-2);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / .16), var(--sh-2);
   }
-  .btn-primary:active:not(:disabled) { box-shadow: none; }
+  .btn-primary:active:not(:disabled) {
+    box-shadow: inset 0 2px 4px rgb(26 26 31 / .22);
+  }
 
   .btn-ghost { background: var(--color-surface); color: var(--color-ink); border-color: var(--color-line-strong); }
   .btn-ghost:hover:not(:disabled) { background: var(--color-surface-sub); border-color: var(--color-faint); }
@@ -569,6 +593,16 @@ input, textarea, [contenteditable] { caret-color: var(--color-brand); }
   /* 번호는 줄바꿈하지 않는다. 로트번호가 두 줄로 갈리면 눈으로 대조를 못 한다.
      자리가 모자라면 표가 가로로 넘어가게 두고, 감싼 상자가 스크롤을 받는다. */
   .td .font-mono, .td.font-mono, .td .tnum, .td.tnum { white-space: nowrap; }
+
+  /*
+   * 숫자 칸을 한 단계 세운다 (2026-09-11).
+   *
+   * 줄마다 색을 갈아 리듬을 주는 방식(줄무늬)은 쓰지 않는다 - 표 머리에 띠를
+   * 깔지 않는 것과 같은 까닭으로 가로줄이 늘어난다. 대신 **읽는 값**을 세운다.
+   * 이 표에서 눈이 좇는 것은 수량과 번호이고, 그것이 설명 글과 같은 무게면
+   * 줄을 하나하나 훑게 된다.
+   */
+  .td.tnum, .td .tnum { color: var(--color-ink); font-variant-numeric: tabular-nums; }
 
   /* 표가 가로로 넘칠 때 오른쪽에 고정되는 칸. 배경이 없으면 글자가 겹쳐 보인다 */
   .td.sticky, .th.sticky { background: var(--color-surface); }

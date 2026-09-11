@@ -96,9 +96,17 @@ export function Empty({ children, hint }: { children: React.ReactNode; hint?: Re
      * 거르개가 있는 화면은 두 경우를 갈라 적는다. 거른 결과가 빈 것과 아직
      * 아무것도 없는 것에 같은 문장을 내면, 걸러 놓은 줄 모르고 등록하러 간다.
      */
-    <div className="px-4 py-10 text-center">
-      <p className="text-sm text-muted">{children}</p>
-      {hint && <p className="mt-1.5 text-xs text-faint">{hint}</p>}
+    <div className="empty-well">
+      {/*
+        * 본문을 한 칸 키운다 (2026-09-11). 빈 화면에서 유일하게 읽을 것이
+        * 이 줄인데 본문보다 작았다.
+        */}
+      <p className="text-[0.9375rem] font-semibold text-muted">{children}</p>
+      {hint && (
+        <p className="mx-auto mt-2 max-w-md text-[0.8125rem] leading-relaxed text-faint">
+          {hint}
+        </p>
+      )}
     </div>
   );
 }
@@ -107,9 +115,26 @@ export function Field({
   label, children, wide = false,
 }: { label: string; children: React.ReactNode; wide?: boolean }) {
   return (
+    /*
+      * 이름과 값의 차례를 벌린다 (2026-09-11).
+      *
+      * 배치 화면은 이 칸이 스무 개 넘게 늘어선다. 이름과 값이 같은 무게로
+      * 붙어 있으면 스무 쌍이 한 덩어리로 보여, 찾는 값 하나를 눈으로 훑게
+      * 된다. 이름은 조용히 눕히고 값을 세운다 - 읽는 것은 값이다.
+      *
+      * ── 차례를 색으로 내지 않는다 ────────────────────────────────────
+      * 이름을 faint 로 내려 봤다가 되돌렸다. faint(#767085)는 흰 카드에서
+      * 4.74 로 AA 를 넘지만 **캔버스에서 4.18 로 미달**이고, 이 칸은 두 면
+      * 모두에 놓인다. 게다가 10px 짜리 글자다.
+      *
+      * 이름은 장식이 아니라 정보다 - "지시서번호" 를 못 읽으면 그 아래 값이
+      * 무엇인지 모른다. 색은 muted 그대로 두고 크기와 자간으로만 눕힌다.
+      */
     <div className={wide ? 'sm:col-span-2' : undefined}>
-      <div className="text-[0.6875rem] font-bold tracking-wide text-muted">{label}</div>
-      <div className="mt-1 text-sm text-ink">{children}</div>
+      <div className="text-[0.625rem] font-bold uppercase tracking-[0.08em] text-muted">
+        {label}
+      </div>
+      <div className="mt-1 text-[0.9375rem] font-medium leading-snug text-ink">{children}</div>
     </div>
   );
 }
