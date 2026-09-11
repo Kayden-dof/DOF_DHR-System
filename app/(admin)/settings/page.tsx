@@ -12,6 +12,7 @@ import { SubNav } from '../nav';
 import { settingsNav } from '../sections';
 import { APP_VERSION, BUILD_REF } from '@/lib/version';
 import { printKeyPinned, cronKeyPinned } from '@/lib/print';
+import { allowState } from '@/lib/net';
 import { getBrand } from '@/lib/brand';
 import { SetupSteps, type SetupStep } from './setup-steps';
 
@@ -86,6 +87,8 @@ export default async function SettingsHome() {
   const brand = await getBrand();
   const keyPinned = printKeyPinned();
   const cronPinned = cronKeyPinned();
+  /* 망 경계. 켜져 있는지를 화면이 말한다 - 꺼진 줄 모르는 것이 잘못이다 */
+  const net = allowState();
   const have = new Set(d.covered.map((r) => r.target));
   const missing = NUMBERING_TARGETS.filter((t) => !have.has(t.code));
   const blocking = missing.filter((t) => M1_CRITICAL_TARGETS.includes(t.code));
@@ -292,6 +295,14 @@ export default async function SettingsHome() {
             </dd>
           </div>
           <div>
+            <dt className="text-muted">접속지 제한</dt>
+            <dd className="mt-0.5">
+              {net.on
+                ? <span className="tnum text-ink">{net.count}개 구간에서만 접속</span>
+                : <Tag tone="warn">어디서나 접속</Tag>}
+            </dd>
+          </div>
+          <div>
             <dt className="text-muted">인쇄 열쇠</dt>
             <dd className="mt-0.5">
               {keyPinned
@@ -306,6 +317,21 @@ export default async function SettingsHome() {
             바깥에서 부를 수 있으나 하는 일은 유효기한 표시와 로그인 실패 청소뿐이라
             같은 결과가 몇 시간 일찍 날 뿐입니다. 배포 환경에
             <code> CRON_SECRET </code>을 넣으면 잠깁니다.
+          </p>
+        )}
+        {!net.on && (
+          <p className="mt-2 text-xs leading-relaxed text-muted">
+            지금은 인터넷 어디에서나 로그인 화면이 열립니다. 로그인 번호와 비밀번호,
+            그리고 시도 제한이 문을 지키고 있습니다. 배포 환경에
+            <code> ALLOW_FROM </code>에 제조소 공인 IP를 넣으면 그 자리에서만
+            열립니다 (예: <code>203.0.113.9</code> · <code>203.0.113.0/24</code>).
+          </p>
+        )}
+        {net.bad.length > 0 && (
+          <p className="mt-2 text-xs leading-relaxed text-ink">
+            <code>ALLOW_FROM</code> 에서 읽지 못한 조각이 있습니다 —
+            <code> {net.bad.join(' ')}</code>. 이 조각은 어느 주소도 통과시키지
+            않습니다.
           </p>
         )}
         {!keyPinned && (

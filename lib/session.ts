@@ -87,9 +87,19 @@ function unseal(token: string | undefined): Claim | null {
 
 export async function startSession(userId: string): Promise<void> {
   const jar = await cookies();
+  /*
+   * sameSite 를 'strict' 로 둔다 (망 경계 2026-09-11).
+   *
+   * 'lax' 는 바깥 화면에서 이 주소로 넘어오는 이동에 쿠키를 함께 보낸다.
+   * 남이 만든 화면이 우리 주소로 사람을 보내고 그 사람의 세션으로 무언가를
+   * 하게 만드는 길이 거기서 열린다.
+   *
+   * 이 프로그램은 밖에서 들어오는 고리가 없다. 즐겨찾기와 홈 화면에서 여는
+   * 것은 브라우저가 시작한 이동이라 'strict' 에서도 쿠키가 간다.
+   */
   jar.set(COOKIE, seal(userId), {
     httpOnly: true,
-    sameSite: 'lax',
+    sameSite: 'strict',
     secure: process.env.NODE_ENV === 'production',
     path: '/',
     maxAge: MAX_AGE_SEC,

@@ -33,6 +33,7 @@
     "schema:baseline": "node --env-file=.env.local scripts/schema-baseline.mjs",
     "settings": "node scripts/settings-cover.mjs",
     "font": "node scripts/font-check.mjs",
+    "net": "node scripts/net-check.mjs",
     "second": "node --env-file=.env.local scripts/seed-second.mjs",
     "volume": "node --env-file=.env.local scripts/volume-check.mjs"
   },
