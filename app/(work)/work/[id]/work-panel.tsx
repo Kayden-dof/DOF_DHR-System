@@ -243,6 +243,9 @@ export default function WorkPanel({
 
   return (
     <div className="space-y-5">
+      <PrepCard ops={ops} records={records} lots={lots}
+                sheets={sheets} loadUnit={loadUnit} />
+
       {/* 일차 --------------------------------------------------------------- */}
       <section className="card p-5">
         <div className="flex items-baseline justify-between">
@@ -1402,5 +1405,115 @@ function IssueRow({ woId, x, locked }: {
         )}
       </Dialog>
     </div>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   오늘 할 것 · 챙길 것 (사용자 요청 2026-09-11)
+
+   준비실에 서서 손에 든 종이를 찍으면 이 화면이 열린다. 그때 알아야 하는
+   것은 셋이다 - 어제까지 어디까지 갔나, 오늘 무엇을 하나, 무엇을 챙기나.
+
+   ── 오늘이 몇 일차인지 묻지 않는다 ──────────────────────────────────────
+   사람에게 묻거나 날짜로 맞히지 않는다. **아직 끝나지 않은 공정 중 제품표준서가
+   가장 이르다고 적은 것**이 오늘 할 일이다. 일이 끝나면 저절로 다음으로 넘어간다.
+   `typical_day` 는 참고값이므로 다른 날에 해도 막지 않는다 (§3).
+
+   ── 새 질의를 만들지 않는다 ────────────────────────────────────────────
+   공정 · 기록 · 자재 로트가 이미 이 화면에 다 와 있다. 같은 것을 또 물으면
+   두 값이 갈라질 자리가 생긴다 (§10 과 같은 이유).
+
+   ── 판정하지 않는다 ────────────────────────────────────────────────────
+   소요량은 제품표준서와 장입 장수로 계산한 **예정값**이다. 재고가 모자라 보이면
+   짚되 막지 않는다 (§2 "경고만") - 통에 실제로 얼마나 남았는지는 사람이 본다.
+--------------------------------------------------------------------------- */
+function PrepCard(
+  { ops, records, lots, sheets, loadUnit }: {
+    ops: Op[]; records: Rec[]; lots: LotOpt[];
+    sheets: number; loadUnit: string | null;
+  },
+) {
+  /*
+   * 끝난 공정. 재단 이후 공정은 제품 로트마다 기록이 갈리므로 **하나라도
+   * 안 끝났으면 안 끝난 것**으로 본다 - 준비물은 남은 것 기준으로 챙긴다.
+   */
+  const doneOf = (o: Op) => {
+    const mine = records.filter((r) => r.operation_id === o.id);
+    return mine.length > 0 && mine.every((r) => !!r.ended_at);
+  };
+  const left = ops.filter((o) => !doneOf(o));
+  if (left.length === 0) return null;
+
+  const todayDay = Math.min(...left.map((o) => o.typical_day ?? 99));
+  const today = left.filter((o) => (o.typical_day ?? 99) === todayDay);
+
+  /* 오늘 할 공정의 자재를 품목별로 모은다. 같은 자재가 두 공정에 걸리면 더한다 */
+  const need = new Map<string, { name: string; uom: string; qty: number; known: boolean }>();
+  for (const o of today) {
+    for (const b of o.bom) {
+      const cur = need.get(b.item_id)
+        ?? { name: b.item_name, uom: b.usage_uom, qty: 0, known: true };
+      if (b.required === null) cur.known = false;
+      else cur.qty += Number(b.required);
+      need.set(b.item_id, cur);
+    }
+  }
+
+  /* 재고는 이미 이 화면에 온 로트를 더해 낸다 */
+  const onHand = new Map<string, number>();
+  for (const l of lots) {
+    onHand.set(l.item_id, (onHand.get(l.item_id) ?? 0) + Number(l.qty_available));
+  }
+
+  const unit = loadUnit ?? '';
+
+  return (
+    <section className="card p-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-base font-bold text-ink">
+          오늘 할 것{todayDay !== 99 ? ` · 보통 ${todayDay}일차` : ''}
+        </h2>
+        <span className="text-sm text-muted">남은 공정 {left.length}개</span>
+      </div>
+
+      <ul className="mt-3 space-y-1">
+        {today.map((o) => (
+          <li key={o.id} className="flex items-baseline gap-3">
+            <span className="font-mono text-xs text-faint">{o.code}</span>
+            <span className="text-lg font-semibold text-ink">{o.name}</span>
+            {o.qual_managed && !o.qualified && (
+              <span className="text-xs font-semibold text-warn">자격 없음</span>
+            )}
+          </li>
+        ))}
+      </ul>
+
+      {need.size > 0 && (
+        <>
+          <p className="label mb-1 mt-4">챙길 것</p>
+          <ul className="divide-y divide-line-soft border-y border-line-soft">
+            {[...need.entries()].map(([id, n]) => {
+              const have = onHand.get(id) ?? 0;
+              const short = n.known && have < n.qty;
+              return (
+                <li key={id} className="flex flex-wrap items-baseline gap-x-4 py-2">
+                  <span className="min-w-0 flex-1 text-base text-ink">{n.name}</span>
+                  <span className="tnum text-lg font-bold text-ink">
+                    {n.known ? n.qty : '—'} {n.uom}
+                  </span>
+                  <span className={`tnum text-sm ${short ? 'font-semibold text-warn' : 'text-muted'}`}>
+                    재고 {have}{short ? ' · 모자람' : ''}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+          <p className="mt-1.5 text-xs leading-relaxed text-faint">
+            제품표준서와 장입 {sheets}{unit} 으로 계산한 예정값입니다.
+            실제로 넣은 양은 공정마다 그대로 적으십시오.
+          </p>
+        </>
+      )}
+    </section>
   );
 }

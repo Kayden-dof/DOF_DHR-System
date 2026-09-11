@@ -1,9 +1,11 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { requireUser } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import { fmtDate } from '@/lib/fmt';
 import { WO_STATUS_LABEL } from '@/lib/forms';
 import { Tag } from '@/components/ui';
+import ScanBox from './scan-box';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,8 +34,29 @@ interface BatchTile {
    지금 손댈 수 있는 배치만 큰 타일로 보여 준다. 목록을 뒤지게 하지 않는다.
    진행 중인 것이 위로 온다.
 --------------------------------------------------------------------------- */
-export default async function WorkHome() {
+export default async function WorkHome(
+  { searchParams }: { searchParams: Promise<{ scan?: string }> },
+) {
   const user = await requireUser();
+
+  /*
+   * 찍은 종이로 배치를 연다 (사용자 요청 2026-09-11).
+   *
+   * 목록에서 눈으로 고르면 옆 배치를 누른다 - `B260811-01` 과 `B260811-02`
+   * 처럼 한 글자만 다르면 더 그렇다. 손에 든 종이를 찍으면 그 종이의 배치가
+   * 열린다.
+   *
+   * 스캐너는 대문자로 친다. 대장의 식별자는 소문자다.
+   * **읽기만 한다** - 인쇄 대장에 아무것도 남기지 않는다 (§7.1).
+   */
+  const scan = (await searchParams).scan?.trim().toLowerCase() ?? '';
+  if (scan !== '') {
+    const hit = await withActor(user.id, (db) =>
+      db.val<string>(
+        `select work_order_id::text from v_print_lookup
+          where short_hash = $1 and work_order_id is not null limit 1`, [scan]));
+    if (hit) redirect(`/work/${hit}`);
+  }
 
   const batches = await withActor(user.id, (db) =>
     db.rows<BatchTile>(
@@ -81,6 +104,18 @@ export default async function WorkHome() {
           {user.full_name} 님. 배치를 선택하여 공정 기록을 작성하십시오.
         </p>
       </div>
+
+      {/*
+        * 스캔 칸을 목록보다 위에 둔다. 찍는 것이 기본이고 눈으로 고르는 것은
+        * 스캐너가 없을 때의 갈래다.
+        */}
+      <ScanBox />
+      {scan !== '' && (
+        <p className="card bg-warn-bg px-4 py-3 text-base leading-relaxed text-ink">
+          그 바코드로는 배치를 찾지 못했습니다. 종이 아래쪽 바코드가 맞는지
+          보시고 다시 찍으십시오.
+        </p>
+      )}
 
       {batches.length === 0 ? (
         <div className="card p-10 text-center">
