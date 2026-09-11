@@ -61,7 +61,24 @@ export function IdCell({
   return (
     <td className="td relative whitespace-nowrap pl-5">
       {bar && <span aria-hidden className={`absolute inset-y-1.5 left-1.5 w-[3px] rounded-full ${bar}`} />}
-      <div className="font-mono text-[0.8125rem] font-bold text-ink">{id}</div>
+      {/* --------------------------------------------------------------------
+        * 번호가 이 제품의 명사다 (2026-09-11).
+        *
+        * 로트번호 · 배치번호 · 제조번호. 하루 종일 보는 것이 이것이고, 종이와
+        * 화면을 눈으로 맞추는 것도 이것이다. 그런데 13px 짜리 굵은 글자로
+        * 옆 설명글과 같은 무게로 놓여 있었다.
+        *
+        * 한 칸 키우고 자간을 벌린다. 고정폭 글자는 자간이 좁으면 글자 덩어리로
+        * 뭉쳐 보이는데, 이 번호들은 **한 글자씩 대조하는 물건**이다 -
+        * B260810-01 과 B260811-01 을 가르는 것은 한 자리다. 자간이 그 일을
+        * 돕는다. 인상과 실용이 같은 방향이다.
+        * ------------------------------------------------------------------ */}
+      <div className="font-mono text-[0.875rem] font-bold tracking-[0.04em] text-ink">{id}</div>
+      {/*
+        * 아랫줄은 고정폭으로 두지 않는다. 여기에 "1일차" 같은 한글이 들어가는
+        * 자리가 있고(현황의 마감 대기), 고정폭 글꼴에 한글 글리프가 없어
+        * 굴림으로 떨어진다. npm run font 가 지키는 바로 그 규칙이다.
+        */}
       {sub && <div className="mt-0.5 text-xs text-faint">{sub}</div>}
     </td>
   );
@@ -83,7 +100,10 @@ export function TwoLine({
 export function ActionTd({ children }: { children: React.ReactNode }) {
   return (
     <td className="td sticky right-0 bg-surface text-right shadow-[-10px_0_10px_-10px_rgb(31_29_36/.14)]">
-      {children}
+      {/* 손이 얹히거나 초점이 오면 나온다. 자리는 늘 차지한다 (globals.css) */}
+      <span className="row-action inline-flex items-center justify-end gap-1.5">
+        {children}
+      </span>
     </td>
   );
 }

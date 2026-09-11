@@ -161,31 +161,15 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <div className="brand-rule" />
 
       {/*
-        * 상단은 밝게 둔다. 어두운 면은 현장 화면이 가져갔다. 두 모드가 같은
-        * 얼굴을 하면 관리 화면인 줄 알고 현장 기록을 만지게 된다.
+        * 자리를 넉넉히 준다. 44px 에 다 밀어 넣으니 로고도 메뉴도 이름도 전부
+        * 작아져서 무엇 하나 서지 못했다. 크기를 키우는 대신 높이를 준다.
         *
-        * 대신 자리를 넉넉히 준다. 44px 에 다 밀어 넣으니 로고도 메뉴도 이름도
-        * 전부 작아져서 무엇 하나 서지 못했다. 크기를 키우는 대신 높이를 준다.
+        * 띠가 어두운 까닭은 globals.css 의 .topbar 에 적어 두었다.
         */}
       <DemoBanner seededAt={demo.seededAt ?? null}
                   canPurge={hasRole(user, 'SYS_ADMIN') && demo.gateOpen === true} />
 
-      {/*
-        * 머리줄 아래 선을 한 단계 올린다 (2026-09-11).
-        *
-        * 흰 머리줄이 흰 카드 위에 떠 있는데 경계가 일반 구분선과 같은 값이라,
-        * 스크롤해 카드가 올라오면 어디까지가 머리줄인지 흐려졌다. 그림자를
-        * 얹지 않는다 - 쉬는 면에 깊이를 주지 않는 규칙 그대로다. 선 하나다.
-        */}
-      {/*
-        * 머리줄은 화면 위에 떠 있는 판이다 (2026-09-11).
-        *
-        * 선 하나로만 갈라 두었더니 스크롤해 카드가 올라올 때 같은 평면으로
-        * 보였다. 아주 얕은 그림자를 아래로 흘려 판이 위에 있다는 것을 형태로
-        * 말한다 - 스크롤은 상태이므로 깊이를 써도 좋다.
-        */}
-      <header className="sticky top-0 z-30 border-b border-line bg-surface/92 backdrop-blur-md
-                         shadow-[0_1px_2px_rgb(26_26_31/.04),0_8px_20px_-14px_rgb(26_26_31/.24)]">
+      <header className="topbar sticky top-0 z-30 border-b">
         <div className="mx-auto flex h-14 max-w-[1240px] items-center gap-6 px-5 lg:gap-9">
           <Link href="/" className="flex shrink-0 items-center gap-3" aria-label="현황으로">
             {/*
@@ -199,9 +183,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               * 올리면 상자와 그림이 같아져 이 보정이 필요 없다 - 설정 화면이
               * 그렇게 안내한다.
               */}
-            <BrandMark className="h-7 w-auto text-[1.125rem]" />
-            <span className="h-5 w-px bg-line-strong" aria-hidden />
-            <SystemName className="display text-[1.125rem] leading-none text-ink" />
+            <BrandMark className="h-7 w-auto text-[1.125rem]" dark />
+            <span className="h-5 w-px bg-white/28" aria-hidden />
+            <SystemName className="display text-[1.125rem] leading-none text-white" />
           </Link>
 
           <div className="flex h-full min-w-0 flex-1 items-stretch">
