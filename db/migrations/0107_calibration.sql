@@ -60,7 +60,7 @@ set search_path = pg_catalog, public, pg_temp as $$
   union all
 
   select '기한 경과'::text,
-         format('%s %s일차 설비 %s: 사용일 %s 에 유효한 %s 없음%s',
+         format('%s %s일차 설비 %s: 사용일 %s - 유효한 %s 없음%s',
                 o.code, pr.day_no, coalesce(e.code, pr.equipment_id),
                 to_char(pr.work_date, 'YYYY-MM-DD'),
                 case k.kind when 'VALIDATION' then '밸리데이션' else '교정' end,

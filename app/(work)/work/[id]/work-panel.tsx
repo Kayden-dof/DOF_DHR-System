@@ -156,6 +156,16 @@ export default function WorkPanel({
     if (!cur || r.work_date < cur) dayDate.set(r.day_no, r.work_date);
   }
 
+  /*
+   * 오늘 것을 적는다면 어느 일차인가.
+   *
+   * 오늘 날짜로 이미 열린 일차가 있으면 그것이고, 없으면 새 일차다. 준비
+   * 카드가 이 값으로 사람을 데려간다 - 카드는 "오늘 할 것" 을 적는데 화면이
+   * 여는 일차는 내가 마지막으로 손댄 일차라, 둘이 어긋날 수 있다.
+   */
+  const dayToday = [...dayDate.entries()]
+    .filter(([, d]) => d === today).map(([n]) => n).sort((a, b) => a - b)[0] ?? nextDay;
+
   /* 고른 일차가 오늘이 아닌가. 막지 않고 사실만 알린다 (§8.5) */
   const pickedDate = dayDate.get(day);
   const notToday = !!pickedDate && pickedDate !== today;
@@ -243,8 +253,24 @@ export default function WorkPanel({
 
   return (
     <div className="space-y-5">
+      {/*
+        * 준비 카드가 가리키는 곳으로 갈 수 있게 한다 (사용자 지적 2026-09-11).
+        *
+        * 카드는 "오늘 할 것" 을 적는데, 화면이 여는 일차는 **내가 마지막으로
+        * 손댄 일차**다 (위 useState). 그 둘이 다르면 - 지난달 일차가 열린 채
+        * 오늘 할 일을 읽게 된다 - 카드와 화면이 서로 다른 데를 가리킨다.
+        *
+        * 오늘 날짜인 일차가 있으면 그리로, 없으면 새 일차로 보낸다. 옮기기만
+        * 하고 아무것도 적지 않는다.
+        */}
       <PrepCard ops={ops} records={records} lots={lots}
-                sheets={sheets} loadUnit={loadUnit} />
+                sheets={sheets} loadUnit={loadUnit}
+                onGo={dayToday !== null && dayToday !== day
+                  ? () => { setDay(dayToday); setOpId(null); }
+                  : null}
+                goLabel={dayToday !== null && dayToday !== day
+                  ? `${dayToday}일차로 가기`
+                  : null} />
 
       {/* 일차 --------------------------------------------------------------- */}
       <section className="card p-5">
@@ -387,6 +413,7 @@ export default function WorkPanel({
           woId={woId} day={day} op={op} rec={rec} lots={lots} people={people}
           productLots={productLots} locked={locked} sheets={sheets}
           splitOp={splitOp} loadUnit={loadUnit} expiryWarnDays={expiryWarnDays}
+          cutDate={pickedDate ?? today}
           /*
            * 회차는 (공정, 제품 로트) 로 센다 (4차 감사 E2 · 0055 와 같은 기준).
            * 로트를 가리지 않고 세면 두 번째 형명을 시작할 때 2회차라고 안내한다.
@@ -510,7 +537,7 @@ function OperationCard({
   woId, day, op, rec, lots, people, productLots, locked, sheets, splitOp, loadUnit,
   expiryWarnDays,
   attemptCount,
-  isCut, finished, sampleTiers, sampleBasis, band,
+  isCut, finished, sampleTiers, sampleBasis, band, cutDate,
 }: {
   woId: string; day: number; op: Op; rec: Rec | null; lots: LotOpt[];
   people: PersonOpt[]; productLots: PlOpt[]; locked: boolean; sheets: number;
@@ -518,6 +545,8 @@ function OperationCard({
   attemptCount: number;
   isCut: boolean; finished: FinOpt[]; band: string | null;
   sampleTiers: SampleTier[]; sampleBasis: string | null;
+  /** 이 일차의 작업일. 재단이면 제조일 기본값이 된다 */
+  cutDate: string;
 }) {
   const running = rec && !rec.ended_at;
 
@@ -556,7 +585,7 @@ function OperationCard({
       {isCut && rec && (
         <CutPanel woId={woId} finished={finished} lots={productLots}
                   sampleTiers={sampleTiers} sampleBasis={sampleBasis} band={band}
-                  splitOp={splitOp} />
+                  splitOp={splitOp} cutDate={cutDate} />
       )}
 
       {rec && rec.issues.length > 0 && (
@@ -1117,10 +1146,14 @@ function CloseDayCard({ woId, day, batchNo, openOps }: {
    샘플 수를 시스템이 정하지 않는다. 검사 기준이 정하고 제품표준서에 옮겨 적힌
    값을 읽어 올 뿐이다. 등록된 값이 없으면 아무것도 안내하지 않는다 (§1).
 --------------------------------------------------------------------------- */
-function CutPanel({ woId, finished, lots, sampleTiers, sampleBasis, band, splitOp }: {
+function CutPanel({
+  woId, finished, lots, sampleTiers, sampleBasis, band, splitOp, cutDate,
+}: {
   woId: string; finished: FinOpt[]; lots: PlOpt[];
   sampleTiers: SampleTier[]; sampleBasis: string | null; band: string | null;
   splitOp: string | null;
+  /** 지금 열려 있는 일차의 작업일. 제조일 기본값이 된다 */
+  cutDate: string;
 }) {
   /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
   const uid = useId();
@@ -1241,18 +1274,29 @@ function CutPanel({ woId, finished, lots, sampleTiers, sampleBasis, band, splitO
             <div>
               <label className="label">제조일</label>
               {/*
-                * 한국 시각으로 오늘이다.
+                * **오늘이 아니라 이 일차의 작업일이다** (사용자 지시 2026-09-11).
                 *
-                * 전에는 toISOString().slice(0,10) 을 썼는데 그건 UTC 날짜다.
-                * 아침 9시 이전에 재단하면 전날이 기본값으로 들어갔고, 그 값이
-                * 제조일과 유효기한으로 굳었다. 0052 가 둘을 불변으로 만들어
-                * 두어 사후 정정도 안 된다 (2차 검수 결함 8).
+                * 제조일과 유효기한은 붙고 나면 고칠 수 없고 (0052 · §2.1),
+                * 제조번호도 이 날짜로 채번된다 (§4.10). 그런데 기본값이 오늘
+                * 이었다 - 어제 재단한 것을 오늘 적으면 틀린 날짜가 그대로 굳고
+                * 되돌릴 자리가 없다.
                 *
-                * 3인 현장은 8시에 시작한다. 아침 재단은 드문 일이 아니다.
+                * 화면은 그 날짜를 이미 알고 있었다. 고른 일차의 작업일이
+                * 그것이고, 같은 값으로 위쪽 경고문도 그린다. 알고 있는 것을
+                * 기본값으로 쓴다.
+                *
+                * 날짜는 글자로 다룬다. toISOString() 은 UTC 라 아침 9시 이전
+                * 재단이 전날로 들어간다 (§10 · 2차 검수 결함 8).
                 */}
               <input name="manufactured_on" type="date"
-                     defaultValue={todayKST()}
+                     defaultValue={cutDate}
                      className="input tnum" />
+              {cutDate !== todayKST() && (
+                <p className="mt-1 text-xs leading-relaxed text-muted">
+                  이 일차의 작업일로 채웠습니다. 오늘은 <span className="tnum">{todayKST()}</span>
+                  입니다.
+                </p>
+              )}
             </div>
           </div>
 
@@ -1428,9 +1472,12 @@ function IssueRow({ woId, x, locked }: {
    짚되 막지 않는다 (§2 "경고만") - 통에 실제로 얼마나 남았는지는 사람이 본다.
 --------------------------------------------------------------------------- */
 function PrepCard(
-  { ops, records, lots, sheets, loadUnit }: {
+  { ops, records, lots, sheets, loadUnit, onGo, goLabel }: {
     ops: Op[]; records: Rec[]; lots: LotOpt[];
     sheets: number; loadUnit: string | null;
+    /** 오늘 적을 일차가 지금 열린 일차와 다를 때만 온다 */
+    onGo: (() => void) | null;
+    goLabel: string | null;
   },
 ) {
   /*
@@ -1475,6 +1522,17 @@ function PrepCard(
         </h2>
         <span className="text-sm text-muted">남은 공정 {left.length}개</span>
       </div>
+
+      {/*
+        * 카드가 가리키는 일차가 지금 열린 일차와 다를 때만 나온다. 같으면
+        * 누를 것이 없으므로 그리지 않는다 - 늘 있는 단추는 안 보인다.
+        */}
+      {onGo && goLabel && (
+        <button type="button" onClick={onGo}
+                className="btn-primary mt-3 h-11 w-full text-sm">
+          {goLabel}
+        </button>
+      )}
 
       <ul className="mt-3 space-y-1">
         {today.map((o) => (

@@ -11,6 +11,27 @@ export interface RequirementRow {
   usage_uom: string;
   basis: string;
   required: string | null;
+  /* ------------------------------------------------------------------------
+     발행 전에 "있느냐" 를 함께 본다 (사용자 지시 2026-09-11)
+
+     전에는 소요량만 보여 주었다. 그래서 시약이 모자란 것을 **3일차 아침에
+     현장이** 알았다 - 발행할 때 알았으면 그날 발주했을 일이다. 같은 숫자를
+     현장 준비 카드는 이미 보여 주고 있었는데 발행 화면에만 없었다.
+
+     막지 않는다 (§2 "경고만"). 모자라도 발행은 된다 - 오늘 들어올 수도 있고,
+     시스템이 재고를 판정할 자리가 아니다.
+     ------------------------------------------------------------------------ */
+  /** 지금 쓸 수 있는 재고 (사용 단위 합계) */
+  on_hand: string;
+  /** 그중 가장 이른 유효기한. 없으면 null */
+  soonest: string | null;
+  /**
+   * 이 공정에 닿을 무렵. 오늘 + (보통 n일차 - 1).
+   *
+   * 재고 수량만으로는 "2통 있음" 이 안심을 준다. 그 2통이 6일차 전에 만료되면
+   * 없는 것과 같은데 숫자로는 보이지 않는다.
+   */
+  use_by: string;
 }
 
 export interface IssuePreview {
@@ -71,9 +92,21 @@ export async function previewIssue(
         [materialLotId, sheets, deviceMasterId]),
       requirements: await db.rows<RequirementRow>(
         `select o.code as operation_code, o.name as operation_name,
-                r.item_code, r.item_name, r.usage_uom, r.basis::text as basis, r.required
+                r.item_code, r.item_name, r.usage_uom, r.basis::text as basis, r.required,
+                st.on_hand::text as on_hand, st.soonest::text as soonest,
+                ((timezone('Asia/Seoul', now()))::date
+                   + (coalesce(o.typical_day, 1) - 1))::text as use_by
            from dmr_operation o
            cross join lateral operation_requirements(o.id, $2, $3) r
+           left join lateral (
+             /* 품목 코드로 잇는다 - operation_requirements 가 코드를 돌려준다 */
+             select coalesce(sum(ml.qty_available), 0) as on_hand,
+                    min(ml.expiry_date)               as soonest
+               from material_lot ml
+               join item i on i.id = ml.item_id
+              where i.code = r.item_code
+                and ml.status = 'AVAILABLE' and ml.qty_available > 0
+           ) st on true
           where o.device_master_id = $1
           order by o.seq, r.item_code`,
         [deviceMasterId, sheets, units]),

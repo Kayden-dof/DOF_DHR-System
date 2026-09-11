@@ -197,6 +197,36 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
    * 갈림이 없는 품목이면 null 이고, 그때는 그 말을 쓰지 않는다.
    */
   const splitOp = wo.split_op;
+
+  /*
+   * 재단 공정을 적은 날. 제조일 기본값이 된다 (사용자 지시 2026-09-11).
+   *
+   * 공정 이름으로 찾는다 - 무엇이 분할 공정인지는 제품표준서가 정하고
+   * (`split_op_name`), 이 화면은 이미 그 이름으로 칸 제목을 짓고 있다.
+   * 여기서 다시 판정하면 두 곳이 갈라진다 (§10).
+   *
+   * 여러 날에 걸쳐 적었으면 **가장 이른 날**이다. 재단을 시작한 날이 제조일
+   * 이고, 제조기록서 머리도 같은 기준으로 찍는다 (lib/print-payload).
+   */
+  /*
+   * 제조번호를 붙이는 길이 둘이다. 둘 다 적는다 (사용자 지적 2026-09-11).
+   *
+   * 전에는 "현장 화면에서 적으면 붙습니다" 한 줄뿐이었는데, 바로 아래에 부여
+   * 폼이 있었다. 읽는 사람은 "그럼 이건 뭐지, 여기서 하면 잘못되나" 하게 되고,
+   * 현장까지 갔다가 돌아오기도 한다. 둘 다 되는 것이 사실이면 둘 다 적는다.
+   *
+   * 폼이 안 그려지는 자리(종료·취소·읽기 전용)에서는 없는 길을 적지 않는다.
+   */
+  const cutHint = wo.status !== 'CANCELLED' && wo.status !== 'DONE' && canWrite(user)
+    ? '현장에서 재단 공정을 적으면 형명별로 붙습니다. 아래에서 직접 부여할 수도 있습니다.'
+    : '현장 화면에서 재단 공정을 적으면 형명별로 제조번호가 붙습니다.';
+
+  const cutDate = splitOp
+    ? d.records
+        .filter((r) => r.operation_name === splitOp)
+        .map((r) => r.work_date)
+        .sort()[0] ?? null
+    : null;
   const used = new Set(d.lots.map((l) => l.item_code));
   const usedIds = new Set(
     d.finished.filter((f) => used.has(f.code)).map((f) => f.id));
@@ -379,7 +409,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
         ) : null}
       >
         {d.lots.length === 0 ? (
-          <Empty hint="현장 화면에서 재단 공정을 적으면 형명별로 제조번호가 붙습니다.">
+          <Empty hint={cutHint}>
             아직 제조번호가 붙지 않았습니다.
           </Empty>
         ) : (
@@ -438,9 +468,19 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
             </table>
           </div>
         )}
+        {/*
+          * 제조일 기본값은 **재단 공정을 적은 날**이다 (사용자 지시 2026-09-11).
+          *
+          * 제조일과 유효기한은 붙고 나면 고칠 수 없고 (0052 · §2.1) 제조번호도
+          * 이 날짜로 채번된다 (§4.10). 기본값이 오늘이면, 어제 재단한 것을
+          * 오늘 적는 순간 틀린 날짜가 그대로 굳는다.
+          *
+          * 재단 기록이 아직 없으면 알 길이 없으므로 오늘로 둔다. 그때는
+          * 폼이 그 사실을 적는다.
+          */}
         {active && !readOnly && (
           <CutForm woId={wo.id} options={d.finished} today={d.today ?? ''} used={usedIds}
-                   band={wo.thickness_band} />
+                   band={wo.thickness_band} cutDate={cutDate} />
         )}
       </Panel>
 

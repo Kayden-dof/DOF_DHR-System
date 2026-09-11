@@ -247,6 +247,8 @@ export default function IssueForm({ masters, rawLots, finished, users, today }: 
                   <th className="th">자재</th>
                   <th className="th">기준</th>
                   <th className="th text-right">소요량</th>
+                  <th className="th text-right">재고</th>
+                  <th className="th">가장 이른 유효기한</th>
                 </tr>
               </thead>
               <tbody>
@@ -264,12 +266,46 @@ export default function IssueForm({ masters, rawLots, finished, users, today }: 
                         ? <span className="text-warn">구간 없음</span>
                         : `${Number(r.required)} ${r.usage_uom}`}
                     </td>
+                    {/*
+                      * 모자라면 짚기만 한다. 막지 않는다 (§2 "경고만") - 오늘
+                      * 들어올 수도 있고, 무엇이 충분한지는 시스템이 정할 일이
+                      * 아니다.
+                      */}
+                    <td className="td tnum text-right text-xs">
+                      {(() => {
+                        const have = Number(r.on_hand ?? 0);
+                        const need = r.required === null ? null : Number(r.required);
+                        const short = need !== null && have < need;
+                        return (
+                          <span className={short ? 'font-semibold text-danger' : 'text-muted'}>
+                            {have} {r.usage_uom}
+                          </span>
+                        );
+                      })()}
+                    </td>
+                    {/*
+                      * "2통 있음" 은 안심을 준다. 그 2통이 이 공정에 닿기 전에
+                      * 만료되면 없는 것과 같은데 수량으로는 보이지 않는다.
+                      */}
+                    <td className="td text-xs">
+                      {r.soonest ? (
+                        <span className={r.soonest < r.use_by
+                          ? 'font-semibold text-danger' : 'text-muted'}>
+                          <span className="tnum">{r.soonest}</span>
+                          {r.soonest < r.use_by && ' · 그 전에 만료'}
+                        </span>
+                      ) : <span className="text-faint">-</span>}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
           <p className="mt-2 text-xs leading-relaxed text-faint">
+            <b className="text-ink">재고</b>는 지금 쓸 수 있는 양이고,{' '}
+            <b className="text-ink">가장 이른 유효기한</b>은 이 공정에 닿을 무렵
+            (오늘 + 보통 일차)과 견준 값입니다. 모자라도 발행은 됩니다.
+            <br />
             제품 개수 기준 자재는 {dmSel?.split_op ? `${dmSel.split_op} 후` : '나중에'} 수량이
             정해지므로 여기서는 계산하지 않습니다.
             지시서에는 예정이, 기록서에는 실제가 나옵니다.

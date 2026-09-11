@@ -106,7 +106,7 @@ set search_path = pg_catalog, public, pg_temp as $$
 
   /* 설비: 사용일에 유효한 밸리데이션 · 교정이 있었는가 (0107) */
   select '기한 경과'::text,
-         format('%s %s일차 설비 %s: 사용일 %s 에 유효한 %s 없음%s',
+         format('%s %s일차 설비 %s: 사용일 %s - 유효한 %s 없음%s',
                 o.code, pr.day_no, coalesce(e.code, pr.equipment_id),
                 to_char(pr.work_date, 'YYYY-MM-DD'),
                 case k.kind when 'VALIDATION' then '밸리데이션' else '교정' end,
@@ -137,7 +137,7 @@ set search_path = pg_catalog, public, pg_temp as $$
 
   /* 사람: 작업일에 그 공정 자격이 있었는가 (0108) */
   select '자격 없음'::text,
-         format('%s %s일차: %s 이(가) 작업일 %s 에 이 공정의 유효한 자격 없음',
+         format('%s %s일차 %s: 작업일 %s - 이 공정의 유효한 자격 없음',
                 o.code, pr.day_no, u.full_name,
                 to_char(pr.work_date, 'YYYY-MM-DD')),
          pr.day_no, o.code

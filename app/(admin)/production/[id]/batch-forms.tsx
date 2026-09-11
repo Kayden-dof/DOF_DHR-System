@@ -39,10 +39,12 @@ export interface FinOpt {
    아니다. 원재료 로트에 두께가 안 적혀 있을 수도 있다. 고를 수는 있게 두되
    고른 것이 이 배치의 두께와 다르면 그 사실만 적는다 (§8.5).
 --------------------------------------------------------------------------- */
-export function CutForm({ woId, options, today, used, band }: {
+export function CutForm({ woId, options, today, used, band, cutDate }: {
   woId: string; options: FinOpt[]; today: string; used: Set<string>;
   /** 이 배치 원재료 로트의 두께 구간. 예 '1015' */
   band?: string | null;
+  /** 재단 공정을 적은 날. 없으면 null - 그때만 오늘로 떨어진다 */
+  cutDate?: string | null;
 }) {
   /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
   const uid = useId();
@@ -115,7 +117,14 @@ export function CutForm({ woId, options, today, used, band }: {
         </div>
         <div>
           <label className="label" htmlFor={`${uid}-manufactured_on`}>제조일</label>
-          <input id={`${uid}-manufactured_on`} name="manufactured_on" type="date" defaultValue={today} className="input tnum" />
+          <input id={`${uid}-manufactured_on`} name="manufactured_on" type="date"
+                 defaultValue={cutDate ?? today} className="input tnum" />
+          <p className="mt-1 text-xs leading-relaxed text-muted">
+            {cutDate
+              ? <>재단을 적은 날로 채웠습니다. 제조번호가 이 날짜로 만들어집니다.</>
+              : <>재단 기록이 아직 없어 <b className="text-ink">오늘</b>로 두었습니다.
+                 실제 재단한 날이 다르면 고치십시오. 붙고 나면 바꿀 수 없습니다.</>}
+          </p>
         </div>
       </div>
 
