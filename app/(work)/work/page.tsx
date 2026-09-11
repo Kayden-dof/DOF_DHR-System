@@ -16,6 +16,12 @@ export const dynamic = 'force-dynamic';
  */
 export const metadata = { title: '현장' };
 
+/** 찍거나 친 값에 걸린 배치 (2026-09-11) */
+interface Candidate {
+  id: string; batch_no: string; wo_no: string; status: string;
+  item_name: string; issued_at: Date; exact: boolean;
+}
+
 interface BatchTile {
   id: string; batch_no: string; wo_no: string; status: string; sheet_count: number;
   /* 화면의 낱말이 제품에서 나온다 (0101) */
@@ -57,19 +63,45 @@ export default async function WorkHome(
    * 칸을 늘리지 않는다. 칸이 둘이면 "어디에 치지" 가 생긴다.
    */
   const scan = (await searchParams).scan?.trim() ?? '';
-  if (scan !== '') {
-    const hit = await withActor(user.id, (db) =>
-      db.val<string>(
-        `select coalesce(
-                  (select v.work_order_id::text from v_print_lookup v
-                    where v.short_hash = lower($1) and v.work_order_id is not null
-                    limit 1),
-                  (select w.id::text from work_order w
-                    where upper(w.batch_no) = upper($1)
-                       or upper(w.wo_no)    = upper($1)
-                    limit 1))`, [scan]));
-    if (hit) redirect(`/work/${hit}`);
-  }
+
+  /*
+   * ── 다 치지 않아도 찾는다 (사용자 요청 2026-09-11) ─────────────────────
+   *
+   * `810-02` 나 `260810` 만 쳐도 찾는다. 준비실에서 장갑 낀 손으로 긴 번호를
+   * 한 글자도 안 틀리게 치라는 것은 무리다.
+   *
+   * **다만 여럿이 걸리면 열지 않는다.** 아무거나 하나를 골라 열면 그것이야말로
+   * 엉뚱한 배치를 여는 새 실수다. 하나일 때만 열고, 여럿이면 걸린 것들을
+   * 보여 주고 사람이 고른다.
+   *
+   * 두 글자 아래로는 부분 찾기를 하지 않는다 - `0` 하나로 전부가 걸리면
+   * 고르는 일이 목록을 훑는 일과 같아진다.
+   */
+  const candidates = scan === '' ? [] : await withActor(user.id, (db) =>
+    db.rows<Candidate>(
+      `select w.id, w.batch_no, w.wo_no, w.status::text as status,
+              i.name as item_name, w.issued_at,
+              /* 정확히 맞은 것이 먼저다 */
+              (upper(w.batch_no) = upper($1) or upper(w.wo_no) = upper($1)
+               or exists (select 1 from v_print_lookup v
+                           where v.work_order_id = w.id
+                             and v.short_hash = lower($1))) as exact
+         from work_order w
+         join device_master dm on dm.id = w.device_master_id
+         join item i on i.id = dm.item_id
+        where upper(w.batch_no) = upper($1)
+           or upper(w.wo_no)    = upper($1)
+           or exists (select 1 from v_print_lookup v
+                       where v.work_order_id = w.id and v.short_hash = lower($1))
+           or (length($1) >= 2 and (w.batch_no ilike '%' || $1 || '%'
+                                    or w.wo_no  ilike '%' || $1 || '%'))
+        order by exact desc, w.issued_at desc
+        limit 12`, [scan]));
+
+  /* 정확히 맞은 것이 있으면 그것 하나로 본다 - 부분 일치가 끼어들지 않는다 */
+  const exact = candidates.filter((c) => c.exact);
+  const picked = exact.length > 0 ? exact : candidates;
+  if (picked.length === 1) redirect(`/work/${picked[0].id}`);
 
   const batches = await withActor(user.id, (db) =>
     db.rows<BatchTile>(
@@ -123,12 +155,36 @@ export default async function WorkHome(
         * 스캐너가 없을 때의 갈래다.
         */}
       <ScanBox />
-      {scan !== '' && (
+      {scan !== '' && picked.length === 0 && (
         <p className="card bg-warn-bg px-4 py-3 text-base leading-relaxed text-ink">
           <b>{scan}</b> 로는 배치를 찾지 못했습니다. 종이 아래쪽 바코드를
           다시 찍거나, 종이 맨 위의 배치번호(<span className="font-mono">B…</span>)를
           치거나, 아래에서 배치를 고르십시오.
         </p>
+      )}
+
+      {/*
+        * 여럿이 걸렸다. 아무거나 열지 않고 사람이 고른다 - 잘못 열면 그것이
+        * 없애려던 실수 그 자체다.
+        */}
+      {picked.length > 1 && (
+        <section className="card p-4">
+          <p className="text-base leading-relaxed text-ink">
+            <b className="font-mono">{scan}</b> 에 {picked.length}건이 걸렸습니다.
+            어느 것입니까?
+          </p>
+          <div className="mt-3 grid gap-2" style={{
+            gridTemplateColumns: 'repeat(auto-fit, minmax(18rem, 1fr))' }}>
+            {picked.map((c) => (
+              <Link key={c.id} href={`/work/${c.id}`} className="tile no-select gap-0.5">
+                <span className="font-mono text-lg font-bold text-ink">{c.batch_no}</span>
+                <span className="text-sm text-muted">
+                  {c.item_name} · {WO_STATUS_LABEL[c.status] ?? c.status}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </section>
       )}
 
       {/*
