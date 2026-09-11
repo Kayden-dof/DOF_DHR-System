@@ -263,7 +263,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-[1400px] flex-1 px-5 py-8">{children}</main>
+      <main className="mx-auto w-full max-w-[1400px] flex-1 px-5 py-10">{children}</main>
 
       <footer className="mx-auto w-full max-w-[1400px] px-5 pb-10 pt-6">
         <div className="flex items-center justify-between gap-4 border-t border-line pt-4">

@@ -211,7 +211,14 @@
   /* 모서리. 큰 면일수록 넉넉하게 준다 */
   --r-sm: 0.375rem;
   --r-md: 0.5rem;
-  --r-lg: 0.75rem;
+  /*
+   * 카드 모서리 (2026-09-11 · 사용자 지시 "디자인이 너무 심심하다").
+   *
+   * 12px 에서 14px 로 한 칸 넓혔다. 눈에 띄게 둥글어지는 폭이 아니라 - 그건
+   * 이 화면에 안 맞는다 - 가장자리가 딱딱하게 끊기지 않을 만큼만이다.
+   * 작은 칸(입력·조각)은 그대로 둔다. 다 같이 둥글면 화면이 물러진다.
+   */
+  --r-lg: 0.875rem;
   --r-xl: 1rem;
 
   /* 그림자. 원본 슬라이드는 전부 헤어라인이고 그림자가 없다.
@@ -374,12 +381,19 @@ input, textarea, [contenteditable] { caret-color: var(--color-brand); }
 
   /* 제목 위에 아래보다 조금 더 둔다. 제목이 앞 덩어리에 붙으면 어디의 머리인지
      흐려진다 */
+  /*
+   * 구역 머리.
+   *
+   * 밑선을 한 단계 올리고 위아래를 조금 더 띄운다 (2026-09-11). 카드 안의
+   * 첫 줄과 머리가 같은 무게로 붙어 있으면 머리가 내용의 일부로 읽힌다.
+   * 띠를 깔지 않는 것은 표 머리와 같은 까닭이다 - 선 하나로 가른다.
+   */
   .section-head {
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    padding: 1.125rem 1.25rem 0.875rem;
-    border-bottom: 1px solid var(--color-line-soft);
+    padding: 1.25rem 1.25rem 1rem;
+    border-bottom: 1px solid var(--color-line);
   }
 
   /*
@@ -525,6 +539,10 @@ input, textarea, [contenteditable] { caret-color: var(--color-brand); }
   /*
    * 표 머리에 회색 띠를 깔지 않는다. 표마다 띠가 하나씩 생기면 화면에 가로줄이
    * 여럿 그어져 어디가 무엇의 시작인지 흐려진다. 밑줄 하나로 세운다.
+   *
+   * 그 밑줄만 한 단계 진하다 (2026-09-11). 머리 밑줄과 줄 사이 선이 같은 값
+   * 이면 표가 "줄이 여럿인 덩어리" 로만 보이고 머리가 서지 않았다. 띠를 까는
+   * 대신 선 하나의 무게로 가른다 - 위 규칙을 깨지 않고 머리가 선다.
    */
   .th {
     text-align: left;
@@ -534,7 +552,7 @@ input, textarea, [contenteditable] { caret-color: var(--color-brand); }
     letter-spacing: 0.05em;
     color: var(--color-muted);
     padding: 0.75rem 1rem 0.625rem;
-    border-bottom: 1px solid var(--color-line);
+    border-bottom: 1px solid var(--color-line-strong);
     white-space: nowrap;
     background: transparent;
   }

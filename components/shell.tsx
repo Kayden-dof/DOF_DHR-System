@@ -65,7 +65,19 @@ export function PageShell({
               * section 은 남겨 둔다 - 화면이 어느 구역에 속하는지는 여전히
               * 사실이고, 나중에 다른 자리에서 쓸 수 있다.
               */}
-            <h1 className="text-[1.375rem] font-bold leading-tight text-ink">
+            {/*
+              * 제목을 키운다 (사용자 지시 2026-09-11 "디자인이 너무 심심하다").
+              *
+              * 22px 는 본문 15px 과 차이가 크지 않아, 화면을 열었을 때 눈이
+              * 먼저 붙는 자리가 없었다. 카드도 표도 다 같은 무게로 보이는
+              * 까닭의 절반이 여기였다.
+              *
+              * 색이나 장식이 아니라 크기와 자간으로 올린다 - 이 화면은 기록을
+              * 읽는 자리이고, 무게를 색으로 주면 색이 뜻을 잃는다 (경고가
+              * 주황인 것과 같은 까닭). 자간을 조금 좁히면 큰 글자가 흩어지지
+              * 않는다.
+              */}
+            <h1 className="text-[1.75rem] font-bold leading-[1.15] tracking-[-0.015em] text-ink">
               {title}
             </h1>
             {/*
@@ -156,12 +168,17 @@ export function StatStrip({ items }: { items: StatItem[] }) {
           <>
             <dt className="text-[0.6875rem] font-bold tracking-wide text-muted">{s.label}</dt>
             <dd className="mt-1.5 flex items-baseline gap-1">
-              <span className={`text-[1.5rem] font-bold leading-none tnum ${
+              {/*
+                * 숫자를 키우고 자간을 좁힌다. 단위는 한 칸 더 물린다 -
+                * 읽는 것은 숫자이고 단위는 그 숫자가 무엇인지 알려 줄 뿐이다.
+                * 둘이 같은 무게면 눈이 어디를 먼저 볼지 정하지 못한다.
+                */}
+              <span className={`text-[1.75rem] font-bold leading-none tracking-[-0.02em] tnum ${
                 zero ? 'text-faint' : s.tone ? TEXT[s.tone] : 'text-ink'
               }`}>
                 {s.value}
               </span>
-              {s.unit && <span className="text-xs text-muted">{s.unit}</span>}
+              {s.unit && <span className="text-[0.6875rem] text-faint">{s.unit}</span>}
             </dd>
           </>
         );

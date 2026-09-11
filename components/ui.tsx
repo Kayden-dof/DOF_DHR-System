@@ -55,7 +55,8 @@ export function Panel({
       {(title || action) && (
         <header className="section-head">
           <div className="min-w-0">
-            {title && <h3 className="text-[0.875rem] font-bold tracking-tight text-ink">{title}</h3>}
+            {/* 카드 제목도 한 칸 올린다. 본문과 같은 크기면 머리인지 줄인지 갈리지 않는다 */}
+            {title && <h3 className="text-[0.9375rem] font-bold tracking-[-0.01em] text-ink">{title}</h3>}
             {note && <p className="mt-0.5 text-xs leading-relaxed text-muted">{note}</p>}
           </div>
           {action && <div className="ml-auto shrink-0">{action}</div>}
