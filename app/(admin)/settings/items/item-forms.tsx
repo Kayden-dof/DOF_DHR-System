@@ -205,7 +205,7 @@ export function ItemRowView({ it, suppliers }: {
         <td className="td tnum text-right">{it.min_stock ? Number(it.min_stock) : ''}</td>
         <td className="td tnum text-right text-muted">{it.lot_count || ''}</td>
         <td className="td text-right">
-          <button onClick={() => setOpen(true)} className="btn-quiet h-8 px-2 text-xs">
+          <button onClick={() => setOpen(true)} className="btn-quiet btn-row">
             수정
           </button>
         </td>

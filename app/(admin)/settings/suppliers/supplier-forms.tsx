@@ -152,7 +152,7 @@ export function SupplierRowView({ s, writable = true }: {
         <td className="td tnum text-right text-muted">{s.lot_count || ''}</td>
         {writable && (
           <td className="td text-right">
-            <button onClick={() => setOpen(true)} className="btn-quiet h-8 px-2 text-xs">
+            <button onClick={() => setOpen(true)} className="btn-quiet btn-row">
               수정
             </button>
           </td>

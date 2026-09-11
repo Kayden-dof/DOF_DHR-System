@@ -164,8 +164,19 @@ export function PrintBar({ back, label, right, view = false }: {
   const [ready, setReady] = useState(false);
   useEffect(() => setReady(true), []);
 
+  /*
+   * 인쇄 화면의 머리띠 (2026-09-11).
+   *
+   * **종이는 건드리지 않는다.** 이 띠는 no-print 라 종이에 나가지 않는다 -
+   * 화면에서 종이를 보는 동안만 위에 떠 있는 자리다.
+   *
+   * 관리 화면 머리줄과 같은 얕은 그림자를 준다. 종이(흰 면)가 그 아래로
+   * 지나갈 때 띠가 위에 있다는 것이 형태로 보여야, 스크롤하다 종이 가장자리와
+   * 띠를 헷갈리지 않는다.
+   */
   return (
-    <div className="no-print sticky top-0 z-20 mb-5 border-b border-line bg-canvas/90 backdrop-blur">
+    <div className="no-print sticky top-0 z-20 mb-5 border-b border-line bg-canvas/92 backdrop-blur
+                    shadow-[0_1px_2px_rgb(26_26_31/.04),0_8px_20px_-14px_rgb(26_26_31/.24)]">
       <div className="mx-auto flex max-w-[210mm] flex-wrap items-center gap-3 px-2 py-3">
         {back && <Link href={back} className="btn-ghost h-9">돌아가기</Link>}
         <div className="leading-tight">

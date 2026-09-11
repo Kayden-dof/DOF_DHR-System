@@ -524,7 +524,7 @@ export function EditTierForm({ dm, tier }: {
   if (!show) {
     return (
       <button type="button" onClick={() => setShow(true)}
-              className="btn-quiet h-7 px-2 text-xs">고치기</button>
+              className="btn-quiet btn-row">고치기</button>
     );
   }
 
@@ -547,11 +547,11 @@ export function EditTierForm({ dm, tier }: {
         <input id={`${uid}-q`} name="qty" type="number" step="any" min="0.0001" required
                defaultValue={Number(tier.qty)} className="input h-8 tnum text-xs" />
       </div>
-      <button type="submit" disabled={pending} className="btn-quiet h-8 px-2 text-xs">
+      <button type="submit" disabled={pending} className="btn-quiet btn-row">
         {pending ? '중' : '고친다'}
       </button>
       <button type="button" onClick={() => setShow(false)}
-              className="btn-ghost h-8 px-2 text-xs">취소</button>
+              className="btn-ghost btn-row">취소</button>
       <div className="w-full"><Msg state={state} /></div>
     </form>
   );
@@ -845,7 +845,7 @@ export function TypicalDayForm({ id, dm, value }: {
       <input name="typical_day" type="number" min="1" defaultValue={value ?? ''}
              placeholder="일차" aria-label="보통 일차"
              className="input h-8 w-16 tnum text-xs" />
-      <button type="submit" disabled={pending} className="btn-quiet h-8 px-2 text-xs">
+      <button type="submit" disabled={pending} className="btn-quiet btn-row">
         저장
       </button>
       {state.error && <span className="text-xs text-danger">{state.error}</span>}

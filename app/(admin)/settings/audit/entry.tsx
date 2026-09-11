@@ -85,7 +85,7 @@ export default function Entry({ e }: { e: AuditEntry }) {
             * 손이 갔을 때만 또렷해지게 둔다.
             */}
           <button onClick={() => setOpen((v) => !v)}
-                  className="btn-quiet h-7 px-2 text-xs">
+                  className="btn-quiet btn-row">
             {open ? '접기' : <>변경 <span className="tnum">{changes.length}</span></>}
           </button>
         </td>

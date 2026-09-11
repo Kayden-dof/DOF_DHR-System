@@ -136,7 +136,7 @@ export default function ReceiveForm({ items, suppliers, orders, today, presetPo,
 
   return (
     <>
-      <button onClick={start} className={label ? 'btn-ghost h-8 px-2 text-xs' : 'btn-primary'}>
+      <button onClick={start} className={label ? 'btn-ghost btn-row' : 'btn-primary'}>
         {label ?? '자재 입고 등록'}
       </button>
       <Dialog open={open} onClose={() => setOpen(false)} wide title="자재 입고 등록">

@@ -250,7 +250,16 @@ export function Tag({
 export function Warnings({ items }: { items: { kind: string; detail: string }[] }) {
   if (items.length === 0) return null;
   return (
-    <div className="rounded-lg border border-warn/25 bg-warn-bg px-3.5 py-3">
+    /*
+      * 왼쪽에 색 기둥을 세운다 (2026-09-11).
+      *
+      * 옅은 주황 면에 옅은 주황 테두리라, 화면에 여러 상자가 있을 때 이것이
+      * 경고인지 그냥 다른 색 칸인지 한눈에 갈리지 않았다. 왼쪽 모서리 하나를
+      * 진하게 세우면 색이 옅어도 **무게**가 생긴다 - 면을 더 물들이지 않으므로
+      * 글자 대비는 그대로다.
+      */
+    <div className="overflow-hidden rounded-lg border border-warn/25 bg-warn-bg
+                    border-l-[3px] border-l-warn px-3.5 py-3">
       <p className="text-[0.6875rem] font-bold tracking-wide text-warn">확인하고 진행하십시오</p>
       <ul className="mt-2 space-y-1.5">
         {items.map((w, i) => (
@@ -267,7 +276,15 @@ export function Warnings({ items }: { items: { kind: string; detail: string }[] 
 /* 되돌릴 수 없는 조작 앞에 두는 안내. */
 export function Caution({ children }: { children: React.ReactNode }) {
   return (
-    <p className="rounded-md border border-line bg-surface-sub px-3 py-2.5 text-xs leading-relaxed text-muted">
+    /*
+      * 되돌릴 수 없는 조작 앞에 두는 안내.
+      *
+      * 회색 상자라 화면의 다른 설명글과 구별되지 않았다 (2026-09-11). 왼쪽에
+      * 기둥을 세워 "여기서 멈춰 읽으라" 를 형태로 말한다. 색은 쓰지 않는다 -
+      * 경고가 아니라 **안내**이고, 색을 쓰면 진짜 경고와 무게가 같아진다.
+      */
+    <p className="rounded-md border border-line border-l-[3px] border-l-line-strong
+                  bg-surface-sub px-3.5 py-2.5 text-xs leading-relaxed text-muted">
       {children}
     </p>
   );

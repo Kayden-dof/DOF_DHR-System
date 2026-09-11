@@ -156,7 +156,7 @@ export default function TargetCard({
                   <form action={retireAction}>
                     <input type="hidden" name="id" value={r.id} />
                     <button type="submit" disabled={retiring}
-                            className="btn-quiet h-7 px-2 text-xs">
+                            className="btn-quiet btn-row">
                       내리기
                     </button>
                   </form>

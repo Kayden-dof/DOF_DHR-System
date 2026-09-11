@@ -49,7 +49,7 @@ export default function AmendLotForm({ lot }: { lot: AmendLot }) {
 
   return (
     <>
-      <button onClick={() => setOpen(true)} className="btn-quiet h-7 px-2 text-xs">
+      <button onClick={() => setOpen(true)} className="btn-quiet btn-row">
         고치기
       </button>
       <Dialog

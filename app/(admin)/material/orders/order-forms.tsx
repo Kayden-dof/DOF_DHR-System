@@ -118,15 +118,15 @@ export function CancelOrder({ id, poNo }: { id: string; poNo: string }) {
   if (state.ok) return <span className="text-xs text-ok">취소됨</span>;
   if (!ask) {
     return (
-      <button onClick={() => setAsk(true)} className="btn-quiet h-8 px-2 text-xs">취소</button>
+      <button onClick={() => setAsk(true)} className="btn-quiet btn-row">취소</button>
     );
   }
   return (
     <form action={action} className="inline-flex items-center gap-1.5">
       <input type="hidden" name="id" value={id} />
       <span className="text-xs text-muted">{poNo} 취소?</span>
-      <button type="submit" disabled={pending} className="btn-danger h-8 px-2 text-xs">예</button>
-      <button type="button" onClick={() => setAsk(false)} className="btn-quiet h-8 px-2 text-xs">
+      <button type="submit" disabled={pending} className="btn-danger btn-row">예</button>
+      <button type="button" onClick={() => setAsk(false)} className="btn-quiet btn-row">
         아니오
       </button>
       <Msg state={state} />

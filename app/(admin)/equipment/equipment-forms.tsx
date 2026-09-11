@@ -270,7 +270,7 @@ export function EquipCard({ e, ops, warnDays, writable = true }: {
             사용 기록
           </Link>
           {writable && !edit && (
-            <button onClick={() => setEdit(true)} className="btn-quiet h-8 px-2 text-xs">고치기</button>
+            <button onClick={() => setEdit(true)} className="btn-quiet btn-row">고치기</button>
           )}
         </div>
       </header>

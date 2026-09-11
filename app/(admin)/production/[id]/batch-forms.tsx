@@ -165,7 +165,7 @@ export function LotStatusForm({ lot, woId }: { lot: LotRow; woId: string }) {
 
   return (
     <>
-      <button onClick={() => setOpen(true)} className="btn-quiet h-8 px-2 text-xs">수정</button>
+      <button onClick={() => setOpen(true)} className="btn-quiet btn-row">수정</button>
       <Dialog
         open={open}
         onClose={() => setOpen(false)}
@@ -288,7 +288,7 @@ export function DayPrintLink({
     <span className="inline-flex items-center gap-2 whitespace-nowrap">
       <span className="text-xs text-warn">열면 잠깁니다</span>
       <Link href={href} className="btn-primary h-8 px-3 text-xs">발행</Link>
-      <button type="button" onClick={() => setAsk(false)} className="btn-quiet h-8 px-2 text-xs">
+      <button type="button" onClick={() => setAsk(false)} className="btn-quiet btn-row">
         그만
       </button>
     </span>
@@ -444,7 +444,7 @@ export function NonconformityForm({ lot, woId, today, ops }: {
 
   return (
     <>
-      <button onClick={() => setOpen(true)} className="btn-quiet h-8 px-2 text-xs">
+      <button onClick={() => setOpen(true)} className="btn-quiet btn-row">
         부적합
       </button>
       <Dialog open={open} onClose={() => setOpen(false)} wide

@@ -687,7 +687,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                         */}
                       <span className="inline-flex gap-1.5">
                         {viewHref(p)
-                          ? <Link href={viewHref(p)!} className="btn-quiet h-8 px-2 text-xs">
+                          ? <Link href={viewHref(p)!} className="btn-quiet btn-row">
                               보기
                             </Link>
                           : <span className="text-xs text-faint" title="담긴 로트와 수량이 주소에만 있어 되살릴 수 없습니다">

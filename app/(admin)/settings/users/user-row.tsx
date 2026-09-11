@@ -166,7 +166,7 @@ function RolePanel({ u, isMe, sysAdmin }: {
               <button
                 type="submit"
                 disabled={revoking || (r === 'SYS_ADMIN' && (isMe || !sysAdmin))}
-                className="btn-ghost h-7 px-2 text-xs text-muted"
+                className="btn-ghost btn-row text-muted"
                 title={r !== 'SYS_ADMIN' ? ''
                   : !sysAdmin ? '시스템관리자 역할은 시스템관리자만 회수할 수 있습니다'
                   : isMe ? '자기 계정의 시스템관리자는 회수할 수 없습니다' : ''}
@@ -278,7 +278,7 @@ function FlagPanel({ u, isMe, sysAdmin }: { u: UserRow; isMe: boolean; sysAdmin:
           <button
             type="submit"
             disabled={a1 || (isMe && u.is_active)}
-            className="btn-ghost h-7 px-2 text-xs"
+            className="btn-ghost btn-row"
             title={isMe && u.is_active ? '자기 계정은 비활성화할 수 없습니다' : ''}
           >
             {u.is_active ? '비활성화' : '활성화'}
@@ -302,7 +302,7 @@ function FlagPanel({ u, isMe, sysAdmin }: { u: UserRow; isMe: boolean; sysAdmin:
           {u.is_developer ? (
             <span className="text-xs text-faint">되돌릴 수 없음</span>
           ) : (
-            <button type="submit" disabled={a2} className="btn-ghost h-7 px-2 text-xs">
+            <button type="submit" disabled={a2} className="btn-ghost btn-row">
               개발 계정으로
             </button>
           )}

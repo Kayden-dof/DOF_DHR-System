@@ -220,7 +220,7 @@ export function SterilRow({ sb, today }: { sb: SbRow; today: string }) {
           <Tag tone={sb.received_at ? 'ok' : sb.shipped_at ? 'brand' : 'quiet'}>{stage}</Tag>
         </td>
         <td className="td text-right">
-          <button onClick={() => setOpen((v) => !v)} className="btn-quiet h-8 px-2 text-xs">
+          <button onClick={() => setOpen((v) => !v)} className="btn-quiet btn-row">
             {open ? '닫기' : '기록'}
           </button>
         </td>
