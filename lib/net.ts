@@ -142,7 +142,7 @@ export function allows(rules: Rule[], ip: string): boolean {
    **그래서 이것은 두 겹 중 안쪽 겹이다** - 바깥 겹은 Vercel 방화벽이고,
    여기는 그 겹이 뚫렸거나 꺼졌을 때 한 번 더 묻는 자리다.
 --------------------------------------------------------------------------- */
-export function clientIp(h: Headers): string | null {
+export function clientIp(h: { get(name: string): string | null }): string | null {
   for (const name of ['x-vercel-forwarded-for', 'x-real-ip', 'x-forwarded-for']) {
     const v = h.get(name);
     if (!v) continue;

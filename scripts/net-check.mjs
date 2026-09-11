@@ -157,15 +157,26 @@ const SUSPECT = [
 const caught = (text) => SUSPECT.some(([re, , fine]) =>
   [...text.matchAll(re)].some((m) => !/[<{]/.test(m[0]) && !(fine && fine(m))));
 
+/*
+ * 본보기는 **조각으로 적어 실행할 때 잇는다.** 통째로 적어 두면 이 파일
+ * 자신이 비밀을 품은 파일이 되어 아래 훑기에 걸린다 (2026-09-11에 실제로
+ * 걸렸다). 이 파일만 훑지 않게 빼면, 무엇이 비밀인지 정하는 바로 그 파일이
+ * 사각지대가 된다. 조각으로 두면 훑는 자리에는 아무 예외가 없다.
+ */
+const J = (...parts) => parts.join('');
+
 for (const [sample, want, name] of [
-  ['postgresql://postgres.abcd:Hunter2@aws-0-ap-northeast-2.pooler.supabase.com:6543/postgres',
-   true, '진짜 접속 문자열을 잡는다'],
-  ['eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlhdCI6MTcwMH0',
+  [J('postgresql://postgres.abcd:', 'Hunter2', '@aws-0-ap-northeast-2.pooler',
+     '.supabase.com:6543/postgres'), true, '진짜 접속 문자열을 잡는다'],
+  [J('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9', '.', 'eyJyb2xlIjoiYW5vbiIsImlhdCI6MTcwMH0'),
    true, 'Supabase 열쇠를 잡는다'],
-  ["SESSION_SECRET='3f8a2c91d4e7b60518af2c3d9e0b7146'", true, '열쇠 값을 잡는다'],
-  ['postgres://postgres:postgres@localhost:54330/dhr', false, '개발용은 잡지 않는다'],
-  ['DATABASE_URL=postgres://user:pw@host:5432/dbname', false, '도움말 본보기는 잡지 않는다'],
-  ['DATABASE_URL=postgresql://<user>:<password>@<host>:6543/postgres',
+  [J('SESSION_SECRET=', "'", '3f8a2c91d4e7b60518af2c3d9e0b7146', "'"),
+   true, '열쇠 값을 잡는다'],
+  [J('postgres://postgres:', 'postgres', '@localhost:54330/dhr'),
+   false, '개발용은 잡지 않는다'],
+  [J('DATABASE_URL=postgres://user:', 'pw', '@host:5432/dbname'),
+   false, '도움말 본보기는 잡지 않는다'],
+  [J('DATABASE_URL=postgresql://<user>:', '<password>', '@<host>:6543/postgres'),
    false, '꺾쇠 자리는 잡지 않는다'],
 ]) is(name, caught(sample), want);
 

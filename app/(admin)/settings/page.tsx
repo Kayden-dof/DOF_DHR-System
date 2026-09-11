@@ -12,7 +12,8 @@ import { SubNav } from '../nav';
 import { settingsNav } from '../sections';
 import { APP_VERSION, BUILD_REF } from '@/lib/version';
 import { printKeyPinned, cronKeyPinned } from '@/lib/print';
-import { allowState } from '@/lib/net';
+import { headers } from 'next/headers';
+import { allowState, clientIp } from '@/lib/net';
 import { getBrand } from '@/lib/brand';
 import { SetupSteps, type SetupStep } from './setup-steps';
 
@@ -89,6 +90,18 @@ export default async function SettingsHome() {
   const cronPinned = cronKeyPinned();
   /* 망 경계. 켜져 있는지를 화면이 말한다 - 꺼진 줄 모르는 것이 잘못이다 */
   const net = allowState();
+  /*
+   * 지금 이 화면을 보고 있는 접속지 (사용자 지적 2026-09-11).
+   *
+   * 제조소 공인 주소가 고정이 아니면 그 값을 어딘가에서 알아내 와야 하는데,
+   * 바깥 사이트에 물어보는 것은 "그때 그 사이트가 본 주소" 이지 **이 시스템이
+   * 본 주소** 가 아니다. 둘이 다를 수 있고(프록시·IPv6), 다르면 넣어 봐야
+   * 안 열린다.
+   *
+   * 그래서 이 시스템이 본 값을 그대로 찍는다. 제조소 패드에서 이 화면을 열면
+   * ALLOW_FROM 에 넣을 값이 바로 여기 있다. 막힌 화면도 같은 값을 찍는다.
+   */
+  const here = clientIp(await headers());
   const have = new Set(d.covered.map((r) => r.target));
   const missing = NUMBERING_TARGETS.filter((t) => !have.has(t.code));
   const blocking = missing.filter((t) => M1_CRITICAL_TARGETS.includes(t.code));
@@ -303,6 +316,14 @@ export default async function SettingsHome() {
             </dd>
           </div>
           <div>
+            <dt className="text-muted">지금 이 화면의 접속지</dt>
+            <dd className="mt-0.5">
+              {here
+                ? <code className="text-ink">{here}</code>
+                : <span className="text-muted">읽지 못했습니다</span>}
+            </dd>
+          </div>
+          <div>
             <dt className="text-muted">인쇄 열쇠</dt>
             <dd className="mt-0.5">
               {keyPinned
@@ -325,6 +346,8 @@ export default async function SettingsHome() {
             그리고 시도 제한이 문을 지키고 있습니다. 배포 환경에
             <code> ALLOW_FROM </code>에 제조소 공인 IP를 넣으면 그 자리에서만
             열립니다 (예: <code>203.0.113.9</code> · <code>203.0.113.0/24</code>).
+            넣을 값은 <b>제조소에서 이 화면을 열었을 때</b> 위에 찍히는 주소입니다 —
+            바깥 사이트가 알려 주는 값과 다를 수 있으므로 이 값을 쓰십시오.
           </p>
         )}
         {net.bad.length > 0 && (
