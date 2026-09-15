@@ -656,39 +656,6 @@ if (mat) {
     { label: '공급자',     value: mat.supplier_name },
   ], undefined, { kind: 'LABEL', where: { material_lot_id: mat.id } });
 
-  /*
-   * 라벨 용지 갈래 (0114).
-   *
-   * 크기가 설정되어 있을 때만 열린다. 없으면 이 갈래를 시험하지 않고 그렇다고
-   * 적는다 - 자료가 없어 못 본 것과 봤는데 통과한 것을 가려야 한다 (§8.0.1).
-   *
-   * 담기는 값은 A4 와 같다. 그래서 자료 식별자도 같아야 한다 - 같은 자료가 같은
-   * 값을 낸다는 규율이 종이를 바꿔도 서는지 여기서 본다 (§7).
-   */
-  const stock = await one(
-    `select label_width_mm as w, label_height_mm as h from org_brand limit 1`);
-  if (!stock?.w || !stock?.h) {
-    say('');
-    say('⑤-2 자재 라벨 (라벨 용지)');
-    say('-'.repeat(96));
-    say('  건너뜀  라벨 용지 크기가 설정에 없어 이 갈래는 열리지 않습니다');
-  } else {
-    await sheet('⑤-2 자재 라벨 (라벨 용지)', `/print/label/${mat.id}?stock=label`, [
-      /*
-       * 소재지 · 사업자등록번호는 일부러 넣지 않았다. 이 종이는 제조소 안에
-       * 붙어 있다가 자재와 함께 소모된다. 그래서 common() 을 쓰지 않고
-       * §7 이 모든 인쇄물에 요구하는 다섯만 본다.
-       */
-      { label: '양식 이름',   value: '자재 라벨', anywhere: true },
-      { label: '회사 이름',   value: org?.name ?? '', anywhere: true },
-      { label: '로트번호',    value: mat.lot_no, anywhere: true },
-      { label: '품목명',      value: mat.item_name },
-      { label: '입고 수량',   value: String(Number(mat.qty_received)), cell: '수량' },
-      { label: '유효기한',    value: mat.expiry_date, cell: '유효기한' },
-      { label: '성적서 번호', value: mat.coa_no, cell: '성적서' },
-      { label: '공급자',      value: mat.supplier_name },
-    ], undefined, { kind: 'LABEL', where: { material_lot_id: mat.id } });
-  }
 }
 
 /* --- 6. 출하 승인 요청서 --------------------------------------------------- */

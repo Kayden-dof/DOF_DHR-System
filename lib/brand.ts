@@ -51,13 +51,6 @@ export interface Brand {
   expiryWarnDays: number;
   /** 기록 보존 기간(년). 편철 표지에 인쇄된다 (GMP 점검 A6) */
   recordRetentionYears: number;
-  /*
-   * 라벨 용지 크기(mm · 0114). **기본값을 두지 않는다** - 아무 치수나 기본으로
-   * 넣으면 그 값이 코드에 박힌 치수와 같아진다 (§2.0). 비어 있으면 자재 라벨은
-   * A4 하나로만 나가고, 채우면 그 크기로 뽑는 자리가 함께 열린다.
-   */
-  labelWidthMm: number | null;
-  labelHeightMm: number | null;
 }
 
 /** 설정이 아직 없거나 읽지 못했을 때. 화면이 비어 보이지 않게만 한다 */
@@ -78,8 +71,6 @@ const FALLBACK: Brand = {
   backupWarnDays: 35,
   expiryWarnDays: 30,
   recordRetentionYears: 5,
-  labelWidthMm: null,
-  labelHeightMm: null,
 };
 
 export const getBrand = cache(async (): Promise<Brand> => {
@@ -94,7 +85,6 @@ export const getBrand = cache(async (): Promise<Brand> => {
         biz_no: string | null; ceo_name: string | null;
         backup_warn_days: number | null; expiry_warn_days: number | null;
         record_retention_years: number | null;
-        label_width_mm: number | null; label_height_mm: number | null;
       }>(
         `select company_name, brand_color,
                 (logo_bytes is not null) as has_logo,
@@ -102,8 +92,7 @@ export const getBrand = cache(async (): Promise<Brand> => {
                 to_char(updated_at, 'YYYYMMDDHH24MISS') as logo_updated_at,
                 system_name, system_name_long, system_tagline, company_tagline,
                 address, plant_address, biz_no, ceo_name,
-                backup_warn_days, expiry_warn_days, record_retention_years,
-                label_width_mm, label_height_mm
+                backup_warn_days, expiry_warn_days, record_retention_years
            from org_brand limit 1`),
     );
     if (!row) return FALLBACK;
@@ -124,8 +113,6 @@ export const getBrand = cache(async (): Promise<Brand> => {
       backupWarnDays: row.backup_warn_days ?? 35,
       expiryWarnDays: row.expiry_warn_days ?? 30,
       recordRetentionYears: row.record_retention_years ?? 5,
-      labelWidthMm: row.label_width_mm,
-      labelHeightMm: row.label_height_mm,
     };
   } catch {
     /* 설정 표가 아직 없어도 화면이 서 버리면 안 된다 */

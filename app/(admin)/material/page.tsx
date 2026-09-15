@@ -51,9 +51,7 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
    */
   const readOnly = !canWrite(user);
   /* 며칠 남으면 눈에 띄게 할지는 설정이 정한다 (6차 감사 N1) */
-  const { expiryWarnDays: warnDays, labelWidthMm, labelHeightMm } = await getBrand();
-  /* 라벨 용지 크기가 설정되어 있을 때만 그 단추를 낸다 (0114 · §2.0) */
-  const labelStock = !!labelWidthMm && !!labelHeightMm;
+  const { expiryWarnDays: warnDays } = await getBrand();
 
   const sp = await searchParams;
   const status = sp.status || null;
@@ -219,19 +217,13 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
                       * 시스템에서 종이를 뽑을 단추가 없으면 그 양식은 없는 것과
                       * 같다.
                       *
-                      * 라벨 용지 단추는 크기가 설정되어 있을 때만 낸다 (0114).
-                      * 없는 자리를 내놓고 눌렀을 때 안 된다고 말하는 것보다
-                      * 아예 안 보이는 편이 낫다.
+                      * 종이는 A4 하나다 (사용자 결정 2026-09-15). 한때 라벨
+                      * 용지 갈래를 함께 냈다가 걷었다 - 종이를 두 가지로 두면
+                      * 어느 것으로 뽑았는지가 또 하나의 물음이 된다.
                       */}
                     {!readOnly && <Td right>
-                      <div className="flex justify-end gap-1">
-                        <Link href={`/print/label/${l.id}`}
-                              className="btn-ghost h-7 px-2 text-xs">A4</Link>
-                        {labelStock && (
-                          <Link href={`/print/label/${l.id}?stock=label`}
-                                className="btn-ghost h-7 px-2 text-xs">라벨 용지</Link>
-                        )}
-                      </div>
+                      <Link href={`/print/label/${l.id}`}
+                            className="btn-ghost h-7 px-2 text-xs">인쇄</Link>
                     </Td>}
                     {!readOnly && <Td right>
                       {/*

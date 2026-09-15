@@ -173,19 +173,9 @@ await c.query(
       set address       = coalesce(address,       '서울특별시 (시연 자료 · 본사)'),
           plant_address = coalesce(plant_address, '경기도 (시연 자료 · 제조소)'),
           biz_no        = coalesce(biz_no,        '000-00-00000'),
-          ceo_name      = coalesce(ceo_name,      '(시연)'),
-          /*
-           * 라벨 용지 크기 (0114). 시연에서 라벨 용지 갈래를 보여 주려면 값이
-           * 있어야 한다 - 없으면 그 자리가 화면에 아예 나오지 않는다.
-           *
-           * 100×70 은 **시연 값**이지 권고가 아니다. 실제 제조소는 자기 프린터의
-           * 용지를 넣는다 (§2.0).
-           */
-          label_width_mm  = coalesce(label_width_mm,  100),
-          label_height_mm = coalesce(label_height_mm, 70)
+          ceo_name      = coalesce(ceo_name,      '(시연)')
     where address is null or plant_address is null
-       or biz_no is null or ceo_name is null
-       or label_width_mm is null or label_height_mm is null`);
+       or biz_no is null or ceo_name is null`);
 
 /*
  * 형명 체계 (0075). 이관은 PD 형명이 이미 있는 DB 에만 이것을 심는다 - 처음

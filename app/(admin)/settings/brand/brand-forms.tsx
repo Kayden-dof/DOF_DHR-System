@@ -17,7 +17,6 @@ import { brandSteps } from '@/lib/tone';
 export function BrandForm({
   name, color, sys, sysLong, tagline, companyTagline, address, plantAddress,
   bizNo, ceoName, backupWarnDays, expiryWarnDays, recordRetentionYears,
-  labelWidthMm, labelHeightMm,
 }: {
   name: string; color: string;
   sys: string | null; sysLong: string | null;
@@ -26,8 +25,6 @@ export function BrandForm({
   bizNo: string | null; ceoName: string | null;
   backupWarnDays: number | null; expiryWarnDays: number | null;
   recordRetentionYears: number | null;
-  labelWidthMm: number | null;
-  labelHeightMm: number | null;
 }) {
   /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
   const uid = useId();
@@ -216,33 +213,6 @@ export function BrandForm({
           <p className="mt-1 text-xs leading-relaxed text-faint">
             <b className="text-ink">편철 표지에 인쇄됩니다.</b> 시스템은 이 값으로
             아무것도 막거나 지우지 않습니다 - 기록을 지우는 길이 없습니다.
-          </p>
-        </div>
-        {/*
-          * 라벨 용지 크기 (0114).
-          *
-          * 기본값을 두지 않는다. 아무 치수나 채워 두면 그 값이 코드에 박힌
-          * 치수와 같아진다 (§2.0). 비워 두면 자재 라벨은 A4 하나로만 나가고,
-          * 채우면 그 크기로 뽑는 자리가 자재 화면에 함께 열린다.
-          */}
-        <div className="sm:col-span-2">
-          <span className="label">라벨 용지 크기 (mm)</span>
-          <div className="mt-1 flex items-center gap-2">
-            <input aria-label="라벨 용지 가로 (mm)"
-                   name="label_width_mm" type="number" min="20" max="300"
-                   defaultValue={labelWidthMm ?? ''} placeholder="가로"
-                   className="input tnum w-24" />
-            <span className="text-sm text-muted">×</span>
-            <input aria-label="라벨 용지 세로 (mm)"
-                   name="label_height_mm" type="number" min="20" max="300"
-                   defaultValue={labelHeightMm ?? ''} placeholder="세로"
-                   className="input tnum w-24" />
-          </div>
-          <p className="mt-1 text-xs leading-relaxed text-faint">
-            라벨 전용 프린터를 쓸 때 채웁니다. 채우면 자재 로트 목록에
-            <b className="text-ink"> 라벨 용지로 뽑는 단추</b>가 함께 나옵니다.{' '}
-            <b className="text-ink">비워 두면 자재 라벨은 A4 로만 나갑니다.</b>{' '}
-            가로와 세로는 함께 적거나 함께 비웁니다.
           </p>
         </div>
         </div>

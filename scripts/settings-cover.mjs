@@ -62,6 +62,7 @@ const TABLES = [
     'system_tagline', 'company_tagline', 'address', 'plant_address',
     'biz_no', 'ceo_name', 'backup_warn_days', 'expiry_warn_days',
     'label_width_mm', 'label_height_mm']],
+  /* 위 둘은 아래 AUTO 가 까닭과 함께 면제한다 - 목록에서 지우면 왜 없는지가 사라진다 */
   ['자재 로트', 'material_lot', [
     'item_id', 'supplier_id', 'supplier_lot_no', 'purchase_order_id',
     'coa_no', 'coa_date', 'unit_price', 'expiry_date', 'location',
@@ -74,6 +75,13 @@ const TABLES = [
  */
 const AUTO = new Map([
   ['material_lot.lot_no', '채번 규칙이 만든다 (§10 응용에서 조합 금지)'],
+  /*
+   * 라벨 용지 크기 (0114 → 0115). 한 번 만들었다가 걷었다 - **모든 인쇄물은
+   * A4 가 기준이다** (사용자 결정 2026-09-15). 열은 백업 호환 때문에 남겨
+   * 두었고 아무도 읽지 않는다.
+   */
+  ['org_brand.label_width_mm',  'A4 가 유일한 기준이다 (0115). 열만 남아 있다'],
+  ['org_brand.label_height_mm', '위와 같음'],
 ]);
 
 function walk(dir, out = []) {
