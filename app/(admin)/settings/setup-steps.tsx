@@ -33,13 +33,17 @@ export interface SetupStep {
   blocks: string;
 }
 
-export function SetupSteps({ steps }: { steps: SetupStep[] }) {
+export function SetupSteps({ steps, title = '첫 설정 차례' }: {
+  steps: SetupStep[];
+  /** 제품 하나를 세우는 차례에도 같은 틀을 쓴다 (설정 > 제품 세우기) */
+  title?: string;
+}) {
   const left = steps.filter((s) => s.empty);
 
   return (
     <section className="card p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h3 className="text-xs font-bold text-ink">첫 설정 차례</h3>
+        <h3 className="text-xs font-bold text-ink">{title}</h3>
         {left.length > 0 && (
           <span className="text-xs text-muted">
             아직 비어 있는 것 <b className="tnum text-ink">{left.length}</b>
@@ -47,9 +51,10 @@ export function SetupSteps({ steps }: { steps: SetupStep[] }) {
         )}
       </div>
 
+      {/* 열쇠에 차례를 섞는다. 같은 화면을 여러 차례가 가리킬 수 있다 */}
       <ol className="mt-3 divide-y divide-line-soft">
         {steps.map((s, i) => (
-          <li key={s.href} className="flex flex-wrap items-baseline gap-x-3 gap-y-1 py-2.5">
+          <li key={`${s.href}-${i}`} className="flex flex-wrap items-baseline gap-x-3 gap-y-1 py-2.5">
             <span className="tnum w-4 shrink-0 text-xs font-semibold text-faint">{i + 1}</span>
 
             <Link href={s.href}
