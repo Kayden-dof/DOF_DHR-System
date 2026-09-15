@@ -994,20 +994,42 @@ say('백업 대장 2건 (시연 자료 · 실제 파일은 없습니다)');
 
    그래서 심고 나서 스스로 되묻는다. 여기서 걸리면 자료가 잘못 심긴 것이다.
 --------------------------------------------------------------------------- */
+/*
+ * 아는 것 하나는 지나가게 둔다 (2026-09-15).
+ *
+ * 시드는 공급자 셋 가운데 하나(SUP-003 신규포장)를 **일부러 승인 대기로** 두고
+ * 그 포장재를 쓴다 - §2 의 "미승인 공급자" 경고를 시연에서 보이려는 것이다.
+ * 0113 이 검토 표시에도 그 갈래를 더하면서 이 자료가 표시를 내게 되었는데,
+ * **그건 지어낸 소음이 아니라 자료가 실제로 그런 것이다.**
+ *
+ * 문지기가 막으려던 것은 뜻하지 않게 생긴 표시다 - 시각 모순 20건 같은 것.
+ * 그 일은 그대로 막고, 시드가 알고 만든 이 한 갈래만 지나가게 한다. 갈래를
+ * 이름으로 적어 두므로 다른 것이 섞이면 여전히 멈춘다.
+ */
+const KNOWN = '미승인 공급자';
+
 const noisy = await all(
-  `select w.batch_no, count(*)::int n
+  `select w.batch_no, f.kind, count(*)::int n
      from work_order w, lateral review_flags(w.id) f
-    group by w.batch_no having count(*) > 0 order by w.batch_no`);
+    where f.kind <> $1
+    group by w.batch_no, f.kind having count(*) > 0 order by w.batch_no, f.kind`, [KNOWN]);
 if (noisy.length > 0) {
-  console.error('\n시연 자료가 검토 표시를 만들어 냈습니다. 진짜 표시가 묻힙니다.');
-  for (const r of noisy) console.error(`  ${r.batch_no}  ${r.n}건`);
+  console.error('\n시연 자료가 뜻하지 않은 검토 표시를 만들어 냈습니다. 진짜 표시가 묻힙니다.');
+  for (const r of noisy) console.error(`  ${r.batch_no}  ${r.kind} ${r.n}건`);
   const sample = await all(
-    `select f.kind, f.detail from work_order w, lateral review_flags(w.id) f limit 5`);
+    `select f.kind, f.detail from work_order w, lateral review_flags(w.id) f
+      where f.kind <> $1 limit 5`, [KNOWN]);
   for (const r of sample) console.error(`    ${r.kind}  ${r.detail}`);
   await client.end();
   process.exit(1);
 }
-say('검토 표시 0건 - 시연 자료가 스스로 경고를 만들지 않습니다');
+
+const knownN = await val(
+  `select count(*)::int from work_order w, lateral review_flags(w.id) f where f.kind = $1`,
+  [KNOWN]);
+say(`뜻하지 않은 검토 표시 0건${knownN > 0
+  ? ` · 아는 것 ${knownN}건 (${KNOWN} - 승인 대기 공급자의 포장재를 일부러 썼다)`
+  : ''}`);
 
 /* ---------------------------------------------------------------------------
    시연 자료 표시
