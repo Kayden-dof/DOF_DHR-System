@@ -155,10 +155,13 @@ export default async function ReleaseRequestSheet({
   });
 
   /*
-   * 요청서 번호. 회차가 이 발행에서 막 정해졌으므로 여기서 조합한다.
-   * 출고 기록 화면이 같은 형식을 안내한다.
+   * 요청서 번호. 발행하는 순간 DB 가 정해 대장에 남긴 값을 그대로 쓴다 (0111).
+   *
+   * 전에는 여기서 조합했고, 편철 표지 · 출고 화면 · 시드가 같은 형식을 각자
+   * 한 번씩 더 적고 있었다. 형식이 한 곳에서만 나와야 갈라지지 않는다 (§10).
+   * 열람일 때는 그때 그 종이에 찍힌 값이 온다.
    */
-  const requestNo = `RR-${head.batch_no}-${String(meta.seq).padStart(2, '0')}`;
+  const requestNo = meta.docNo ?? '';
 
   return (
     <PrintFrame

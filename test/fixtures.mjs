@@ -189,3 +189,25 @@ export async function newWorkOrder(t, m, opts = {}) {
     [woNo, batchNo, m.dm, rawLot, opts.sheets ?? 20, m.admin, m.qa]);
   return { id, woNo, batchNo, rawLot };
 }
+
+
+/**
+ * 출하 승인 요청서를 한 장 발행하고 그 종이에 찍힌 번호를 돌려준다 (0111).
+ *
+ * 번호를 지어내지 않는다 - 출고는 실재하는 요청서를 가리켜야 적히므로
+ * (trg_shipment_request_no), 지어낸 값으로 시험하면 시험이 자기 픽스처에
+ * 막힌다. 화면이 부르는 것과 같은 함수를 부른다.
+ *
+ * 부르는 쪽이 세워 둔 배우를 건드리지 않는다. 안 세워져 있으면 잠깐 세웠다
+ * 눕힌다 - 이 함수는 security definer 라 세션 사용자가 있어야 돈다.
+ */
+export async function releaseRequestNo(t, m, woId, tag = 'rr') {
+  const had = await t.val(`select current_user_id()`);
+  if (!had) await t.setActor(m.admin);
+  const no = await t.val(
+    `select doc_no from record_print_log('RELEASE_REQUEST', md5($2) || md5($2),
+                                         $1, null, null, null, null, 1, null)`,
+    [woId, tag]);
+  if (!had) await t.setActor(null);
+  return no;
+}

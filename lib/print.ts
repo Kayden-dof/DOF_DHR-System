@@ -307,13 +307,14 @@ function orgLine(b: Awaited<ReturnType<typeof getBrand>>): string {
 interface PastPrint {
   seq: number; data_hash: string; printed_at: Date; pages: number;
   printed_by: string; retrieved_at: Date | null; retrieve_reason: string | null;
+  doc_no: string | null;
 }
 
 async function pastPrint(a: LogArgs): Promise<PastPrint | null> {
   const want = typeof a.view === 'number' ? a.view : null;
   const row = await withActor(a.actorId, (db) =>
     db.one<PastPrint>(
-      `select rp.seq, rp.data_hash, rp.printed_at, rp.pages,
+      `select rp.seq, rp.data_hash, rp.printed_at, rp.pages, rp.doc_no,
               u.full_name as printed_by, rp.retrieved_at, rp.retrieve_reason
          from record_print rp
          join app_user u on u.id = rp.printed_by
@@ -361,6 +362,8 @@ export async function logPrint(a: LogArgs): Promise<PrintMeta> {
       kind: a.kind,
       kindLabel: KIND_LABEL[a.kind] ?? a.kind,
       pages: past?.pages ?? a.pages ?? 1,
+      /* 그때 그 종이에 찍힌 번호다. 지금 다시 만들지 않는다 */
+      docNo: past?.doc_no ?? null,
       companyName: brand.companyName,
       orgLine: orgLine(brand),
       logoUrl: brand.hasLogo ? `/logo?v=${brand.logoUpdatedAt ?? '0'}` : null,
@@ -390,12 +393,13 @@ export async function logPrint(a: LogArgs): Promise<PrintMeta> {
 
   const row = await withActor(a.actorId, async (db) => {
     if (a.lockDay) {
-      return db.one<{ id: string; seq: number; printed_at: Date }>(
-        `select id, seq, printed_at from print_day_record($1,$2,$3,$4,$5)`,
+      return db.one<{ id: string; seq: number; printed_at: Date; doc_no: string | null }>(
+        `select id, seq, printed_at, null::text as doc_no
+           from print_day_record($1,$2,$3,$4,$5)`,
         [a.workOrderId, a.dayNo, a.workerId, hash, a.pages ?? 1]);
     }
-    const r = await db.one<{ id: string; seq: number; printed_at: Date }>(
-      `select id, seq, printed_at from record_print_log(
+    const r = await db.one<{ id: string; seq: number; printed_at: Date; doc_no: string | null }>(
+      `select id, seq, printed_at, doc_no from record_print_log(
          $1::print_kind, $2, $3, $4, $5, $6, $7, $8, $9)`,
       [a.kind, hash, a.workOrderId ?? null, a.productLotId ?? null,
        a.dayNo ?? null, a.workerId ?? null, a.materialLotId ?? null,
@@ -423,6 +427,7 @@ export async function logPrint(a: LogArgs): Promise<PrintMeta> {
     printedAt: kstStamp(row?.printed_at ?? new Date()),
     printedBy: a.actorName,
     pages: a.pages ?? 1,
+    docNo: row?.doc_no ?? null,
     /* 종이 머리에 나가는 회사 표시. 설정에서 온다 (§2.0 · 0070) */
     companyName: brand.companyName,
     orgLine: orgLine(brand),

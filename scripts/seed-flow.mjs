@@ -85,21 +85,21 @@ const PRINT_BASE = process.env.PRINT_BASE || '';
 /**
  * 출하 승인 요청서를 실제로 뽑고 그 번호를 돌려준다.
  *
- * 번호는 `RR-{배치}-{회차}` 이고 회차는 발행이 정한다 (app/print/release-request).
- * 전에는 시드가 `RR-HIST-260714` 같은 값을 지어내 출고에 적었다 - **형식도
- * 다르고 가리키는 종이도 없었다.** 시연에서 그 번호로 종이를 찾으면 안 나온다.
+ * 번호는 발행이 정해 대장에 남긴다 (0111). 전에는 시드가 `RR-HIST-260714` 같은
+ * 값을 지어내 출고에 적었고 - **형식도 다르고 가리키는 종이도 없었다** - 그 뒤엔
+ * 형식을 여기서 한 번 더 조립했다. 이제 찍힌 값을 그대로 읽어 온다.
  *
- * 못 뽑으면 번호를 지어내지 않고 null 을 낸다. 출고의 승인서 번호는 비어 있게
- * 되는데, 없는 종이를 가리키는 것보다 비어 있는 편이 낫다.
+ * 못 뽑으면 번호를 지어내지 않고 null 을 낸다. 출고는 그 번호 없이 적히지
+ * 않으므로(0026 · 0111) 거기서 멈추는 것이 맞다.
  */
 async function releaseRequest(woId, batchNo, picks) {
   if (!PRINT_BASE) return null;
   const sel = picks.map((p) => `${p.id}:${p.qty}`).join(',');
   await paper(`/print/release-request/${woId}?sel=${sel}`, mgrUser.id);
-  const seq = await val(
-    `select max(seq)::int from record_print
-      where kind = 'RELEASE_REQUEST' and work_order_id = $1`, [woId]);
-  return `RR-${batchNo}-${String(seq).padStart(2, '0')}`;
+  return val(
+    `select doc_no from record_print
+      where kind = 'RELEASE_REQUEST' and work_order_id = $1
+      order by seq desc limit 1`, [woId]);
 }
 
 /** 그 사람으로 인쇄 화면을 연다. 열면 발행이다 */

@@ -140,8 +140,9 @@ export default async function CoverSheet({ params, searchParams }: {
            from record_print
           where work_order_id = $1 and kind in ('WORK_ORDER','LABEL_REQUEST')
           group by kind`, [id]),
-      requests: await db.rows<{ seq: number }>(
-        `select seq from record_print
+      /* 번호는 그 종이에 찍힌 값을 읽는다. 여기서 조립하지 않는다 (0111) */
+      requests: await db.rows<{ seq: number; doc_no: string | null }>(
+        `select seq, doc_no from record_print
           where work_order_id = $1 and kind = 'RELEASE_REQUEST'
           order by seq`, [id]),
       certs: await db.rows<{ cert_no: string; vendor_name: string }>(
@@ -507,8 +508,7 @@ export default async function CoverSheet({ params, searchParams }: {
                   fact: requests.length === 0
                     ? '발행 이력 없음'
                     : <span className="font-mono">
-                        {requests.map((r) =>
-                          `RR-${head.batch_no}-${String(r.seq).padStart(2, '0')}`).join(' · ')}
+                        {requests.map((r) => r.doc_no ?? `${r.seq}회차`).join(' · ')}
                       </span>,
                   pages: requests.length ? String(requests.length) : '-' },
                 { name: '멸균 성적서 (외부 원본)',

@@ -20,6 +20,8 @@ export interface PlOpt {
   qty_sample: number;
   /** 다음에 내보낼 첫 개체 순번 */
   next_unit: number;
+  /** 이 배치로 나간 출하 승인 요청서 번호. 최근 것이 앞에 온다 (0111) */
+  requests: string[];
 }
 export interface SbRow {
   id: string; batch_no: string; request_no: string | null; vendor_name: string;
@@ -271,7 +273,7 @@ export function SterilRow({ sb, today }: { sb: SbRow; today: string }) {
 
    배치에서 생산된 규격들을 보여 주고, 미출고 잔여 중 무엇을 몇 개 요청할지
    골라 요청서 한 장을 발행한다. 골라진 내용이 그대로 종이에 실리고, 요청서
-   번호(RR-배치번호-회차)는 발행되는 순간 종이에 찍힌다.
+   번호는 발행되는 순간 정해져 종이에 찍히고 대장에 남는다 (0111).
 
    수량 상한은 잔여다. 잔여보다 큰 요청은 화면에서부터 만들 수 없다 - 이건
    기록 차단이 아니라 인쇄 요청의 형식이다.
@@ -506,10 +508,32 @@ function ShipRowForm({ lot, today }: { lot: PlOpt; today: string }) {
       </p>
       <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <div>
+          {/*
+            * 나간 요청서에서 고른다 (0111).
+            *
+            * 전에는 빈 칸에 손으로 적었다. 그러면 지어낸 번호가 그대로 들어가고,
+            * 그 번호로 종이를 찾으면 나오지 않는다. 이제 실재하지 않는 번호는
+            * DB 가 거부하므로, 화면은 고를 것을 내주는 자리를 맡는다.
+            *
+            * 나간 요청서가 없으면 고를 것이 없다고 말하고 그 이유를 적는다.
+            * 막는 것이 아니라 어디로 가야 하는지 알려 주는 것이다.
+            */}
           <label className="label" htmlFor={`${uid}-release_request_no`}>출하 승인서 번호 (필수)</label>
-          <input id={`${uid}-release_request_no`} name="release_request_no" required autoComplete="off"
-                 placeholder={`RR-${lot.batch_no}-01`}
-                 className="input font-mono" />
+          {lot.requests.length === 0 ? (
+            <>
+              <input id={`${uid}-release_request_no`} name="release_request_no" required
+                     disabled className="input font-mono" />
+              <p className="mt-1 text-xs leading-relaxed text-muted">
+                이 배치로 나간 출하 승인 요청서가 없습니다. 출하 승인 화면에서 요청서를
+                먼저 발행하십시오.
+              </p>
+            </>
+          ) : (
+            <select id={`${uid}-release_request_no`} name="release_request_no" required
+                    defaultValue={lot.requests[0]} className="input font-mono">
+              {lot.requests.map((r) => <option key={r} value={r}>{r}</option>)}
+            </select>
+          )}
         </div>
         <div>
           <label className="label" htmlFor={`${uid}-customer_name`}>거래처</label>

@@ -39,7 +39,18 @@ export default async function ShipPage() {
               coalesce((select sum(sh.qty)::int from shipment sh
                          where sh.product_lot_id = pl.id), 0) as shipped,
               /* 다음에 내보낼 첫 개체 순번. 시료 다음부터 세고 나간 범위는 건너뛴다 */
-              next_unit_seq(pl.id) as next_unit
+              next_unit_seq(pl.id) as next_unit,
+              /*
+               * 이 배치로 나간 출하 승인 요청서들 (0111). 번호를 손으로 적는
+               * 대신 고르게 한다 - 실재하지 않는 번호는 DB 가 거부하므로
+               * (trg_shipment_request_no), 화면이 먼저 고를 것을 내주는 편이
+               * 사람을 덜 헤매게 한다. 막는 자리는 여전히 DB 다.
+               */
+              coalesce((select array_agg(rp.doc_no order by rp.seq desc)
+                          from record_print rp
+                         where rp.kind = 'RELEASE_REQUEST'
+                           and rp.work_order_id = pl.work_order_id
+                           and rp.doc_no is not null), '{}') as requests
          from product_lot pl
          join item i on i.id = pl.item_id
          join work_order wo on wo.id = pl.work_order_id

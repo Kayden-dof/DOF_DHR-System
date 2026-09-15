@@ -2,7 +2,8 @@
 // 05_genealogy.mjs · 계보 정확성 · 재고 · 원가 (§8.3, §9 M3·M4)
 // =============================================================================
 
-import { masterData as master, newMaterialLot, newWorkOrder } from '../fixtures.mjs';
+import { masterData as master, newMaterialLot, newWorkOrder, releaseRequestNo as requestNo }
+  from '../fixtures.mjs';
 
 /**
  * 배치 하나를 끝까지 굴린다. 원재료 입고부터 재단 후 포장까지.
@@ -60,6 +61,7 @@ async function runBatch(t, m, opts = {}) {
 
 let BATCH = null;
 const batch = (t, m) => (BATCH ??= runBatch(t, m));
+
 
 export default [
 
@@ -416,7 +418,8 @@ export default [
     await t.rows(
       `insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by,
                              release_request_no)
-       values ($1,'거래처갑',10,current_date,$2,'RR-TEST-01')`, [b.lotA, m.admin]);
+       values ($1,'거래처갑',10,current_date,$2,$3)`,
+      [b.lotA, m.admin, await requestNo(t, m, b.wo.id, 'sh03')]);
 
     t.eq(Number(await t.val(`select qty_available from product_lot where id=$1`, [b.lotA])),
          before - 10, '출고 후 잔여');
@@ -429,10 +432,11 @@ export default [
   async run(t) {
     const m = await master(t);
     const b = await batch(t, m);
+    const no = await requestNo(t, m, b.wo.id, 'sh04');
     await t.rejects(
       () => t.rows(`insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by,
                                           release_request_no)
-                    values ($1,'거래처을',9999,current_date,$2,'RR-TEST-01')`, [b.lotA, m.admin]),
+                    values ($1,'거래처을',9999,current_date,$2,$3)`, [b.lotA, m.admin, no]),
       { code: 'P0001', message: '출하 가능 수량' });
   },
 },
@@ -468,6 +472,57 @@ export default [
                                           release_request_no)
                     values ($1,'거래처병',1,current_date,$2,'   ')`, [b.lotA, m.admin]),
       { code: 'P0001', message: '출하 승인서 번호' });
+  },
+},
+
+{
+  id: 'SH-07', expect: '예외',
+  name: '발행된 적 없는 승인서 번호로는 출고를 기록할 수 없다 (D5)',
+  async run(t) {
+    const m = await master(t);
+    const b = await batch(t, m);
+
+    /*
+     * 0026 은 칸이 비었는지만 물었다. 지어낸 번호는 그대로 들어갔고, 그 번호로
+     * 종이를 찾으면 나오지 않았다. 이제 가리키는 종이가 실재해야 한다 (0111).
+     */
+    await t.rejects(
+      () => t.rows(`insert into shipment (product_lot_id, customer_name, qty, shipped_at,
+                                          shipped_by, release_request_no)
+                    values ($1,'거래처정',1,current_date,$2,'RR-지어낸-01')`,
+                   [b.lotA, m.admin]),
+      { code: 'P0001', message: '발행된 적이 없습니다' });
+
+    /* 발행된 번호는 지나간다. 막는 것은 실재하지 않는 번호뿐이다 */
+    const no = await requestNo(t, m, b.wo.id, 'sh07');
+    await t.rows(
+      `insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by,
+                             release_request_no)
+       values ($1,'거래처정',1,current_date,$2,$3)`, [b.lotA, m.admin, no]);
+  },
+},
+
+{
+  id: 'SH-08', expect: '확인',
+  name: '번호를 건드리지 않는 수정은 지나간다',
+  async run(t) {
+    const m = await master(t);
+    const b = await batch(t, m);
+    const no = await requestNo(t, m, b.wo.id, 'sh08');
+    const id = await t.val(
+      `insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by,
+                             release_request_no)
+       values ($1,'거래처무',1,current_date,$2,$3) returning id`, [b.lotA, m.admin, no]);
+
+    /* 거래처 오기 정정 같은 정상 작업은 막지 않는다 */
+    await t.rows(`update shipment set customer_name='거래처무역' where id=$1`, [id]);
+    t.eq(await t.val(`select customer_name from shipment where id=$1`, [id]),
+         '거래처무역', '번호를 안 건드린 수정');
+
+    /* 번호를 없는 것으로 바꾸는 것은 막는다 */
+    await t.rejects(
+      () => t.rows(`update shipment set release_request_no='RR-없는것-99' where id=$1`, [id]),
+      { code: 'P0001', message: '발행된 적이 없습니다' });
   },
 },
 
