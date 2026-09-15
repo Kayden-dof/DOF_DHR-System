@@ -48,6 +48,7 @@
     "model_suffix",
     "next_number",
     "next_unit_seq",
+    "numbering_rule_for",
     "only_demo_data",
     "operation_equipment_list",
     "operation_requirements",
