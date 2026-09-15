@@ -60,7 +60,8 @@ const TABLES = [
   ['회사 표시', 'org_brand', [
     'company_name', 'brand_color', 'system_name', 'system_name_long',
     'system_tagline', 'company_tagline', 'address', 'plant_address',
-    'biz_no', 'ceo_name', 'backup_warn_days', 'expiry_warn_days']],
+    'biz_no', 'ceo_name', 'backup_warn_days', 'expiry_warn_days',
+    'label_width_mm', 'label_height_mm']],
   ['자재 로트', 'material_lot', [
     'item_id', 'supplier_id', 'supplier_lot_no', 'purchase_order_id',
     'coa_no', 'coa_date', 'unit_price', 'expiry_date', 'location',

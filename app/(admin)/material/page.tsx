@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { requireUser, blocksViewer, canWrite } from '@/lib/session';
 import Denied from '@/components/denied';
 import { withUser } from '@/lib/db';
@@ -50,7 +51,9 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
    */
   const readOnly = !canWrite(user);
   /* 며칠 남으면 눈에 띄게 할지는 설정이 정한다 (6차 감사 N1) */
-  const { expiryWarnDays: warnDays } = await getBrand();
+  const { expiryWarnDays: warnDays, labelWidthMm, labelHeightMm } = await getBrand();
+  /* 라벨 용지 크기가 설정되어 있을 때만 그 단추를 낸다 (0114 · §2.0) */
+  const labelStock = !!labelWidthMm && !!labelHeightMm;
 
   const sp = await searchParams;
   const status = sp.status || null;
@@ -159,6 +162,7 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
                 <Th>유효기한</Th>
                 <Th>상태</Th>
                 <Th right>사용 배치</Th>
+                {!readOnly && <Th right>라벨</Th>}
                 {!readOnly && <Th right>정정</Th>}
               </tr>
             </thead>
@@ -207,6 +211,28 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
                       {MATERIAL_STATUS_LABEL[l.status] ?? l.status}
                     </Td>
                     <Td right className="text-muted">{l.used_in || ''}</Td>
+                    {/*
+                      * 자재 라벨을 뽑는 자리 (§7 "입고 등록 시점").
+                      *
+                      * 양식은 처음부터 있었는데 **화면에 뽑을 자리가 없었다** -
+                      * 주소를 직접 쳐야 열렸다 (2026-09-15 확인). 종이가 정본인
+                      * 시스템에서 종이를 뽑을 단추가 없으면 그 양식은 없는 것과
+                      * 같다.
+                      *
+                      * 라벨 용지 단추는 크기가 설정되어 있을 때만 낸다 (0114).
+                      * 없는 자리를 내놓고 눌렀을 때 안 된다고 말하는 것보다
+                      * 아예 안 보이는 편이 낫다.
+                      */}
+                    {!readOnly && <Td right>
+                      <div className="flex justify-end gap-1">
+                        <Link href={`/print/label/${l.id}`}
+                              className="btn-ghost h-7 px-2 text-xs">A4</Link>
+                        {labelStock && (
+                          <Link href={`/print/label/${l.id}?stock=label`}
+                                className="btn-ghost h-7 px-2 text-xs">라벨 용지</Link>
+                        )}
+                      </div>
+                    </Td>}
                     {!readOnly && <Td right>
                       {/*
                         * 입고에서 한 글자 틀리면 되돌릴 곳이 여기뿐이다

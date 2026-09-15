@@ -92,6 +92,25 @@ export async function saveBrand(_p: FormState, form: FormData): Promise<FormStat
       return { error: '기록 보존 기간은 1년에서 100년 사이입니다' };
     }
 
+    /*
+     * 라벨 용지 크기 (0114). 둘 다 비거나 둘 다 차 있어야 한다 - 한쪽만 있는
+     * 종이는 없다. DB 에도 같은 제약이 있고, 여기서는 사람이 읽을 말로 돌려준다.
+     */
+    const mm = (k: string) => {
+      const raw = String(form.get(k) ?? '').trim();
+      return raw === '' ? null : Number(raw);
+    };
+    const labelW = mm('label_width_mm');
+    const labelH = mm('label_height_mm');
+    for (const v of [labelW, labelH]) {
+      if (v !== null && (!Number.isInteger(v) || v < 20 || v > 300)) {
+        return { error: '라벨 용지 크기는 20mm 에서 300mm 사이입니다' };
+      }
+    }
+    if ((labelW === null) !== (labelH === null)) {
+      return { error: '라벨 용지는 가로와 세로를 함께 적거나 함께 비웁니다' };
+    }
+
     await withActor(me.id, (db) =>
       db.rows(
         `update org_brand set company_name = $1, brand_color = $2,
@@ -101,11 +120,13 @@ export async function saveBrand(_p: FormState, form: FormData): Promise<FormStat
                               biz_no = $9, ceo_name = $10,
                               backup_warn_days = $11, expiry_warn_days = $12,
                               record_retention_years = $13,
-                              updated_by = $14, updated_at = now()`,
+                              label_width_mm = $14, label_height_mm = $15,
+                              updated_by = $16, updated_at = now()`,
         [name, color, txt('system_name'), txt('system_name_long'),
          txt('system_tagline'), txt('company_tagline'),
          txt('address'), txt('plant_address'),
-         txt('biz_no'), txt('ceo_name'), warnDays, expDays, keepYears, me.id]),
+         txt('biz_no'), txt('ceo_name'), warnDays, expDays, keepYears,
+         labelW, labelH, me.id]),
       { reason: '회사 표시 변경' });
 
     bump();
