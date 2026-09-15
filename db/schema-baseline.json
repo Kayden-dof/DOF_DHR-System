@@ -1,5 +1,6 @@
 {
   "enum": [
+    "equipment_check_kind",
     "item_type",
     "material_status",
     "movement_type",
@@ -13,6 +14,10 @@
     "wo_status"
   ],
   "function": [
+    "access_block_alert",
+    "access_block_note",
+    "access_block_recent",
+    "access_block_sweep",
     "amend_material_issue",
     "audit_redact",
     "audit_secret_columns",
@@ -114,9 +119,11 @@
     "trg_wo_plan_fin",
     "trg_wo_root_immutable",
     "trg_wo_sheet_range",
-    "work_order_warnings"
+    "work_order_warnings",
+    "worker_qualified"
   ],
   "table": [
+    "access_block",
     "app_user",
     "audit_log",
     "backup_log",
@@ -159,7 +166,8 @@
     "user_role",
     "wip_nonconformity",
     "work_order",
-    "work_order_plan"
+    "work_order_plan",
+    "worker_qualification"
   ],
   "trigger": [
     "app_user.app_user_audit",
@@ -323,7 +331,10 @@
     "work_order_plan.work_order_plan_audit",
     "work_order_plan.work_order_plan_fin",
     "work_order_plan.work_order_plan_no_delete",
-    "work_order_plan.work_order_plan_no_truncate"
+    "work_order_plan.work_order_plan_no_truncate",
+    "worker_qualification.worker_qualification_audit",
+    "worker_qualification.worker_qualification_no_delete",
+    "worker_qualification.worker_qualification_no_truncate"
   ],
   "view": [
     "v_audit_entry",
