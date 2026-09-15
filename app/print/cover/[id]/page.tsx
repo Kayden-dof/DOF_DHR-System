@@ -3,6 +3,7 @@ import { requireUser } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import { fmtDate, fmtDateTime } from '@/lib/fmt';
 import { logPrint, printGate, viewParam } from '@/lib/print';
+import { chunkRows } from '@/lib/print-pages';
 import Denied from '@/components/denied';
 import PrintFrame, { Sheet, SignRow } from '@/components/print-frame';
 import { getBrand } from '@/lib/brand';
@@ -41,6 +42,9 @@ interface LotRow {
 interface DayRow {
   day_no: number; worker_name: string; work_date: string;
   records: number; prints: number; issues: number;
+}
+interface FlagRow {
+  kind: string; detail: string; day_no: number | null; ref: string;
 }
 
 export default async function CoverSheet({ params, searchParams }: {
@@ -147,11 +151,17 @@ export default async function CoverSheet({ params, searchParams }: {
            join product_lot pl on pl.id = sbl.product_lot_id
           where pl.work_order_id = $1 and sb.cert_no is not null
           order by sb.cert_no`, [id]),
+      /*
+       * 검토 지원 (§8.5). 배치 화면이 짚는 것과 같은 자료다.
+       * 산술로 판정되는 것만 돌아오고, 짚을 것이 없으면 빈 배열이다.
+       */
+      flags: await db.rows<FlagRow>(
+        `select kind, detail, day_no, ref from review_flags($1)`, [id]),
     };
   });
 
   if (!d) notFound();
-  const { head, materials, lots, days, prints, requests, certs, concessions } = d;
+  const { head, materials, lots, days, prints, requests, certs, concessions, flags } = d;
 
   // 아직 남아 있는 것. 사실만 적고 판정하지 않는다 (§10).
   const openDays = days.filter((r) => r.prints === 0).length;
@@ -171,11 +181,25 @@ export default async function CoverSheet({ params, searchParams }: {
    * 몇 장이 될지를 재어 맞히는 대신 장을 나눴다. 그러면 세는 것이 아니라
    * 아는 것이 된다 - 요약과 목록이 첫 장, 편철 서류 목록과 서명란이 둘째 장.
    */
+  /*
+   * 확인해 볼 항목은 장을 따로 받는다.
+   *
+   * 서류 목록과 한 장에 담으면 항목이 몇 개냐에 따라 A4 를 넘어간다. 그러면
+   * 브라우저가 아무 데서나 자르고 쪽 번호는 그대로 나간다 (§7 · lib/print-pages).
+   * 짚을 것이 없으면 장 자체가 없다 - 빈 상태가 정상이다 (§8.5).
+   */
+  const flagPages = flags.length > 0 ? chunkRows(flags, 22, 30) : [];
+
   const meta = await logPrint({
     view,
     actorId: user.id, actorName: user.full_name, kind: 'COVER',
-    workOrderId: id, payload: { head, materials, lots, days },
-    pages: 2,
+    /*
+     * 종이에 나온 것이 곧 자료 식별자가 덮는 것이어야 한다. 표시를 인쇄하면서
+     * 여기에 안 담으면, 표시가 달라진 종이가 같은 식별자를 달고 나간다 - 열람이
+     * "그 사이에 자료가 바뀌었는가" 를 가릴 근거가 그 값 하나다 (§7.1).
+     */
+    workOrderId: id, payload: { head, materials, lots, days, flags },
+    pages: 2 + flagPages.length,
   });
 
   return (
@@ -373,7 +397,61 @@ export default async function CoverSheet({ params, searchParams }: {
         */}
       </PrintFrame>
 
-      <Sheet meta={meta} page={2}
+      {/*
+        * 확인해 볼 항목 (§8.5 · GMP 점검 F3).
+        *
+        * 같은 표시가 배치 화면에 이미 있었다. 다만 화면에만 있어서, 종이 묶음을
+        * 받아 검토하는 사람 - 정본이 종이이므로 그쪽이 본래 자리다 - 은 그것을
+        * 볼 길이 없었다.
+        *
+        * 짚을 것이 없으면 이 장은 나오지 않는다. "확인 필요 0건" 같은 표시를
+        * 두지 않는 것과 같은 이유다 - 잘못된 안심이 검토를 돕지 않는다.
+        */}
+      {flagPages.map((rows, k) => (
+        <Sheet key={k} meta={meta} page={2 + k}
+               title="제조기록 편철 표지"
+               subtitle={<>배치 {head.batch_no} · 확인해 볼 항목</>}>
+          <h2 className="mt-5 text-sm font-bold text-black">
+            확인해 볼 항목 <span className="tnum">{flags.length}</span>
+            {flagPages.length > 1 && (
+              <span className="ml-1.5 text-[10px] font-normal">
+                ({k + 1} / {flagPages.length})
+              </span>
+            )}
+          </h2>
+          <p className="mt-1 text-[10px] leading-relaxed text-black">
+            산술로 어긋나는 것만 표시했습니다. 적합 여부는 전체를 보는 검토자가 판단합니다.
+          </p>
+          <table className="print-table mt-1.5">
+            <thead>
+              <tr>
+                <th className="w-[8%] text-center">일차</th>
+                <th className="w-[14%]">종류</th>
+                <th className="w-[66%]">내용</th>
+                <th className="w-[12%] text-center">확인</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((f, i) => (
+                <tr key={i}>
+                  <td className="text-center tnum">{f.day_no ?? ''}</td>
+                  <td>{f.kind}</td>
+                  <td className="text-[10px]">{f.detail}</td>
+                  <td className="sign-box" style={{ height: 'auto' }} />
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {k === flagPages.length - 1 && (
+            <p className="mt-1.5 text-[10px] leading-relaxed text-black">
+              여기에 없는 항목이 곧 문제가 없다는 뜻은 아닙니다. 시스템은 계산으로
+              판정되는 것만 표시합니다. 확인란은 검토자가 종이 위에서 표시합니다.
+            </p>
+          )}
+        </Sheet>
+      ))}
+
+      <Sheet meta={meta} page={2 + flagPages.length}
              title="제조기록 편철 표지"
              subtitle={<>배치 {head.batch_no} · 편철 서류 목록</>}>
         {/*
@@ -404,9 +482,14 @@ export default async function CoverSheet({ params, searchParams }: {
               const lp = prints.find((x) => x.kind === 'LABEL_REQUEST');
               const dayPages = days.reduce((a, r) => a + r.prints, 0);
               const rows: { name: string; fact: React.ReactNode; pages: string }[] = [
+                /*
+                 * 제 장수는 재어 맞히지 않는다. 1 로 박혀 있어 두 장짜리
+                 * 표지가 종이 위에서 한 장이라고 말하고 있었다. 확인해 볼
+                 * 항목이 붙으면 더 벌어진다.
+                 */
                 { name: '편철 표지 (이 장)',
                   fact: <>발행 {meta.seq}회차 · 식별자 {meta.dataHash.slice(0, 12)}</>,
-                  pages: '1' },
+                  pages: String(meta.pages) },
                 { name: '작업 지시서',
                   fact: wp
                     ? <>최종 {wp.latest}회차 발행분{wp.count > 1 && ` (총 ${wp.count}회 발행)`}</>

@@ -156,6 +156,16 @@ const coverRR = coverRRSeqs.length === 0
   ? '발행 이력 없음'
   : coverRRSeqs.map((r) => `RR-${wo.batch_no}-${String(r.seq).padStart(2, '0')}`)
       .join(' · ');
+/*
+ * 확인해 볼 항목 (§8.5). 화면과 종이가 같은 것을 짚어야 한다.
+ *
+ * 짚을 것이 있으면 종이에 그대로 나와야 하고, 없으면 그 장 자체가 없어야
+ * 한다 - "확인 필요 0건" 은 §8.5 가 금지한 잘못된 안심이다. 두 갈래를 다
+ * 시험한다. 어느 갈래로 갔는지는 아래 출력이 말한다.
+ */
+const coverFlags = await rows(
+  `select kind, detail, day_no from review_flags($1) limit 3`, [wo.id]);
+
 const coverCert = await one(
   `select min(sb.cert_no) as v
      from steril_batch sb
@@ -601,6 +611,27 @@ await sheet('④ 편철 표지', `/print/cover/${wo.id}`, [
   { label: '목록 · 멸균 성적서', value: coverCert },
   { label: '목록 · 원재료 성적서', value: wo.coa_no },
   { label: '철 확인란',        value: '철 확인' },
+  /*
+   * 표지가 제 장수를 말하는 줄. 매수 칸의 숫자는 이제 꼬리글 N 과 같은 값
+   * (meta.pages)에서 나오고, 그 N 은 위에서 실제 장 수와 대조된다. 한때
+   * 이 칸이 '1' 로 박혀 있어 두 장짜리 종이가 한 장이라고 말했다.
+   */
+  { label: '목록 · 표지 줄', value: '편철 표지 (이 장)' },
+  // 확인해 볼 항목 (§8.5)
+  ...(coverFlags.length > 0
+    ? [
+        { label: '확인해 볼 항목 제목', value: '확인해 볼 항목', anywhere: true },
+        ...coverFlags.map((f, i) => ({
+          label: `확인 항목 ${i + 1}`, value: f.detail,
+        })),
+        { label: '확인 항목 · 종류', value: coverFlags[0].kind },
+      ]
+    : [{ label: '확인 항목 없음 → 장도 없음', value: '확인해 볼 항목',
+         anywhere: true, absent: true }]),
+  // 짚을 것이 있든 없든 판정 문구는 종이에 없어야 한다 (§8.5 · §10)
+  { label: '판정 문구 없음 (이상 없음)', value: '이상 없음', anywhere: true, absent: true },
+  { label: '판정 문구 없음 (검토 완료)', value: '검토 완료', anywhere: true, absent: true },
+  { label: '판정 문구 없음 (0건)',      value: '확인 필요 0건', anywhere: true, absent: true },
   { label: '생산 책임자 서명란', value: '생산 책임자' },
   { label: '품질 검토 서명란', value: '품질 검토' },
   { label: '품질 책임자 서명란', value: '품질 책임자' },
