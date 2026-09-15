@@ -232,12 +232,16 @@ try {
     }
     const head = await one(
       `select id, qty_sample, qty_available, lot_no from product_lot where id = $1`, [lots[0]]);
-    const bn = await val(`select batch_no from work_order where id = $1`, [wo]);
+    /* 번호는 대장에서 온다. 지어내면 출고가 거부한다 (0111) */
+    const rrNo = await as(mgr, async () => (await c.query(
+      `select doc_no from record_print_log('RELEASE_REQUEST', md5($2) || md5($2),
+                                           $1, null, null, null, null, 1, null)`,
+      [wo, `vol${back}`])).rows[0].doc_no);
     await as(mgr, () => c.query(
       `insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by,
                              release_request_no, unit_from, unit_to)
        values ($1,'시험 거래처',10,(timezone('Asia/Seoul', now()))::date - ${back - 4},$2,$3,$4,$5)`,
-      [head.id, mgr, 'RR-' + bn + '-01', head.qty_sample + 1, head.qty_sample + 10]));
+      [head.id, mgr, rrNo, head.qty_sample + 1, head.qty_sample + 10]));
   }
 
   /* --- 3) 서버 ------------------------------------------------------------ */

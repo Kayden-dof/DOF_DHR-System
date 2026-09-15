@@ -149,12 +149,13 @@ const rework = await one(
  * '발행 이력 없음' 이 나와야 하고, 있으면 회차를 전부 이어 붙인 글이
  * 나와야 한다 - 표지가 그렇게 그린다. 어느 쪽이든 대조가 선다.
  */
+/* 번호는 대장에 적힌 값을 그대로 읽는다. 여기서 조립하면 형식이 갈린다 (0111) */
 const coverRRSeqs = await rows(
-  `select seq from record_print
+  `select seq, doc_no from record_print
     where work_order_id = $1 and kind = 'RELEASE_REQUEST' order by seq`, [wo.id]);
 const coverRR = coverRRSeqs.length === 0
   ? '발행 이력 없음'
-  : coverRRSeqs.map((r) => `RR-${wo.batch_no}-${String(r.seq).padStart(2, '0')}`)
+  : coverRRSeqs.map((r) => r.doc_no)
       .join(' · ');
 /*
  * 확인해 볼 항목 (§8.5). 화면과 종이가 같은 것을 짚어야 한다.

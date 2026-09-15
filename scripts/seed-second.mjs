@@ -364,11 +364,23 @@ await as(mgr.id, () => c.query(
   `update product_lot set status = 'RELEASE_APPROVED', release_approved_by = '정품질',
           release_approved_on = (timezone('Asia/Seoul', now()))::date
     where id = $1`, [lot]));
+/*
+ * 출하 승인 요청서를 실제로 발행하고 그 번호를 받아 온다 (0111).
+ *
+ * 전에는 `RR-{배치}-01` 을 여기서 조립했다. 형식은 맞았지만 가리키는 종이가
+ * 없어서, 이제 출고가 그 번호를 거부한다 - 빈 DB 검사가 그것을 잡았다.
+ * 번호를 만드는 자리는 대장 하나다.
+ */
+const rrNo = await as(mgr.id, async () => (await c.query(
+  `select doc_no from record_print_log('RELEASE_REQUEST', md5('rr2') || md5('rr2'),
+                                       $1, null, null, null, null, 1, null)`,
+  [wo.id])).rows[0].doc_no);
+
 await as(mgr.id, () => c.query(
   `insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by,
                          release_request_no, unit_from, unit_to)
    values ($1,'세브란스병원',20,(timezone('Asia/Seoul', now()))::date,$2,$3,4,23)`,
-  [lot, mgr.id, 'RR-' + wo.batch_no + '-01']));
+  [lot, mgr.id, rrNo]));
 say('출고 20개 · 세브란스병원');
 
 /* --- 10) 되묻기 ----------------------------------------------------------- */
