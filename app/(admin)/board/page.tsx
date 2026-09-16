@@ -168,8 +168,16 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
     (b) => b.period === 'month' && b.bucket.slice(0, 7) === thisMonth);
 
   const todayRows = d.days.filter((r) => r.made_on === today);
-  const won = (v?: string | null) =>
-    v ? `${Math.round(Number(v)).toLocaleString('ko-KR')}원` : '0원';
+  /*
+   * 숫자와 단위를 나눠 둔다. 숫자 띠의 다른 칸이 전부 그 모양이고 (value 는
+   * 숫자, unit 은 '개'·'건'), 금액만 "원" 을 값에 붙여 두었다. 그러면 단위
+   * 글자까지 28px 로 그려져 자리를 더 먹는다 (사용자 지적 2026-09-16).
+   *
+   * 내역 줄은 표 안이라 붙여 읽는 편이 낫다 - 거기서는 won() 을 쓴다.
+   */
+  const amount = (v?: string | null) =>
+    v ? Math.round(Number(v)).toLocaleString('ko-KR') : '0';
+  const won = (v?: string | null) => `${amount(v)}원`;
   const pct = (v?: string | null) => (v ? `${Number(v)}%` : '0%');
 
   /*
@@ -217,7 +225,7 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
         left: <b className="font-mono">{n.concession_doc_no ?? ''}</b>,
         sub: `${n.lot_no} · ${n.reason_code}`, right: `${n.qty}개`,
       })), '이번 달 특채가 없습니다.') },
-    { label: '이번 달 자재 지출', value: won(month?.spend),
+    { label: '이번 달 자재 지출', value: amount(month?.spend), unit: '원',
       detail: rows(d.spendItems.map((r) => ({
         left: mono(r.code), sub: r.name, right: won(r.won),
       })), '이번 달 입고가 없습니다.') },

@@ -152,6 +152,37 @@ export interface StatItem {
   detail?: React.ReactNode;
 }
 
+/* ---------------------------------------------------------------------------
+   긴 값은 자르지 않고 줄인다
+
+   카드 한 칸의 최소 폭이 9.5rem 이고 좌우 여백을 빼면 글자가 설 자리는 120px
+   남짓이다. 28px 로는 다섯 자가 한계다 - 금액이 들어오면 `3,890,000원` 이
+   163px 을 먹어 카드 밖으로 밀려났다 (사용자 지적 2026-09-16).
+
+   **자르는 것은 답이 아니다.** 카드에 overflow-hidden 이 걸려 있어 넘친 자리는
+   조용히 잘렸는데, 잘린 숫자는 못 읽는 숫자가 아니라 **틀린 숫자**다.
+   13,890,000 의 뒤가 잘리면 1,389 로 읽힌다. 자리 수를 눈으로 세는 자리에서
+   그것은 §8.5 가 금지한 잘못된 신호와 같은 종류다.
+
+   그래서 자리 수만큼 글자를 줄인다. 숫자는 tabular(tnum) 이라 글자 폭이 고르고,
+   자당 폭이 글꼴 크기의 0.58배로 거의 정비례한다 (브라우저에서 실측). 그래서
+   길이 하나로 설 자리를 셈할 수 있다.
+
+   **단계로 끊지 않는다.** 몇 구간으로 나눠 봤더니 구간 끝자리마다 1~2px 씩
+   다시 넘쳤다 - 구간을 촘촘히 할수록 표만 길어지고 경계는 계속 남는다.
+   길이로 셈하면 자리 수가 몇이든 들어간다. 자간을 좁히는 것은 큰 글자에만
+   어울리므로 작아지면 함께 푼다.
+
+   여기 한 곳에서 정한다. 띠를 쓰는 화면이 넷이고 (경영 현황 · 홈 · 설비 ·
+   일탈) 각자 재면 갈라진다 (§10 복제는 갈라진다).
+--------------------------------------------------------------------------- */
+const CARD_TEXT_PX = 9.5 * 16 - 32 - 2;   // 칸 최소 폭 - 좌우 여백 - 여유
+
+function valueStyle(v: number | string): React.CSSProperties {
+  const px = Math.min(28, Math.floor(CARD_TEXT_PX / (String(v).length * 0.58)));
+  return { fontSize: `${px}px`, letterSpacing: px >= 20 ? '-0.02em' : undefined };
+}
+
 const EDGE: Record<string, string> = {
   warn: 'bg-warn', danger: 'bg-danger', info: 'bg-info', brand: 'bg-brand',
 };
@@ -210,9 +241,10 @@ export function StatStrip({ items }: { items: StatItem[] }) {
                 * 노력이 모자라서가 아니라 글꼴이 가진 성질이다. 브랜드는
                 * 머리줄의 어두운 면이 지고 간다 (globals.css 의 .topbar).
                 * ------------------------------------------------------------ */}
-              <span className={`text-[1.75rem] font-bold leading-none tracking-[-0.02em] tnum ${
-                zero ? 'text-faint' : s.tone ? TEXT[s.tone] : 'text-ink'
-              }`}>
+              <span style={valueStyle(s.value)}
+                    className={`font-bold leading-none tnum ${
+                      zero ? 'text-faint' : s.tone ? TEXT[s.tone] : 'text-ink'
+                    }`}>
                 {s.value}
               </span>
               {s.unit && <span className="text-[0.6875rem] text-faint">{s.unit}</span>}
