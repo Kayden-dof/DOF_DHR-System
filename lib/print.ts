@@ -12,9 +12,31 @@ import type { PrintMeta } from '@/components/print-frame';
    자료 식별자가 남는다. 같은 자료를 다시 뽑으면 식별자는 같고 회차만 오른다.
    식별자가 다르면 자료가 바뀐 뒤에 다시 뽑았다는 뜻이다.
 
-   화면을 여는 것만으로 회차가 오르는 것이 맞는가: 맞다. 종이가 정본이므로
-   화면에 나온 시점의 자료가 곧 발행 후보다. 미리보기와 발행을 나누면 "본 것과
-   찍힌 것이 다르다"가 성립할 수 있다.
+   ── 회차는 인쇄 단추가 올린다 (사용자 지적 2026-09-16) ────────────────────
+   전에는 **화면을 여는 것만으로** 회차가 올랐다. 근거는 이랬다 - 종이가
+   정본이므로 화면에 나온 시점의 자료가 곧 발행 후보이고, 미리보기와 발행을
+   나누면 "본 것과 찍힌 것이 다르다" 가 성립할 수 있다.
+
+   그 근거는 지금도 옳다. 틀린 것은 **그 시점을 클릭 한 번에 붙여 둔 것**이다.
+   제조기록서는 여는 순간 그 묶음이 잠기고 (S04) 푸는 함수가 없다 (§10). 잘못
+   열었다는 이유로는 풀 길이 없는데, 잘못 열기는 너무 쉬웠다. 대장이 세는 것도
+   종이가 아니라 화면을 연 횟수였다 - 화면 훑기 한 번이 아홉 줄을 남겼다.
+
+   그래서 갈랐다. **여는 것은 미리보기고, 단추를 눌러야 발행이다.**
+
+   "본 것과 찍힌 것이 다르다" 는 **발행권**으로 막는다. 미리보기가 그린 자료의
+   식별자를 서버가 서명해 화면에 실어 보내고, 단추가 그것을 그대로 돌려주면
+   서버는 서명만 확인하고 그 값을 대장에 적는다. 그래서 **대장에 적히는 것은
+   언제나 화면에 그려진 그 자료**이고, 종이도 그 화면이다. 셋이 갈릴 자리가 없다.
+
+   서명이 있으므로 값을 고쳐 보내도 통하지 않고, 유효기간이 있으므로 어제 열어
+   둔 화면으로 오늘 발행할 수 없다. 화면을 열어 둔 채 자료가 바뀌면 종이는 열던
+   때의 것이 되는데, 그때도 종이와 대장은 같다 - 다른 것은 그 뒤에 자료가
+   바뀌었다는 사실이고 그것은 열람이 "값이 다릅니다" 로 짚는다 (§7.1).
+
+   미리보기 종이에는 "미발행 · 정본 아님" 이 깔린다. Ctrl+P 까지 막을 수는
+   없으므로, 대장에 없는 종이는 스스로 그렇다고 적고 나간다 - 열람이 쓰는
+   어법과 같다.
 
    ── 다만 이미 나간 종이는 다시 볼 수 있어야 한다 (사용자 요청 2026-09-08) ──
    위 문장 때문에 **다시 보는 길이 통째로 없었다.** 지난 배치의 편철 표지를
@@ -131,6 +153,13 @@ interface LogArgs {
   actorName: string;
   kind: keyof typeof KIND_LABEL;
   payload: unknown;
+  /**
+   * 이미 정해진 자료 식별자. 발행권이 실어 온 값이다 (issueTicket).
+   *
+   * 있으면 payload 를 다시 요약하지 않는다. 화면이 그린 자료의 값을 그대로
+   * 적어야 종이와 대장이 갈라지지 않는다.
+   */
+  presetHash?: string;
   workOrderId?: string | null;
   productLotId?: string | null;
   dayNo?: number | null;
@@ -148,6 +177,15 @@ interface LogArgs {
    * 않는다 - 아직 안 나간 것을 미리 보여 주는 자리가 아니다.
    */
   view?: boolean | number;
+
+  /**
+   * 미리보기. 대장에 쓰지 않고 **지금 자료**를 그린다 (2026-09-16).
+   *
+   * 열람과 다르다. 열람은 이미 나간 회차의 그때 값을 보여 주고, 미리보기는
+   * 아직 나가지 않은 지금 값을 보여 준다. 그래서 회차는 "다음 회차" 이고
+   * 인쇄 시각과 인쇄자는 비어 있다 - 아직 아무 일도 일어나지 않았다.
+   */
+  preview?: boolean;
 
   /**
    * 그 종이에 담긴 제품 로트와 수량 (0105).
@@ -207,10 +245,26 @@ export async function pastPrintLots(a: {
    **진짜 문은 DB 다.** 읽기 전용 세션은 app_readonly 로 돌아 record_print 에
    쓰지 못한다 (0043). 여기서 막는 것은 그 거절을 사람이 읽을 수 있는 말로
    바꾸는 일이다 (4차 감사 B3).
+
+   ── 품질책임자는 미리보기까지 들어온다 (사용자 지시 2026-09-16) ───────────
+   전에는 읽기 전용 세션이 열람(`?view=`)으로만 들어왔다. 여는 것이 곧 발행이던
+   때에는 그것이 맞았다 - 들어오면 회차가 올랐으니까.
+
+   이제 여는 것은 대장에 아무것도 남기지 않는다 (§7.1). 그러면 막아 둘 까닭이
+   남는 것은 **발행** 하나이고, 그 자리는 라우트 핸들러와 DB 가 이미 지킨다.
+
+   품질책임자는 **종이에 이름이 오르는 사람**이다. 그 종이가 나가기 전에 무엇이
+   담기는지 볼 자리가 있어야 한다 - 0103 이 "자기가 서명한 종이를 시스템에서 볼
+   수 없었다" 며 연 길의 앞쪽이 여기다.
+
+   **열람자(대표)는 그대로 둔다.** 숫자를 보는 자리이지 생산 서류를 보는 자리가
+   아니고 (lib/roles.ts), 이미 나간 종이는 지금도 열람으로 본다. 넓힐 까닭이
+   없으면 넓히지 않는다 (§1).
 --------------------------------------------------------------------------- */
 export async function printGate(view: boolean) {
   const me = await requireUser();
-  return { me, denied: !view && isReadOnly(me.roles) };
+  const qp = me.roles.includes('QP');
+  return { me, denied: !view && !qp && isReadOnly(me.roles) };
 }
 
 /* ---------------------------------------------------------------------------
@@ -333,8 +387,108 @@ async function pastPrint(a: LogArgs): Promise<PastPrint | null> {
   return row ?? null;
 }
 
+/* ---------------------------------------------------------------------------
+   발행권 - 화면에 그려진 그 자료로만 발행된다
+
+   미리보기가 대장에 쓰지 않게 되면서 물음이 하나 생긴다. 단추를 누를 때 서버는
+   **무엇을 대장에 적어야 하는가.** 그때 다시 조회해 셈하면 화면에 그려진 것과
+   다른 값을 적을 수 있고, 클라이언트가 보내는 값을 그냥 믿으면 아무 값이나
+   적힌다.
+
+   그래서 서버가 서명해 건넨다. 미리보기가 계산한 자료 식별자와 대상, 쪽 수를
+   한 묶음으로 봉해 화면에 실어 보내고, 단추는 그것을 그대로 돌려준다. 서버는
+   봉인만 확인하고 안에 든 값을 적는다.
+
+   열쇠는 인쇄 열쇠를 쓴다 (PRINT_SECRET). 자료 식별자를 만드는 것과 같은
+   열쇠이고, 둘 다 "이 종이가 우리 것인가" 를 답하는 자리다.
+
+   유효기간을 둔다. 어제 열어 둔 화면으로 오늘 발행하면 종이에 오늘 날짜가
+   찍히면서 내용은 어제 것이 된다. 그 종이는 대장과는 맞지만 사람이 읽기에
+   틀렸다. 화면을 열고 인쇄하기까지 걸릴 만한 시간보다 넉넉하되, 하루를 넘기지
+   않는 자리에서 끊는다.
+--------------------------------------------------------------------------- */
+const TICKET_TTL_MS = 30 * 60 * 1000;
+
+interface Ticket {
+  k: string;                   // kind
+  h: string;                   // data_hash
+  p: number;                   // pages
+  wo?: string | null; pl?: string | null; d?: number | null;
+  w?: string | null; ml?: string | null; eq?: string | null;
+  /** 제조기록서는 발행과 동시에 그 묶음이 잠긴다 (S04) */
+  lock?: boolean;
+  /** 그 종이에 담긴 제품 로트와 수량 (0105) */
+  lots?: { l: string; q: number }[];
+  exp: number;
+}
+
+function signTicket(t: Ticket): string {
+  const body = Buffer.from(JSON.stringify(t)).toString('base64url');
+  const sig = createHmac('sha256', printKey())
+    .update('dhr:print-ticket:v1').update(body).digest('base64url');
+  return `${body}.${sig}`;
+}
+
+/** 봉인이 우리 것이고 아직 살아 있는가. 아니면 null */
+export function readTicket(s: string): Ticket | null {
+  const [body, sig] = s.split('.');
+  if (!body || !sig) return null;
+  const want = createHmac('sha256', printKey())
+    .update('dhr:print-ticket:v1').update(body).digest('base64url');
+  /* 시간 차로 값을 캐낼 수 없게 길이부터 본다 */
+  if (sig.length !== want.length) return null;
+  let diff = 0;
+  for (let i = 0; i < want.length; i += 1) diff |= sig.charCodeAt(i) ^ want.charCodeAt(i);
+  if (diff !== 0) return null;
+
+  try {
+    const t = JSON.parse(Buffer.from(body, 'base64url').toString()) as Ticket;
+    return t.exp > Date.now() ? t : null;
+  } catch { return null; }
+}
+
+function makeTicket(a: LogArgs, hash: string): string {
+  return signTicket({
+    k: a.kind, h: hash, p: a.pages ?? 1,
+    wo: a.workOrderId ?? null, pl: a.productLotId ?? null,
+    d: a.dayNo ?? null, w: a.workerId ?? null,
+    ml: a.materialLotId ?? null, eq: a.equipmentId ?? null,
+    lock: a.lockDay || undefined,
+    lots: a.lots?.map((l) => ({ l: l.productLotId, q: l.qty })),
+    exp: Date.now() + TICKET_TTL_MS,
+  });
+}
+
+/**
+ * 발행권을 받아 대장에 한 줄 적는다. 인쇄 단추만 부른다.
+ *
+ * 여기가 대장에 쓰는 **유일한 자리**다 (§10 "인쇄 화면이 아닌 곳에서
+ * record_print 행 만들기"). 미리보기도 열람도 쓰지 않는다.
+ */
+export async function issueTicket(ticket: string): Promise<PrintMeta | { expired: true }> {
+  const t = readTicket(ticket);
+  if (!t) return { expired: true };
+
+  const me = await requireUser();
+  if (isReadOnly(me.roles)) {
+    /* DB 가 거부하지만 (app_readonly) 사람이 읽을 수 있는 말로 바꾼다 */
+    throw new Error('열람 권한으로는 발행할 수 없습니다');
+  }
+
+  return logPrint({
+    actorId: me.id, actorName: me.full_name,
+    kind: t.k as keyof typeof KIND_LABEL,
+    /* 봉인 안의 값을 그대로 적는다. 여기서 다시 셈하면 화면과 갈라진다 */
+    payload: null, presetHash: t.h,
+    workOrderId: t.wo, productLotId: t.pl, dayNo: t.d, workerId: t.w,
+    materialLotId: t.ml, equipmentId: t.eq,
+    pages: t.p, lockDay: t.lock,
+    lots: t.lots?.map((l) => ({ productLotId: l.l, qty: l.q })),
+  });
+}
+
 export async function logPrint(a: LogArgs): Promise<PrintMeta> {
-  const hash = dataHash(a.payload);
+  const hash = a.presetHash ?? dataHash(a.payload);
   const brand = await getBrand();
 
   /* -------------------------------------------------------------------------
@@ -388,6 +542,38 @@ export async function logPrint(a: LogArgs): Promise<PrintMeta> {
         retrievedAt: past.retrieved_at ? kstStamp(past.retrieved_at) : null,
         retrieveReason: past.retrieve_reason,
       },
+    };
+  }
+
+  /*
+   * 미리보기. 대장에 아무것도 남기지 않는다.
+   *
+   * 회차는 "이번에 인쇄하면 몇 회차가 되는가" 다. 그 숫자가 화면에 보여야
+   * 재발행인지 첫 발행인지 알고 단추를 누른다. 다만 아직 오르지는 않았다 -
+   * 같은 미리보기를 열 번 열어도 대장은 그대로다.
+   *
+   * 인쇄 시각과 인쇄자를 지어내지 않는다 (§1). 아직 아무 일도 일어나지 않았고,
+   * 종이에 그 칸이 비어 있는 것이 사실이다.
+   */
+  if (a.preview) {
+    const last = await pastPrint({ ...a, view: true });
+    return {
+      kind: a.kind,
+      kindLabel: KIND_LABEL[a.kind] ?? a.kind,
+      pages: a.pages ?? 1,
+      /* 발행하는 순간 DB 가 정한다. 화면이 미리 조립하지 않는다 (§10) */
+      docNo: null,
+      companyName: brand.companyName,
+      orgLine: orgLine(brand),
+      logoUrl: brand.hasLogo ? `/logo?v=${brand.logoUpdatedAt ?? '0'}` : null,
+      seq: (last?.seq ?? 0) + 1,
+      dataHash: hash,
+      printedAt: '',
+      printedBy: '',
+      preview: true,
+      readOnly,
+      /* 읽기 전용 세션에는 발행권을 주지 않는다. 눌러도 DB 가 거부한다 */
+      ticket: readOnly ? undefined : makeTicket(a, hash),
     };
   }
 

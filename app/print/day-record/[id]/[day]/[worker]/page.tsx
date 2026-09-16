@@ -181,9 +181,8 @@ export default async function DayRecordSheet({ params, searchParams }: {
   const { denied } = await printGate(!!view);
   if (denied) {
     return (
-      <Denied what="발행" need="생산관리자 또는 시스템관리자">
-        인쇄물을 뽑으면 인쇄 기록이 남고 제조기록서는 그 묶음이 잠깁니다.
-        이미 나간 종이를 보려면 인쇄 이력의 <b>보기</b>로 여십시오.
+      <Denied what="인쇄물" need="생산관리자 · 시스템관리자 또는 품질책임자">
+        이미 나간 종이는 인쇄 이력의 <b>보기</b>로 여십시오.
       </Denied>
     );
   }
@@ -260,31 +259,27 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = fal
   /* -------------------------------------------------------------------------
      뽑을 수 없으면 그 까닭을 종이 대신 화면으로 말한다
 
-     이 화면을 여는 것이 곧 인쇄이고 인쇄가 곧 마감이다 (S04). 그런데 종료
-     시각이 없는 공정이 있으면 마감이 거부된다 (0085) - 마감하면 그 칸이
-     영영 비기 때문이고, 맞는 거부다.
+     인쇄가 곧 마감이다 (S04). 그런데 종료 시각이 없는 공정이 있으면 마감이
+     거부된다 (0085) - 마감하면 그 칸이 영영 비기 때문이고, 맞는 거부다.
 
-     거부를 그대로 던지면 화면이 500 이 된다. 사람이 흔히 닿는 자리에서
-     서버 오류를 보여 주면 무엇을 해야 하는지 알 수 없다. 까닭을 적는다.
+     ── 기다리지 않고 먼저 본다 (2026-09-16) ────────────────────────────────
+     전에는 logPrint 가 던지는 거절을 잡아 이 안내를 냈다. 여는 것이 곧 발행이라
+     그 자리에서 거절이 올라왔기 때문이다.
+
+     이제 여는 것은 잠그지 않으므로 거절도 없다. 그대로 두면 **인쇄 단추를 누를
+     때까지 아무도 모르고**, 그때는 단추 옆 한 줄로 밖에 말하지 못한다 - 어느
+     공정이 비었는지가 빠진다.
+
+     그래서 자료에서 직접 본다. 답은 처음부터 여기 있었고 기다릴 것이 없었다.
+
+     열람은 막지 않는다. 이미 나간 종이를 다시 보는 자리다.
 
      판정하지 않는다. 무엇이 잘못됐다고 말하지 않고 **무엇이 비어 있어서
      아직 종이가 될 수 없는지**만 적는다 (§8.5).
   ------------------------------------------------------------------------- */
-  let meta;
-  try {
-    meta = await logPrint({
-      view,
-      actorId: user.id, actorName: user.full_name, kind: 'DAY_RECORD',
-      workOrderId: id, dayNo, workerId: worker,
-      payload: hashable({ head, records }),
-      pages: sheetCount,
-      lockDay: true,
-    });
-  } catch (e) {
-    const msg = dbMessage(e);
-    if (!msg.includes('종료 시각이 없는 공정')) throw e;
-
-    const open = records.filter((r) => !r.ended_at);
+  const unclosed = view ? [] : records.filter((r) => !r.ended_at);
+  if (unclosed.length > 0) {
+    const open = unclosed;
     return (
       <main className="mx-auto max-w-2xl px-6 py-16">
         <h1 className="text-xl font-bold text-ink">아직 기록서가 될 수 없습니다</h1>
@@ -318,6 +313,17 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = fal
       </main>
     );
   }
+
+  const meta = await logPrint({
+    view,
+    /* 여는 것은 미리보기다. 회차는 인쇄 단추가 올린다 (2026-09-16) */
+    preview: !view,
+    actorId: user.id, actorName: user.full_name, kind: 'DAY_RECORD',
+    workOrderId: id, dayNo, workerId: worker,
+    payload: hashable({ head, records }),
+    pages: sheetCount,
+    lockDay: true,
+  });
 
   return (
     <PrintFrame

@@ -60,9 +60,8 @@ export default async function ReleaseRequestSheet({
   const { denied } = await printGate(!!view);
   if (denied) {
     return (
-      <Denied what="발행" need="생산관리자 또는 시스템관리자">
-        인쇄물을 뽑으면 인쇄 기록이 남고 제조기록서는 그 묶음이 잠깁니다.
-        이미 나간 종이를 보려면 인쇄 이력의 <b>보기</b>로 여십시오.
+      <Denied what="인쇄물" need="생산관리자 · 시스템관리자 또는 품질책임자">
+        이미 나간 종이는 인쇄 이력의 <b>보기</b>로 여십시오.
       </Denied>
     );
   }
@@ -144,6 +143,8 @@ export default async function ReleaseRequestSheet({
 
   const meta = await logPrint({
     view,
+    /* 여는 것은 미리보기다. 회차는 인쇄 단추가 올린다 (2026-09-16) */
+    preview: !view,
     actorId: user.id, actorName: user.full_name, kind: 'RELEASE_REQUEST',
     workOrderId: id,
     payload: { head, rows: rows.map((r) => ({ lot: r.lot_no, qty: sel.get(r.id) })) },

@@ -3,13 +3,19 @@
 
      npm run view
 
-   이 시스템에서 인쇄 화면을 여는 것은 쓰기다. 열람이 그 성질을 물려받으면
-   "다시 보기" 를 누를 때마다 회차가 올라 앞 종이가 회수 대상이 된다.
-   그러니 **대장 줄 수를 세어** 확인한다.
+   대장에 쓰는 자리는 인쇄 단추 하나다 (2026-09-16). 화면을 여는 것은 - 발행할
+   화면이든 열람이든 - 아무것도 남기지 않는다. 그 규율이 지켜지는지 **대장 줄
+   수를 세어** 확인한다.
+
+   전에는 여는 것이 곧 발행이었고, 그때 이 시험이 물은 것은 "열람만은 안 쓰는가"
+   였다. 이제 묻는 것이 하나 늘었다 - **미리보기도 안 쓰는가.** 그 자리가
+   무너지면 화면을 한 번 훑는 것만으로 대장이 부푼다. 실제로 그랬다 - 화면 훑기
+   한 번이 아홉 줄을 남겼다.
 --------------------------------------------------------------------------- */
 import pg from 'pg';
 import { pgSsl } from './pgssl.mjs';
 import { sessionCookie, visibleText } from './session-cookie.mjs';
+import { printOut, tickets } from './issue-print.mjs';
 
 const BASE = process.argv[2] ?? 'http://localhost:3100';
 const url = process.env.DATABASE_URL;
@@ -30,6 +36,12 @@ const who = Object.fromEntries((await rows(
 const MGR = sessionCookie(who['100200']);      // 생산관리자
 const VIEW = sessionCookie(who['800100']);     // 경영열람 (읽기 전용)
 
+/* 품질책임자는 역할로 고른다 - 로그인 번호를 박으면 다른 제조소에서 안 돈다 */
+const qpId = await v(
+  `select u.id from app_user u join user_role r on r.user_id = u.id
+    where r.role = 'QP' and u.can_login limit 1`);
+const QP = qpId ? sessionCookie(qpId) : null;
+
 /* 공정 기록이 있는 배치를 고른다. 이름을 박으면 다른 DB 에서 안 돈다 */
 const woId = await v(
   `select pr.work_order_id from process_record pr
@@ -46,14 +58,59 @@ const get = async (path, ck) => {
   return { status: r.status, text: visibleText(await r.text()).replace(/\s{2,}/g, ' ') };
 };
 
-/* ── 1. 발행은 대장에 남는다 (전과 같아야 한다) ───────────────────────── */
-console.log('\n[1] 발행은 대장에 남는다');
+/* 발행권을 긁으려면 태그가 벗겨지지 않은 원문이 필요하다 */
+const raw = async (path, ck) =>
+  (await fetch(BASE + path, { headers: { cookie: ck }, redirect: 'manual' })).text();
+
+/* ── 1. 여는 것은 남지 않고, 단추가 남긴다 ───────────────────────────── */
+console.log('\n[1] 여는 것은 남지 않고, 단추가 남긴다');
 {
   const before = await logCount();
   const r = await get(`/print/cover/${woId}`, MGR);
+  const opened = await logCount();
+  ok(r.status === 200, '편철 표지 미리보기', `HTTP ${r.status}`);
+  ok(opened === before, '화면을 열어도 대장이 그대로다', `${before} → ${opened}`);
+  ok(r.text.includes('아직 발행되지 않았습니다'), '미발행이라고 종이에 적는다');
+
+  /* 사람이 하는 것과 같은 순서 - 화면이 내준 발행권으로 발행한다 */
+  const out = await printOut(BASE, `/print/cover/${woId}`, MGR);
   const after = await logCount();
-  ok(r.status === 200, '편철 표지 발행', `HTTP ${r.status}`);
-  ok(after === before + 1, '대장이 한 줄 늘었다', `${before} → ${after}`);
+  ok(out.issued.length === 1 && out.issued[0]?.ok === true, '인쇄 단추가 발행한다',
+     out.issued[0]?.reason ?? '');
+  ok(after === opened + 1, '그때 대장이 한 줄 는다', `${opened} → ${after}`);
+  ok(out.issued[0]?.meta?.preview !== true, '발행된 것에는 미발행 표시가 없다');
+}
+
+/* ── 1-2. 발행권 없이는 대장에 닿지 못한다 ───────────────────────────── */
+console.log('\n[1-2] 발행권 없이는 대장에 닿지 못한다');
+{
+  const post = async (body, ck = MGR, extra = {}) => {
+    const r = await fetch(`${BASE}/print/issue`, {
+      method: 'POST',
+      headers: { cookie: ck, 'content-type': 'application/json', ...extra },
+      body: JSON.stringify(body),
+    });
+    return { status: r.status, json: await r.json().catch(() => null) };
+  };
+
+  let before = await logCount();
+  let r = await post({ ticket: 'eyJrIjoiQ09WRVIifQ.ZGllIHNpZ25hdHVyZQ' });
+  ok(r.json?.ok === false && (await logCount()) === before, '지어낸 발행권은 거부된다');
+
+  before = await logCount();
+  r = await post({});
+  ok(r.json?.ok === false && (await logCount()) === before, '빈 요청은 거부된다');
+
+  /* 열람 화면은 발행권을 내주지 않는다 - 거절하기 전에 줄 것이 없다 */
+  ok(tickets(await raw(`/print/cover/${woId}?view=1`, MGR)).length === 0,
+     '열람 화면에는 발행권이 실리지 않는다');
+
+  /* 다른 자리에서 건너온 요청도 받지 않는다 */
+  before = await logCount();
+  const good = tickets(await raw(`/print/work-order/${woId}`, MGR))[0];
+  r = await post({ ticket: good }, MGR, { origin: 'http://evil.example' });
+  ok(r.status === 403 && (await logCount()) === before, '다른 출처에서는 발행되지 않는다',
+     `HTTP ${r.status}`);
 }
 
 /* ── 2. 열람은 대장에 남지 않는다 ────────────────────────────────────── */
@@ -96,7 +153,10 @@ console.log('\n[3] 그때 자료와 견주는가');
    * (§7), 제조기록서를 한 번 더 뽑으면 표지의 자료가 실제로 달라진다. 시스템이
    * 정상으로 하는 일로 바꾼다.
    */
-  await get(`/print/day-record/${woId}/${day.day_no}/${day.worker_id}`, MGR);
+  const again = await printOut(
+    BASE, `/print/day-record/${woId}/${day.day_no}/${day.worker_id}`, MGR);
+  ok(again.issued[0]?.ok === true, '제조기록서를 한 번 더 뽑는다',
+     again.issued[0]?.reason ?? '');
   const r2 = await get(`/print/cover/${woId}?view=1`, MGR);
   ok(r2.text.includes('그 종이가 나간 뒤에 자료가 바뀌었습니다'), '바뀐 것을 짚는다');
 }
@@ -106,7 +166,7 @@ console.log('\n[4] 경영열람 계정');
 {
   const before = await logCount();
   const issue = await get(`/print/cover/${woId}`, VIEW);
-  ok(issue.text.includes('권한') || issue.text.includes('발행'), '발행은 막힌다');
+  ok(issue.text.includes('권한 없음'), '미리보기가 막힌다');
   ok(!issue.text.includes('편철 서류 목록'), '종이 내용이 안 나온다');
 
   const read = await get(`/print/cover/${woId}?view=1`, VIEW);
@@ -114,6 +174,27 @@ console.log('\n[4] 경영열람 계정');
   ok(read.status === 200 && read.text.includes('열람'), '열람은 열린다',
      `HTTP ${read.status}`);
   ok(after === before, '경영열람이 대장을 건드리지 않았다', `${before} → ${after}`);
+}
+
+/* ── 4-2. 품질책임자 - 미리보기까지 들어온다 (사용자 지시 2026-09-16) ── */
+//
+// 종이에 이름이 오르는 사람이다. 그 종이가 나가기 전에 무엇이 담기는지 볼
+// 자리가 있어야 한다. 다만 발행하지는 않는다 - 발행권이 실리지 않는다.
+console.log('\n[4-2] 품질책임자');
+if (!QP) {
+  console.log('  건너뜀  품질책임자 계정이 없습니다');
+} else {
+  const before = await logCount();
+  const r = await get(`/print/cover/${woId}`, QP);
+  ok(r.status === 200 && !r.text.includes('권한 없음'), '미리보기가 열린다',
+     `HTTP ${r.status}`);
+  ok(r.text.includes('편철 서류 목록'), '종이 내용이 나온다');
+  ok(r.text.includes('아직 발행되지 않았습니다'), '미발행이라고 적는다');
+  ok(tickets(await raw(`/print/cover/${woId}`, QP)).length === 0,
+     '발행권이 실리지 않는다');
+  ok(r.text.includes('발행은 생산관리자가 합니다'), '누가 발행하는지 적는다');
+  ok((await logCount()) === before, '대장을 건드리지 않았다',
+     `${before} → ${await logCount()}`);
 }
 
 /* ── 5. 나간 적 없는 양식은 내용을 안 보여 준다 ──────────────────────── */
@@ -149,8 +230,9 @@ console.log('\n[6] 출하 승인 요청서');
   } else {
     /* 두 로트를 담아 한 장 발행한다 */
     const selA = `${lots[0].id}:1,${lots[1].id}:2`;
-    const a = await get(`/print/release-request/${woId}?sel=${selA}`, MGR);
-    ok(a.status === 200, '두 로트를 담아 발행', `HTTP ${a.status}`);
+    const a = await printOut(BASE, `/print/release-request/${woId}?sel=${selA}`, MGR);
+    ok(a.status === 200 && a.issued[0]?.ok === true, '두 로트를 담아 발행',
+       `HTTP ${a.status}${a.issued[0]?.reason ? ' · ' + a.issued[0].reason : ''}`);
 
     const seqA = await v(
       `select max(seq)::int from record_print
@@ -174,8 +256,9 @@ console.log('\n[6] 출하 승인 요청서');
     ok(r.text.includes('인쇄 대장에 남지 않습니다'), '열람이라고 말한다');
 
     /* 한 로트만 담아 **다른** 요청서를 낸다 */
-    const b = await get(`/print/release-request/${woId}?sel=${lots[0].id}:1`, MGR);
-    ok(b.status === 200, '다른 내용으로 한 장 더', `HTTP ${b.status}`);
+    const b = await printOut(BASE, `/print/release-request/${woId}?sel=${lots[0].id}:1`, MGR);
+    ok(b.status === 200 && b.issued[0]?.ok === true, '다른 내용으로 한 장 더',
+       `HTTP ${b.status}`);
 
     /*
      * 요청서 번호가 RR-{배치}-{회차} 이므로 회차가 오른 것은 **다른 종이**가
@@ -187,7 +270,7 @@ console.log('\n[6] 출하 승인 요청서');
     ok(Number(stale) === 0, '다른 요청서를 재출력으로 세지 않는다', `뒤에 ${stale}회`);
 
     /* 같은 내용을 다시 뽑으면 그건 재출력이다 */
-    await get(`/print/release-request/${woId}?sel=${selA}`, MGR);
+    await printOut(BASE, `/print/release-request/${woId}?sel=${selA}`, MGR);
     const real = await v(
       `select newer_count::int from v_print_lookup
         where kind = 'RELEASE_REQUEST' and work_order_id = $1 and seq = $2`, [woId, seqA]);

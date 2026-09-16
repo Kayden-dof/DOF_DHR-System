@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { requireUser } from '@/lib/session';
 import { withActor } from '@/lib/db';
-import { PrintBar } from '@/components/print-frame';
+import { PrintBar, PrintBundle } from '@/components/print-frame';
 import { printGate } from '@/lib/print';
 import Denied from '@/components/denied';
 import { DayRecordDoc } from '../[day]/[worker]/page';
@@ -17,7 +17,7 @@ export const metadata = { title: '제조기록서 묶음' };
    어차피 전부 필요하다.
 
    ── 마감된 묶음만 넣는다 ──────────────────────────────────────────────────
-   제조기록서는 **여는 것이 곧 마감**이다 (S04). 묶음 발행이 아직 작성 중인
+   제조기록서는 **발행이 곧 마감**이다 (S04). 묶음 발행이 아직 작성 중인
    일차까지 끌고 가면, 단추 한 번에 여러 날의 기록이 한꺼번에 잠긴다. 잠금을
    푸는 방법은 없다.
 
@@ -44,15 +44,17 @@ export default async function DayRecordBundle({ params }: {
   params: Promise<{ id: string }>;
 }) {
   /*
-   * 묶음은 발행 전용이다. 열람은 회차 하나를 여는 자리이고 묶음은 여러 묶음을
+   * 묶음에는 열람이 없다. 열람은 회차 하나를 여는 자리이고 묶음은 여러 묶음을
    * 한 문서로 내므로 회차가 하나로 서지 않는다.
+   *
+   * 그래서 문지기에 false 를 준다 - 품질책임자는 미리보기로 들어오고, 인쇄
+   * 단추 자리에는 발행은 생산관리자가 한다고 적힌다 (lib/print.ts).
    */
   const { denied } = await printGate(false);
   if (denied) {
     return (
-      <Denied what="발행" need="생산관리자 또는 시스템관리자">
-        인쇄물을 뽑으면 인쇄 기록이 남고 제조기록서는 그 묶음이 잠깁니다.
-        이미 나간 종이를 보려면 인쇄 이력의 <b>보기</b>로 여십시오.
+      <Denied what="인쇄물" need="생산관리자 · 시스템관리자 또는 품질책임자">
+        이미 나간 종이는 인쇄 이력의 <b>보기</b>로 여십시오.
       </Denied>
     );
   }
@@ -88,7 +90,7 @@ export default async function DayRecordBundle({ params }: {
           <h1 className="mb-2 text-lg font-bold text-ink">제조기록서 묶음</h1>
           <p className="rounded-lg border border-warn/40 bg-warn-bg px-4 py-3 text-sm leading-relaxed text-ink">
             마감된 일차가 없습니다. 묶음 발행은 이미 마감된 기록지만 냅니다.
-            아직 작성 중인 일차는 낱장으로 발행하며, 그때 그 묶음이 잠깁니다 (S04).
+            아직 작성 중인 일차는 낱장으로 발행하며, 그 인쇄로 묶음이 잠깁니다 (S04).
           </p>
         </div>
       </>
@@ -96,11 +98,10 @@ export default async function DayRecordBundle({ params }: {
   }
 
   return (
-    <>
-      <PrintBar
-        back={`/production/${id}`}
-        label="제조기록서 묶음"
-        right={
+    <PrintBundle
+      back={`/production/${id}`}
+      label="제조기록서 묶음"
+      right={
           <>
             배치 <b className="text-ink">{d.wo.batch_no}</b> · 마감된 묶음{' '}
             <b className="tnum text-ink">{locked.length}</b>건
@@ -111,7 +112,7 @@ export default async function DayRecordBundle({ params }: {
             )}
           </>
         }
-      />
+    >
 
       {/*
         * 작성 중인 일차를 조용히 빼지 않는다. 종이에는 나오지 않되 화면에는
@@ -133,6 +134,6 @@ export default async function DayRecordBundle({ params }: {
         <DayRecordDoc key={`${r.day_no}-${r.worker_id}`}
                       id={id} dayNo={r.day_no} worker={r.worker_id} bare />
       ))}
-    </>
+    </PrintBundle>
   );
 }

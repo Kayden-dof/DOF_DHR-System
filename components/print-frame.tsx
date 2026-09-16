@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import Barcode from './barcode';
-import { useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 export interface PrintMeta {
   kind: string;
@@ -32,6 +32,42 @@ export interface PrintMeta {
    * 화면은 발행이 아니라 **이미 나간 회차를 다시 보는 자리**가 된다.
    */
   view?: ViewMeta | null;
+
+  /**
+   * 미리보기. 아직 대장에 남지 않았다 (2026-09-16).
+   *
+   * 열람과 헷갈리지 않게 둘을 따로 둔다 - 열람은 **이미 나간 회차의 그때 값**
+   * 이고, 미리보기는 **아직 나가지 않은 지금 값**이다. 종이에 깔리는 말도
+   * 다르고 (열람용 / 미발행), 인쇄 단추가 하는 일도 다르다.
+   */
+  preview?: boolean;
+
+  /** 읽기 전용 세션인가. 발행 단추를 낼지 가른다 */
+  readOnly?: boolean;
+
+  /**
+   * 발행권. 미리보기일 때만 있다 (lib/print.ts).
+   *
+   * 서버가 봉한 값이라 화면이 안을 들여다볼 수 없고, 그럴 필요도 없다 -
+   * 인쇄 단추가 그대로 돌려주면 서버가 그것으로 대장에 적는다.
+   */
+  ticket?: string;
+}
+
+/* 인쇄 단추가 가는 곳. 대장에 쓰는 유일한 자리다 (app/print/issue/route.ts) */
+async function issuePrint(
+  ticket: string,
+): Promise<{ ok: true; meta: PrintMeta } | { ok: false; reason: string }> {
+  try {
+    const r = await fetch('/print/issue', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ticket }),
+    });
+    return await r.json();
+  } catch {
+    return { ok: false, reason: '연결이 끊겼습니다. 다시 눌러 보세요.' };
+  }
 }
 
 export interface ViewMeta {
@@ -53,6 +89,55 @@ export interface ViewMeta {
    머리글과 꼬리글은 모든 양식이 같다 (§7).
    화면에서만 보이는 조작 막대는 인쇄에서 사라진다.
 --------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------
+   발행하면 모든 장의 머리글이 함께 바뀐다
+
+   인쇄 단추를 누르면 회차 · 인쇄 시각 · 인쇄자가 그때 정해지고 미발행 표시가
+   빠진다. 그런데 장은 여럿이고 (작업 지시서는 공정이 많으면 두 장, 편철 표지는
+   뒤에 장을 더 단다) 그 장들은 화면이 그려질 때 이미 meta 를 받아 갔다.
+
+   한 장만 바뀌면 같은 문서의 앞장과 뒷장이 다른 회차를 적는다. 종이가 흩어졌을
+   때 그 장만 보고 어느 묶음인지 알 수 있어야 한다는 Sheet 의 약속이 거기서
+   깨진다. 그래서 위에서 한 번 내려보내고 장은 그것을 읽는다.
+--------------------------------------------------------------------------- */
+const MetaCtx = createContext<PrintMeta | null>(null);
+
+/* ---------------------------------------------------------------------------
+   묶음 발행 - 한 번에 뽑되 대장에는 묶음마다 한 줄
+
+   제조기록서 묶음은 마감된 일차를 한 문서로 낸다. 종이는 한 번에 나가지만
+   대장은 묶음마다 한 줄이어야 회차가 성립한다 (§7) - 열 일차를 한 번에 뽑으면
+   열 줄이 남고 각자 제 회차를 갖는다.
+
+   그래서 발행권도 묶음마다 하나다. 안에 든 양식들이 마운트하면서 자기 것을
+   올려 두고, 위의 단추가 그것을 모아 한꺼번에 발행한 뒤 각자에게 제 회차를
+   돌려준다.
+--------------------------------------------------------------------------- */
+const AddTicketCtx = createContext<((t: string) => void) | null>(null);
+const IssuedCtx = createContext<Map<string, PrintMeta> | null>(null);
+
+/** 머리띠 오른쪽 문구. 발행 전후로 말이 달라진다 */
+function barRight(m: PrintMeta) {
+  if (m.view) {
+    return m.view.neverIssued
+      ? <>아직 발행된 적이 없습니다</>
+      : <>
+          <b className="tnum text-ink">{m.seq}</b>회차를 봅니다 ·
+          {' '}{m.printedAt} {m.printedBy}
+        </>;
+  }
+  if (m.preview) {
+    return <>
+      인쇄하면 <b className="tnum text-ink">{m.seq}</b>회차로 남습니다
+      {m.seq > 1 && <span className="ml-1.5 font-bold text-warn">재발행</span>}
+    </>;
+  }
+  return <>
+    인쇄 회차 <b className="tnum text-ink">{m.seq}</b>
+    {m.seq > 1 && <span className="ml-1.5 font-bold text-warn">재발행</span>}
+  </>;
+}
+
 export default function PrintFrame({
   meta, title, subtitle, back, children, after, bare = false,
 }: {
@@ -66,27 +151,44 @@ export default function PrintFrame({
   /** 묶음 문서에 끼워 넣을 때. 인쇄 막대를 내지 않는다 */
   bare?: boolean;
 }) {
+  /*
+   * 발행된 뒤의 meta. 인쇄 단추가 채운다.
+   *
+   * 새로 고치면 다시 미리보기다 - 발행 사실을 주소에 싣지 않았기 때문이다.
+   * 실으면 그 주소를 다시 열 때마다 정본이 나오는 자리가 생긴다.
+   */
+  const [issued, setIssued] = useState<PrintMeta | null>(null);
+
+  /* 묶음 안에 있으면 위의 단추가 발행하고 제 회차를 여기로 돌려준다 */
+  const addTicket = useContext(AddTicketCtx);
+  const bundleIssued = useContext(IssuedCtx);
+  useEffect(() => {
+    if (bare && meta.ticket && addTicket) addTicket(meta.ticket);
+  }, [bare, meta.ticket, addTicket]);
+
+  const m = issued
+    ?? (meta.ticket ? bundleIssued?.get(meta.ticket) : null)
+    ?? meta;
+
+  /*
+   * 인쇄 대화상자는 **다시 그려진 뒤에** 연다. 단추 안에서 바로 부르면 아직
+   * 미발행 표시가 붙은 화면이 그대로 종이가 된다.
+   *
+   * 묶음 안에서는 열지 않는다 - 양식마다 열면 대화상자가 열 번 뜬다. 그 자리는
+   * 묶음의 단추 하나다.
+   */
+  useEffect(() => { if (issued) window.print(); }, [issued]);
 
   return (
-    <>
+    <MetaCtx.Provider value={m}>
       {!bare && (
-        <PrintBar back={back} label={meta.kindLabel} view={!!meta.view}
-                  right={
-                    meta.view
-                      ? (meta.view.neverIssued
-                          ? <>아직 발행된 적이 없습니다</>
-                          : <>
-                              <b className="tnum text-ink">{meta.seq}</b>회차를 봅니다 ·
-                              {' '}{meta.printedAt} {meta.printedBy}
-                            </>)
-                      : <>
-                          인쇄 회차 <b className="tnum text-ink">{meta.seq}</b>
-                          {meta.seq > 1 && <span className="ml-1.5 font-bold text-warn">재발행</span>}
-                        </>
-                  } />
+        <PrintBar back={back} label={m.kindLabel} view={!!m.view}
+                  ticket={m.ticket} onIssued={setIssued}
+                  readOnly={m.readOnly}
+                  right={barRight(m)} />
       )}
 
-      {meta.view && <ViewNote v={meta.view} seq={meta.seq} />}
+      {m.view && <ViewNote v={m.view} seq={m.seq} />}
 
       {/*
         * 나간 적이 없으면 내용을 그리지 않는다.
@@ -95,15 +197,15 @@ export default function PrintFrame({
         * 보여 주면 미리보기가 되고, 그러면 "본 것과 찍힌 것이 다르다" 가
         * 성립할 자리가 생긴다 (lib/print.ts 머리 주석).
         */}
-      {!meta.view?.neverIssued && (
+      {!m.view?.neverIssued && (
         <>
-          <Sheet meta={meta} title={title} subtitle={subtitle} page={1}>
+          <Sheet meta={m} title={title} subtitle={subtitle} page={1}>
             {children}
           </Sheet>
           {after}
         </>
       )}
-    </>
+    </MetaCtx.Provider>
   );
 }
 
@@ -162,13 +264,53 @@ function ViewNote({ v, seq }: { v: ViewMeta; seq: number }) {
    묶음 발행 화면이 여러 양식을 한 문서로 내므로, 막대를 양식에서 떼어 둔다.
    떼지 않으면 묶음 문서에 막대가 여러 번 나온다.
 --------------------------------------------------------------------------- */
-export function PrintBar({ back, label, right, view = false }: {
+export function PrintBar({
+  back, label, right, view = false, ticket, onIssued,
+  onPrint, busy: busyGiven, error: errGiven, readOnly = false,
+}: {
   back?: string; label: string; right?: React.ReactNode;
   /** 열람 모드. 인쇄 단추를 내지 않는다 */
   view?: boolean;
+  /**
+   * 읽기 전용 세션. 품질책임자가 미리보기로 들어오는 자리다 (lib/print.ts).
+   *
+   * 단추를 내지 않는다. 눌러도 대장에 닿지 못하지만 (발행권이 실리지 않고 DB 도
+   * 거부한다) 눌러 보고 나서 알게 하는 것은 화면이 할 일이 아니다.
+   */
+  readOnly?: boolean;
+  /**
+   * 발행권. 있으면 인쇄 단추가 **먼저 대장에 적고** 인쇄 대화상자를 연다.
+   * 없으면 이미 발행된 화면이므로 곧바로 연다 (lib/print.ts).
+   */
+  ticket?: string;
+  onIssued?: (m: PrintMeta) => void;
+  /** 발행을 바깥이 맡을 때 (묶음 발행). 그러면 ticket 은 쓰지 않는다 */
+  onPrint?: () => void;
+  busy?: boolean;
+  error?: string | null;
 }) {
   const [ready, setReady] = useState(false);
+  const [busyOwn, setBusyOwn] = useState(false);
+  const [errOwn, setErrOwn] = useState<string | null>(null);
   useEffect(() => setReady(true), []);
+
+  const busy = busyGiven ?? busyOwn;
+  const err = errGiven ?? errOwn;
+
+  async function own() {
+    if (!ticket) { window.print(); return; }
+    setBusyOwn(true); setErrOwn(null);
+    const r = await issuePrint(ticket);
+    setBusyOwn(false);
+    if (!r.ok) { setErrOwn(r.reason); return; }
+    /*
+     * 인쇄 대화상자는 여기서 열지 않는다. 머리글이 새 값으로 다시 그려진 뒤에
+     * PrintFrame 이 연다 - 여기서 부르면 미발행 표시가 붙은 채로 나간다.
+     */
+    onIssued?.(r.meta);
+  }
+
+  const print = onPrint ?? own;
 
   /*
    * 인쇄 화면의 머리띠 (2026-09-11).
@@ -196,14 +338,87 @@ export function PrintBar({ back, label, right, view = false }: {
           * 열람에는 인쇄 단추를 내지 않는다. 브라우저의 Ctrl+P 까지 막을 수는
           * 없으므로 종이 쪽에 "열람용 · 정본 아님" 을 깔아 둔다 (Sheet).
           */}
-        {!view && (
-          <button onClick={() => window.print()} disabled={!ready}
-                  className="btn-primary ml-auto h-9">
-            인쇄
-          </button>
+        {!view && !readOnly && (
+          <div className="ml-auto flex items-center gap-3">
+            {/*
+              * 막힌 까닭을 그 자리에서 말한다. 열람 권한이거나, 그 묶음이 이미
+              * 잠겼거나 (S04), 화면을 연 지 오래되었거나 - 셋 다 사람이 다음에
+              * 무엇을 해야 하는지가 문장에 들어 있다.
+              */}
+            {err && <span className="max-w-[28rem] text-xs text-danger">{err}</span>}
+            <button onClick={print} disabled={!ready || busy}
+                    className="btn-primary h-9">
+              {busy ? '등록 중 …' : '인쇄'}
+            </button>
+          </div>
+        )}
+
+        {!view && readOnly && (
+          <span className="ml-auto text-xs text-muted">발행은 생산관리자가 합니다</span>
         )}
       </div>
     </div>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   묶음 틀
+
+   안에 든 양식들의 발행권을 모아 한꺼번에 발행한다. 종이는 한 번 나가고 대장은
+   묶음 수만큼 늘어난다.
+
+   **하나라도 막히면 아무것도 발행하지 않는다.** 절반만 대장에 남으면 손에 든
+   종이 묶음과 대장이 어긋나고, 어느 장이 남았는지는 종이만 봐서는 알 수 없다.
+   제조기록서 묶음은 발행이 곧 마감이라 (S04) 되돌릴 수도 없다.
+--------------------------------------------------------------------------- */
+export function PrintBundle({ back, label, right, children }: {
+  back?: string; label: string; right?: React.ReactNode; children: React.ReactNode;
+}) {
+  const [tickets, setTickets] = useState<string[]>([]);
+  const [issued, setIssued] = useState<Map<string, PrintMeta> | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  /*
+   * 양식이 마운트하면서 올려 둔다. 같은 것을 두 번 담지 않는다 - 다시 그려질
+   * 때마다 쌓이면 한 묶음이 대장에 여러 줄을 남긴다.
+   */
+  const add = useCallback((t: string) => {
+    setTickets((prev) => (prev.includes(t) ? prev : [...prev, t]));
+  }, []);
+
+  useEffect(() => { if (issued) window.print(); }, [issued]);
+
+  async function print() {
+    if (issued || tickets.length === 0) { window.print(); return; }
+    setBusy(true); setErr(null);
+
+    const done = new Map<string, PrintMeta>();
+    for (const t of tickets) {
+      const r = await issuePrint(t);
+      if (!r.ok) {
+        setBusy(false);
+        setErr(done.size === 0
+          ? r.reason
+          : `${r.reason} (앞서 ${done.size}건은 이미 대장에 남았습니다)`);
+        /* 남은 것이라도 화면에 반영한다. 대장에 있는 것과 종이가 같아야 한다 */
+        if (done.size > 0) setIssued(done);
+        return;
+      }
+      done.set(t, r.meta);
+    }
+    setBusy(false);
+    setIssued(done);
+  }
+
+  return (
+    <AddTicketCtx.Provider value={add}>
+      <IssuedCtx.Provider value={issued}>
+        <PrintBar back={back} label={label} right={right}
+                  onPrint={print} busy={busy} error={err} />
+        {children}
+      </IssuedCtx.Provider>
+    </AddTicketCtx.Provider>
   );
 }
 
@@ -215,7 +430,7 @@ export function PrintBar({ back, label, right, view = false }: {
    보고 알 수 있어야 한다.
 --------------------------------------------------------------------------- */
 export function Sheet({
-  meta, title, subtitle, page = 1, children,
+  meta: given, title, subtitle, page = 1, children,
 }: {
   meta: PrintMeta;
   title: string;
@@ -223,6 +438,11 @@ export function Sheet({
   page?: number;
   children: React.ReactNode;
 }) {
+  /*
+   * 틀 안에 있으면 틀이 내려보내는 값을 쓴다. 발행하면 그 값이 바뀌므로 장이
+   * 여럿이어도 전부 같은 회차를 적는다. 틀 밖에서 홀로 쓰이면 받은 것을 쓴다.
+   */
+  const meta = useContext(MetaCtx) ?? given;
   /*
    * 나간 적이 없으면 장을 그리지 않는다.
    *
@@ -260,7 +480,7 @@ export function Sheet({
           * 1회차에는 아무것도 넣지 않는다. 평소와 다른 것에만 표시가 붙어야
           * 그 표시가 눈에 들어온다.
           */}
-        {reissued && !meta.view && (
+        {reissued && !meta.view && !meta.preview && (
           <div
             aria-hidden
             className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden"
@@ -294,6 +514,34 @@ export function Sheet({
             <p className="mb-2 border border-black px-2 py-1 text-center text-[10px] font-bold">
               열람용입니다. 발행된 종이가 아니며 인쇄 대장에 남지 않았습니다.
               {meta.view.changed && ' 그 종이가 나간 뒤에 자료가 바뀌었습니다.'}
+            </p>
+          </>
+        )}
+
+        {/*
+          * 미발행 표시 (2026-09-16).
+          *
+          * 인쇄 단추를 누르기 전의 화면이다. 단추는 대장에 적고 나서 인쇄
+          * 대화상자를 열지만, 브라우저의 Ctrl+P 까지 막을 수는 없다. 그렇게
+          * 나간 종이는 **대장에 없는 종이**이고, 그것이 이 시스템이 가장 막고
+          * 싶어 하는 상태다 (§10 "대장에는 실제 종이만 남는다").
+          *
+          * 열람과 같은 어법을 쓰되 말이 다르다. 열람은 이미 나간 것의 사본이고
+          * 이것은 아직 나가지 않은 것이다. 인쇄 일시 · 인쇄자 칸이 비어 있는
+          * 것도 사실이므로 지어내지 않고 그대로 둔다 (§1).
+          */}
+        {meta.preview && (
+          <>
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden"
+            >
+              <span className="-rotate-[24deg] whitespace-nowrap text-[64px] font-bold tracking-[0.1em] text-black/[0.13]">
+                미발행 · 정본 아님
+              </span>
+            </div>
+            <p className="mb-2 border border-black px-2 py-1 text-center text-[10px] font-bold">
+              아직 발행되지 않았습니다. 인쇄 대장에 남기려면 화면의 인쇄 단추를 누르세요.
             </p>
           </>
         )}

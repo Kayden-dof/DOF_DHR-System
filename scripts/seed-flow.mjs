@@ -9,6 +9,7 @@
 --------------------------------------------------------------------------- */
 import pg from 'pg';
 import { sessionCookie } from './session-cookie.mjs';
+import { printOut } from './issue-print.mjs';
 import { pgSsl } from './pgssl.mjs';
 
 const url = process.env.DATABASE_URL;
@@ -75,7 +76,11 @@ const FLOW_DAYS = 30;
    섞은 HMAC 이라 값이 아예 달랐다. 그래서 시연 자료의 종이를 열람하면 전부
    "그 뒤에 자료가 바뀌었습니다" 가 떴다 (2026-09-09).
 
-   화면을 열면 앱이 회차를 매기고 해시를 만들고 묶음을 잠근다. 하나뿐인 자리다.
+   화면을 열고 **인쇄 단추를 누르면** 앱이 회차를 매기고 해시를 만들고 묶음을
+   잠근다 (2026-09-16). 하나뿐인 자리다.
+
+   여는 것만으로는 아무것도 남지 않으므로 시드도 사람과 같은 순서를 밟는다 -
+   화면이 내준 발행권으로 발행한다 (scripts/issue-print.mjs).
 
    PRINT_BASE 가 없으면 안 뽑는다. 그때는 잠금도 없다 - 인쇄가 곧 잠금이므로
    (S04) 종이 없이 잠그는 길을 따로 내지 않는다.
@@ -102,16 +107,22 @@ async function releaseRequest(woId, batchNo, picks) {
       order by seq desc limit 1`, [woId]);
 }
 
-/** 그 사람으로 인쇄 화면을 연다. 열면 발행이다 */
+/** 그 사람으로 인쇄 화면을 열고 인쇄 단추를 누른다 */
 async function paper(path, userId) {
   if (!PRINT_BASE) return null;
-  const r = await fetch(PRINT_BASE + path, {
-    headers: { cookie: sessionCookie(userId) }, redirect: 'manual',
-  });
-  if (r.status !== 200) {
-    throw new Error(`인쇄 화면이 열리지 않았습니다 (${r.status}) ${path}`);
+  const out = await printOut(PRINT_BASE, path, sessionCookie(userId));
+  if (out.status !== 200) {
+    throw new Error(`인쇄 화면이 열리지 않았습니다 (${out.status}) ${path}`);
   }
-  await r.text();
+  /*
+   * 발행권이 없으면 뽑힌 종이가 없다는 뜻이다. 조용히 넘어가면 시연 자료에
+   * 종이가 빠진 채 서고, 그 빈 자리는 나중에 채울 수 없다.
+   */
+  if (out.issued.length === 0) {
+    throw new Error(`발행권이 실리지 않았습니다 ${path}`);
+  }
+  const bad = out.issued.find((x) => !x.ok);
+  if (bad) throw new Error(`인쇄가 등록되지 않았습니다 (${bad.reason}) ${path}`);
   return true;
 }
 

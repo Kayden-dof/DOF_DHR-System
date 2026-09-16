@@ -27,6 +27,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { pgSsl } from '../scripts/pgssl.mjs';
 import { sessionCookie, visibleText } from '../scripts/session-cookie.mjs';
+import { printOut } from '../scripts/issue-print.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const BASE = process.argv[2] ?? 'http://localhost:3100';
@@ -315,7 +316,22 @@ function inCell(cellText, value) {
 }
 
 async function sheet(name, formPath, checks, signBoxes, register) {
-  const r = await fetch(`${BASE}${formPath}`, { headers: { cookie } });
+  /* -------------------------------------------------------------------------
+     발행하고 **그 회차를 다시 열어** 대조한다 (2026-09-16)
+
+     회차는 인쇄 단추가 올린다. 화면을 여는 것만으로는 종이가 나가지 않으므로,
+     미리보기 HTML 에는 회차도 인쇄 시각도 인쇄자도 없다 - 아직 아무 일도
+     일어나지 않았으니 비어 있는 것이 맞다. 그것을 대장과 견주면 언제나 어긋난다.
+
+     발행한 뒤 열람으로 열면 **그때 종이에 찍힌 값**이 그대로 나온다 (§7.1).
+     사람이 손에 든 종이와 같은 값이고, 이 시험이 견주어야 하는 것도 그것이다.
+  ------------------------------------------------------------------------- */
+  const issue = await printOut(BASE, formPath, cookie);
+  const seq = issue.issued[0]?.meta?.seq;
+  const readPath = seq
+    ? formPath + (formPath.includes('?') ? '&' : '?') + `view=${seq}`
+    : formPath;
+  const r = await fetch(`${BASE}${readPath}`, { headers: { cookie } });
   say('');
   say(`${name}   ${formPath}`);
   say('-'.repeat(96));

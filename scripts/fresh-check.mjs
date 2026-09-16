@@ -300,6 +300,7 @@ async function papers(base, env, label, productCode = null) {
   await c.end();
 
   const { sessionCookie } = await import('./session-cookie.mjs');
+  const { printOut } = await import('./issue-print.mjs');
   const cookie = sessionCookie(admin);
 
   const want = [
@@ -320,17 +321,25 @@ async function papers(base, env, label, productCode = null) {
       bad = 1;
       continue;
     }
-    const r = await fetch(base + path_, { headers: { cookie } });
-    const html = await r.text();
+    /*
+     * 여는 것으로는 종이가 나가지 않는다 (2026-09-16). 사람과 같은 순서를
+     * 밟는다 - 화면을 열고, 거기 실려 온 발행권으로 발행한다. 그래야 "종이가
+     * 나왔다" 가 대장으로 확인된다.
+     */
+    const r = await printOut(base, path_, cookie);
+    const html = r.html;
     /* 200 만으로는 모자란다. 부품이 서버에서 죽으면 그 자리가 비고 200 이 된다 */
     const drawn = /<h1[^>]*>/.test(html) && html.length > 4000;
     /* 그리고 그 배치의 값이 실제로 실려 있어야 한다 */
     const held = !carries || html.includes(carries);
-    const ok = r.status === 200 && drawn && held;
+    /* 대장에 남았는가. 발행권이 안 실렸으면 뽑힌 종이가 없다는 뜻이다 */
+    const inked = r.issued.length > 0 && r.issued.every((x) => x.ok);
+    const ok = r.status === 200 && drawn && held && inked;
     if (!ok) bad = 1;
     console.log(`  ${ok ? '나옴  ' : '못 나옴'}  ${name.padEnd(18)}`
       + `${r.status} · ${html.length.toLocaleString()}자`
-      + (carries ? `  ${held ? '담김' : '안 담김'} "${carries}"` : ''));
+      + (carries ? `  ${held ? '담김' : '안 담김'} "${carries}"` : '')
+      + `  ${inked ? '대장에 남음' : '대장에 안 남음'}`);
   }
   return bad;
 }
