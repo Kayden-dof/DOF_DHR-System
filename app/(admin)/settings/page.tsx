@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import Denied from '@/components/denied';
-import { requireUser, blocksViewer, canWrite, hasRole } from '@/lib/session';
+import { requireUser, canWrite, hasRole, blocksScreen } from '@/lib/session';
 import { fmtDateTime, fmtTime } from '@/lib/fmt';
 import { withActor } from '@/lib/db';
 import { NUMBERING_TARGETS, M1_CRITICAL_TARGETS } from '@/lib/forms';
@@ -76,7 +76,7 @@ export default async function SettingsHome() {
    * 품질책임자는 들어온다 (사용자 지시 2026-09-01) - 채번 규칙 · 공급자 ·
    * 제품표준서 · 사용자 · 감사추적이 이 아래에 있고, 그것이 기준을 보는 자리다.
    */
-  if (blocksViewer(user)) return <Denied what="이 화면" need="생산관리자 또는 시스템관리자" />;
+  if (blocksScreen(user, '/settings')) return <Denied what="이 화면" need="생산관리자 또는 시스템관리자" />;
   const writable = canWrite(user);
 
 
@@ -215,7 +215,7 @@ export default async function SettingsHome() {
    * 손으로 하나 더 들고 있었고, 역할이 늘 때마다 세 곳을 따로 고쳐야 했다.
    */
   const mine = <T extends { href: string }>(xs: T[]) =>
-    xs.filter((x) => canOpen(x.href, user.roles));
+    xs.filter((x) => canOpen(x.href, user.roles, user.screens));
 
   const cards = [
     { href: '/settings/numbering', title: '채번 규칙',
@@ -257,7 +257,7 @@ export default async function SettingsHome() {
       section="설정"
       title="기준정보와 계정"
       lede="여기서 정한 것이 생산 화면의 선택지가 됩니다."
-      nav={<SubNav items={settingsNav(user.roles)} />}
+      nav={<SubNav items={settingsNav(user.roles, user.screens)} />}
     >
       {writable && blocking.length > 0 && (
         <div className="card border-warn/40 bg-warn-bg p-4">

@@ -1,4 +1,4 @@
-import { requireUser, hasRole, canWrite } from '@/lib/session';
+import { requireUser, hasRole, canWrite, blocksScreen } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import { ROLE_LABEL, ROLE_NOTE, ROLE_ORDER } from '@/lib/roles';
 import Denied from '@/components/denied';
@@ -31,7 +31,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Search
    * 품질책임자는 읽기 전용 세션이라 계정을 만들거나 역할을 주고받는 단추가
    * 그려지지 않는다.
    */
-  if (!hasRole(me, 'SYS_ADMIN', 'PROD_MGR', 'QP')) {
+  if (blocksScreen(me, '/settings/users')) {
     return <Denied what="사용자 · 역할" need="생산관리자 · 시스템관리자 또는 품질책임자" />;
   }
   const writable = canWrite(me);
@@ -126,7 +126,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Search
       title="사용자 · 역할"
       lede="계정은 삭제하지 않고 비활성화합니다. 역할 부여와 회수는 모두 감사추적에 남습니다."
       action={writable ? <NewUserForm sysAdmin={hasRole(me, 'SYS_ADMIN')} /> : null}
-      nav={<SubNav items={settingsNav(me.roles)} />}
+      nav={<SubNav items={settingsNav(me.roles, me.screens)} />}
     >
 
       <FilterBar

@@ -3,6 +3,9 @@ import { withActor } from '@/lib/db';
 import { redirect } from 'next/navigation';
 import { requireUser, hasRole, ROLE_LABEL } from '@/lib/session';
 import { isAdmin, isWorker, isViewerOnly, isQpOnly } from '@/lib/roles';
+import { canOpen } from '@/lib/access';
+import { headers } from 'next/headers';
+import { PATH_HEADER } from '@/lib/auth-const';
 import Watermark, { stamp } from '@/components/watermark';
 import BackFab from '@/components/back-fab';
 import DemoBanner from '@/components/demo-banner';
@@ -68,7 +71,19 @@ export default async function AdminLayout({ children }: { children: React.ReactN
    * 기준으로 돌고 있는지를 봐야 한다. 세션은 읽기 전용이다 (lib/roles.ts).
    */
   const qp = isQpOnly(user.roles);
-  if (!isAdmin(user.roles) && !viewer && !qp) {
+
+  /*
+   * 관리 화면 그룹 전체의 문이다.
+   *
+   * 여기까지 오는 역할이 아니어도 **관리자가 이 화면을 열어 주었으면 들인다**
+   * (0116). 그러지 않으면 계정별 배정으로 열어 준 자리가 이 한 줄에 막혀
+   * 아무 뜻이 없다.
+   *
+   * 경로는 미들웨어가 실어 준다 (proxy.ts).
+   */
+  const here = (await headers()).get(PATH_HEADER);
+  const opened = here ? user.screens.get(here) === true : false;
+  if (!isAdmin(user.roles) && !viewer && !qp && !opened) {
     redirect(isWorker(user.roles) ? '/work' : '/no-role');
   }
 
@@ -137,6 +152,15 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         { href: '/settings', label: '설정' },
       ];
 
+  /*
+   * 관리자가 닫아 둔 자리는 머리줄에서도 뺀다 (0116).
+   *
+   * 위 목록은 역할이 정하는 **기본 차림**이다. 계정마다 배정이 다르면 그대로
+   * 걸러 낸다 - 못 여는 자리를 내놓고 눌렀을 때 막는 것보다 아예 보이지
+   * 않는 편이 낫다. 문은 requireUser 가 한 번 더 지킨다 (lib/session.ts).
+   */
+  const menu = items.filter((n) => canOpen(n.href, user.roles, user.screens));
+
   const initial = user.full_name.slice(0, 1);
 
   /*
@@ -189,7 +213,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </Link>
 
           <div className="flex h-full min-w-0 flex-1 items-stretch">
-            <Nav items={items} />
+            <Nav items={menu} />
           </div>
 
           <div className="flex shrink-0 items-center gap-3">

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { requireUser, hasRole, canWrite } from '@/lib/session';
+import { requireUser, hasRole, canWrite, blocksScreen } from '@/lib/session';
 import { withUser } from '@/lib/db';
 import { fmtDate, fmtDateTime } from '@/lib/fmt';
 import { WO_STATUS_LABEL } from '@/lib/forms';
@@ -39,7 +39,7 @@ const TONE: Record<string, string> = {
 
 export default async function ProductionPage({ searchParams }: { searchParams: Search }) {
   const user = await requireUser();
-  if (!hasRole(user, 'SYS_ADMIN', 'PROD_MGR', 'VIEWER', 'QP')) {
+  if (blocksScreen(user, '/production')) {
     return <Denied what="생산 관리" need="생산관리자 또는 시스템관리자" />;
   }
   /* 순수 열람자면 쓰기 단추를 감춘다 */

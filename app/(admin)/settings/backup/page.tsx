@@ -1,4 +1,4 @@
-import { requireUser, hasRole } from '@/lib/session';
+import { requireUser, hasRole, blocksScreen } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import Denied from '@/components/denied';
 import { PageShell } from '@/components/shell';
@@ -61,7 +61,7 @@ const STALE_DAYS = 7;
 
 export default async function BackupPage() {
   const me = await requireUser();
-  if (!hasRole(me, 'SYS_ADMIN')) {
+  if (blocksScreen(me, '/settings/backup')) {
     return <Denied what="백업" need="시스템관리자" />;
   }
 
@@ -104,7 +104,7 @@ export default async function BackupPage() {
           사내 규정대로 보관하십시오.
         </>
       }
-      nav={<SubNav items={settingsNav(me.roles)} />}
+      nav={<SubNav items={settingsNav(me.roles, me.screens)} />}
     >
       {/*
         * 뜨는 것과 넣는 것을 나란히 세운다 (사용자 요청 2026-09-01).

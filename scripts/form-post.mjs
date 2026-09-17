@@ -83,9 +83,23 @@ function unescapeHtml(s) {
 export async function submitForm(base, path, cookie, want, values) {
   const html = await (await fetch(base + path, { headers: { cookie } })).text();
 
+  /*
+   * 폼을 고를 때는 단추 이름도 센다.
+   *
+   * 단추(<button name="state" value="…">)는 **누른 것만** 전송되므로 보낼 값에
+   * 넣으면 안 된다. 다만 그 이름이 곧 그 폼이 무엇을 하는 자리인지를 말하므로,
+   * 고르는 데는 쓴다. 이것을 안 보면 단추로 값을 정하는 폼은 영영 못 찾는다.
+   */
   const hit = forms(html)
-    .map((f) => ({ f, v: fields(f) }))
-    .find(({ v }) => want.every((k) => v.has(k)));
+    .map((f) => ({
+      f,
+      v: fields(f),
+      names: new Set([
+        ...fields(f).keys(),
+        ...[...f.matchAll(/<button[^>]*name="([^"]*)"/g)].map((m) => m[1]),
+      ]),
+    }))
+    .find(({ names }) => want.every((k) => names.has(k)));
 
   if (!hit) return { ok: false, status: 0, reason: `그 폼이 화면에 없습니다 (${want.join(', ')})` };
 

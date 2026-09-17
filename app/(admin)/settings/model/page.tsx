@@ -1,4 +1,4 @@
-import { requireUser, hasRole } from '@/lib/session';
+import { requireUser, hasRole, blocksScreen } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import Denied from '@/components/denied';
 import { PageShell } from '@/components/shell';
@@ -22,7 +22,7 @@ export const metadata = { title: '형명 체계' };
 
 export default async function ModelSchemePage() {
   const user = await requireUser();
-  if (!hasRole(user, 'SYS_ADMIN')) {
+  if (blocksScreen(user, '/settings/model')) {
     return <Denied what="형명 체계" need="시스템관리자" />;
   }
 
@@ -61,7 +61,7 @@ export default async function ModelSchemePage() {
           라벨요청서와 출하 승인 요청서에 그대로 나갑니다.
         </>
       }
-      nav={<SubNav items={settingsNav(user.roles)} />}
+      nav={<SubNav items={settingsNav(user.roles, user.screens)} />}
     >
       {d.schemes.length === 0 && (
         <div className="card border-warn/40 bg-warn-bg p-4">

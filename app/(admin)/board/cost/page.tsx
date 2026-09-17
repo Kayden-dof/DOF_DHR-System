@@ -1,5 +1,5 @@
 import React from 'react';
-import { requireUser, hasRole } from '@/lib/session';
+import { requireUser, hasRole, blocksScreen } from '@/lib/session';
 import Link from 'next/link';
 import { withUser } from '@/lib/db';
 import { fmtDate } from '@/lib/fmt';
@@ -55,7 +55,7 @@ export default async function CostPage() {
    * 원가가 빠지면 결론이 반쪽이다. 품질책임자는 넣지 않는다 - 그쪽이 보는 것은
    * 돈이 아니라 기준이다.
    */
-  if (!hasRole(user, 'SYS_ADMIN', 'PROD_MGR', 'VIEWER')) {
+  if (blocksScreen(user, '/board/cost')) {
     return <Denied what="원가 조회" need="생산관리자 · 시스템관리자 또는 경영열람" />;
   }
 

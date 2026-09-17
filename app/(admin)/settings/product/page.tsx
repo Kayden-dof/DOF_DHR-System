@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { requireUser, blocksViewer } from '@/lib/session';
+import { requireUser, blocksScreen } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import { fmtDate } from '@/lib/fmt';
 import Denied from '@/components/denied';
@@ -60,7 +60,7 @@ interface Row {
 export default async function ProductSetupPage() {
   const user = await requireUser();
   /* 열람자에게 열어 둔 화면이 아니다. 제품표준서 화면과 같은 문이다 */
-  if (blocksViewer(user)) return <Denied what="이 화면" need="생산관리자 또는 시스템관리자" />;
+  if (blocksScreen(user, '/settings/product')) return <Denied what="이 화면" need="생산관리자 또는 시스템관리자" />;
 
   const d = await withActor(user.id, async (db) => ({
     rows: await db.rows<Row>(
@@ -147,7 +147,7 @@ export default async function ProductSetupPage() {
       section="설정"
       title="제품 세우기"
       lede="제품 하나가 어디까지 섰는지 한 자리에서 봅니다. 넣는 것은 제품표준서 작업대에서 하고, 여기서는 빈 곳을 짚어 그 화면으로 보냅니다."
-      nav={<SubNav items={settingsNav(user.roles)} />}
+      nav={<SubNav items={settingsNav(user.roles, user.screens)} />}
     >
       {d.rows.length === 0 ? (
         <Empty hint="생산 > 제품에서 완제품을 만들고 제품표준서 개정을 등록합니다.">

@@ -1,4 +1,4 @@
-import { requireUser, hasRole, canWrite } from '@/lib/session';
+import { requireUser, hasRole, canWrite, blocksScreen } from '@/lib/session';
 import { withUser } from '@/lib/db';
 import { getBrand } from '@/lib/brand';
 import Denied from '@/components/denied';
@@ -31,7 +31,7 @@ export const metadata = { title: '설비' };
 
 export default async function EquipmentPage() {
   const user = await requireUser();
-  if (!hasRole(user, 'SYS_ADMIN', 'PROD_MGR', 'QP')) {
+  if (blocksScreen(user, '/equipment')) {
     return <Denied what="설비 관리" need="생산관리자 또는 시스템관리자" />;
   }
 

@@ -1,4 +1,4 @@
-import { requireUser, hasRole, canWrite } from '@/lib/session';
+import { requireUser, hasRole, canWrite, blocksScreen } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import { NUMBERING_TARGETS } from '@/lib/forms';
 import Denied from '@/components/denied';
@@ -37,7 +37,7 @@ export default async function NumberingPage() {
    *
    * 품질책임자는 읽기 전용 세션이라 등록 · 교체 단추가 그려지지 않는다.
    */
-  if (!hasRole(user, 'SYS_ADMIN', 'PROD_MGR', 'QP')) {
+  if (blocksScreen(user, '/settings/numbering')) {
     return <Denied what="채번 규칙" need="생산관리자 · 시스템관리자 또는 품질책임자" />;
   }
   const writable = canWrite(user);
@@ -88,7 +88,7 @@ export default async function NumberingPage() {
           지시서를 취소해도 그 번호는 소멸합니다.
         </>
       }
-      nav={<SubNav items={settingsNav(user.roles)} />}
+      nav={<SubNav items={settingsNav(user.roles, user.screens)} />}
     >
 
       <div className="card p-4">

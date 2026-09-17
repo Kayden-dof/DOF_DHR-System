@@ -3,7 +3,7 @@ import {
   readAllow, allows, clientIp, readCountries, clientCountry,
   readPlaces, placeAllows, clientRegion, clientCity,
 } from '@/lib/net';
-import { SESSION_COOKIE } from '@/lib/auth-const';
+import { SESSION_COOKIE, PATH_HEADER } from '@/lib/auth-const';
 
 /* ---------------------------------------------------------------------------
    접속지 제한 (망 경계)
@@ -99,6 +99,26 @@ async function note(
  * 파일 이름은 proxy.ts 다. Next 16 에서 middleware 가 이 이름으로 바뀌었다.
  */
 export function proxy(req: NextRequest, event: NextFetchEvent) {
+  /* -------------------------------------------------------------------------
+     지나가는 길에 경로를 적어 둔다 (0116 · 계정별 화면 권한)
+
+     화면이 "내가 어느 주소인가" 를 알 길이 없다. 서버 컴포넌트에는 경로가
+     오지 않으므로, 모든 화면이 부르는 문지기(requireUser)가 계정별 배정을
+     판정하려면 누군가 그 값을 실어 줘야 한다.
+
+     여기가 그 자리다. 이 미들웨어는 matcher 없이 **모든 요청**에 돌고, 머리글
+     하나를 더하는 것은 값이 싸다.
+
+     **밖에서 온 값은 쓰지 않는다.** 같은 이름의 머리글을 손으로 붙여 보내면
+     문지기가 남의 경로로 판정하게 된다. 그래서 요청에 있던 것을 지우고 우리가
+     본 경로로 덮는다.
+  ------------------------------------------------------------------------- */
+  const pass = () => {
+    const h = new Headers(req.headers);
+    h.set(PATH_HEADER, req.nextUrl.pathname);
+    return NextResponse.next({ request: { headers: h } });
+  };
+
   const { rules, bad } = readAllow(process.env.ALLOW_FROM);
   const { list: countries, bad: countryBad } = readCountries(process.env.ALLOW_COUNTRY);
   const { list: regions } = readPlaces(process.env.ALLOW_REGION);
@@ -111,12 +131,12 @@ export function proxy(req: NextRequest, event: NextFetchEvent) {
   }
   if (rules.length === 0 && countries.length === 0
       && regions.length === 0 && cities.length === 0) {
-    return NextResponse.next();
+    return pass();
   }
 
   const path = req.nextUrl.pathname;
   if (OWN_LOCK.some((p) => path === p || path.startsWith(p + '/'))) {
-    return NextResponse.next();
+    return pass();
   }
 
   /*
@@ -167,7 +187,7 @@ export function proxy(req: NextRequest, event: NextFetchEvent) {
     return where('CITY');
   }
 
-  if (rules.length === 0) return NextResponse.next();
+  if (rules.length === 0) return pass();
 
   /*
    * 접속지를 알 수 없으면 막는다.
@@ -185,7 +205,7 @@ export function proxy(req: NextRequest, event: NextFetchEvent) {
     return where('ADDRESS');
   }
 
-  return NextResponse.next();
+  return pass();
 }
 
 /*

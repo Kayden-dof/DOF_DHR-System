@@ -1,10 +1,12 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { withActor } from './db';
 import type { RoleCode } from './roles';
-import { isViewerOnly, isReadOnly } from './roles';
-import { SESSION_COOKIE as COOKIE } from './auth-const';
+import { isViewerOnly, isReadOnly, homePath } from './roles';
+import { screenAccess } from './access';
+import { SESSION_COOKIE as COOKIE, PATH_HEADER } from './auth-const';
+import { canOpen } from './access';
 
 /* ---------------------------------------------------------------------------
    세션
@@ -29,6 +31,13 @@ export interface SessionUser {
   /** 만든 사람이 비밀번호를 아는 상태. 본인이 바꾸기 전에는 다른 화면으로 가지 않는다 */
   must_change_pin: boolean;
   roles: RoleCode[];
+  /**
+   * 관리자가 이 사람에게 따로 정한 화면 (user_screen · 0116).
+   *
+   * 손댄 칸만 들어 있다. 없는 칸은 역할 기본값을 따르므로, 여기가 비어 있는
+   * 것이 정상이고 그때는 지금까지와 똑같이 움직인다.
+   */
+  screens: ReadonlyMap<string, boolean>;
 }
 
 function secret(): Buffer {
@@ -144,13 +153,21 @@ export async function currentUser(): Promise<SessionUser | null> {
     const row = await db.one<{
       id: string; login_code: string; full_name: string;
       is_developer: boolean; must_change_pin: boolean; roles: RoleCode[] | null;
-      pin_changed_at: Date | null;
+      pin_changed_at: Date | null; screens: Record<string, boolean> | null;
     }>(
       `select u.id, u.login_code, u.full_name, u.is_developer, u.must_change_pin,
               u.pin_changed_at,
-              array_remove(array_agg(r.role::text order by r.role), null)::text[] as roles
+              array_remove(array_agg(distinct r.role::text), null)::text[] as roles,
+              /*
+               * 계정별 화면 배정 (0116). is_open 이 null 인 칸은 역할 기본값으로
+               * 되돌린 것이므로 여기 싣지 않는다 - 행은 남지만 판정은 기본값이다.
+               */
+              coalesce(jsonb_object_agg(s.path, s.is_open)
+                         filter (where s.path is not null and s.is_open is not null),
+                       '{}'::jsonb) as screens
          from app_user u
          left join user_role r on r.user_id = u.id
+         left join user_screen s on s.user_id = u.id
         where u.id = $1 and u.is_active and u.can_login
         group by u.id`,
       [claim.userId],
@@ -168,7 +185,11 @@ export async function currentUser(): Promise<SessionUser | null> {
      */
     if (row.pin_changed_at && claim.issuedAt < row.pin_changed_at.getTime()) return null;
 
-    return { ...row, roles: row.roles ?? [] };
+    return {
+      ...row,
+      roles: row.roles ?? [],
+      screens: new Map(Object.entries(row.screens ?? {})),
+    };
   });
 }
 
@@ -190,6 +211,34 @@ export async function requireUser(): Promise<SessionUser> {
   const user = await currentUser();
   if (!user) redirect('/login');
   if (user.must_change_pin) redirect('/password');
+
+  /* -------------------------------------------------------------------------
+     관리자가 닫아 둔 화면인가 (0116)
+
+     차림표가 이미 못 여는 자리를 감춘다. 그런데 **보이지 않는 것과 못 여는
+     것은 다른 일이다** - 주소를 알거나 즐겨찾기를 눌러 들어오면 감춘 것만으로는
+     아무것도 막지 못한다. 그래서 같은 판정이 여기서 한 번 더 선다.
+
+     비밀번호 검사와 같은 자리에 두는 까닭도 같다. 로그인을 확인하는 곳이
+     하나뿐이므로, 앞으로 어떤 화면을 만들어도 이 문을 지나친다.
+
+     경로는 미들웨어가 실어 준다 (proxy.ts). 그것이 없으면 - 미들웨어가 돌지
+     않는 자리라면 - 막지 않는다. 문을 못 여는 것보다 열어 두는 쪽이 낫다:
+     여기서 막는 것은 **보이는 범위**일 뿐이고, 할 수 있는 일은 저마다 제 문이
+     따로 지킨다 (각 actions.ts 의 역할 확인 · app_readonly · S01~S05).
+
+     ── 관리자가 **닫은** 칸만 본다 ──────────────────────────────────────
+     역할 기본값으로 닫힌 화면은 여기서 건드리지 않는다. 그 자리는 화면마다
+     제 방식이 있고 (권한 없음 안내를 그리거나 다른 화면으로 넘기거나), 권한
+     매트릭스가 그 둘을 다른 것으로 적어 둔다 - 여기서 한꺼번에 넘겨 버리면
+     "막힘" 이 전부 "내보냄" 이 되어 표가 거짓말이 된다 (npm run access 가
+     그 자리에서 걸렸다).
+
+     그래서 묻는 것은 하나다 - **관리자가 이 사람에게 이 칸을 닫았는가.**
+  ------------------------------------------------------------------------- */
+  const path = (await headers()).get(PATH_HEADER);
+  if (path && user.screens.get(path) === false) redirect('/no-access');
+
   return user;
 }
 
@@ -290,4 +339,30 @@ export function blocksReadOnly(user: SessionUser): boolean {
 --------------------------------------------------------------------------- */
 export function canWrite(user: SessionUser): boolean {
   return !isReadOnly(user.roles);
+}
+
+/* ---------------------------------------------------------------------------
+   화면 문지기 (0116)
+
+   화면마다 제각기 들고 있던 역할 판정을 한 자리로 모은다. 전에는
+   blocksReadOnly · blocksViewer · hasRole(...) 이 스무 곳에 흩어져 있어서,
+   관리자가 계정별로 배정해도 화면이 제 역할 판정으로 다시 막았다.
+
+   ── 막는 방식까지 여기서 고른다 ──────────────────────────────────────────
+   못 여는 자리가 전부 같지 않다. 권한이 없는 사람에게는 그 자리에서 그렇다고
+   말하고(Denied), 애초에 다른 화면에서 일하는 사람은 제 화면으로 보낸다 -
+   작업자를 관리 화면에 세워 두고 안내문을 읽게 하는 것은 그 사람의 일이 아니다.
+
+   그래서 내보낼 때는 여기서 곧바로 보내고, 막을 때만 true 를 돌려준다.
+   부르는 자리는 `if (blocksScreen(user, '/…')) return <Denied … />` 한 줄이다.
+
+   ── 이것이 정하는 것은 보이는 범위뿐이다 ─────────────────────────────────
+   저장하는 동작은 저마다 제 문을 갖고 있고(각 actions.ts), 읽기 전용 세션은
+   app_readonly 로 돌아 DB 가 쓰기를 거부하며, S01~S05 와 §2.1 불변식은 권한과
+   무관하게 선다. 관리자가 화면을 열어 준다고 할 수 있는 일이 늘지 않는다.
+--------------------------------------------------------------------------- */
+export function blocksScreen(user: SessionUser, path: string): boolean {
+  const a = screenAccess(path, user.roles, user.screens);
+  if (a === 'away') redirect(homePath(user.roles));
+  return a !== 'open';
 }

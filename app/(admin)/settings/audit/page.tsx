@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { requireUser, hasRole } from '@/lib/session';
+import { requireUser, hasRole, blocksScreen } from '@/lib/session';
 import { isViewerOnly } from '@/lib/roles';
 import { withUser } from '@/lib/db';
 import Denied from '@/components/denied';
@@ -31,7 +31,7 @@ type Search = Promise<{ table?: string; action?: string; actor?: string; page?: 
 
 export default async function AuditPage({ searchParams }: { searchParams: Search }) {
   const user = await requireUser();
-  if (!hasRole(user, 'SYS_ADMIN', 'PROD_MGR', 'VIEWER', 'QP')) {
+  if (blocksScreen(user, '/settings/audit')) {
     return <Denied what="감사추적 조회" need="시스템관리자 또는 생산관리자" />;
   }
 
@@ -120,7 +120,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Search
       title="감사추적"
       lede="기록은 삭제되지 않습니다 (S03). 등록 · 변경 · 역할 회수가 모두 이전 값과 함께 남으며, 이 기록 자체도 수정하거나 지울 수 없습니다."
       /* 열람자에게는 설정 하위 메뉴를 보이지 않는다. 들어갈 수 없는 곳이다 */
-      nav={isViewerOnly(user.roles) ? undefined : <SubNav items={settingsNav(user.roles)} />}
+      nav={isViewerOnly(user.roles) ? undefined : <SubNav items={settingsNav(user.roles, user.screens)} />}
     >
 
       {/* ---------------------------------------------------------------------

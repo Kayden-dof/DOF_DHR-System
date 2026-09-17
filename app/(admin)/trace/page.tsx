@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { requireUser, hasRole } from '@/lib/session';
+import { requireUser, hasRole, blocksScreen } from '@/lib/session';
 import { withUser } from '@/lib/db';
 import { fmtDate, fmtDateTime } from '@/lib/fmt';
 import Denied from '@/components/denied';
@@ -44,7 +44,7 @@ export default async function TracePage({ searchParams }: { searchParams: Search
    * 나갔는지를 되짚어야 한다. 그 셋이 이 화면에 있다. 쓰기는 DB 가 막는다 -
    * 읽기 전용 세션은 app_readonly 로 돌아 쓰기 함수의 실행 권한이 없다 (0053).
    */
-  if (!hasRole(user, 'SYS_ADMIN', 'PROD_MGR', 'QP', 'VIEWER')) {
+  if (blocksScreen(user, '/trace')) {
     return <Denied what="조회" need="생산관리자 또는 시스템관리자" />;
   }
 

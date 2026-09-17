@@ -81,6 +81,6 @@ export const SETTINGS_NAV: NavItem[] = [
  * 이제 권한 매트릭스(lib/access.ts)에서 그대로 읽는다. 그 표는 npm run access
  * 가 실제로 두드려 대조하므로, 차림표가 화면의 판정과 갈라질 수 없다.
  */
-export function settingsNav(roles: RoleCode[]): NavItem[] {
-  return SETTINGS_NAV.filter((n) => canOpen(n.href, roles));
+export function settingsNav(roles: RoleCode[], screens?: ReadonlyMap<string, boolean>): NavItem[] {
+  return SETTINGS_NAV.filter((n) => canOpen(n.href, roles, screens));
 }

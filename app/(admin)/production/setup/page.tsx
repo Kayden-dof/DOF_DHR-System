@@ -1,4 +1,4 @@
-import { requireUser, hasRole, canWrite } from '@/lib/session';
+import { requireUser, hasRole, canWrite, blocksScreen } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import Denied from '@/components/denied';
 import { PageShell } from '@/components/shell';
@@ -35,7 +35,7 @@ export default async function ProductionSetupPage({
   searchParams,
 }: { searchParams: Promise<{ dm?: string }> }) {
   const user = await requireUser();
-  if (!hasRole(user, 'SYS_ADMIN', 'PROD_MGR')) {
+  if (blocksScreen(user, '/production/setup')) {
     return <Denied what="생산 품목 설정" need="생산관리자 또는 시스템관리자" />;
   }
   const sp = await searchParams;

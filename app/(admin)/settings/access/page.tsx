@@ -1,4 +1,4 @@
-import { requireUser, blocksReadOnly, hasRole } from '@/lib/session';
+import { requireUser, hasRole, blocksScreen } from '@/lib/session';
 import Denied from '@/components/denied';
 import { PageShell } from '@/components/shell';
 import { Panel, TableWrap } from '@/components/ui';
@@ -7,8 +7,12 @@ import { settingsNav } from '../../sections';
 import { withActor } from '@/lib/db';
 import { ROLE_LABEL, ROLE_NOTE } from '@/lib/roles';
 import {
-  ACCESS_ROWS, ACCESS_ROLES, ACCESS_LABEL, ACCESS_NOTE, accessOf, type Access,
+  ACCESS_ROWS, ACCESS_ROLES, ACCESS_LABEL, ACCESS_NOTE, accessOf, roleDefault,
+  type Access,
 } from '@/lib/access';
+import type { RoleCode } from '@/lib/roles';
+import Link from 'next/link';
+import AssignCell from './assign';
 
 export const dynamic = 'force-dynamic';
 
@@ -65,9 +69,11 @@ function Mark({ a }: { a: Access }) {
   );
 }
 
-export default async function AccessPage() {
+export default async function AccessPage({ searchParams }: {
+  searchParams: Promise<{ u?: string }>;
+}) {
   const user = await requireUser();
-  if (blocksReadOnly(user)) {
+  if (blocksScreen(user, '/settings/access')) {
     return <Denied what="권한 매트릭스" need="생산관리자 또는 시스템관리자" />;
   }
 
@@ -82,6 +88,37 @@ export default async function AccessPage() {
       where u.is_active
       group by r.role`,
   ), { readOnly: true, reason: '권한 매트릭스 조회' });
+
+  /* ---------------------------------------------------------------------------
+     계정별 배정 (0116)
+
+     위 표는 역할이 정하는 **기본값**이다. 제조소마다 조직이 다르므로 관리자가
+     계정마다 칸을 열고 닫는다. 손대지 않은 칸은 기본값을 따르니, 아무것도 하지
+     않으면 지금까지와 똑같이 움직인다.
+  --------------------------------------------------------------------------- */
+  const picked = (await searchParams).u ?? null;
+
+  const people = await withActor(user.id, async (db) => db.rows<{
+    id: string; login_code: string; full_name: string;
+    roles: RoleCode[] | null; touched: number;
+  }>(
+    `select u.id, u.login_code, u.full_name,
+            array_remove(array_agg(distinct r.role::text), null)::text[] as roles,
+            count(distinct s.path) filter (where s.is_open is not null)::int as touched
+       from app_user u
+       left join user_role r on r.user_id = u.id
+       left join user_screen s on s.user_id = u.id
+      where u.is_active and u.can_login
+      group by u.id order by u.login_code`,
+  ), { readOnly: true, reason: '화면 배정 조회' });
+
+  const mine = picked
+    ? await withActor(user.id, async (db) => db.rows<{ path: string; is_open: boolean | null }>(
+        `select path, is_open from user_screen where user_id = $1`, [picked]),
+      { readOnly: true, reason: '화면 배정 조회' })
+    : [];
+  const assigned = new Map(mine.filter((r) => r.is_open !== null).map((r) => [r.path, r.is_open!]));
+  const who = people.find((p) => p.id === picked) ?? null;
 
   const byRole = new Map(counts.map((r) => [r.role, r.n]));
 
@@ -99,7 +136,7 @@ export default async function AccessPage() {
       title="역할이 여는 문"
       lede={`역할 ${krCount(ACCESS_ROLES.length)}이 화면 ${krCount(ACCESS_ROWS.length)}에 각각 어떻게 닿는지 한 장에 둔 것입니다. `
             + '계정에 역할을 붙이기 전에 무엇이 열리는지 여기서 봅니다.'}
-      nav={<SubNav items={settingsNav(user.roles)} />}
+      nav={<SubNav items={settingsNav(user.roles, user.screens)} />}
     >
       <Panel
         title="권한 매트릭스"
@@ -180,6 +217,103 @@ export default async function AccessPage() {
           </dl>
         </Panel>
       </div>
+
+      {/* ------------------------------------------------------------------
+        * 계정별 배정 (사용자 요청 2026-09-17 · 0116)
+        *
+        * 시스템관리자만 손댄다. 화면을 읽는 것은 생산관리자도 하지만, 배정은
+        * 스스로 여는 길이 되므로 좁힌다 (actions.ts).
+        * ---------------------------------------------------------------- */}
+      {sysAdmin && (
+        <Panel
+          title="계정별 배정"
+          note="손대지 않은 칸은 위 역할 기본값을 따릅니다. 자기 것은 바꿀 수 없습니다."
+        >
+          <div className="flex flex-wrap gap-2 px-4 py-3">
+            {people.map((p) => {
+              const self = p.id === user.id;
+              const on = p.id === picked;
+              return self ? (
+                <span key={p.id}
+                      title="자기 배정은 바꿀 수 없습니다"
+                      className="chip bg-surface-sub text-faint">
+                  {p.full_name} (나)
+                </span>
+              ) : (
+                <Link key={p.id}
+                      href={on ? '/settings/access' : `/settings/access?u=${p.id}`}
+                      className={`chip ${on ? 'bg-brand text-white' : 'bg-surface-sub text-ink'}`}>
+                  {p.full_name}
+                  <span className={`ml-1.5 font-mono text-[0.625rem] ${on ? 'text-white/70' : 'text-faint'}`}>
+                    {p.login_code}
+                  </span>
+                  {p.touched > 0 && (
+                    <span className={`ml-1.5 text-[0.625rem] ${on ? 'text-white/70' : 'text-warn'}`}>
+                      {p.touched}칸
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+
+          {!who ? (
+            <p className="px-4 pb-4 text-xs leading-relaxed text-muted">
+              배정할 사람을 고르십시오. 고르지 않으면 모두 역할 기본값으로 움직입니다.
+            </p>
+          ) : (
+            <TableWrap>
+              <table className="w-full min-w-[34rem]">
+                <thead>
+                  <tr>
+                    <th className="th text-left">화면</th>
+                    <th className="th text-center whitespace-nowrap">역할 기본값</th>
+                    <th className="th text-center whitespace-nowrap">
+                      {who.full_name} 님
+                    </th>
+                  </tr>
+                </thead>
+                {groups.map((g) => (
+                  <tbody key={g.group}>
+                    <tr>
+                      <td colSpan={3}
+                          className="border-y border-line bg-canvas px-4 py-1.5
+                                     text-[0.6875rem] font-bold tracking-wide text-faint">
+                        {g.group}
+                      </td>
+                    </tr>
+                    {g.rows.map((row) => {
+                      const base = roleDefault(row.path, who.roles ?? []);
+                      const own = assigned.get(row.path);
+                      return (
+                        <tr key={row.path}>
+                          <td className="td">
+                            <span className="text-ink">{row.label}</span>
+                            <span className="ml-1.5 font-mono text-[0.6875rem] text-faint">
+                              {row.path}
+                            </span>
+                          </td>
+                          <td className="td text-center">
+                            <Mark a={base ? 'open' : 'blocked'} />
+                          </td>
+                          <td className="td">
+                            <AssignCell
+                              userId={who.id}
+                              path={row.path}
+                              state={own === undefined ? 'default' : own ? 'open' : 'closed'}
+                              roleOpen={base}
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                ))}
+              </table>
+            </TableWrap>
+          )}
+        </Panel>
+      )}
 
       {/*
         * 표가 코드와 갈라질 수 있다는 사실을 화면에서도 말한다.

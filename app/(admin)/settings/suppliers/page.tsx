@@ -1,4 +1,4 @@
-import { requireUser, blocksViewer, canWrite } from '@/lib/session';
+import { requireUser, canWrite, blocksScreen } from '@/lib/session';
 import Denied from '@/components/denied';
 import { withActor } from '@/lib/db';
 import { PageShell } from '@/components/shell';
@@ -33,7 +33,7 @@ interface ShelfRow {
 export default async function SuppliersPage() {
   const user = await requireUser();
   /* 열람자에게 열어 둔 화면이 아니다. 주소를 직접 쳐도 들어가지 못한다 */
-  if (blocksViewer(user)) return <Denied what="이 화면" need="생산관리자 또는 시스템관리자" />;
+  if (blocksScreen(user, '/settings/suppliers')) return <Denied what="이 화면" need="생산관리자 또는 시스템관리자" />;
 
   /*
    * 품질책임자는 공급자를 보되 고치지 않는다. 전에는 등록 · 수정 · 단가 칸이
@@ -77,7 +77,7 @@ export default async function SuppliersPage() {
       title="공급자 · 단가 · 사용기간"
       lede="승인 상태는 경고 표시에만 쓰입니다. 미승인 공급자의 자재도 등록과 사용을 막지 않습니다."
       action={writable ? <NewSupplierForm /> : null}
-      nav={<SubNav items={settingsNav(user.roles)} />}
+      nav={<SubNav items={settingsNav(user.roles, user.screens)} />}
     >
 
       <Panel>

@@ -1,4 +1,4 @@
-import { requireUser, blocksViewer, hasRole, canWrite } from '@/lib/session';
+import { requireUser, hasRole, canWrite, blocksScreen } from '@/lib/session';
 import Denied from '@/components/denied';
 import { PageShell } from '@/components/shell';
 import { SubNav } from '../../nav';
@@ -20,7 +20,7 @@ export default async function DmrPage({
 }: { searchParams: Promise<{ dm?: string }> }) {
   const user = await requireUser();
   /* 열람자에게 열어 둔 화면이 아니다. 주소를 직접 쳐도 들어가지 못한다 */
-  if (blocksViewer(user)) return <Denied what="이 화면" need="생산관리자 또는 시스템관리자" />;
+  if (blocksScreen(user, '/settings/dmr')) return <Denied what="이 화면" need="생산관리자 또는 시스템관리자" />;
 
   const sp = await searchParams;
 
@@ -29,7 +29,7 @@ export default async function DmrPage({
       section="설정"
       title="제품표준서"
       lede="서면 제품표준서가 정본입니다. 여기에는 개정 표기와 공정 · 자재 구성표만 옮겨 기재합니다. 이 내용이 작업 지시서의 소요량 계산 근거가 됩니다."
-      nav={<SubNav items={settingsNav(user.roles)} />}
+      nav={<SubNav items={settingsNav(user.roles, user.screens)} />}
     >
       <DmrWorkbench userId={user.id} dmParam={sp.dm} base="/settings/dmr" writable={canWrite(user)} />
     </PageShell>

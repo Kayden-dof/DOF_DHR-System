@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { requireUser, blocksViewer, canWrite } from '@/lib/session';
+import { requireUser, canWrite, blocksScreen } from '@/lib/session';
 import Denied from '@/components/denied';
 import { withUser } from '@/lib/db';
 import { getBrand } from '@/lib/brand';
@@ -39,7 +39,7 @@ type Search = Promise<{ status?: string; q?: string }>;
 export default async function MaterialLotsPage({ searchParams }: { searchParams: Search }) {
   const user = await requireUser();
   /* 열람자에게 열어 둔 화면이 아니다. 주소를 직접 쳐도 들어가지 못한다 */
-  if (blocksViewer(user)) return <Denied what="이 화면" need="생산관리자 또는 시스템관리자" />;
+  if (blocksScreen(user, '/material')) return <Denied what="이 화면" need="생산관리자 또는 시스템관리자" />;
 
   /* 순수 열람자면 쓰기 단추를 아예 그리지 않는다 */
   /*

@@ -1,4 +1,4 @@
-import { requireUser, hasRole } from '@/lib/session';
+import { requireUser, hasRole, blocksScreen } from '@/lib/session';
 import Denied from '@/components/denied';
 import { withActor } from '@/lib/db';
 import { PageShell } from '@/components/shell';
@@ -36,7 +36,7 @@ interface Row {
 
 export default async function BrandPage() {
   const user = await requireUser();
-  if (!hasRole(user, 'SYS_ADMIN')) {
+  if (blocksScreen(user, '/settings/brand')) {
     return <Denied what="회사 표시" need="시스템관리자" />;
   }
 
@@ -57,7 +57,7 @@ export default async function BrandPage() {
 
   if (!d) {
     return (
-      <PageShell section="설정" title="회사 표시" nav={<SubNav items={settingsNav(user.roles)} />}>
+      <PageShell section="설정" title="회사 표시" nav={<SubNav items={settingsNav(user.roles, user.screens)} />}>
         <Panel>
           <p className="px-4 py-6 text-sm text-muted">
             회사 표시 설정이 아직 없습니다. 이관을 올린 뒤 다시 열어 주십시오.
@@ -72,7 +72,7 @@ export default async function BrandPage() {
       section="설정"
       title="회사 표시"
       lede="이름과 색, 로고를 정합니다. 화면과 인쇄물이 같은 것을 씁니다."
-      nav={<SubNav items={settingsNav(user.roles)} />}
+      nav={<SubNav items={settingsNav(user.roles, user.screens)} />}
     >
       <Panel title="회사"
              note={d.updated_at ? `${d.updated_at} · ${d.updated_by_name ?? ''}` : undefined}>
