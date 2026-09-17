@@ -153,20 +153,39 @@
    */
   --color-card-floor:  #FCFCFD;
 
-  /* 브랜드 */
-  --color-brand:       #562C8D;
-  --color-brand-deep:  #420E69;
-  --color-brand-mid:   #6E4FA2;
-  --color-brand-soft:  #F8F1FD;
-  --color-brand-tint:  #F4EFFA;
-  --color-brand-line:  #D9C8EC;
-  --color-brand-pale:  #B8A2D0;
+  /* ---------------------------------------------------------------------
+     브랜드 - 여기 값은 **설정을 못 읽었을 때의 바닥**이다
 
-  /* 어두운 면. 상단 밴드와 바닥. 설정의 강조색에서 파생해 덮어쓴다
-     (lib/brand.ts · brandVars). 여기 값은 설정을 못 읽었을 때의 바닥이다 */
-  --color-indigo:      #342C68;
-  --color-indigo-deep: #241E47;
-  --color-indigo-soft: #4A3470;
+     회사 강조색은 설정에서 오고 layout.tsx 가 :root 에 덮어쓴다
+     (lib/brand.ts · brandVars). 아래 열 줄은 그것이 아직 없을 때만 쓰인다 -
+     첫 설치에서 회사 표시를 넣기 전까지.
+
+     ── 왜 DOF 자주가 아닌가 (7차 감사 2026-09-16) ─────────────────────────
+     전에는 이 바닥이 #562C8D 였다. 회사 이름은 비워 두었는데 (lib/brand.ts 의
+     FALLBACK) 색만 우리 것이라, 다른 제조소가 받으면 설정을 넣기 전까지 남의
+     자주색 화면을 본다. §2.0 이 "회사 이름·색이 코드에 있으면 못 쓴다" 고
+     적은 자리다.
+
+     그렇다고 무채색으로 두지도 않는다 - 강조가 사라지면 어느 것이 누를 수
+     있는 자리인지 화면이 말해 주지 못한다. 중립적인 청회색을 바닥으로 둔다.
+     아무 회사에나 어색하지 않고, 설정을 넣는 순간 그 회사 색으로 바뀐다.
+
+     아래 값들은 `brandVars('#475569')` 가 실제로 내놓는 파생값을 그대로 옮긴
+     것이다. 여기서 눈대중으로 고르면 설정이 있을 때와 없을 때의 단계가
+     달라진다 (§10 복제는 갈라진다).
+  --------------------------------------------------------------------- */
+  --color-brand:       #475569;
+  --color-brand-deep:  #333D4C;
+  --color-brand-mid:   #6F7A8A;
+  --color-brand-soft:  #F4F5F6;
+  --color-brand-tint:  #EEF0F2;
+  --color-brand-line:  #C8CCD2;
+  --color-brand-pale:  #9AA2AD;
+
+  /* 어두운 면. 상단 밴드와 바닥. 같은 강조색에서 파생한다 */
+  --color-indigo:      #2C3541;
+  --color-indigo-deep: #1E242C;
+  --color-indigo-soft: #3A4656;
 
   /* CI 회색 원본. 로고에만 쓴다 */
   --color-ci-gray:     #9FA0A0;

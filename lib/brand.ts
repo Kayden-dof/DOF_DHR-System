@@ -56,7 +56,8 @@ export interface Brand {
 /** 설정이 아직 없거나 읽지 못했을 때. 화면이 비어 보이지 않게만 한다 */
 const FALLBACK: Brand = {
   companyName: '',
-  brandColor: '#562C8D',
+  /* 중립 청회색. 남의 회사 색을 바닥으로 두지 않는다 (7차 감사 · globals.css) */
+  brandColor: '#475569',
   hasLogo: false,
   hasDarkLogo: false,
   logoUpdatedAt: null,
