@@ -188,7 +188,7 @@ export default function PrintFrame({
                   right={barRight(m)} />
       )}
 
-      {m.view && <ViewNote v={m.view} seq={m.seq} />}
+      {m.view && <ViewNote v={m.view} seq={m.seq} label={m.kindLabel} />}
 
       {/*
         * 나간 적이 없으면 내용을 그리지 않는다.
@@ -215,11 +215,21 @@ export default function PrintFrame({
    판정하지 않는다 (§8.5). 두 값이 같은지 다른지만 적고, 무엇이 어떻게
    바뀌었는지는 말하지 않는다 - 그건 감사추적이 답할 일이다.
 --------------------------------------------------------------------------- */
-function ViewNote({ v, seq }: { v: ViewMeta; seq: number }) {
+function ViewNote({ v, seq, label }: { v: ViewMeta; seq: number; label: string }) {
   if (v.neverIssued) {
+    /*
+     * 이때는 종이를 그리지 않으므로 **이 알림이 화면의 전부**다. 그런데 제목이
+     * 없어서, 열고 보면 무슨 양식을 찾다 여기 왔는지가 화면에 없었다 (7차 감사
+     * 2026-09-16 · 빈 DB 검사가 "껍데기만 나갔다" 로 잡았다).
+     *
+     * 전에는 이 화면이 사람 앞에 나온 적이 거의 없었다 - 여는 것이 곧 발행이라
+     * 열람하기 전에 이미 1회차가 있었기 때문이다. 회차를 단추로 옮기면서 비로소
+     * 자주 닿는 자리가 되었다.
+     */
     return (
       <div className="no-print mx-auto mb-5 max-w-[210mm] rounded-lg border border-line bg-surface-sub px-4 py-3">
-        <p className="text-sm leading-relaxed text-ink">
+        <h1 className="text-base font-bold text-ink">{label}</h1>
+        <p className="mt-1.5 text-sm leading-relaxed text-ink">
           이 양식은 아직 발행된 적이 없습니다.
         </p>
         <p className="mt-1 text-xs leading-relaxed text-muted">
