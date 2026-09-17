@@ -143,6 +143,7 @@ export default async function SuppliersPage() {
                   <tr>
                     <th className="th">형명</th><th className="th text-right">개월</th>
                     <th className="th">적용일</th><th className="th">보고서</th>
+                    <th className="th">시험 일자</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -152,6 +153,10 @@ export default async function SuppliersPage() {
                       <td className="td tnum text-right">{h.months}</td>
                       <td className="td tnum text-xs text-muted">{fmtDate(h.effective_from)}</td>
                       <td className="td font-mono text-xs">{h.study_report_no}</td>
+                      {/* 서면에 날짜가 없으면 비어 있는 것이 사실이다 (§1) */}
+                      <td className="td tnum text-xs text-muted">
+                        {h.study_date ? fmtDate(h.study_date) : ''}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

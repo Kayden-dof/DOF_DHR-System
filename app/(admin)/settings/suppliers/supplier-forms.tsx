@@ -252,6 +252,21 @@ export function ShelfLifeForm({ items, today }: { items: ItemOption[]; today: st
           <input id={`${uid}-study_report_no`} name="study_report_no" required autoComplete="off"
                  placeholder="STB-2026-001" className="input font-mono" />
         </div>
+        {/*
+          * 시험 일자 (7차 감사 2026-09-16).
+          *
+          * 동작은 처음부터 이 값을 읽어 넣고 있었는데 **칸이 없었다.** 그래서
+          * 사용기간 연장의 근거 날짜가 어느 행에도 들어간 적이 없다.
+          * 보고서 번호가 서면을 가리키는 고리라면 (§11) 이 날짜는 그 서면이
+          * 언제 것인지를 말한다.
+          *
+          * 비워 두어도 된다. 서면에 날짜가 없는 경우까지 막지 않는다 (§2).
+          */}
+        <div>
+          <label className="label" htmlFor={`${uid}-study_date`}>시험 일자</label>
+          <input id={`${uid}-study_date`} name="study_date" type="date"
+                 className="input tnum" />
+        </div>
       </div>
       <p className="mt-3 rounded-md bg-warn-bg px-3 py-2 text-xs leading-relaxed text-ink">
         <b>이미 만들어진 제품 로트의 유효기한은 바뀌지 않습니다.</b> 유효기한은 로트 생성

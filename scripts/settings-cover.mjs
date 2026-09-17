@@ -63,6 +63,28 @@ const TABLES = [
     'biz_no', 'ceo_name', 'backup_warn_days', 'expiry_warn_days',
     'label_width_mm', 'label_height_mm']],
   /* 위 둘은 아래 AUTO 가 까닭과 함께 면제한다 - 목록에서 지우면 왜 없는지가 사라진다 */
+  /* ---------------------------------------------------------------------------
+     7차 감사(2026-09-16)에서 더한 것
+
+     여기 표가 열셋뿐이었고 실물은 마흔다섯이었다. 나머지가 전부 기록인 줄
+     알았는데, 그 안에 **사람이 정하는 값**이 여덟 표 섞여 있었다 - 시료 기준 ·
+     단가 · 사용기간 · 밸리데이션 · 공정에 걸린 설비 · 작업자 자격 · 공수 단가.
+
+     전부 화면에 있었으므로 결함은 아니었다. 다만 이 검사가 그것을 몰랐으므로,
+     내일 누가 칸을 지워도 여기서는 통과했을 것이다.
+  --------------------------------------------------------------------------- */
+  ['시료 기준', 'sample_plan', ['min_qty', 'max_qty', 'sample_qty']],
+  ['공급자 단가', 'item_supplier', ['current_price']],
+  ['단가 이력', 'price_history', ['price', 'effective_from']],
+  ['사용기간', 'shelf_life_history', [
+    'months', 'effective_from', 'study_report_no', 'study_date']],
+  ['설비 점검', 'equipment_validation', [
+    'performed_on', 'valid_until', 'report_no', 'kind']],
+  ['공정 설비', 'operation_equipment', ['operation_id', 'equipment_id']],
+  ['작업자 자격', 'worker_qualification', [
+    'operation_code', 'valid_from', 'valid_until', 'training_doc_no']],
+  ['공수 단가', 'labour_rate', ['role', 'hourly_rate', 'effective_from']],
+
   ['자재 로트', 'material_lot', [
     'item_id', 'supplier_id', 'supplier_lot_no', 'purchase_order_id',
     'coa_no', 'coa_date', 'unit_price', 'expiry_date', 'location',
@@ -82,6 +104,18 @@ const AUTO = new Map([
    */
   ['org_brand.label_width_mm',  'A4 가 유일한 기준이다 (0115). 열만 남아 있다'],
   ['org_brand.label_height_mm', '위와 같음'],
+]);
+
+/**
+ * 화면 칸 이름이 열 이름과 다른 자리. 값은 **화면에 있는 칸 이름**.
+ *
+ * 이름이 다를 뿐 사람이 넣는 자리는 있다. 여기 적지 않으면 "화면에 칸이 없다"
+ * 고 잘못 짚는다 - 통과를 만들려고 적는 것이 아니라, 어느 칸이 어느 열을
+ * 채우는지 한 자리에 적어 두려는 것이다.
+ */
+const ALIAS = new Map([
+  /* 단가 칸 하나가 현재가와 이력을 함께 적는다 (settings/suppliers/actions.ts) */
+  ['item_supplier.current_price', 'price'],
 ]);
 
 function walk(dir, out = []) {
@@ -106,7 +140,7 @@ let excused = 0;
 for (const [label, table, cols] of TABLES) {
   const gone = [];
   for (const c of cols) {
-    if (names.has(c)) continue;
+    if (names.has(ALIAS.get(`${table}.${c}`) ?? c)) continue;
     const why = AUTO.get(`${table}.${c}`);
     if (why) { excused++; continue; }
     gone.push(c);
