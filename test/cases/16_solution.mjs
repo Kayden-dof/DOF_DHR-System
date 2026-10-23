@@ -786,8 +786,13 @@ export default [
       await t.setActor(null);
     }
 
-    /* 기한이 남은 원액은 같은 자리에서 짚히지 않는다 */
-    const fresh = await brew(t, m, { made: '2026-10-22' });
+    /*
+     * 기한이 남은 원액은 같은 자리에서 짚히지 않는다. 제조일을 오늘(한국)로 잡는다 -
+     * 날짜를 박아 두면 그 원액의 사용기간이 지난 날부터 이 시험이 코드 변경 없이
+     * 깨진다. 위의 지난 원액(2020-07-01)은 일부러 박은 것이다.
+     */
+    const today = await t.val(`select (timezone('Asia/Seoul', now()))::date::text`);
+    const fresh = await brew(t, m, { made: today });
     const freshNo = await t.val(`select lot_no from material_lot where id = $1`, [fresh.id]);
     const wo2 = await newWorkOrder(t, m);
     await t.setActor(m.admin);
