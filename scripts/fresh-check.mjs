@@ -36,8 +36,19 @@
  *
  * 그래서 세 번째로 seed-flow 를 돌린다. 그것이 쓰는 문장은 화면이 쓰는 것과
  * 같고 규칙을 우회하지 않는다 - S04 인쇄 잠금도 그대로 걸린다. 흐른 뒤에
- * 다시 훑고, **종이 일곱 장이 실제로 나오는지**까지 본다. 종이가 정본인
- * 시스템에서 화면만 서는 것은 절반이다 (§7).
+ * 다시 훑고, **종이가 실제로 나오는지**까지 본다 (작업 지시서 · 라벨요청서 ·
+ * 편철 표지 · 자재 라벨 · 원액 라벨 · 출하 승인 요청서 · 설비 사용 기록. 제조기록서는
+ * seed-flow 가 일차를 마감하며 이미 뽑았다). 종이가 정본인 시스템에서 화면만 서는
+ * 것은 절반이다 (§7).
+ *
+ * ── 원액은 배치를 흘린 뒤에야 있다 ──────────────────────────────────────────
+ * 20X PBS 원액은 사들이지 않고 사내에서 만든다. seed-flow 가 WS-03 앞에서 원료
+ * 시약 로트로 원액을 만들고 WS-03 · WS-05 에 투입한다 - 원액 로트 기록 없이는 그
+ * 공정이 마감되지 않으므로 (S05) 흐름 자체가 원액 제조와 투입을 지난다.
+ *
+ * 그래서 훑기의 원액 확인도 그때부터다. 앞의 두 훑기(빈 설치 · 시연 자료를 심은
+ * 직후)에는 원액 로트가 아직 있을 수 없어 SMOKE_SOLUTION=- 로 건너뛴다고 소리 내어
+ * 말하고, 흐른 뒤의 훑기부터는 원액 확인이 **필요하다** - 없으면 실패다.
  *
  * ── 두 번째 품목을 세운다 ────────────────────────────────────────────────
  * 위의 셋은 전부 **DX2401 모양의 자료**로 본다. 빈 DB 에서 시작하기는 하지만
@@ -163,7 +174,13 @@ try {
    *
    * 작업자 계정은 이관이 심지 않는다. 현장 훑기는 건너뛴다고 말하고 건너뛴다.
    */
-  bad = sweep('빈 설치', { SMOKE_ADMIN_CODE: '000000', SMOKE_WORKER_CODE: '-' });
+  /*
+   * 원액은 사내에서 만들어야 생긴다. 아무것도 없는 설치에는 원액 로트가 있을 수
+   * 없으므로 이 훑기는 원액 확인을 건너뛴다 (SMOKE_SOLUTION=-). 건너뛴 사실은 훑기가
+   * 소리 내어 말한다.
+   */
+  bad = sweep('빈 설치',
+    { SMOKE_ADMIN_CODE: '000000', SMOKE_WORKER_CODE: '-', SMOKE_SOLUTION: '-' });
 
   /* --- 5) 시연 자료를 심고 다시 두드린다 ----------------------------------- */
   if (bad === 0) {
@@ -180,7 +197,8 @@ try {
       process.stdout.write(sd.stdout.split('\n')
         .filter((l) => /^(품목|설비|공수|밸리|자재|형명|배치|제품|기록)/.test(l.trim()))
         .map((l) => `  ${l.trim()}`).join('\n') + '\n');
-      bad = sweep('시연 자료를 심은 뒤');
+      /* 품목 · 구성표 · 원료 시약 재고는 있지만 원액 로트는 seed-flow 가 만든다 */
+      bad = sweep('시연 자료를 심은 뒤', { SMOKE_SOLUTION: '-' });
     }
   }
 
@@ -203,7 +221,11 @@ try {
       process.stdout.write(sf.stdout.split('\n')
         .filter((l) => l.trim())
         .slice(-8).map((l) => `  ${l.trim()}`).join('\n') + '\n');
-      bad = sweep('배치를 흘린 뒤');
+      /*
+       * 여기서부터 원액 확인이 필요하다. 환경에 SMOKE_SOLUTION 이 남아 있어도 끈다 -
+       * 빈 문자열은 "건너뛰지 않는다" 이다.
+       */
+      bad = sweep('배치를 흘린 뒤', { SMOKE_SOLUTION: '' });
       if (bad === 0) bad = await papers(base, env, '종이');
     }
   }
@@ -220,7 +242,7 @@ try {
       console.error('\n  두 번째 품목이 서지 않았습니다.');
       bad = 1;
     } else {
-      bad = sweep('두 품목이 함께 있는 상태');
+      bad = sweep('두 품목이 함께 있는 상태', { SMOKE_SOLUTION: '' });
       if (bad === 0) bad = await papers(base, env, '두 번째 품목의 종이', 'CG3100');
     }
   }
@@ -279,6 +301,19 @@ async function papers(base, env, label, productCode = null) {
                         order by manufactured_on, lot_no limit 1`, [wo]);
   const ml = await id(`select ml.id from work_order w join material_lot ml
                          on ml.id = w.material_lot_id where w.id = $1`, [wo]);
+  /*
+   * 그 배치에 들어간 원액 로트 (제조일이 있는 로트). 원액은 사들이는 것이 아니라
+   * 배치 앞에서 사내에서 만들어 WS-03 · WS-05 에 넣으므로, 자재 라벨을 한 장 더 뽑는다 -
+   * 원액 라벨은 성적서 자리에 제조일과 원료 종 수가 들어가는 다른 모양이다.
+   * 첫 품목(DX2401) 배치에만 묻는다. 두 번째 품목은 원액을 쓰지 않는다.
+   */
+  const sol = productCode ? null : (await c.query(
+    `select ml.id, ml.made_on::text as made_on
+       from material_issue mi
+       join process_record pr on pr.id = mi.process_record_id
+       join material_lot ml on ml.id = mi.material_lot_id
+      where pr.work_order_id = $1 and ml.made_on is not null
+      order by mi.issued_at, ml.lot_no limit 1`, [wo])).rows[0] ?? null;
   const eq = await id(`select id from equipment limit 1`);
   const admin = await id(`select id from app_user where login_code = '100200'`);
   /*
@@ -308,6 +343,11 @@ async function papers(base, env, label, productCode = null) {
     ['라벨요청서',       `/print/label-request/${wo}`, meta.spec],
     ['편철 표지',        `/print/cover/${wo}`,        meta.batch_no],
     ['자재 라벨',        `/print/label/${ml}`],
+    ...(productCode ? [] : [
+      /* 없으면 경로가 'null' 이 되어 아래에서 "대상이 없습니다" 로 멈춘다 */
+      ['원액 라벨', `/print/label/${sol?.id ?? null}`,
+        `사내 제조 · 제조일 ${sol?.made_on ?? ''}`],
+    ]),
     /* 이 종이는 배치 단위다. 어느 로트를 몇 개 내보내는지는 sel 로 실린다 */
     ['출하 승인 요청서', `/print/release-request/${wo}?sel=${pl}:1`, meta.spec],
     ['설비 사용 기록',   `/print/equipment-log/${eq}`],

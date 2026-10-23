@@ -140,19 +140,35 @@ const supC = await supplier('SUP-003', '신규포장', 'PENDING', null);
 console.log('공급자 3곳');
 
 // --- 품목 ---------------------------------------------------------------------
-const item = async (code, name, type, pu, uu, conv = 1, min = null, lead = null) =>
+const item = async (code, name, type, pu, uu, conv = 1, min = null, lead = null,
+                    shelf = null) =>
   val(`insert into item (code, name, type, purchase_uom, usage_uom, conversion,
-                         min_stock, lead_days)
-       values ($1,$2,$3::item_type,$4,$5,$6,$7,$8)
+                         min_stock, lead_days, shelf_life_months)
+       values ($1,$2,$3::item_type,$4,$5,$6,$7,$8,$9)
        on conflict (code) do update set name = excluded.name
-       returning id`, [code, name, type, pu, uu, conv, min, lead]);
+       returning id`, [code, name, type, pu, uu, conv, min, lead, shelf]);
 
 const raw     = await item('RM-006', '돈피 원재료', 'RAW', '장', '장', 1, 20, 30);
 const rgAlk   = await item('RG-001', '알칼리 시약', 'REAGENT', '통', '통', 1, 6, 14);
 const rgH2O2  = await item('RG-002', 'H₂O₂ 시약', 'REAGENT', '통', '통', 1, 6, 14);
 const rgNaCl  = await item('RG-003', 'NaCl', 'REAGENT', '포', 'kg', 25, 50, 10);
 const rgEtOH  = await item('RG-004', '에탄올', 'REAGENT', '통', 'L', 20, 40, 10);
-const pbs     = await item('RG-005', '20× PBS 원액', 'REAGENT', '통', 'L', 20, 20, 10);
+/*
+ * 20X PBS 원액은 사들이지 않고 사내에서 만든다 (원액 로트). 그래서 품목 유형이
+ * 원액이고, 구매 단위가 따로 없이 L 로 만들어 L 로 쓴다. 입고하지도 발주하지도
+ * 않으므로 최소 재고선과 납기도 두지 않는다 - 넣을지는 설정이다.
+ *
+ * 사용기간 6개월은 WS-03 작업표준서 준비 1.8 이 말하는 값이다. 만든 원액의
+ * 유효기간은 제조일에 이 값을 더해 로트를 세울 때 고정된다.
+ *
+ * 원료 네 종 가운데 NaCl 은 위에 이미 있다. 나머지 셋은 시연용으로 더한다 -
+ * 이름과 코드가 시연 자료일 뿐 실제 품목 대장의 것이 아니다. 원액은 이 넷으로
+ * 만들고, 로트는 seed-flow 가 make_solution_lot 으로 세운다.
+ */
+const pbs     = await item('RG-005', '20× PBS 원액', 'SOLUTION', 'L', 'L', 1, null, null, 6);
+const rgKCl   = await item('RG-006', '염화칼륨', 'REAGENT', 'kg', 'kg', 1, null, null);
+const rgNa2P  = await item('RG-007', '제이인산나트륨', 'REAGENT', 'kg', 'kg', 1, null, null);
+const rgKH2P  = await item('RG-008', '제일인산칼륨', 'REAGENT', 'kg', 'kg', 1, null, null);
 const tyvek   = await item('PM-001', '타이백 파우치', 'PACK', 'EA', 'EA', 1, 100, 21);
 const pouch   = await item('PM-002', '내포장 파우치', 'PACK', 'EA', 'EA', 1, 300, 21);
 const label   = await item('PM-003', '제품 라벨', 'PACK', 'EA', 'EA', 1, 500, 14);
@@ -207,7 +223,7 @@ const gen = await c.query(
      array['0510','1015','1520','2025','2530'],
      array['10152530','10182530','12152530'],
      'DX2401')`);
-console.log(`품목 ${10 + gen.rows.length}종 (완제품 ${gen.rows.length}종 생성)`);
+console.log(`품목 ${13 + gen.rows.length}종 (완제품 ${gen.rows.length}종 생성)`);
 
 // --- 단가 ---------------------------------------------------------------------
 const price = async (it, sup, p) => {
@@ -231,7 +247,7 @@ console.log('단가 6건');
 /*
  * 사내에서 정한 번호 체계다 (사용자 결정 2026-09-07).
  *
- *   자재 로트   R/P/M{YYMMDD}-{일련 2}   접두어가 품목 종류를 따른다
+ *   자재 로트   R/P/L/M{YYMMDD}-{일련 2}   접두어가 품목 종류를 따른다 (원액은 L)
  *   작업지시    WO-{YYMMDD}-{일련 2}
  *   배치        B{YYMMDD}-{일련 2}       날짜는 배치생산시작일 (= 작업지시일)
  *   제조번호    GM-{YYMMDD}{일련 2}      날짜는 제조일
@@ -251,6 +267,12 @@ const rule = (target, pattern, width, reset = 'DAILY', type = null) =>
 await rule('MATERIAL_LOT', 'R{YY}{MM}{DD}-{SEQ:2}', 2, 'DAILY', 'RAW');
 await rule('MATERIAL_LOT', 'P{YY}{MM}{DD}-{SEQ:2}', 2, 'DAILY', 'PACK');
 /*
+ * 사내에서 만든 원액은 L 로 시작한다 (WS-03 작업표준서 준비 1.8 의 관리번호
+ * 'L-날짜-일련' 꼴). 번호의 날짜는 제조일이다 (0097). 공통 규칙(M)과 접두어가
+ * 같으면 같은 날 lot_no 고유 제약에서 부딪히므로 접두어를 달리 둔다.
+ */
+await rule('MATERIAL_LOT', 'L{YY}{MM}{DD}-{SEQ:2}', 2, 'DAILY', 'SOLUTION');
+/*
  * 시약과 소모품은 둘 다 M 이다. 그렇다고 규칙을 둘로 나누면 **카운터도 둘**이라
  * 같은 날 둘 다 01 이 나오고 lot_no 고유 제약에서 막힌다 (N-33).
  * 예외인 종류만 종류별로 두고 나머지는 공통 규칙 하나가 받는다.
@@ -262,7 +284,7 @@ await rule('PRODUCT_LOT',  'GM-{YY}{MM}{DD}{SEQ:2}', 2);
 /* 멸균 배치번호는 생산 배치번호와 같다 - 한 발송이 한 배치다 (0099) */
 await rule('STERIL_BATCH', '{BATCH}', 2, 'NEVER');
 await rule('DEVIATION',    'DV-{YY}-{SEQ:3}', 3, 'YEARLY');
-console.log('채번 규칙 8종 (자재 로트는 원자재 R · 포장재 P · 나머지 M)');
+console.log('채번 규칙 9종 (자재 로트는 원자재 R · 포장재 P · 원액 L · 나머지 M)');
 
 // --- 제품표준서 ---------------------------------------------------------------
 const fin = await val(`select id from item where code = 'PD05050510'`);
@@ -310,6 +332,12 @@ if (!dm) {
 
   const TIER3 = [[1,10,1],[11,20,2],[21,30,3]];                       // 시약 10장 단위
   const TIER6 = [[1,5,1],[6,10,2],[11,15,3],[16,20,4],[21,25,5],[26,30,6]]; // 타이백 5장 단위
+  /*
+   * 20X PBS 원액 (L). 10장 이하 0.8 L, 10장 초과 1.6 L 로 두 구간이다 - WS-03 작업표준서
+   * 작업 표 No.2 의 값이다. 21~30장 구간은 제품표준서가 따로 정하는 값이라 여기서는
+   * 11장 이상을 한 구간으로 둔다. 시연 자료이고 실값은 제품표준서에서 옮겨 적는다.
+   */
+  const TIER_PBS = [[1,10,0.8],[11,30,1.6]];
 
   const tierBom = async (op, it, tiers) => {
     const b = await val(
@@ -327,8 +355,14 @@ if (!dm) {
 
   await tierBom(ops['WS-DX2401-01'], rgNaCl, TIER3);
   await tierBom(ops['WS-DX2401-03'], rgAlk,  TIER3);
+  /*
+   * 알칼리 처리와 세척에 20X PBS 원액이 든다. 원액도 자재 로트라서 S01 이 투입 로트를
+   * 묻고 S05 가 "원액 로트를 기록하거나 해당없음 사유를 적기 전에는 다음 공정으로
+   * 못 간다" 를 건다. 세척(WS-05)에는 근거 없이 걸어 두었던 에탄올 대신 원액을 둔다.
+   */
+  await tierBom(ops['WS-DX2401-03'], pbs,    TIER_PBS);
   await tierBom(ops['WS-DX2401-04'], rgH2O2, TIER3);
-  await tierBom(ops['WS-DX2401-05'], rgEtOH, TIER3);
+  await tierBom(ops['WS-DX2401-05'], pbs,    TIER_PBS);
   await tierBom(ops['WS-DX2401-08'], tyvek,  TIER6);
   await unitBom(ops['WS-DX2401-08'], pouch, 1);
   await unitBom(ops['WS-DX2401-08'], label, 2);
@@ -356,7 +390,7 @@ if (!dm) {
          do update set max_qty = excluded.max_qty, sample_qty = excluded.sample_qty`,
       [dm, lo, hi, n, admin]);
   }
-  console.log('제품표준서 Rev.02 · 공정 12 · 자재 구성표 8 · 예상 204개 · 시료 구간 3');
+  console.log('제품표준서 Rev.02 · 공정 12 · 자재 구성표 9 · 예상 204개 · 시료 구간 3');
 
   /*
    * 설비.
@@ -508,12 +542,19 @@ if (BASE_ONLY) {
   await receive(rgH2O2, supB, 8, 52000, { loc: '시약장-A', expiry: '2026-10-31' });
   await receive(rgNaCl, supB, 100, 3200, { loc: '시약장-B' });
   await receive(rgEtOH, supB, 60, 4800, { loc: '시약장-B' });
-  await receive(pbs, supB, 40, 9000, { loc: '시약장-B' });
+  /*
+   * 원액은 입고하지 않는다 - 사내에서 만든다. 대신 그 원료 시약 셋을 받아 둔다
+   * (넷째인 NaCl 은 위에 있다). 원액 로트는 seed-flow 가 make_solution_lot 으로
+   * 이 로트들에서 세운다. 단가가 있어야 원액 단가가 계산된다.
+   */
+  await receive(rgKCl, supB, 5, 9000, { loc: '시약장-B' });
+  await receive(rgNa2P, supB, 5, 12000, { loc: '시약장-B' });
+  await receive(rgKH2P, supB, 5, 15000, { loc: '시약장-B' });
   await receive(tyvek, supC, 200, 320, { loc: '포장-1' });
   await receive(pouch, supC, 600, 140, { loc: '포장-1' });
   await receive(label, supC, 1000, 60, { loc: '포장-2' });
   await receive(box, supC, 60, 2400, { loc: '포장-2' });
-  console.log('자재 로트 11건');
+  console.log('자재 로트 13건');
 }
 
 /* ---------------------------------------------------------------------------

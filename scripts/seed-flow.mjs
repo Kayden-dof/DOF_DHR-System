@@ -151,6 +151,76 @@ async function backdatedLot(itemId, day, qty, { band = null, price = null } = {}
   return { id, no };
 }
 
+/* ---------------------------------------------------------------------------
+   20X PBS 원액
+
+   원액은 사들이지 않고 사내에서 만든다. 로트는 make_solution_lot 이 세운다 -
+   화면의 원액 제조와 같은 문장이다. 원료 줄(SOLUTION)이 원액 로트를 가리키므로
+   원료 로트 없이는 원액 로트가 서지 않는다 (S02 의 원액 갈래).
+
+   ── 아래 수량은 처방이 아니다 ─────────────────────────────────────────────
+   원액 1 L 에 시약 몇 kg 이 드는지는 이 시스템이 모른다. 처방을 설정으로 넣는
+   자리는 아직 없고, 현행 SOP 와 작성자 레퍼런스의 값이 갈려 회신을 기다린다.
+   여기 값은 계보와 재고가 움직이는 것을 보이려고 아무렇게나 둔 시연 자료다.
+--------------------------------------------------------------------------- */
+const PBS_CODE = 'RG-005';
+const PBS_BATCH_L = 5;          // 한 번에 만드는 양 (WS-03 작업표준서: 5 L)
+const PBS_NOTE = '시연 자료 (처방이 아님)';
+/**
+ * [원료 품목 코드, 원액 1 L 당 kg, 원료 로트 단가, 새로 받을 때 최소 수량]
+ *
+ * 마지막 칸은 그 원료를 **원액 말고도 직접 쓰는** 경우의 여유다. NaCl 은 WS-01 이
+ * 직접 투입하므로 (같은 로트가 집힌다) 원액 몫만 받으면 그 투입이 재고 검사에 걸린다.
+ */
+const PBS_MIX = [
+  ['RG-003', 0.1, 3200, 5],
+  ['RG-006', 0.01, 9000, 1],
+  ['RG-007', 0.01, 12000, 1],
+  ['RG-008', 0.01, 15000, 1],
+];
+
+/**
+ * 원액 로트 하나를 세운다.
+ *
+ * @param madeOn  제조일 (YYYY-MM-DD). 번호의 날짜이고 유효기간의 출발점이다
+ * @param litres  제조량
+ * @param source  'backdated' - 제조일 전날 받은 원료 로트를 새로 받아 쓴다 (지난 날짜의
+ *                공정에 들어갈 원액. 원료가 제조일보다 늦게 받아진 것으로 남지 않게)
+ *                'stock' - 지금 재고에서 가장 늦게 받은 로트를 쓴다 (오늘 만드는 원액)
+ */
+async function makePbs(madeOn, litres, source) {
+  const solId = await val(`select id from item where code = $1 and type = 'SOLUTION'`, [PBS_CODE]);
+  if (!solId) return null;
+
+  const lotIds = []; const qtys = [];
+  for (const [code, perL, price, floor] of PBS_MIX) {
+    const itemId = await val(`select id from item where code = $1`, [code]);
+    if (!itemId) {
+      throw new Error(`원액의 원료 품목 ${code} 가 없습니다. seed-demo 를 먼저 돌리십시오`);
+    }
+    const need = Number((perL * litres).toFixed(4));
+    let lotId;
+    if (source === 'stock') {
+      lotId = await val(
+        `select id from material_lot
+          where item_id = $1 and made_on is null and status = 'AVAILABLE'
+            and qty_available >= $2
+          order by received_at desc, lot_no limit 1`, [itemId, need]);
+      if (!lotId) throw new Error(`원료 ${code} 의 재고가 ${need} 에 못 미칩니다`);
+    } else {
+      /* 원료 로트는 제조일 전날에 받는다. 원액 몫의 세 배, 최소 floor 만큼 */
+      const rcv = await val(`select ($1::date - 1)::text`, [madeOn]);
+      lotId = (await backdatedLot(itemId, rcv, Math.max(floor, Math.ceil(need * 3)), { price })).id;
+    }
+    lotIds.push(lotId); qtys.push(need);
+  }
+
+  const id = await as(mgrUser.id, () => val(
+    `select make_solution_lot($1, $2::date, $3, $4::uuid[], $5::numeric[], $6)`,
+    [solId, madeOn, litres, lotIds, qtys, PBS_NOTE]));
+  return one(`select id, lot_no, qty_received from material_lot where id = $1`, [id]);
+}
+
 /** 진행할 배치를 찾는다. 없으면 화면과 같은 절차로 하나 발행한다. */
 async function pickWorkOrder() {
   const found = await one(
@@ -246,16 +316,23 @@ const ops = await all(
     where device_master_id = $1 order by seq`, [wo.device_master_id]);
 const opBy = Object.fromEntries(ops.map((o) => [o.code.replace('-DX2401', ''), o]));
 
-/** 공정 자재 구성표에서 쓸 로트를 찾는다. */
-async function bomLots(opId) {
+/**
+ * 공정 자재 구성표에서 쓸 로트를 찾는다.
+ *
+ * 원액(제조일이 있는 로트)은 **그 작업일까지 만들어진 것**만 쓴다. 오늘 만든 원액을
+ * 30일 전 공정에 넣으면 계보가 "만들기 전에 썼다" 가 된다. 입고 로트는 제조일이
+ * 없어 이 조건에 걸리지 않는다.
+ */
+async function bomLots(opId, workDate) {
   return all(
     `select b.component_item_id, i.name, i.usage_uom, b.basis, b.qty_per_unit,
             (select ml.id from material_lot ml
               where ml.item_id = b.component_item_id and ml.status = 'AVAILABLE'
                 and ml.qty_available > 0
+                and (ml.made_on is null or ml.made_on <= $2::date)
               order by ml.expiry_date nulls last, ml.received_at limit 1) as lot_id
        from dmr_bom b join item i on i.id = b.component_item_id
-      where b.operation_id = $1`, [opId]);
+      where b.operation_id = $1`, [opId, workDate]);
 }
 
 /** 시작 → 자재 → 마감. 화면의 세 단추와 같다. */
@@ -318,7 +395,9 @@ async function runOp(actor, opCode, { day, lot = null, attempt = 1, units = 0, r
     return id;
   });
 
-  for (const b of await bomLots(op.id)) {
+  const workDate = await val(
+    `select ((timezone('Asia/Seoul', now()))::date - (${FLOW_DAYS} - $1))::text`, [day]);
+  for (const b of await bomLots(op.id, workDate)) {
     if (!b.lot_id) continue;
     const qty = await val(`select required_qty($1,$2,$3,$4)`,
       [op.id, b.component_item_id, wo.sheet_count, units]);
@@ -382,6 +461,33 @@ async function closeDay(actor, day) {
       where kind = 'DAY_RECORD' and work_order_id = $1 and day_no = $2 and worker_id = $3`,
     [wo.id, day, actor.id]);
   say(`${day}일차 ${actor.full_name} 마감 · 기록서 ${seq}회차 발행`);
+}
+
+/* --- 이 배치가 쓸 원액 ----------------------------------------------------- */
+
+/*
+ * 자재 구성표에 원액이 걸려 있으면 WS-03 · WS-05 가 원액 로트를 기록하기 전에는
+ * 마감되지 않는다 (S05). 그러니 1일차 작업 전에 원액이 있어야 한다.
+ *
+ * 1일차 작업일에 만든다 (WS-03 준비 1 이 그날 원액을 만드는 것과 같다). 원료 로트는
+ * 그 전날 받은 것으로 남기고, 그래서 원료가 제조일보다 늦게 받아진 계보가 없다.
+ */
+console.log('\n[원액] 20X PBS');
+
+const bomHasSolution = await val(
+  `select exists (select 1 from dmr_bom b
+                    join dmr_operation o on o.id = b.operation_id
+                    join item i on i.id = b.component_item_id
+                   where o.device_master_id = $1 and i.type = 'SOLUTION')`,
+  [wo.device_master_id]);
+if (bomHasSolution) {
+  const day1 = await val(
+    `select ((timezone('Asia/Seoul', now()))::date - (${FLOW_DAYS} - 1))::text`);
+  const made = await makePbs(day1, PBS_BATCH_L, 'backdated');
+  if (!made) throw new Error(`자재 구성표에 원액이 있는데 원액 품목 ${PBS_CODE} 가 없습니다`);
+  say(`원액 ${made.lot_no} ${Number(made.qty_received)} L 제조 (제조일 ${day1} · 원료 ${PBS_MIX.length}종)`);
+} else {
+  say('이 제품표준서의 자재 구성표에는 원액이 없습니다 - 원액 제조를 건너뜁니다');
 }
 
 /* --- 1일차. 재단 전 공정 ------------------------------------------------- */
@@ -594,11 +700,23 @@ for (const [opCode, sheets, outcome, reason] of [
 
 /* --- 재고 증감 ------------------------------------------------------------ */
 
-console.log('\n[재고] 반납·폐기·용액 제조');
+console.log('\n[재고] 반납·폐기·원액 제조');
 
+/*
+ * 반납은 **원 로트**로 돌아간다 (§4.7). NaCl 로트가 여럿이므로 이 배치가 실제로 쓴
+ * 로트를 먼저 찾는다 - 아무 로트나 집으면 쓰지도 않은 로트에 반납이 붙는다.
+ */
 const naclLot = await one(
-  `select ml.id, ml.lot_no from material_lot ml join item i on i.id = ml.item_id
-    where i.code = 'RG-003' and ml.status='AVAILABLE' limit 1`);
+  `select ml.id, ml.lot_no from material_issue mi
+     join process_record pr on pr.id = mi.process_record_id
+     join material_lot ml on ml.id = mi.material_lot_id
+     join item i on i.id = ml.item_id
+    where pr.work_order_id = $1 and i.code = 'RG-003' and ml.status = 'AVAILABLE'
+    order by mi.issued_at, ml.lot_no limit 1`, [wo.id])
+  ?? await one(
+    `select ml.id, ml.lot_no from material_lot ml join item i on i.id = ml.item_id
+      where i.code = 'RG-003' and ml.status='AVAILABLE'
+      order by ml.received_at desc, ml.lot_no limit 1`);
 if (naclLot) {
   await as(w1.id, () =>
     client.query(
@@ -617,19 +735,24 @@ if (naclLot) {
   say(`공정 폐기 ${naclLot.lot_no} -0.5`);
 }
 
-const solution = await one(`select id, code from item where code = 'RG-005'`);
-if (solution) {
-  const ethanol = await one(
-    `select ml.id from material_lot ml join item i on i.id=ml.item_id
-      where i.code='RG-004' and ml.status='AVAILABLE' limit 1`);
-  if (ethanol) {
-    await as(w2.id, () =>
-      client.query(
-        `insert into stock_movement (material_lot_id, type, qty, reason_code,
-                                     reason_detail, registered_by)
-         values ($1,'SOLUTION',$2,$3,$4,$5)`,
-        [ethanol.id, -2, '용액제조', '30% 에탄올 희석액 당일 제조', w2.id]));
-    say('용액 제조로 에탄올 2 차감');
+/*
+ * 오늘 만드는 원액. 앞 원액이 이 배치에 쓰이고 1 L 가 못 되게 남았으므로 새로
+ * 만든다 (WS-03 준비 1.2 - 잔여가 1 L 미만일 때만 만든다). 이 원액은 오늘 일을
+ * 이어 갈 진행 중 배치가 쓴다.
+ *
+ * 원료는 지금 재고(seed-demo 가 받아 둔 시연 시약 로트)에서 꺼낸다. 예전에는 여기서
+ * 로트 없이 SOLUTION 줄을 바로 넣었는데, 원액은 이제 로트이고 원료 줄이 그 로트를
+ * 가리켜야 하므로(T3) 그 입구는 닫혔다. 같은 일을 make_solution_lot 으로 한다.
+ */
+if (bomHasSolution) {
+  const left = Number(await val(
+    `select coalesce(sum(ml.qty_available), 0) from material_lot ml
+       join item i on i.id = ml.item_id
+      where i.code = $1 and ml.status = 'AVAILABLE'`, [PBS_CODE]));
+  const today = await val(`select (timezone('Asia/Seoul', now()))::date::text`);
+  const made = await makePbs(today, PBS_BATCH_L, 'stock');
+  if (made) {
+    say(`원액 잔여 ${left} L → 새로 제조 ${made.lot_no} ${Number(made.qty_received)} L (제조일 ${today})`);
   }
 }
 
@@ -776,7 +899,24 @@ async function history(day, sheets, cuts, extra = {}) {
     }
   }
   const hLot = new Map();
+  const solutionIds = new Set(
+    (await all(`select id from item where type = 'SOLUTION'`)).map((r) => r.id));
+  const pbsId = await val(`select id from item where code = $1`, [PBS_CODE]);
   for (const [itemId, q] of need) {
+    if (solutionIds.has(itemId)) {
+      /*
+       * 원액은 입고 로트가 아니라 만들어진 로트다. 그날 사내에서 만들고 (제조일 =
+       * 발행일 = 1일차 작업일), 쓸 만큼보다 조금 더 만든다. 입고 로트로 흉내 내면
+       * 제조일이 없어 거부되고 (T2), 설령 들어가도 원료 줄이 없어 계보가 끊긴다.
+       */
+      if (itemId !== pbsId) {
+        throw new Error('이 원액 품목에는 시연 처방이 없습니다 (' + PBS_CODE + ' 만 만들 수 있습니다)');
+      }
+      const made = await makePbs(day, Math.ceil(q), 'backdated');
+      if (!made) throw new Error(`원액 품목 ${PBS_CODE} 가 없습니다`);
+      hLot.set(itemId, made.id);
+      continue;
+    }
     const { id } = await backdatedLot(itemId, day, Math.ceil(q * 1.2));
     hLot.set(itemId, id);
   }

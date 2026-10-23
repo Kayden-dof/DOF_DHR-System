@@ -112,7 +112,17 @@ const day = await one(
           (select wo2.batch_no from work_order wo2 where wo2.id = dl.work_order_id) as batch_no
      from day_lock dl join app_user u on u.id = dl.worker_id
     where dl.work_order_id = $1
-    order by dl.locked_at limit 1`, [wo.id]);
+    /*
+     * 원액 투입이 든 묶음을 먼저 고른다. 원액은 WS-03 · WS-05 에 들어가므로 그 공정이
+     * 있는 일차의 기록서라야 원액 투입 줄을 종이와 견줄 수 있다. 없으면 잠긴 첫 묶음이다.
+     */
+    order by exists (
+               select 1 from process_record pr
+                 join material_issue mi on mi.process_record_id = pr.id
+                 join material_lot ml on ml.id = mi.material_lot_id
+                where pr.work_order_id = dl.work_order_id and pr.day_no = dl.day_no
+                  and pr.worker_id = dl.worker_id and ml.made_on is not null) desc,
+             dl.locked_at limit 1`, [wo.id]);
 
 if (!day) {
   console.error(
@@ -134,6 +144,52 @@ const issues = day ? await rows(
      left join item i on i.id = ml.item_id
     where pr.work_order_id = $1 and pr.day_no = $2 and pr.worker_id = $3
     order by o.seq`, [day.work_order_id, day.day_no, day.worker_id]) : [];
+
+/*
+ * 원액 투입 줄. 원액은 사들이지 않고 사내에서 만든 로트(제조일이 있는 로트)이고,
+ * WS-03 · WS-05 에서 다른 자재와 같은 투입 줄로 기록서에 오른다. 공급자가 없는 로트라
+ * 기록서가 공급자를 묶고 있으면 이 줄만 소리 없이 빠진다 - 그것을 종이로 확인한다.
+ */
+const solIssues = day ? await rows(
+  `select ml.lot_no, mi.qty, i.name as item_name, i.usage_uom, o.code as op_code
+     from process_record pr
+     join dmr_operation o on o.id = pr.operation_id
+     join material_issue mi on mi.process_record_id = pr.id
+     join material_lot ml on ml.id = mi.material_lot_id
+     join item i on i.id = ml.item_id
+    where pr.work_order_id = $1 and pr.day_no = $2 and pr.worker_id = $3
+      and ml.made_on is not null
+    order by o.seq, ml.lot_no, mi.qty`, [day.work_order_id, day.day_no, day.worker_id]) : [];
+
+/* 이 배치 전체에 들어간 원액 로트. 편철 표지의 전체 투입 자재에 올라야 한다 */
+const batchSolLots = await rows(
+  `select distinct ml.lot_no
+     from process_record pr
+     join material_issue mi on mi.process_record_id = pr.id
+     join material_lot ml on ml.id = mi.material_lot_id
+    where pr.work_order_id = $1 and ml.made_on is not null
+    order by ml.lot_no`, [wo.id]);
+
+/*
+ * 원액 라벨의 재료. 되도록 위 기록서에 오른 로트를 고르고, 없으면 아무 원액이다.
+ *
+ * 원료 종 수는 화면이 읽는 뷰(v_solution_input)를 거치지 않고 원료 줄에서 직접 센다 -
+ * 같은 뷰로 세면 뷰가 틀렸을 때 시험도 같이 틀린다. 원료 줄(SOLUTION)과 그것을 되돌리는
+ * 줄(RETURN)의 부호 합이 음수인 원료 로트가 실제로 들어간 원료이고, 그 품목의 수가 종 수다.
+ */
+const solLabel = await one(
+  `select ml.id, ml.lot_no, ml.qty_received, ml.expiry_date::text as expiry_date,
+          ml.made_on::text as made_on, i.name as item_name, i.usage_uom,
+          (select count(distinct x.item_id)::int
+             from (select m.material_lot_id
+                     from stock_movement m
+                    where m.solution_lot_id = ml.id and m.type in ('SOLUTION','RETURN')
+                    group by m.material_lot_id
+                   having sum(m.qty) < 0) n
+             join material_lot x on x.id = n.material_lot_id) as kinds
+     from material_lot ml join item i on i.id = ml.item_id
+    where ml.made_on is not null
+    order by (ml.lot_no = $1) desc, ml.lot_no limit 1`, [solIssues[0]?.lot_no ?? '']);
 
 /* 편철 표지 대조 재료: 재작업 회차 · 출하 승인 요청서 번호 · 멸균 성적서 */
 const rework = await one(
@@ -224,11 +280,16 @@ const containerExpect = await rows(
     group by i.usage_uom
     order by 2 desc, 1`, [wo.id, wo.sheet_count]);
 
-/* 착수 전에 정해지지 않는 값. 작업 지시서에 나오면 안 된다 (§7) */
+/*
+ * 착수 전에 정해지지 않는 값. 작업 지시서에 나오면 안 된다 (§7).
+ *
+ * 원액 로트도 여기 든다. 원액은 WS-03 준비에서 만들어 그날 쓰므로 지시서를 낼 때는
+ * 번호가 없다 - 있다면 미리 적어 둔 것이다. 지시서가 다루는 자재 로트는 원재료 하나뿐이다.
+ */
 const reagentLots = await rows(
   `select distinct ml.lot_no
      from material_lot ml join item i on i.id = ml.item_id
-    where i.type in ('REAGENT','PROCESS','PACK')`);
+    where i.type in ('REAGENT','PROCESS','PACK','SOLUTION')`);
 
 const users = Object.fromEntries(
   (await rows(`select login_code, id from app_user`)).map((u) => [u.login_code, u.id]));
@@ -533,9 +594,9 @@ await sheet('① 작업 지시서', `/print/work-order/${wo.id}`, [
     { label: `설비 ${q.code}`,        value: q.code },
     { label: `설비 만료 ${q.code}`,   value: q.valid_until },
   ]),
-  // §7 "시약·포장재 로트번호는 들어가지 않는다". 착수 전에 정해지지 않는다
+  // §7 "시약·포장재 로트번호는 들어가지 않는다". 착수 전에 정해지지 않는다 (원액도 같다)
   ...reagentLots.map((r) => (
-    { label: '시약 로트 미기재', value: r.lot_no, absent: true })),
+    { label: '시약·원액 로트 미기재', value: r.lot_no, absent: true })),
   /* §7 이 이 양식의 핵심 항목으로 "생산·품질 서명란" 을 적어 두었다 */
   { label: '생산 책임자 서명란', value: '생산 책임자' },
   { label: '품질 책임자 서명란', value: '품질 책임자' },
@@ -545,6 +606,17 @@ await sheet('① 작업 지시서', `/print/work-order/${wo.id}`, [
 
 if (day) {
   const mats = issues.filter((i) => i.lot_no);
+  /*
+   * 원액 투입 줄이 하나도 없는 기록서면 이 대조는 설 자리가 없다. 건너뛰지 않고
+   * 실패로 센다 - 건너뛰면 원액 줄이 종이에서 빠져도 통과가 찍힌다. 원액이 든 배치는
+   * npm run seed:flow 가 만든다.
+   */
+  if (solIssues.length === 0) {
+    fail++;
+    say('');
+    say(`② 제조기록서 · 원액 투입 줄   배치 ${day.batch_no} 의 잠긴 묶음에 원액 투입이 없습니다`);
+    say('  불일치  원액 투입 줄  원액이 든 배치가 없습니다 - npm run seed:flow 를 먼저');
+  }
   await sheet('② 제조기록서', `/print/day-record/${day.work_order_id}/${day.day_no}/${day.worker_id}`, [
     ...common('제조기록서'),
     { label: '배치번호',     value: day.batch_no },
@@ -561,6 +633,14 @@ if (day) {
       { label: `투입 로트 ${i.item_name}`, value: i.lot_no })),
     ...mats.slice(0, 5).map((i) => (
       { label: `투입 수량 ${i.item_name}`, value: String(Number(i.qty)) })),
+    /*
+     * 원액 투입 줄은 다섯 줄 한계 없이 전부 본다. 종이는 한 줄을 "품목 · 로트 · 수량 단위"
+     * 로 찍으므로 한 칸에서 통째로 맞춘다 - 로트와 수량이 따로 어딘가에 있는 것으로는
+     * 모자라다.
+     */
+    ...solIssues.map((i) => (
+      { label: `원액 투입 ${i.op_code}`,
+        value: `${i.item_name} · ${i.lot_no} · ${Number(i.qty)} ${i.usage_uom}` })),
     // 설비를 적었으면 종이에도 그 코드가 있어야 한다. 늘 비어 있던 칸이다
     ...[...new Set(issues.map((i) => i.equipment_id).filter(Boolean))].map((q) => (
       { label: '설비번호', value: q })),
@@ -613,6 +693,8 @@ await sheet('④ 편철 표지', `/print/cover/${wo.id}`, [
     label: `공정 ${i + 1} 보통 일차`, value: String(d),
   })),
   ...lots.map((l) => ({ label: `제품 로트 ${l.item_code}`, value: l.lot_no })),
+  // 전체 투입 자재 - 원액 로트도 다른 자재처럼 한 줄로 오른다 (공급자 없이 만든 로트)
+  ...batchSolLots.map((r) => ({ label: '전체 투입 자재 · 원액 로트', value: r.lot_no })),
   // 일차는 칸 하나에 숫자로 적힌다. 대조는 그 줄의 작업자와 작업일로 한다
   ...(day ? [
     { label: '일차별 기록 작업자', value: day.worker_name },
@@ -672,6 +754,33 @@ if (mat) {
     { label: '공급자',     value: mat.supplier_name },
   ], undefined, { kind: 'LABEL', where: { material_lot_id: mat.id } });
 
+}
+
+/*
+ * 원액 라벨. 성적서도 공급자도 없고 그 자리에 제조일과 원료 종 수가 적힌다. 용기에 관리번호와
+ * 유효기간을 적어 붙이는 것이 이 종이다 (WS-03 준비 1.8).
+ *
+ * 원액 로트가 없으면 건너뛰지 않고 실패로 센다 - 건너뛰면 이 라벨이 열리지 않아도 통과다.
+ */
+if (solLabel) {
+  await sheet('⑤-2 원액 라벨', `/print/label/${solLabel.id}`, [
+    ...common('자재 라벨'),
+    { label: '로트번호', value: solLabel.lot_no, anywhere: true },
+    { label: '품목명',   value: solLabel.item_name },
+    // 원액은 입고하지 않는다. 종이가 찍는 것은 제조량이다
+    { label: '제조량',   value: String(Number(solLabel.qty_received)), cell: '제조량' },
+    { label: '유효기한', value: solLabel.expiry_date },
+    { label: '출처',
+      value: `사내 제조 · 제조일 ${solLabel.made_on} · 원료 ${solLabel.kinds}종`, cell: '출처' },
+    // 없는 것을 있다고 적지 않는다 (§1). 성적서 · 공급자 이름표가 종이에 있으면 안 된다
+    { label: '성적서 번호 칸 없음', value: '성적서 번호', absent: true },
+    { label: '공급자 칸 없음',      value: '공급자', absent: true },
+    { label: '입고 수량 칸 없음',   value: '입고 수량', absent: true },
+  ], undefined, { kind: 'LABEL', where: { material_lot_id: solLabel.id } });
+} else {
+  fail++;
+  say('');
+  say('⑤-2 원액 라벨   불일치  원액 로트가 없습니다 - npm run seed:flow 를 먼저');
 }
 
 /* --- 6. 출하 승인 요청서 --------------------------------------------------- */

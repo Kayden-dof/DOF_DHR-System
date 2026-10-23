@@ -31,7 +31,13 @@ const ids = {
     `select pl.id from product_lot pl
        join work_order wo on wo.id = pl.work_order_id
       order by wo.issued_at, pl.lot_no limit 1`))[0]?.id,
-  mat: (await rows(`select id from material_lot order by lot_no limit 1`))[0]?.id,
+  /*
+   * 입고 로트만 고른다. 원액 로트 번호는 L 로 시작해 번호순으로는 맨 앞에 서므로,
+   * 거르지 않으면 이 훑기의 "자재" 경로가 어느 날 조용히 원액 로트로 바뀐다.
+   * 원액은 아래에서 따로 열어 본다.
+   */
+  mat: (await rows(
+    `select id from material_lot where made_on is null order by lot_no limit 1`))[0]?.id,
   day: (await rows(
     `select work_order_id, day_no, worker_id from process_record order by day_no limit 1`))[0],
   eq: (await rows(`select id from equipment order by code limit 1`))[0]?.id,
@@ -70,6 +76,16 @@ const userIds = Object.fromEntries(
 --------------------------------------------------------------------------- */
 const ADMIN_CODE = process.env.SMOKE_ADMIN_CODE || '100200';
 const WORKER_CODE = process.env.SMOKE_WORKER_CODE || '200100';
+
+/*
+ * 원액 확인은 기본으로 **필요하다.** 원액 로트가 없으면 실패한다.
+ *
+ * 건너뛰는 길은 하나뿐이고 소리 내어 건너뛴다 - SMOKE_SOLUTION=- . 원액 로트가
+ * 아직 있을 수 없는 단계(빈 설치, 기준정보만 심은 직후)에서 쓴다. 현장 훑기를
+ * SMOKE_WORKER_CODE=- 로 건너뛰는 것과 같은 꼴이다. 건너뛴 훑기는 원액을 확인한
+ * 적이 없으므로 끝줄이 그 사실을 다시 적는다 - 통과 근거로 쓰이지 않게.
+ */
+const SKIP_SOLUTION = process.env.SMOKE_SOLUTION === '-';
 
 const NEEDED = { [ADMIN_CODE]: '관리자 훑기' };
 if (WORKER_CODE !== '-') NEEDED[WORKER_CODE] = '현장 훑기';
@@ -266,7 +282,15 @@ if (WORKER_CODE === '-') {
 
    원액 로트가 하나도 없으면 **건너뛰지 않고 실패한다.** 건너뛰면 이 구멍이 다시
    열려도 통과가 찍힌다 (실패가 아니라 침묵이 되는 길). npm run save 가 원액
-   제조 화면을 사람처럼 채워 원액 로트를 세운다.
+   제조 화면을 사람처럼 채워 원액 로트를 세우고, npm run seed:flow 도 배치를
+   흘리며 원액을 만든다.
+
+   원액 로트가 아직 있을 수 없는 단계(빈 설치, 기준정보만 심은 직후)에서는
+   SMOKE_SOLUTION=- 로 건너뛸 수 있다. 건너뛰되 소리 내어 건너뛰고, 끝줄에도 그 사실이
+   다시 적힌다 - 원액을 확인하지 않은 훑기가 통과 근거로 읽히지 않게.
+
+   원액으로만 쓰인 시약 로트가 없는 것도 **같은 이유로 실패다.** 그 로트의 추적
+   화면이 직접 투입 없음이라고 말하는지는 이 훑기가 아니면 아무도 묻지 않는다.
 
    읽기만 한다. POST 도 쓰기도 없다 (라벨은 미리보기라 대장에 닿지 않는다 -
    바로 아래 대장 줄 수 셈이 그것을 지킨다).
@@ -278,7 +302,10 @@ if (WORKER_CODE === '-') {
     console.log(`  ${ok ? '통과' : '실패'}  ${label}${note ? `  ${note}` : ''}`);
   };
 
-  if (!sol) {
+  if (SKIP_SOLUTION) {
+    console.log('  원액 확인 안 함 - 원액 로트가 아직 없는 단계 (SMOKE_SOLUTION=-)');
+    console.log('  이 훑기는 원액 로트를 열어 보지 않았습니다. 통과로 세지 않습니다');
+  } else if (!sol) {
     bad++;
     console.log('  실패  원액 로트가 없습니다 - npm run save 를 먼저');
   } else {
@@ -335,8 +362,9 @@ if (WORKER_CODE === '-') {
      * 라고 하면서 바로 아래에 원액이 간 배치를 늘어놓으면, 영향 범위를 보러 온
      * 사람이 위의 말을 믿는다. 직접 투입이 없다는 말만 해야 한다.
      *
-     * 개발 DB 에 그런 로트가 없으면(모든 원료 로트에 직접 투입이 있으면) 이 점검은
-     * 설 자리가 없다. 그때는 그렇다고 적는다.
+     * 그런 로트가 없으면(모든 원료 로트에 직접 투입이 있으면) 이 점검은 설 자리가
+     * 없다. 그래도 건너뛰지 않고 실패한다 - 시드는 NaCl 외의 원료 시약을 원액으로만
+     * 쓰도록 심으므로, 없다면 시드가 바뀌었거나 이 구멍을 밟을 자료가 사라진 것이다.
      */
     {
       const only = (await db2.query(
@@ -346,7 +374,8 @@ if (WORKER_CODE === '-') {
                              where mi.material_lot_id = vi.material_lot_id)
           order by vi.material_lot_no limit 1`)).rows[0];
       if (!only) {
-        console.log('  건너뜀  원액으로만 쓰인 시약 로트가 없다 (모든 원료 로트에 직접 투입이 있다)');
+        mark(false, '원액으로만 쓰인 시약 로트가 있다',
+          '(없다 - 모든 원료 로트에 직접 투입이 있다. npm run seed:flow 로 원액을 만든 뒤에 훑으십시오)');
       } else {
         const r = await page(`/trace/material/${only.id}`);
         mark(r.status === 200
@@ -392,4 +421,7 @@ if (WORKER_CODE === '-') {
 await db2.end();
 
 console.log(`\n${bad === 0 ? '전 화면 통과' : `실패 ${bad}건`}`);
+if (SKIP_SOLUTION) {
+  console.log('  * 원액 확인 안 함 - 이 결과는 원액 로트를 확인하지 않았다 (SMOKE_SOLUTION=-)');
+}
 process.exit(bad === 0 ? 0 : 1);
