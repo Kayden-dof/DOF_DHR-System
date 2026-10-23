@@ -58,6 +58,15 @@ const MUTATIONS = [
     sql: `alter table material_lot drop constraint material_lot_source`,
     cases: ['S02-01'] },
 
+  /*
+   * 원액 갈래의 짝이다. 성적서 칸을 비운 대신 원료 로트 없이는 원액 로트가
+   * 서지 않게 한다 (0119). 커밋 때 도는 제약 트리거를 떼면 원료 줄 없는 원액
+   * 로트가 들어와야 하고, SL-06 이 그것을 잡아야 한다.
+   */
+  { id: 'M-S02b', rule: 'S02 원액은 원료 로트 필수 (0119)',
+    sql: `drop trigger material_lot_made_inputs on material_lot`,
+    cases: ['SL-06'] },
+
   { id: 'M-S03', rule: 'S03 삭제 금지 (권한)',
     sql: `grant delete on material_issue, process_record, work_order, audit_log to app_role`,
     cases: ['S03-01', 'S03-02'] },
@@ -337,7 +346,7 @@ const FILES = [
   '01_users.mjs', '02_s03_audit.mjs', '03_numbering.mjs', '04_rules_m1_m4.mjs',
   '05_genealogy.mjs', '06_review.mjs', '07_immutable.mjs',
   '09_review2.mjs', '10_review3.mjs', '11_deviation.mjs', '12_model_scheme.mjs',
-  '13_cost.mjs', '14_purchase.mjs',
+  '13_cost.mjs', '14_purchase.mjs', '16_solution.mjs',
 ];
 
 const byId = new Map();

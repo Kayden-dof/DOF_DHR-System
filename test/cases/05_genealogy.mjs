@@ -4,6 +4,7 @@
 
 import { masterData as master, newMaterialLot, newWorkOrder, releaseRequestNo as requestNo }
   from '../fixtures.mjs';
+import { solutionItem } from './16_solution.mjs';
 
 /**
  * 배치 하나를 끝까지 굴린다. 원재료 입고부터 재단 후 포장까지.
@@ -230,21 +231,23 @@ export default [
 
 {
   id: 'IV-06', expect: '확인',
-  name: '용액 제조는 원료 여러 종을 한 번에 차감한다 (§4.7)',
+  name: '원액 제조는 원료 여러 종을 한 번에 차감하고 원액 로트를 세운다 (§4.7)',
   async run(t) {
     const m = await master(t);
+    const sol = await solutionItem(t, { name: '20X PBS' });
     const a = await newMaterialLot(t, m, m.reagent,  { qty: 10 });
     const b = await newMaterialLot(t, m, m.reagent2, { qty: 10 });
     await t.setActor(m.admin);
-    const n = await t.val(
-      `select make_solution(array[$1,$2]::uuid[], array[2,3]::numeric[], '20X PBS')`, [a, b]);
+    const id = await t.val(
+      `select make_solution_lot($1, date '2026-10-22', 5, array[$2,$3]::uuid[],
+                                array[2,3]::numeric[])`, [sol, a, b]);
     await t.setActor(null);
-    t.eq(n, 2, '차감된 원료 수');
+    t.ok(id, '새 원액 로트');
     t.eq(Number(await t.val(`select qty_available from material_lot where id=$1`, [a])), 8, 'a 잔여');
     t.eq(Number(await t.val(`select qty_available from material_lot where id=$1`, [b])), 7, 'b 잔여');
     t.eq(await t.val(
-      `select count(*)::int from stock_movement where type='SOLUTION' and reason_detail like '20X PBS%'`),
-      2, '용액 제조 기록');
+      `select count(*)::int from stock_movement where type='SOLUTION' and solution_lot_id = $1`, [id]),
+      2, '원액 로트를 가리키는 원료 줄');
   },
 },
 

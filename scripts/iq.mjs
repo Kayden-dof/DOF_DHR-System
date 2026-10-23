@@ -268,7 +268,8 @@ const WRITE_FUNCS = [
   /* 0097 · 0099 로 인자가 늘었다. 서명이 어긋나면 to_regprocedure 가 null 을
      내고 이 누출 검사가 조용히 잠든다 (2026-09-07) */
   'next_number(numbering_target, uuid, date, text)',
-  'make_solution(uuid[], numeric[], text, text)',
+  /* 0119 · 원액 제조. 옛 make_solution 을 대신한다 */
+  'make_solution_lot(uuid, date, numeric, uuid[], numeric[], text)',
   'purge_demo_data()',
   /* 0102 · 발주 상태를 쓴다. 자재 로트 트리거가 부른다 */
   'sync_po_status(uuid)',
