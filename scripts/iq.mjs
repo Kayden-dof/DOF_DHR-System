@@ -270,6 +270,9 @@ const WRITE_FUNCS = [
   'next_number(numbering_target, uuid, date, text)',
   /* 0119 · 원액 제조. 옛 make_solution 을 대신한다 */
   'make_solution_lot(uuid, date, numeric, uuid[], numeric[], text)',
+  /* 0121 · 원액의 원료 줄 되돌리기 · 더하기 */
+  'return_solution_input(uuid, uuid, numeric, text)',
+  'add_solution_input(uuid, uuid, numeric, text)',
   'purge_demo_data()',
   /* 0102 · 발주 상태를 쓴다. 자재 로트 트리거가 부른다 */
   'sync_po_status(uuid)',

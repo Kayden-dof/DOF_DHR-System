@@ -260,9 +260,12 @@ export async function moveStock(_p: FormState, form: FormData): Promise<FormStat
 
    판정하지 않는다 (§1). 처방이 맞는지 묻지 않고, 적힌 원료와 수량을 이어 둘 뿐이다.
 
-   원료 줄은 비어 있으면 건너뛴다(로트를 고르지 않은 줄). 로트를 골랐으면 수량이
-   0보다 커야 한다 - 골라 놓고 수량이 0 이면 건너뛰는 것은 적었다고 믿은 원료가
-   기록에서 빠지는 것이므로 어느 줄인지 말하고 거부한다.
+   로트도 수량도 비어 있는 원료 줄은 건너뛴다(쓰지 않은 줄). 한쪽만 차 있으면
+   어느 줄인지 말하고 거부한다 - 적었다고 믿은 원료가 말없이 기록에서 빠지기
+   때문이다.
+
+     로트를 골랐는데 수량이 0 이하   그 줄의 수량을 고치라고 한다
+     수량을 적었는데 로트가 없음     그 줄의 로트를 고르라고 한다
 --------------------------------------------------------------------------- */
 export async function makeSolutionLot(_p: FormState, form: FormData): Promise<FormState> {
   try {
@@ -274,14 +277,27 @@ export async function makeSolutionLot(_p: FormState, form: FormData): Promise<Fo
     const qty = num(form.get('qty'), '제조량');
     if (qty <= 0) return { error: '제조량은 0보다 커야 합니다' };
 
+    /*
+     * 줄 번호는 로트 칸과 수량 칸 양쪽에서 모은다. 로트 칸만 훑으면 로트 칸이
+     * 없이 수량만 온 줄은 보지도 못하고 지나간다.
+     */
+    const rows = [...new Set(
+      [...form.keys()]
+        .map((k) => k.match(/^(?:lot|qty)_(\d+)$/)?.[1])
+        .filter((n): n is string => n !== undefined),
+    )].sort((a, b) => Number(a) - Number(b));
+
     const lots: string[] = [];
     const qtys: number[] = [];
-    for (const [k, v] of form.entries()) {
-      const m = k.match(/^lot_(\d+)$/);
-      if (!m || !String(v)) continue;
-      const q = num(form.get(`qty_${m[1]}`), `원료 ${Number(m[1]) + 1}번째 줄의 수량`);
-      if (q <= 0) return { error: `원료 ${Number(m[1]) + 1}번째 줄의 수량은 0보다 커야 합니다` };
-      lots.push(String(v));
+    for (const n of rows) {
+      const row = `원료 ${Number(n) + 1}번째 줄`;
+      const lot = String(form.get(`lot_${n}`) ?? '').trim();
+      const rawQty = String(form.get(`qty_${n}`) ?? '').trim();
+      if (!lot && !rawQty) continue;
+      if (!lot) return { error: `${row}에 수량이 있는데 원료 로트를 고르지 않았습니다` };
+      const q = num(form.get(`qty_${n}`), `${row}의 수량`);
+      if (q <= 0) return { error: `${row}의 수량은 0보다 커야 합니다` };
+      lots.push(lot);
       qtys.push(q);
     }
     if (lots.length === 0) return { error: '차감할 원료와 수량을 한 줄 이상 입력하십시오' };
@@ -318,6 +334,83 @@ export async function makeSolutionLot(_p: FormState, form: FormData): Promise<Fo
   } catch (e) {
     return { error: dbMessage(e) };
   }
+}
+
+/* ---------------------------------------------------------------------------
+   원액의 원료 줄을 바로잡는다 (§2.1 · 0121)
+
+   원료 줄은 고쳐 쓰지 않는다 (0119). 틀리게 적었으면 같은 원액을 가리키는 줄을
+   더한다 - 되돌리기는 반납 줄, 더하기는 원료 줄. 원래 줄과 정정 줄이 다 남고
+   원액 추적 화면의 원료 표는 그 합을 보여 준다.
+
+   재고 증감 화면의 반납은 원액을 가리키지 않는다. 그 길로 되돌리면 원료 재고는
+   돌아오는데 원액은 그 로트로 만들어졌다고 계속 말한다. 그래서 이 길이 따로 있다.
+
+   한도는 DB 가 지킨다 - 들어간 원료를 꺼낸 만큼까지만 되돌리고, 원액이 아닌
+   로트는 가리키지 못하고, 잔여를 넘어 차감하지 못한다. 응용에서만 막은 건 검증이
+   아니다 (§1-2). 사유는 그 줄에 남고, 원료 로트의 재고 변경에는 감사추적의 사유로
+   남는다.
+
+   원액 단가는 다시 셈하지 않는다. 만들 때 정한 값 그대로다.
+--------------------------------------------------------------------------- */
+async function correctSolutionInput(
+  form: FormData,
+  mode: 'return' | 'add',
+): Promise<FormState> {
+  try {
+    const me = await mgr();
+    const verb = mode === 'return' ? '되돌릴' : '더할';
+    const solId = String(form.get('solution_lot_id') ?? '').trim();
+    const rawId = String(form.get(mode === 'return' ? 'return_lot_id' : 'add_lot_id') ?? '').trim();
+    const reason = String(form.get('reason') ?? '').trim();
+
+    if (!solId) return { error: '어느 원액인지 알 수 없습니다' };
+    if (!rawId) return { error: `${verb} 원료 로트를 고르십시오` };
+    const qty = num(form.get('qty'), `${verb} 수량`);
+    if (qty <= 0) return { error: `${verb} 수량은 0보다 커야 합니다` };
+    if (!reason) {
+      return { error: mode === 'return' ? '왜 되돌리는지 적으십시오' : '왜 더하는지 적으십시오' };
+    }
+
+    const raw = await withActor(me.id, async (db) => {
+      await db.val(
+        mode === 'return'
+          ? `select return_solution_input($1::uuid, $2::uuid, $3::numeric, $4::text)`
+          : `select add_solution_input($1::uuid, $2::uuid, $3::numeric, $4::text)`,
+        [solId, rawId, qty, reason]);
+      return db.one<{ lot_no: string; usage_uom: string }>(
+        `select ml.lot_no, i.usage_uom
+           from material_lot ml join item i on i.id = ml.item_id
+          where ml.id = $1`, [rawId]);
+    }, {
+      reason: `${mode === 'return' ? '원액 원료 되돌리기' : '원액 원료 더하기'} · ${reason}`,
+    });
+
+    bump();
+    revalidatePath('/material/movement');
+    revalidatePath(`/trace/material/${solId}`);
+    revalidatePath(`/trace/material/${rawId}`);
+
+    const what = `원료 로트 ${raw?.lot_no ?? ''} ${qty} ${raw?.usage_uom ?? ''}`;
+    return {
+      ok: true,
+      message: mode === 'return'
+        ? `${what} 을(를) 되돌렸습니다. 원래 원료 줄은 그대로 남고 되돌린 줄이 더해졌습니다.`
+        : `${what} 을(를) 이 원액의 원료로 더했습니다. 원액 단가는 그대로입니다.`,
+    };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
+/** 원료 줄 되돌리기. 잘못 고른 원료나 많이 적은 수량 */
+export async function returnSolutionInput(_p: FormState, form: FormData): Promise<FormState> {
+  return correctSolutionInput(form, 'return');
+}
+
+/** 원료 줄 더하기. 실제로 썼는데 빠뜨린 원료 */
+export async function addSolutionInput(_p: FormState, form: FormData): Promise<FormState> {
+  return correctSolutionInput(form, 'add');
 }
 
 export async function suggestMinStock(): Promise<FormState> {

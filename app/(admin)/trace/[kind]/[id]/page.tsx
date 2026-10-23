@@ -9,6 +9,7 @@ import { Panel, Empty, Tag, Field } from '@/components/ui';
 import { PageShell } from '@/components/shell';
 import { SubNav } from '../../../nav';
 import { TRACE_NAV } from '../../../sections';
+import SolutionCorrectForm, { type RawLotOpt } from '../../../material/solution-correct-form';
 
 export const dynamic = 'force-dynamic';
 
@@ -94,6 +95,9 @@ export default async function TraceDetail({ params }: {
 type Me = { id: string; roles: RoleCode[] };
 
 async function MaterialView({ me, id }: { me: Me; id: string }) {
+  /* 원액의 원료 줄을 바로잡는 자리는 자재를 관리하는 사람에게만 낸다 (액션의 mgr 과 같다) */
+  const canCorrect = me.roles.includes('SYS_ADMIN') || me.roles.includes('PROD_MGR');
+
   const d = await withUser(me, async (db) => {
     const lot = await db.one<MaterialLot>(
       `select ml.lot_no, i.code as item_code, i.name as item_name, i.type::text as item_type,
@@ -116,6 +120,20 @@ async function MaterialView({ me, id }: { me: Me; id: string }) {
             `select material_lot_id, material_lot_no, item_code, item_name, usage_uom, qty
                from v_solution_input where solution_lot_id = $1
               order by item_code, material_lot_no`, [id])
+        : [],
+      /*
+       * 원료 줄 더하기에서 고를 로트. 잔여가 있는 것이면 되고, 그 사이 기한이
+       * 지난 로트도 넣는다 - 원액을 만든 날 쓴 로트가 오늘 기한 경과일 수 있다.
+       * 원액 자신은 뺀다.
+       */
+      rawLots: lot.made_on && canCorrect
+        ? await db.rows<RawLotOpt>(
+            `select ml.id, ml.lot_no, i.name as item_name, i.usage_uom, ml.qty_available
+               from material_lot ml join item i on i.id = ml.item_id
+              where ml.qty_available > 0
+                and ml.status in ('AVAILABLE','EXPIRED')
+                and ml.id <> $1
+              order by i.code, ml.lot_no`, [id])
         : [],
       /*
        * 이 로트가 원액의 원료였다면, 그 원액이 간 곳까지 이어 준다. 원액은
@@ -223,6 +241,9 @@ async function MaterialView({ me, id }: { me: Me; id: string }) {
                     </tbody>
                   </table>
                 </div>
+              )}
+              {canCorrect && (
+                <SolutionCorrectForm solutionId={id} inputs={d.inputs} lots={d.rawLots} />
               )}
             </Panel>
           </>

@@ -14,6 +14,7 @@
 // 줄이 원액을 가리키는 방식(T3)과 고쳐 쓰기 차단(T5).
 // SL-12~16 은 원액이 이미 있는 장치에 닿는지 본다 (0120) - 자재 지출에서 빠지는
 // 것, 공정 투입(S05), 계보(§8.3), 검토 표시의 기한 경과, 재고(§8.3).
+// SL-17~18 은 원액 기록을 바로잡는 길이다 (0121) - 원료 줄 되돌리기 · 더하기.
 // =============================================================================
 
 import { masterData as master, newMaterialLot, newWorkOrder } from '../fixtures.mjs';
@@ -853,6 +854,176 @@ export default [
       `select material_lot_id, qty::float8 as qty from v_solution_input
         where solution_lot_id = $1 order by qty desc`, [id]),
       [{ material_lot_id: a, qty: 3 }, { material_lot_id: b, qty: 2 }], '원액의 구성');
+  },
+},
+
+// ---- 원액 기록을 화면에서 바로잡는 길 (0121) ------------------------------------
+//
+// 원료 줄은 고쳐 쓰지 못한다 (SL-11). 그러면 바로잡는 길이 따로 있어야 한다 -
+// 막기만 하고 푸는 자리를 안 내면 그것은 규칙이 아니라 덫이다 (§2.1). 화면이
+// 부르는 함수 둘을 본다. 한도와 연결은 이미 있는 트리거(T3)가 지키므로 함수는
+// 사람 · 사유 · 수량만 묻고, 그 트리거가 함수 길에서도 그대로 서는지 본다.
+
+{
+  id: 'SL-17', expect: '예외',
+  name: '정정 원료 줄 되돌리기 - 한도 안팎 · 사유 없음 · 순량 반영',
+  async run(t) {
+    const m = await master(t);
+    const x = await brew(t, m);                         // 원료 a 에서 3, b 에서 2
+    const plain = await newMaterialLot(t, m, m.reagent, { qty: 10 });
+    const WHY = '원료 로트를 잘못 골랐음';
+    const qty = async (lot) => Number(await t.val(
+      `select qty_available from material_lot where id = $1`, [lot]));
+    const net = async (raw) => Number(await t.val(
+      `select coalesce(sum(qty), 0) from v_solution_input
+        where solution_lot_id = $1 and material_lot_id = $2`, [x.id, raw]));
+    const back = (raw, n, why) => t.val(
+      `select return_solution_input($1, $2, $3, $4)`, [x.id, raw, n, why]);
+
+    /* 쓰는 함수다. 열람 역할 · 누구나에게는 열려 있지 않다 (§10 · 0104) */
+    for (const role of ['app_readonly', 'public']) {
+      t.eq(await t.val(
+        `select has_function_privilege($1,
+           'return_solution_input(uuid, uuid, numeric, text)', 'EXECUTE')`, [role]),
+        false, `${role} 의 실행 권한`);
+    }
+
+    /* 누가 되돌렸는지 비면 거부한다 */
+    await t.rejects(() => back(x.a, 1, WHY), { code: 'P0001', message: '세션 사용자' });
+
+    await t.setActor(m.admin);
+    try {
+      /* 사유가 없으면 거부한다 - 빈 값 · 공백 · null */
+      for (const why of ['', '   ', null]) {
+        await t.rejects(() => back(x.a, 1, why), { code: 'P0001', message: '사유' });
+      }
+      await t.rejects(() => back(x.a, 0, WHY), { code: 'P0001', message: '0보다' });
+      t.eq(await qty(x.a), 7, '거부된 되돌림은 재고를 움직이지 않는다 (10 - 3)');
+
+      /* 한도 안. 화면과 같이 응용 역할로 부른다 */
+      const line = await t.asRole('app_role', () => t.resolves(() => back(x.a, 1, WHY)));
+      t.eq(await qty(x.a), 8, '되돌린 뒤 a 잔여 (7 + 1)');
+      t.eq(await net(x.a), 2, 'a 순량 (3 - 1)');
+      t.eq(await net(x.b), 2, 'b 순량 그대로');
+
+      /* 같은 원액을 가리키는 반납 줄 하나가 더해졌고, 사유가 그 줄과 감사추적에 남는다 */
+      const row = await t.one(
+        `select type::text as type, qty::float8 as qty, material_lot_id, solution_lot_id,
+                reason_detail, registered_by
+           from stock_movement where id = $1`, [line]);
+      t.eq([row.type, row.qty, row.material_lot_id, row.solution_lot_id, row.registered_by],
+           ['RETURN', 1, x.a, x.id, m.admin], '되돌림 줄');
+      t.ok(String(row.reason_detail).includes(WHY), `줄의 사유: ${row.reason_detail}`);
+      const audit = await t.one(
+        `select actor_id, new_value->>'reason_detail' as why from audit_log
+          where table_name = 'stock_movement' and record_id = $1 and action = 'INSERT'`, [line]);
+      t.eq(audit?.actor_id, m.admin, '감사추적의 기록자');
+      t.ok(String(audit?.why).includes(WHY), `감사추적의 사유: ${audit?.why}`);
+
+      /* 한도 넘음 - 남은 2 보다 큰 되돌림. 들어간 적 없는 원료 */
+      await t.rejects(() => back(x.a, 2.5, WHY), { code: 'P0001', message: '꺼낸 만큼까지만' });
+      await t.rejects(() => back(plain, 1, WHY), { code: 'P0001', message: '들어간 적 없는' });
+      t.eq([await qty(x.a), await qty(plain)], [8, 10], '거부된 뒤 잔여');
+
+      /* 남은 2 를 다 되돌리면 a 는 원료 목록에서 빠지고, 줄은 넷 다 남는다 */
+      await t.resolves(() => back(x.a, 2, WHY));
+      t.eq(await t.rows(
+        `select material_lot_id, qty::float8 as qty from v_solution_input where solution_lot_id = $1`,
+        [x.id]), [{ material_lot_id: x.b, qty: 2 }], '원료 목록');
+      t.eq(await qty(x.a), 10, '3 꺼내 3 을 되돌렸다');
+      t.eq(await t.val(
+        `select count(*)::int from stock_movement where solution_lot_id = $1`, [x.id]),
+        4, '원료 줄 둘 + 되돌림 둘');
+    } finally {
+      await t.setActor(null);
+    }
+  },
+},
+
+{
+  id: 'SL-18', expect: '예외',
+  name: '정정 빠뜨린 원료 더하기 - 원료 목록 · 재고 · 원액 아닌 로트',
+  async run(t) {
+    const m = await master(t);
+    const x = await brew(t, m);                         // 원료 a 에서 3, b 에서 2
+    const missed = await newMaterialLot(t, m, m.reagent, { qty: 10 });   // 실제로 썼는데 빠진 로트
+    const plain = await newMaterialLot(t, m, m.reagent2, { qty: 10 });   // 원액이 아닌 입고 로트
+    const WHY = '원료 한 줄을 빠뜨림';
+    const qty = async (lot) => Number(await t.val(
+      `select qty_available from material_lot where id = $1`, [lot]));
+    const add = (sol, raw, n, why) => t.val(
+      `select add_solution_input($1, $2, $3, $4)`, [sol, raw, n, why]);
+
+    for (const role of ['app_readonly', 'public']) {
+      t.eq(await t.val(
+        `select has_function_privilege($1,
+           'add_solution_input(uuid, uuid, numeric, text)', 'EXECUTE')`, [role]),
+        false, `${role} 의 실행 권한`);
+    }
+
+    await t.rejects(() => add(x.id, missed, 1, WHY), { code: 'P0001', message: '세션 사용자' });
+
+    await t.setActor(m.admin);
+    try {
+      for (const why of ['', '   ', null]) {
+        await t.rejects(() => add(x.id, missed, 1, why), { code: 'P0001', message: '사유' });
+      }
+      await t.rejects(() => add(x.id, missed, 0, WHY), { code: 'P0001', message: '0보다' });
+
+      /* 원액이 아닌 로트를 원액으로 가리키면 트리거(T3)가 거부한다 - 함수 길에서도 같다 */
+      await t.rejects(() => add(plain, missed, 1, WHY), { code: 'P0001', message: '원액이 아닌' });
+      /* 없는 원액 · 원액 자신을 원료로 */
+      await t.rejects(
+        () => add('00000000-0000-0000-0000-000000000000', missed, 1, WHY),
+        { code: 'P0001', message: '원액 로트를 찾을 수 없습니다' });
+      await t.rejects(() => add(x.id, x.id, 1, WHY), { code: 'P0001', message: '자기' });
+      /* 원료 잔여를 넘는 차감은 차감 트리거가 거부한다 */
+      await t.rejects(() => add(x.id, missed, 11, WHY), { code: 'P0001', message: '잔여' });
+      t.eq([await qty(missed), await qty(x.id)], [10, 5], '거부된 뒤 잔여 (원료 · 원액)');
+
+      /* 빠뜨린 원료를 잇는다. 원료 재고가 줄고 원액의 원료 목록에 들어온다 */
+      const line = await t.asRole('app_role', () => t.resolves(() => add(x.id, missed, 1.5, WHY)));
+      t.eq(await qty(missed), 8.5, '더한 뒤 원료 잔여 (10 - 1.5)');
+      t.eq(await t.rows(
+        `select material_lot_id, qty::float8 as qty from v_solution_input
+          where solution_lot_id = $1 order by qty desc`, [x.id]),
+        [{ material_lot_id: x.a, qty: 3 }, { material_lot_id: x.b, qty: 2 },
+         { material_lot_id: missed, qty: 1.5 }], '원액의 원료 목록');
+
+      const row = await t.one(
+        `select type::text as type, qty::float8 as qty, material_lot_id, solution_lot_id,
+                reason_detail, registered_by
+           from stock_movement where id = $1`, [line]);
+      t.eq([row.type, row.qty, row.material_lot_id, row.solution_lot_id, row.registered_by],
+           ['SOLUTION', -1.5, missed, x.id, m.admin], '더한 원료 줄');
+      t.ok(String(row.reason_detail).includes(WHY), `줄의 사유: ${row.reason_detail}`);
+      const audit = await t.one(
+        `select actor_id, new_value->>'reason_detail' as why from audit_log
+          where table_name = 'stock_movement' and record_id = $1 and action = 'INSERT'`, [line]);
+      t.eq(audit?.actor_id, m.admin, '감사추적의 기록자');
+      t.ok(String(audit?.why).includes(WHY), `감사추적의 사유: ${audit?.why}`);
+
+      /* 정추적이 그 로트에서 원액으로 닿는다 - 회수 때 영향 범위에 들어온다 */
+      t.eq((await t.rows(
+        `select solution_lot_id from v_solution_input where material_lot_id = $1`, [missed]))
+        .map((r) => r.solution_lot_id), [x.id], '그 로트가 닿는 원액');
+
+      /* 원액 로트는 그대로다 - 제조량 · 잔여 · 단가를 다시 셈하지 않는다 */
+      t.eq(await t.one(
+        `select qty_received::float8 as rec, qty_available::float8 as av, unit_price::float8 as price
+           from material_lot where id = $1`, [x.id]),
+        { rec: 5, av: 5, price: 1000 }, '원액 로트');
+
+      /* 더한 줄도 같은 길로 되돌릴 수 있다 (더한 만큼까지) */
+      await t.rejects(
+        () => t.val(`select return_solution_input($1, $2, 2, $3)`, [x.id, missed, WHY]),
+        { code: 'P0001', message: '꺼낸 만큼까지만' });
+      await t.resolves(
+        () => t.val(`select return_solution_input($1, $2, 1.5, $3)`, [x.id, missed, WHY]));
+      t.eq(await qty(missed), 10, '되돌린 뒤 원료 잔여');
+    } finally {
+      await t.setActor(null);
+    }
   },
 },
 

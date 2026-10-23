@@ -139,7 +139,15 @@ export default async function MaterialLabel({ params, searchParams }: {
               </td>
               <th className="w-[22%]">유효기한</th>
               <td className="tnum text-base font-bold">
-                {lot.expiry_date ? fmtDate(lot.expiry_date) : '해당 없음'}
+                {/*
+                  * 원액에 유효기한이 비어 있는 것은 기한이 없어서가 아니라 품목에
+                  * 사용기간이 설정되지 않아서다. 용기에 붙는 종이에 "해당 없음" 이라
+                  * 찍으면 사실과 다르다. 입고 로트의 문구는 그대로 둔다 - 자료
+                  * 식별자는 문구가 아니라 값으로 만들므로 어느 쪽도 바뀌지 않는다.
+                  */}
+                {lot.expiry_date
+                  ? fmtDate(lot.expiry_date)
+                  : lot.made_on ? '미설정 (품목 사용기간 없음)' : '해당 없음'}
               </td>
             </tr>
             {lot.made_on ? (
