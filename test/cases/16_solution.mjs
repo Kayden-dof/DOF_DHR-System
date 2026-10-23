@@ -12,9 +12,11 @@
 // SL-05~11 은 원료 줄이 생긴 뒤의 것이다 (0119) - 원료 줄이 하나도 없는 원액
 // 로트를 막는 커밋 시 검사(T1), 원액을 실제로 세우는 make_solution_lot, 원료
 // 줄이 원액을 가리키는 방식(T3)과 고쳐 쓰기 차단(T5).
+// SL-12~16 은 원액이 이미 있는 장치에 닿는지 본다 (0120) - 자재 지출에서 빠지는
+// 것, 공정 투입(S05), 계보(§8.3), 검토 표시의 기한 경과, 재고(§8.3).
 // =============================================================================
 
-import { masterData as master, newMaterialLot } from '../fixtures.mjs';
+import { masterData as master, newMaterialLot, newWorkOrder } from '../fixtures.mjs';
 
 let seq = 0;
 
@@ -70,6 +72,32 @@ async function brew(t, m, o = {}) {
   } finally {
     await t.setActor(null);
   }
+}
+
+/**
+ * 재단 전 공정 기록 하나 (알칼리 처리, 열린 기록). 04_rules_m1_m4.mjs 의 newRecord 와
+ * 같은 차례로 만든다. 작업일은 한국 날짜다 - 지시 발행일(한국 날짜)보다 앞서면
+ * 거부되므로 current_date(UTC) 를 쓰지 않는다.
+ */
+async function openRecord(t, m, woId, opId = m.ops['WS-DX2401-03'], day = 1) {
+  return t.val(
+    `insert into process_record (work_order_id, operation_id, day_no, work_date, worker_id)
+     values ($1,$2,$3,(timezone('Asia/Seoul', now()))::date,$4) returning id`,
+    [woId, opId, day, m.worker]);
+}
+
+/** 공정 기록에 자재 로트를 투입한다. */
+function issue(t, m, prId, lotId, qty) {
+  return t.rows(
+    `insert into material_issue (process_record_id, material_lot_id, qty, issued_by)
+     values ($1,$2,$3,$4)`, [prId, lotId, qty, m.admin]);
+}
+
+/** 그 지시서의 검토 표시 가운데 이 갈래에서 이 말이 든 것 (15_review_more.mjs 와 같다) */
+async function flags(t, woId, kind, needle) {
+  const rows = await t.rows(
+    `select detail from review_flags($1) where kind = $2`, [woId, kind]);
+  return rows.map((r) => r.detail).filter((d) => d.includes(needle));
 }
 
 /** 품목 하나. 유형은 인자로 준다. */
@@ -540,6 +568,286 @@ export default [
     await t.rejects(
       () => t.rows(`update stock_movement set qty = -2 where id = $1`, [legacy]),
       { code: 'P0001', message: 'qty' });
+  },
+},
+
+// ---- 원액이 이미 있는 장치에 닿는다 (0120) -------------------------------------
+
+{
+  id: 'SL-12', expect: '확인',
+  name: '지출 원액 로트는 매입이 아니므로 자재 지출과 현황판 지출에 더해지지 않는다',
+  async run(t) {
+    const m = await master(t);
+    /*
+     * 원액은 시약 매입으로 이미 잡힌 돈을 다른 모양으로 옮긴 것이다. 원액 로트도
+     * 받은 수량 x 단가로 세면 같은 시약 값이 두 번 지출로 나간다.
+     *
+     * 자료가 쌓인 DB 에서 도는 시험이라 절대값이 아니라 **늘어난 만큼**을 본다.
+     * 원료 시약 두 로트(각 10 x 1000)는 정당한 매입이므로 20000 이 늘고, 원액
+     * 5 x 1000 = 5000 은 늘지 않는다.
+     */
+    const day = `(timezone('Asia/Seoul', now()))::date`;
+    const monthSpend = async () => Number(await t.val(
+      `select coalesce(sum(amount), 0) from v_material_spend
+        where month = date_trunc('month', ${day})::date`));
+    const boardSpend = async (period) => Number(await t.val(
+      `select coalesce(sum(spend), 0) from v_board_period
+        where period = $1::text
+          and bucket = case $1::text
+                         when 'day'  then ${day}
+                         when 'week' then date_trunc('week', ${day})::date
+                         else             date_trunc('month', ${day})::date end`,
+      [period]));
+
+    const before = {
+      month: await monthSpend(),
+      day: await boardSpend('day'), week: await boardSpend('week'), mon: await boardSpend('month'),
+    };
+
+    const { item, id, a, b } = await brew(t, m);
+
+    /* 원액 로트가 서 있고 값이 있다 - 빼지 않으면 5000 이 더해졌을 것이다 */
+    const sol = await t.one(
+      `select qty_received::float8 as qty, unit_price::float8 as price from material_lot where id = $1`,
+      [id]);
+    t.eq([sol.qty, sol.price], [5, 1000], '원액 로트 (제조량 5 x 단가 1000)');
+
+    const bought = Number(await t.val(
+      `select sum(qty_received * unit_price) from material_lot where id in ($1, $2)`, [a, b]));
+    t.eq(bought, 20000, '원료 시약 두 로트의 매입');
+
+    t.eq((await monthSpend()) - before.month, bought, '자재 지출 (그 달) 의 늘어난 몫');
+    t.eq(await t.val(`select count(*)::int from v_material_spend where item_id = $1`, [item]),
+         0, '원액 품목은 자재 지출에 줄이 없다');
+    t.eq((await boardSpend('day'))   - before.day,  bought, '현황판 지출 (일)');
+    t.eq((await boardSpend('week'))  - before.week, bought, '현황판 지출 (주)');
+    t.eq((await boardSpend('month')) - before.mon,  bought, '현황판 지출 (달)');
+  },
+},
+
+{
+  id: 'SL-13', expect: '예외',
+  name: 'S05 자재 구성표에 원액을 걸면 원액 기록 없이는 공정을 마칠 수 없다',
+  async run(t) {
+    const m = await master(t);
+    const sol = await solutionItem(t, { name: '시험 20X PBS' });
+
+    /*
+     * 공용 제품표준서(m.dm)에 공정이나 구성표를 더하지 않는다 - 다른 시험이
+     * 그 수를 센다. 같은 완제품에 시험 전용 개정본을 하나 세워 그쪽에 건다.
+     * 발효 조건(0061)은 사실 셋이다 - ACTIVE · 발효일이 오늘 이전 · 대조 확인.
+     */
+    const today = await t.val(`select (timezone('Asia/Seoul', now()))::date::text`);
+    const dm = await t.val(
+      `insert into device_master (item_id, revision, status, effective_from,
+         verified_by, verified_at, sheet_min, sheet_max)
+       values ($1,'SL-TEST','ACTIVE',$2::date,$3,now(),1,30) returning id`,
+      [m.fin, today, m.admin]);
+    const op = await t.val(
+      `insert into dmr_operation (device_master_id, seq, code, name, after_cutting)
+       values ($1,1,'WS-SLT-03','시험 알칼리 처리',false) returning id`, [dm]);
+    const bom = await t.val(
+      `insert into dmr_bom (operation_id, component_item_id, basis)
+       values ($1,$2,'SHEET_TIER') returning id`, [op, sol]);
+    for (const [lo, hi, qty] of [[1, 10, 0.8], [11, 30, 1.6]]) {
+      await t.rows(
+        `insert into dmr_bom_tier (dmr_bom_id, min_sheets, max_sheets, qty) values ($1,$2,$3,$4)`,
+        [bom, lo, hi, qty]);
+    }
+    /* 원액은 시약과 같이 장입 장수 구간의 고정량으로 센다 */
+    t.eq(Number(await t.val(`select required_qty($1,$2,20,0)`, [op, sol])), 1.6, '20장 소요량');
+    t.eq(Number(await t.val(`select required_qty($1,$2,10,0)`, [op, sol])), 0.8, '10장 소요량');
+
+    const rawLot = await newMaterialLot(t, m, m.raw, { thickness_band: '0510' });
+    const wo = await t.val(
+      `insert into work_order (wo_no, batch_no, device_master_id, dmr_revision, material_lot_id,
+         sheet_count, issued_by_prod, issued_by_qa)
+       values (next_number('WORK_ORDER'), next_number('BATCH'), $1, 'SL-TEST', $2, 20, $3, $4)
+       returning id`,
+      [dm, rawLot, m.admin, m.qa]);
+    const pr = await t.val(
+      `insert into process_record (work_order_id, operation_id, day_no, work_date, worker_id)
+       values ($1,$2,1,$3::date,$4) returning id`, [wo, op, today, m.worker]);
+
+    await t.setActor(m.admin);
+    try {
+      /* 원액을 기록하지 않았다. 시약을 기록하지 않았을 때와 같은 말로 막힌다 */
+      await t.rejects(() => t.rows(`select complete_process($1)`, [pr]),
+        { code: 'P0001', message: 'S05: 자재가 기록되지 않았습니다 (시험 20X PBS)' });
+      t.eq(await t.val(`select ended_at is null from process_record where id = $1`, [pr]),
+           true, '거부된 뒤 종료 시각은 비어 있다');
+
+      /* 원액 로트를 투입으로 넣으면 지나가고, 원액 잔여가 준다 */
+      const { id: lot } = await brew(t, m, { item: sol });
+      await t.setActor(m.admin);                       // brew 가 배우를 내렸다
+      await issue(t, m, pr, lot, 1.6);
+      await t.resolves(() => t.rows(`select complete_process($1)`, [pr]));
+      t.eq(await t.val(`select ended_at is not null from process_record where id = $1`, [pr]),
+           true, '종료 시각이 채워졌다');
+      t.eq(Number(await t.val(`select qty_available from material_lot where id = $1`, [lot])),
+           3.4, '원액 잔여 (5 - 1.6)');
+      t.eq(await t.val(`select status::text from material_lot where id = $1`, [lot]),
+           'AVAILABLE', '원액 상태');
+    } finally {
+      await t.setActor(null);
+    }
+  },
+},
+
+{
+  id: 'SL-14', expect: '확인',
+  name: '계보 제품 로트 → 배치 → 원액 → 시약 로트, 시약 로트 → 원액 → 영향 배치',
+  async run(t) {
+    const m = await master(t);
+    /* 원액 둘, 배치 둘. 서로 섞이지 않는지 보려면 하나로는 모자란다 */
+    const x = await brew(t, m);
+    const y = await brew(t, m);
+    const woX = await newWorkOrder(t, m);
+    const woY = await newWorkOrder(t, m);
+
+    await t.setActor(m.admin);
+    let plX;
+    try {
+      plX = await t.val(`select cut_product_lot($1,$2,10,1)`, [woX.id, m.fin]);
+      for (const [wo, lot] of [[woX, x.id], [woY, y.id]]) {
+        const pr = await openRecord(t, m, wo.id);
+        await issue(t, m, pr, lot, 1.6);
+      }
+    } finally {
+      await t.setActor(null);
+    }
+
+    const ids = (rows, col) => rows.map((r) => r[col]).sort();
+
+    /* v_lot_genealogy 는 그대로 원액 로트까지 낸다 (공급자를 묶지 않는다) */
+    const g = await t.rows(
+      `select material_lot_id, item_type::text as item_type, qty::float8 as qty
+         from v_lot_genealogy where work_order_id = $1`, [woX.id]);
+    t.eq(g, [{ material_lot_id: x.id, item_type: 'SOLUTION', qty: 1.6 }], '배치 X 가 쓴 자재');
+
+    /* 역추적: 제품 로트 → 배치 → 원액 → 시약 로트 */
+    const back = await t.rows(
+      `select si.material_lot_id, si.solution_lot_id
+         from product_lot pl
+         join v_lot_genealogy g on g.work_order_id = pl.work_order_id
+         join v_solution_input si on si.solution_lot_id = g.material_lot_id
+        where pl.id = $1`, [plX]);
+    t.eq(ids(back, 'material_lot_id'), [x.a, x.b].sort(), '제품 로트 X 에서 거슬러 닿은 시약 로트');
+    t.eq([...new Set(back.map((r) => r.solution_lot_id))], [x.id], '거친 원액은 X 의 것 하나');
+
+    /* 정추적: 시약 로트 → 원액 → 배치 (→ 제품 로트) */
+    const forward = (lot) => t.rows(
+      `select distinct g.work_order_id
+         from v_solution_input si
+         join v_lot_genealogy g on g.material_lot_id = si.solution_lot_id
+        where si.material_lot_id = $1`, [lot]);
+    t.eq(ids(await forward(x.a), 'work_order_id'), [woX.id], '시약 로트 a 가 닿은 배치');
+    t.eq(ids(await forward(x.b), 'work_order_id'), [woX.id], '시약 로트 b 가 닿은 배치');
+    t.eq(ids(await forward(y.a), 'work_order_id'), [woY.id], '다른 원액의 시약 로트는 다른 배치');
+    t.eq(ids(await t.rows(
+      `select distinct pl.id
+         from v_solution_input si
+         join v_lot_genealogy g on g.material_lot_id = si.solution_lot_id
+         join product_lot pl on pl.work_order_id = g.work_order_id
+        where si.material_lot_id = $1`, [x.a]), 'id'), [plX], '영향 제품 로트');
+
+    /* 원액을 거치지 않은 시약 로트는 어느 배치에도 닿지 않는다 */
+    const lone = await newMaterialLot(t, m, m.reagent, { qty: 10 });
+    t.eq((await forward(lone)).length, 0, '원액에 들어간 적 없는 시약 로트');
+  },
+},
+
+{
+  id: 'SL-15', expect: '확인',
+  name: '검토 기한이 지난 원액은 막지 않고 투입되며, 검토 표시가 원액 로트번호로 짚는다',
+  async run(t) {
+    const m = await master(t);
+    /* 제조일 2020-01-01 + 6개월 = 2020-07-01. 오늘은 한참 지났다 */
+    const x = await brew(t, m, { made: '2020-01-01' });
+    const lot = await t.one(
+      `select lot_no, expiry_date::text as exp from material_lot where id = $1`, [x.id]);
+    t.eq(lot.exp, '2020-07-01', '유효기간');
+
+    const wo = await newWorkOrder(t, m);
+    await t.setActor(m.admin);
+    try {
+      const pr = await openRecord(t, m, wo.id);
+      /* 막지 않는다 - 기한이 지났다는 사실을 짚을 뿐이다 (§2 경고만) */
+      await t.resolves(() => issue(t, m, pr, x.id, 1));
+
+      const hit = await flags(t, wo.id, '기한 경과', lot.lot_no);
+      t.eq(hit.length, 1, '지난 원액을 짚는다');
+      t.ok(hit[0].includes('2020-07-01'), '유효기한을 적는다');
+      t.ok(hit[0].includes(lot.lot_no), '원액 로트번호를 적는다');
+
+      /* 원액에는 공급자가 없다. 공급자 승인을 묻지 않는다 */
+      t.eq((await flags(t, wo.id, '미승인 공급자', lot.lot_no)).length, 0, '공급자 표시');
+    } finally {
+      await t.setActor(null);
+    }
+
+    /* 기한이 남은 원액은 같은 자리에서 짚히지 않는다 */
+    const fresh = await brew(t, m, { made: '2026-10-22' });
+    const freshNo = await t.val(`select lot_no from material_lot where id = $1`, [fresh.id]);
+    const wo2 = await newWorkOrder(t, m);
+    await t.setActor(m.admin);
+    try {
+      await issue(t, m, await openRecord(t, m, wo2.id), fresh.id, 1);
+      t.eq((await flags(t, wo2.id, '기한 경과', freshNo)).length, 0, '남은 원액은 안 짚는다');
+    } finally {
+      await t.setActor(null);
+    }
+  },
+},
+
+{
+  id: 'SL-16', expect: '확인',
+  name: '재고 원액 5 - 투입 1.6 - 재고 폐기 0.2 = 3.2, 장부 합과 같다',
+  async run(t) {
+    const m = await master(t);
+    const { id, a, b } = await brew(t, m);               // 원액 5, 원료 a 3 · b 2 를 꺼냄
+    const wo = await newWorkOrder(t, m);
+    const lotQty = async (lot) => Number(await t.val(
+      `select qty_available from material_lot where id = $1`, [lot]));
+
+    t.eq(await lotQty(id), 5, '제조 직후');
+
+    await t.setActor(m.admin);
+    try {
+      await issue(t, m, await openRecord(t, m, wo.id), id, 1.6);
+    } finally {
+      await t.setActor(null);
+    }
+    t.eq(await lotQty(id), 3.4, '투입 뒤 (5 - 1.6)');
+
+    /* 잔량을 버린다. 원액도 재고 폐기 길이 그대로 열려 있다 */
+    await t.resolves(() => t.rows(
+      `insert into stock_movement (material_lot_id, type, qty, reason_code, reason_detail,
+         registered_by)
+       values ($1,'DISPOSAL_STOCK',-0.2,'파손','잔량 따라냄',$2)`, [id, m.admin]));
+    t.eq(await lotQty(id), 3.2, '폐기 뒤 (3.4 - 0.2)');
+    t.eq(await t.val(`select status::text from material_lot where id = $1`, [id]),
+         'AVAILABLE', '상태');
+
+    /*
+     * 장부: 받은(만든) 수량 + 이 로트에 닿은 재고 증감 - 이 로트에서 나간 투입.
+     * 증감은 material_lot_id 로 센다. 원액을 만든 원료 줄은 solution_lot_id 로 원액을
+     * 가리키지만 줄이 닿은 로트는 원료 쪽이라 원액의 장부에 들지 않는다.
+     */
+    const ledger = Number(await t.val(
+      `select ml.qty_received
+            + coalesce((select sum(qty) from stock_movement where material_lot_id = ml.id), 0)
+            - coalesce((select sum(qty) from material_issue where material_lot_id = ml.id), 0)
+         from material_lot ml where ml.id = $1`, [id]));
+    t.eq(ledger, 3.2, '장부 합');
+    t.eq(ledger, await lotQty(id), '장부 합과 잔여가 같다');
+
+    /* 원료 쪽은 원액 제조 때 꺼낸 그대로이고, 원액의 구성(계보)도 그대로다 */
+    t.eq([await lotQty(a), await lotQty(b)], [7, 8], '원료 잔여');
+    t.eq(await t.rows(
+      `select material_lot_id, qty::float8 as qty from v_solution_input
+        where solution_lot_id = $1 order by qty desc`, [id]),
+      [{ material_lot_id: a, qty: 3 }, { material_lot_id: b, qty: 2 }], '원액의 구성');
   },
 },
 
