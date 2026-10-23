@@ -49,20 +49,27 @@ export default async function OrdersPage() {
          join app_user u on u.id = po.ordered_by
         order by po.ordered_at desc, po.po_no desc
         limit 200`),
+    /*
+     * 발주할 수 있는 품목. 완제품과 원액은 사 오는 것이 아니다 - 완제품은
+     * 재단에서, 원액은 원료로 만든다 (재고 증감 화면의 원액 제조).
+     */
     items: await db.rows<ItemOpt>(
       `select id, code, name, usage_uom, type::text as type, default_supplier_id
          from item
-        where is_active and type <> 'FIN' order by type, code`),
+        where is_active and type not in ('FIN', 'SOLUTION') order by type, code`),
     suppliers: await db.rows<SupplierOpt>(
       `select id, name, status from supplier order by status desc, name`),
     /*
      * 입고 폼이 쓰는 품목 정보는 발주 폼이 쓰는 것과 다르다 - 구매 단위와
      * 환산율이 필요하다. 폼을 복제하지 않는 대신 자료를 한 벌 더 읽는다.
+     *
+     * 원액은 뺀다. 입고하지 않고 만드는 것이라, 고를 수 없는 것은 보이지
+     * 않는다 (자재 로트 화면의 입고 등록과 같다).
      */
     receiveItems: await db.rows<ReceiveItemOpt>(
       `select id, code, name, type::text as type, purchase_uom, usage_uom, conversion,
               shelf_life_months
-         from item where is_active order by type, code`),
+         from item where is_active and type <> 'SOLUTION' order by type, code`),
     receiveOrders: await db.rows<OrderOpt>(
       `select id, po_no, item_id, supplier_id, qty, unit_price,
               po_received(id) as received

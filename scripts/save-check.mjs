@@ -297,6 +297,18 @@ if (!scheme) {
     const page = await (await fetch(`${BASE}/material/movement`, { headers: { cookie: CK } })).text();
     ok(page.includes(`<option value="${sol.id}"`), '원액 제조 · 원액 품목이 고르개에 나옴');
 
+    /*
+     * 원액은 입고하지도 발주하지도 않는다. 두 화면의 품목 목록에 원액이 없어야
+     * 하고 (고를 수 없는 것은 보이지 않는다), 같은 화면에 시약 품목은 있어야
+     * 이 확인이 아무것도 못 보는 상태가 아니다. 목록은 속성 자료로 실려 오므로
+     * 품목 식별자가 글에 있는지로 본다. 입고 폼이 둘이다 - 자재 로트 화면과 발주 화면.
+     */
+    for (const p of ['/material', '/material/orders']) {
+      const t = await (await fetch(`${BASE}${p}`, { headers: { cookie: CK } })).text();
+      ok(t.includes(rawA.id) && !t.includes(sol.id),
+         `원액 제조 · 입고 · 발주 목록에 원액이 없음 (${p})`);
+    }
+
     const r = await submitForm(BASE, '/material/movement', CK,
       ['item_id', 'made_on', 'qty', 'lot_0', 'qty_0'],
       { item_id: sol.id, made_on: today, qty: 4,
