@@ -62,7 +62,7 @@ export const ACCESS_ROWS: AccessRow[] = [
   { group: '자재', label: '품목',        path: '/material/items',        marks: '●●-XX' },
   { group: '자재', label: '발주',        path: '/material/orders',       marks: '●●-XX' },
   { group: '자재', label: '재고',        path: '/material/stock',        marks: '●●-XX' },
-  { group: '자재', label: '증감 · 용액', path: '/material/movement',     marks: '●●-XX' },
+  { group: '자재', label: '증감 · 원액', path: '/material/movement',     marks: '●●-XX' },
 
   { group: '설비', label: '설비',        path: '/equipment',             marks: '●●-●X' },
 

@@ -7,7 +7,9 @@ import { MATERIAL_NAV } from '../../sections';
 import { fmtDateTime } from '@/lib/fmt';
 import { MOVEMENT_TYPES } from '@/lib/forms';
 import { Panel, Empty, Tag } from '@/components/ui';
-import { MovementForm, SolutionForm, type LotOpt, type WoOpt } from './movement-forms';
+import {
+  MovementForm, SolutionLotForm, type LotOpt, type WoOpt, type SolutionItemOpt,
+} from './movement-forms';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,7 +18,7 @@ export const dynamic = 'force-dynamic';
  * 이름이 붙어야 한다. 전부 "DOF DHR" 이면 탭을 여러 개 열어도 어느 것이
  * 무엇인지 알 수 없어 여는 의미가 없다.
  */
-export const metadata = { title: '증감 · 용액' };
+export const metadata = { title: '증감 · 원액' };
 
 interface MoveRow {
   id: string; type: string; qty: string; reason_code: string; reason_detail: string | null;
@@ -37,6 +39,10 @@ export default async function MovementPage() {
          from material_lot ml join item i on i.id = ml.item_id
         where ml.status in ('AVAILABLE','CONSUMED')
         order by i.code, ml.lot_no`),
+    /* 원액 제조에서 고를 수 있는 품목. 유형이 원액인 것만 (T2 가 다른 품목의 제조일을 거부한다) */
+    solutions: await db.rows<SolutionItemOpt>(
+      `select id, code, name, usage_uom, shelf_life_months
+         from item where type = 'SOLUTION' and is_active order by code`),
     orders: await db.rows<WoOpt>(
       `select id, batch_no, wo_no from work_order
         where status in ('ISSUED','IN_PROCESS','CUT') order by issued_at desc`),
@@ -53,12 +59,12 @@ export default async function MovementPage() {
   }));
 
   const label = (t: string) => MOVEMENT_TYPES.find((m) => m.code === t)?.label
-    ?? (t === 'SOLUTION' ? '용액 제조' : t);
+    ?? (t === 'SOLUTION' ? '원액 제조' : t);
 
   return (
     <PageShell
       section="자재"
-      title="재고 증감 · 용액 제조"
+      title="재고 증감 · 원액 제조"
       lede="반납은 원 로트로 복귀시킵니다. 성적서 연결을 유지하기 위함입니다."
       nav={<SubNav items={MATERIAL_NAV} />}
     >
@@ -67,14 +73,14 @@ export default async function MovementPage() {
         <Panel title="재고 증감" note="반납 · 폐기 · 조정">
           <MovementForm lots={d.lots} orders={d.orders} />
         </Panel>
-        <Panel title="용액 제조" note="당일 제조 · 당일 폐기">
-          <SolutionForm lots={d.lots} />
+        <Panel title="원액 제조" note="원료 차감 · 원액 로트">
+          <SolutionLotForm items={d.solutions} lots={d.lots} />
         </Panel>
       </div>
 
       <Panel title="최근 기록">
         {d.moves.length === 0 ? (
-          <Empty hint="위에서 반납 · 폐기 · 조정이나 용액 제조를 적으면 여기 남습니다.">
+          <Empty hint="위에서 반납 · 폐기 · 조정이나 원액 제조를 적으면 여기 남습니다.">
             기록이 없습니다.
           </Empty>
         ) : (

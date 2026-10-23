@@ -1,15 +1,21 @@
 'use client';
 
+import Link from 'next/link';
 import { useActionState, useState, useId } from 'react';
 import { MOVEMENT_TYPES, MOVEMENT_REASONS, type FormState } from '@/lib/forms';
+import { todayKST } from '@/lib/kst';
 import { Msg } from '@/components/ui';
-import { moveStock, makeSolution } from '../actions';
+import { moveStock, makeSolutionLot } from '../actions';
 
 export interface LotOpt {
   id: string; lot_no: string; item_code: string; item_name: string;
   usage_uom: string; qty_available: string;
 }
 export interface WoOpt { id: string; batch_no: string; wo_no: string }
+export interface SolutionItemOpt {
+  id: string; code: string; name: string; usage_uom: string;
+  shelf_life_months: number | null;
+}
 
 /* ---------------------------------------------------------------------------
    재고 증감 (§4.7)
@@ -95,27 +101,63 @@ export function MovementForm({ lots, orders }: { lots: LotOpt[]; orders: WoOpt[]
 }
 
 /* ---------------------------------------------------------------------------
-   용액 제조 (§4.7)
+   원액 제조 (§4.7)
 
-   20× PBS와 30% 에탄올 희석액은 당일 제조 · 당일 폐기라 로트를 만들지 않는다.
-   원료가 차감되는 것만 기록한다.
+   원료 로트에서 꺼내 원액 로트를 세운다. 로트번호는 채번 규칙이 만들고,
+   유효기간(제조일 + 품목의 사용기간)과 단가(원료 비용 ÷ 제조량)는 DB 함수가
+   정한다. 화면은 값을 받아 보낼 뿐이다.
+
+   사용기간이 비어 있는 품목이면 유효기간이 비어 선다. 막지 않고, 그렇다고
+   미리 적어 준다. 단가 없는 원료가 섞여도 같다 - 결과 문구가 말한다.
 --------------------------------------------------------------------------- */
-export function SolutionForm({ lots }: { lots: LotOpt[] }) {
+export function SolutionLotForm({ items, lots }: { items: SolutionItemOpt[]; lots: LotOpt[] }) {
   /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
   const uid = useId();
 
-  const [state, action, pending] = useActionState<FormState, FormData>(makeSolution, {});
+  const [state, action, pending] = useActionState<FormState, FormData>(makeSolutionLot, {});
   const [rows, setRows] = useState([0, 1, 2, 3]);
+  const [itemId, setItemId] = useState('');
+  const item = items.find((i) => i.id === itemId) ?? items[0];
+  const none = items.length === 0;
 
   return (
     <form action={action} className="p-4">
+      {none && (
+        <p className="mb-3 rounded-md bg-canvas px-3 py-2 text-xs leading-relaxed text-muted">
+          원액 품목이 없습니다. 설정의 품목 화면에서 유형이 원액인 품목을 먼저 등록하십시오.
+        </p>
+      )}
+
       <div className="grid gap-3 sm:grid-cols-2">
-        <div>
-          <label className="label" htmlFor={`${uid}-name`}>제조한 용액</label>
-          <input id={`${uid}-name`} name="name" required autoComplete="off" placeholder="20× PBS"
-                 className="input" />
+        <div className="sm:col-span-2">
+          <label className="label" htmlFor={`${uid}-item_id`}>원액 품목</label>
+          <select id={`${uid}-item_id`} name="item_id" required value={item?.id ?? ''}
+                  onChange={(e) => setItemId(e.target.value)} disabled={none} className="input">
+            {items.map((i) => (
+              <option key={i.id} value={i.id}>{i.code} · {i.name}</option>
+            ))}
+          </select>
+          {item && (
+            <p className="mt-1 text-xs leading-relaxed text-faint">
+              {item.shelf_life_months
+                ? `사용기간 ${item.shelf_life_months}개월. 유효기간은 제조일에서 그만큼 뒤로 정해집니다.`
+                : '이 품목은 사용기간이 설정되지 않아 유효기간이 비어 있게 됩니다.'}
+            </p>
+          )}
         </div>
         <div>
+          <label className="label" htmlFor={`${uid}-made_on`}>제조일</label>
+          <input id={`${uid}-made_on`} name="made_on" type="date" required defaultValue={todayKST()}
+                 className="input tnum" />
+        </div>
+        <div>
+          <label className="label" htmlFor={`${uid}-qty`}>
+            제조량{item ? ` (${item.usage_uom})` : ''}
+          </label>
+          <input id={`${uid}-qty`} name="qty" type="number" step="any" min="0" required
+                 className="input tnum" />
+        </div>
+        <div className="sm:col-span-2">
           <label className="label" htmlFor={`${uid}-note`}>비고</label>
           <input id={`${uid}-note`} name="note" autoComplete="off" className="input" />
         </div>
@@ -125,7 +167,7 @@ export function SolutionForm({ lots }: { lots: LotOpt[] }) {
       <div className="space-y-2">
         {rows.map((i) => (
           <div key={i} className="flex gap-2">
-            <select name={`lot_${i}`} className="input flex-1 text-xs">
+            <select name={`lot_${i}`} aria-label={`원료 ${i + 1}번째 줄`} className="input flex-1 text-xs">
               <option value="">사용 안 함</option>
               {lots.map((l) => (
                 <option key={l.id} value={l.id}>
@@ -134,6 +176,7 @@ export function SolutionForm({ lots }: { lots: LotOpt[] }) {
               ))}
             </select>
             <input name={`qty_${i}`} type="number" step="any" min="0"
+                   aria-label={`원료 ${i + 1}번째 줄의 수량`}
                    placeholder="수량" className="input w-32 tnum text-xs" />
           </div>
         ))}
@@ -144,13 +187,17 @@ export function SolutionForm({ lots }: { lots: LotOpt[] }) {
       </button>
 
       <p className="mt-3 rounded-md bg-canvas px-3 py-2 text-xs leading-relaxed text-muted">
-        당일 제조 · 당일 폐기이므로 용액 자체의 로트는 만들지 않습니다.
-        원료가 얼마나 빠졌는지만 기록으로 남습니다.
+        원액 로트가 서고 원료가 그 로트로 차감됩니다. 관리번호는 채번 규칙이 만듭니다.
       </p>
 
       <Msg state={state} />
+      {state.ok && state.href && (
+        <div className="mt-2">
+          <Link href={state.href} className="btn-ghost h-8 px-3 text-xs">라벨 인쇄</Link>
+        </div>
+      )}
       <div className="mt-3">
-        <button type="submit" disabled={pending || lots.length === 0} className="btn-primary">
+        <button type="submit" disabled={pending || none || lots.length === 0} className="btn-primary">
           제조 기록
         </button>
       </div>

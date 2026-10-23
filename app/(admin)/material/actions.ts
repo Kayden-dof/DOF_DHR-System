@@ -251,30 +251,69 @@ export async function moveStock(_p: FormState, form: FormData): Promise<FormStat
   }
 }
 
-/* 용액 제조. 원료 여러 종이 한 번에 차감된다 (§4.7) */
-export async function makeSolution(_p: FormState, form: FormData): Promise<FormState> {
+/* ---------------------------------------------------------------------------
+   원액 제조 (§4.7 · 0119)
+
+   원료 로트 여러 개에서 꺼내 원액 로트 하나를 세운다. 로트번호는 채번 규칙이
+   제조일로 만들고(0097), 유효기간과 단가는 함수가 정한다 - 응용에서 조합하지
+   않는다.
+
+   판정하지 않는다 (§1). 처방이 맞는지 묻지 않고, 적힌 원료와 수량을 이어 둘 뿐이다.
+
+   원료 줄은 비어 있으면 건너뛴다(로트를 고르지 않은 줄). 로트를 골랐으면 수량이
+   0보다 커야 한다 - 골라 놓고 수량이 0 이면 건너뛰는 것은 적었다고 믿은 원료가
+   기록에서 빠지는 것이므로 어느 줄인지 말하고 거부한다.
+--------------------------------------------------------------------------- */
+export async function makeSolutionLot(_p: FormState, form: FormData): Promise<FormState> {
   try {
     const me = await mgr();
+    const itemId = String(form.get('item_id') ?? '').trim();
+    if (!itemId) return { error: '제조할 원액 품목을 고르십시오' };
+    const madeOn = String(form.get('made_on') ?? '').trim();
+    if (!madeOn) return { error: '제조일을 입력하십시오' };
+    const qty = num(form.get('qty'), '제조량');
+    if (qty <= 0) return { error: '제조량은 0보다 커야 합니다' };
+
     const lots: string[] = [];
     const qtys: number[] = [];
     for (const [k, v] of form.entries()) {
       const m = k.match(/^lot_(\d+)$/);
       if (!m || !String(v)) continue;
-      const q = num(form.get(`qty_${m[1]}`), '수량');
-      if (!q) continue;
+      const q = num(form.get(`qty_${m[1]}`), `원료 ${Number(m[1]) + 1}번째 줄의 수량`);
+      if (q <= 0) return { error: `원료 ${Number(m[1]) + 1}번째 줄의 수량은 0보다 커야 합니다` };
       lots.push(String(v));
       qtys.push(q);
     }
     if (lots.length === 0) return { error: '차감할 원료와 수량을 한 줄 이상 입력하십시오' };
 
-    const n = await withActor(me.id, (db) =>
-      db.val<number>(`select make_solution($1::uuid[], $2::numeric[], $3, $4)`,
-        [lots, qtys, String(form.get('name') ?? '').trim(), txt(form.get('note'))]));
+    const made = await withActor(me.id, async (db) => {
+      const id = await db.val<string>(
+        `select make_solution_lot($1::uuid, $2::date, $3::numeric, $4::uuid[], $5::numeric[], $6::text)`,
+        [itemId, madeOn, qty, lots, qtys, txt(form.get('note'))]);
+      /* 날짜는 글자로 받는다. Date 로 건너가면 한국 자정이 하루 밀린다 (lib/kst) */
+      const lot = await db.one<{
+        lot_no: string; expiry_date: string | null; unit_price: string | null; usage_uom: string;
+      }>(
+        `select ml.lot_no, ml.expiry_date::text as expiry_date, ml.unit_price, i.usage_uom
+           from material_lot ml join item i on i.id = ml.item_id
+          where ml.id = $1`, [id]);
+      return { id, lot };
+    });
     bump();
+
+    const lot = made.lot;
+    /* 비어 있는 것은 비었다고 적는다. 지어내지 않는다 (§8.5) */
+    const expiry = lot?.expiry_date
+      ? `유효기간 ${lot.expiry_date}.`
+      : '사용기간이 설정되지 않아 유효기간이 비었습니다.';
+    const price = lot?.unit_price !== null && lot?.unit_price !== undefined
+      ? `단가 ${Number(lot.unit_price)} / ${lot.usage_uom}.`
+      : '단가 없는 원료가 있어 단가가 비었습니다.';
     return {
       ok: true,
-      message: `용액 제조를 기록했습니다. 원료 ${n}종이 차감되었습니다. ` +
-               `당일 제조 · 당일 폐기이므로 로트는 만들지 않습니다.`,
+      message: `원액 로트 ${lot?.lot_no ?? ''} 등록. 제조량 ${qty} ${lot?.usage_uom ?? ''}, ` +
+               `원료 ${lots.length}종이 차감되었습니다. ${expiry} ${price}`,
+      href: `/print/label/${made.id}`,
     };
   } catch (e) {
     return { error: dbMessage(e) };

@@ -80,10 +80,15 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
                or ml.supplier_lot_no ilike concat('%', $2::text, '%'))
         order by ml.received_at desc, ml.lot_no desc
         limit 200`, [status, q]),
+    /*
+     * 입고 등록에서는 원액을 고를 수 없다. 원액은 입고하지 않고 원료로 만든다
+     * (재고 증감 화면의 원액 제조). 넣으려 해도 DB 가 거부하지만, 고를 수 없는
+     * 것은 보이지 않는다.
+     */
     items: await db.rows<ItemOpt>(
       `select id, code, name, type::text as type, purchase_uom, usage_uom, conversion,
               shelf_life_months
-         from item where is_active order by type, code`),
+         from item where is_active and type <> 'SOLUTION' order by type, code`),
     suppliers: await db.rows<SupplierOpt>(
       `select id, name, status from supplier order by status desc, name`),
     /*
