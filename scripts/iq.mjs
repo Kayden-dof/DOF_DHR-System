@@ -170,9 +170,41 @@ const notNull = async (tbl, col) => (await q(
 check('IQ-07', 'S01 material_issue.material_lot_id NOT NULL', 'NOT NULL',
   await notNull('material_issue', 'material_lot_id') ? 'NOT NULL' : '허용',
   await notNull('material_issue', 'material_lot_id') === true);
-check('IQ-08', 'S02 material_lot.coa_no NOT NULL', 'NOT NULL',
-  await notNull('material_lot', 'coa_no') ? 'NOT NULL' : '허용',
-  await notNull('material_lot', 'coa_no') === true);
+/*
+ * S02 는 0118 부터 NOT NULL 이 아니라 표 안의 검사다. 원액 로트에는 성적서가
+ * 없어서 칸 하나로는 입고 로트와 원액 로트의 두 갈래를 가를 수 없다.
+ *
+ * 그래서 NOT NULL 의 유무가 아니라 **검사 제약 material_lot_source 가 서 있고,
+ * 검증되어 있고, 두 갈래가 정의대로 들어 있는가**를 본다. 이름만 있는 제약은
+ * 아무것도 막지 않는다 - NOT VALID 로 걸렸거나 한 갈래가 빠진 모양도 걸러야 한다.
+ *
+ *   입고 갈래  제조일이 비고, 성적서 번호 · 일자 · 공급자 · 공급자 로트가 모두 있다
+ *   원액 갈래  제조일이 있고, 그 넷이 모두 비어 있다
+ *
+ * 정의 문자열은 괄호를 걷고 OR 로 둘로 나눠 갈래마다 따로 본다. 갈래 안에
+ * 다른 널 조건이 끼어 있으면 (세어 보아 하나가 아니면) 정의와 다른 것이다.
+ */
+const S02_COLS = ['coa_no', 'coa_date', 'supplier_id', 'supplier_lot_no'];
+const s02Shape = (def) => {
+  const parts = String(def).replace(/[()]/g, ' ').replace(/\s+/g, ' ').split(' OR ');
+  if (parts.length !== 2) return false;
+  const count = (p, re) => (p.match(re) ?? []).length;
+  const intake = (p) => p.includes('made_on IS NULL') && count(p, / IS NULL/g) === 1
+    && S02_COLS.every((c) => p.includes(`${c} IS NOT NULL`)) && count(p, / IS NOT NULL/g) === 4;
+  const made = (p) => p.includes('made_on IS NOT NULL') && count(p, / IS NOT NULL/g) === 1
+    && S02_COLS.every((c) => p.includes(`${c} IS NULL`)) && count(p, / IS NULL/g) === 4;
+  return (intake(parts[0]) && made(parts[1])) || (intake(parts[1]) && made(parts[0]));
+};
+const s02 = (await q(
+  `select convalidated, pg_get_constraintdef(oid) as def
+     from pg_constraint
+    where conrelid = to_regclass('public.material_lot')
+      and conname = 'material_lot_source' and contype = 'c'`))[0];
+check('IQ-08', 'S02 material_lot_source CHECK 두 갈래', '검증된 CHECK',
+  !s02 ? '없음'
+    : s02.convalidated !== true ? '미검증'
+    : s02Shape(s02.def) ? '검증됨 · 두 갈래' : '갈래 다름',
+  !!s02 && s02.convalidated === true && s02Shape(s02.def));
 
 /*
  * §5 가 이름을 적어 둔 표들이다. 기록과 기준정보가 여기 들어 있다.
