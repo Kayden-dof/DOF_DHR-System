@@ -328,6 +328,35 @@ if (WORKER_CODE === '-') {
         r.status !== 200 ? String(r.status) : '');
     }
 
+    /*
+     * 원액으로만 쓰인 시약 로트의 첫 표 (이 자재가 들어간 곳).
+     *
+     * 그 로트는 직접 투입이 없다. 그런데 이 표가 "아직 공정에 투입되지 않았습니다"
+     * 라고 하면서 바로 아래에 원액이 간 배치를 늘어놓으면, 영향 범위를 보러 온
+     * 사람이 위의 말을 믿는다. 직접 투입이 없다는 말만 해야 한다.
+     *
+     * 개발 DB 에 그런 로트가 없으면(모든 원료 로트에 직접 투입이 있으면) 이 점검은
+     * 설 자리가 없다. 그때는 그렇다고 적는다.
+     */
+    {
+      const only = (await db2.query(
+        `select vi.material_lot_id as id, vi.material_lot_no as no
+           from v_solution_input vi
+          where not exists (select 1 from material_issue mi
+                             where mi.material_lot_id = vi.material_lot_id)
+          order by vi.material_lot_no limit 1`)).rows[0];
+      if (!only) {
+        console.log('  건너뜀  원액으로만 쓰인 시약 로트가 없다 (모든 원료 로트에 직접 투입이 있다)');
+      } else {
+        const r = await page(`/trace/material/${only.id}`);
+        mark(r.status === 200
+             && r.text.includes('직접 투입된 기록이 없습니다.')
+             && !r.text.includes('현장 화면에서 이 로트를 투입 자재로 적으면'),
+          `원액으로만 쓰인 시약 ${only.no} 의 첫 표가 직접 투입 없음이라고 말한다`,
+          r.status !== 200 ? String(r.status) : '');
+      }
+    }
+
     /* 4) 자재 라벨 (미리보기) */
     {
       const r = await page(`/print/label/${sol.id}`);

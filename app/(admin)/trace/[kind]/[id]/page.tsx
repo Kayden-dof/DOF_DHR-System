@@ -284,9 +284,20 @@ async function MaterialView({ me, id }: { me: Me; id: string }) {
           note="공정 기록을 경유한 계보입니다"
         >
           {d.products.length === 0 ? (
-            <Empty hint="현장 화면에서 이 로트를 투입 자재로 적으면 계보가 이어집니다.">
-              아직 공정에 투입되지 않았습니다.
-            </Empty>
+            /*
+             * 직접 투입이 없다는 말이다. 이 로트로 만든 원액이 있으면 그 원액이 간
+             * 곳이 아래에 따로 선다 - 같은 화면에서 "투입되지 않았다" 고 하면서 그
+             * 아래에 배치를 늘어놓으면 영향 범위를 보러 온 사람이 위의 말을 믿는다.
+             */
+            d.viaSolution.length > 0 ? (
+              <Empty hint="이 로트로 만든 원액이 어디에 들어갔는지는 아래 표에 있습니다.">
+                직접 투입된 기록이 없습니다.
+              </Empty>
+            ) : (
+              <Empty hint="현장 화면에서 이 로트를 투입 자재로 적으면 계보가 이어집니다.">
+                아직 공정에 투입되지 않았습니다.
+              </Empty>
+            )
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
