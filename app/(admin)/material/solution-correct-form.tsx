@@ -13,8 +13,11 @@ import { returnSolutionInput, addSolutionInput } from './actions';
      되돌리기   잘못 고른 원료 · 많이 적은 수량. 원료 재고가 돌아온다
      더하기     실제로 썼는데 빠뜨린 원료. 원료 재고에서 빠지고 원액에 이어진다
 
-   제조일은 고칠 수 없다. 원액을 비우고 원료 줄을 모두 되돌린 뒤 다시 만든다 -
-   그 순서를 화면이 한 줄로 적는다.
+   제조일은 고칠 수 없다. 원액이 아직 어느 공정에도 들어가지 않았으면 원액을
+   비우고 원료 줄을 모두 되돌린 뒤 다시 만든다 - 그 순서를 화면이 한 줄로 적는다.
+   이미 들어갔으면 그 길을 안내하지 않는다. 원료 줄을 모두 되돌리면 순량이 0 이
+   되어 v_solution_input 에서 빠지고, 그 원액이 들어간 배치에서 원료 로트로 가는
+   추적이 끊긴다. 그때는 일탈 대장에 그 원액 로트를 걸어 적게 한다.
 
    원액 추적 화면의 원료 표 아래에 접어 둔다. 펼치지 않아도 폼은 화면에 있다.
    생산관리자 · 시스템관리자에게만 그린다 - 액션도 같은 역할을 다시 묻는다.
@@ -31,10 +34,12 @@ export interface RawLotOpt {
   id: string; lot_no: string; item_name: string; usage_uom: string; qty_available: string;
 }
 
-export default function SolutionCorrectForm({ solutionId, inputs, lots }: {
+export default function SolutionCorrectForm({ solutionId, inputs, lots, used }: {
   solutionId: string;
   inputs: SolutionInputOpt[];
   lots: RawLotOpt[];
+  /** 이 원액이 공정에 투입된 적이 있는가 (material_issue) */
+  used: boolean;
 }) {
   const uid = useId();
   const [backState, backAction, backPending] =
@@ -67,7 +72,8 @@ export default function SolutionCorrectForm({ solutionId, inputs, lots }: {
             <div>
               <label className="label" htmlFor={`${uid}-return_lot_id`}>원료 로트</label>
               <select id={`${uid}-return_lot_id`} name="return_lot_id" required
-                      disabled={inputs.length === 0} className="input text-xs">
+                      disabled={inputs.length === 0} defaultValue="" className="input text-xs">
+                <option value="">고르십시오</option>
                 {inputs.map((x) => (
                   <option key={x.material_lot_id} value={x.material_lot_id}>
                     {x.material_lot_no} · {x.item_name} (사용량 {Number(x.qty)} {x.usage_uom})
@@ -105,7 +111,8 @@ export default function SolutionCorrectForm({ solutionId, inputs, lots }: {
             <div>
               <label className="label" htmlFor={`${uid}-add_lot_id`}>원료 로트</label>
               <select id={`${uid}-add_lot_id`} name="add_lot_id" required
-                      disabled={lots.length === 0} className="input text-xs">
+                      disabled={lots.length === 0} defaultValue="" className="input text-xs">
+                <option value="">고르십시오</option>
                 {lots.map((l) => (
                   <option key={l.id} value={l.id}>
                     {l.lot_no} · {l.item_name} (잔여 {Number(l.qty_available)} {l.usage_uom})
@@ -133,11 +140,19 @@ export default function SolutionCorrectForm({ solutionId, inputs, lots }: {
           </form>
         </div>
 
-        <p className="text-xs leading-relaxed text-muted">
-          제조일을 잘못 적었으면 재고 증감에서 이 원액을 재고 폐기로 비우고, 위에서 원료
-          줄을 모두 되돌린 뒤, 원액 제조에서 다시 만드십시오. 이 원액 로트와 번호는 그대로
-          남습니다.
-        </p>
+        {used ? (
+          <p className="text-xs leading-relaxed text-muted">
+            이 원액은 이미 공정에 들어갔으므로 제조일 오기를 여기서 바로잡지 않습니다. 원료
+            줄을 모두 되돌리면 이 원액이 들어간 배치에서 원료 로트로 가는 추적이 끊깁니다.
+            제조일 오기는 일탈 대장에 이 원액 로트를 걸어 적으십시오.
+          </p>
+        ) : (
+          <p className="text-xs leading-relaxed text-muted">
+            제조일을 잘못 적었으면 재고 증감에서 이 원액을 재고 폐기로 비우고, 위에서 원료
+            줄을 모두 되돌린 뒤, 원액 제조에서 다시 만드십시오. 아직 어느 공정에도 들어가지
+            않은 원액일 때의 순서입니다. 이 원액 로트와 번호는 그대로 남습니다.
+          </p>
+        )}
       </div>
     </details>
   );

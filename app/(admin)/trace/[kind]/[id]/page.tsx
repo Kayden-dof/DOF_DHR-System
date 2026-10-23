@@ -243,7 +243,8 @@ async function MaterialView({ me, id }: { me: Me; id: string }) {
                 </div>
               )}
               {canCorrect && (
-                <SolutionCorrectForm solutionId={id} inputs={d.inputs} lots={d.rawLots} />
+                <SolutionCorrectForm solutionId={id} inputs={d.inputs} lots={d.rawLots}
+                                     used={d.products.length > 0} />
               )}
             </Panel>
           </>
