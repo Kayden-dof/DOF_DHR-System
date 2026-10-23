@@ -49,8 +49,13 @@ const MUTATIONS = [
     sql: `alter table material_issue alter column material_lot_id drop not null`,
     cases: ['S01-01'] },
 
-  { id: 'M-S02', rule: 'S02 성적서 번호 필수',
-    sql: `alter table material_lot alter column coa_no drop not null`,
+  /*
+   * 0118 부터 S02 는 NOT NULL 이 아니라 표 안의 검사다. 칸 하나로는 입고
+   * 로트와 원액 로트의 두 갈래를 가를 수 없기 때문이다. 그 검사를 떼면 성적서
+   * 번호가 빈 입고 로트가 들어와야 하고, S02-01 이 그것을 잡아야 한다.
+   */
+  { id: 'M-S02', rule: 'S02 성적서 번호 필수 (입고 갈래 · 0118)',
+    sql: `alter table material_lot drop constraint material_lot_source`,
     cases: ['S02-01'] },
 
   { id: 'M-S03', rule: 'S03 삭제 금지 (권한)',
