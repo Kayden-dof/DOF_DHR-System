@@ -22,9 +22,9 @@
      회사 표시 · 장입 범위 · 멸균 박스 수량 · 형명 체계 · 형명 자리 ·
      공수 단가 · 단가 · 사용기간 · 공정에 걸린 설비 · 제품표준서 기본정보
 
-   설정은 아니지만 화면의 저장 경로를 지나야 하는 길이 하나 더 있다 - 원액 제조.
-   원액 로트와 원료 줄을 한 번에 세우는 유일한 입구이고, 이 사례만 되돌리지
-   않는다 (아래).
+   설정은 아니지만 화면의 저장 경로를 지나야 하는 길이 하나 더 있다 - 원액 제조와
+   그 원료 줄 바로잡기(원액 추적 화면). 원액 로트와 원료 줄을 세우고 고치는 입구는
+   그 둘뿐이고, 이 사례들은 되돌리지 않는다 (아래).
 
    ── 되돌린다. 다만 이력은 두고 간다 ──────────────────────────────────────
    기준정보는 시험이 바꾼 값을 원래대로 되돌린다. 이력 표(단가 · 사용기간 ·
@@ -58,6 +58,11 @@ let bad = 0;
 const ok = (cond, what, extra = '') => {
   if (!cond) bad += 1;
   console.log(`  ${cond ? '저장됨' : '★ 안 됨'}  ${what}${extra ? ' · ' + extra : ''}`);
+};
+/* 저장되지 **않아야** 하는 것. 화면이 거부했는지를 DB 로 본다 */
+const refused = (cond, what, extra = '') => {
+  if (!cond) bad += 1;
+  console.log(`  ${cond ? '거부됨' : '★ 저장됨'}  ${what}${extra ? ' · ' + extra : ''}`);
 };
 
 const admin = await v(
@@ -298,6 +303,22 @@ if (!scheme) {
     ok(page.includes(`<option value="${sol.id}"`), '원액 제조 · 원액 품목이 고르개에 나옴');
 
     /*
+     * 수량만 적고 원료 로트를 고르지 않은 줄이 섞이면 원액 로트가 서지 않는다.
+     * 전에는 그 줄을 말없이 빼고 섰다 - 적었다고 믿은 원료가 기록에서 빠진다.
+     * 두 번째 줄의 고르개는 화면 그대로 '사용 안 함'(빈 값)이고 수량만 채운다.
+     */
+    const rx = await submitForm(BASE, '/material/movement', CK,
+      ['item_id', 'made_on', 'qty', 'lot_0', 'qty_0'],
+      { item_id: sol.id, made_on: today, qty: 4, lot_0: lotA, qty_0: 2, qty_1: 1,
+        note: '저장 시험 (서지 않아야 함)' });
+    await settle();
+    const stray = await v(
+      `select count(*)::int from material_lot where item_id = $1 and id <> all($2::uuid[])`,
+      [sol.id, known]);
+    refused(rx.ok && stray === 0, '원액 제조 · 수량만 있고 로트가 빈 줄',
+            rx.ok ? `새 원액 로트 ${stray}건` : (rx.reason ?? `HTTP ${rx.status}`));
+
+    /*
      * 원액은 입고하지도 발주하지도 않는다. 두 화면의 품목 목록에 원액이 없어야
      * 하고 (고를 수 없는 것은 보이지 않는다), 같은 화면에 시약 품목은 있어야
      * 이 확인이 아무것도 못 보는 상태가 아니다. 목록은 속성 자료로 실려 오므로
@@ -341,6 +362,59 @@ if (!scheme) {
         ok(stockBefore.get(lotA) - after.get(lotA) === 2 && stockBefore.get(lotB) - after.get(lotB) === 1,
            '원액 제조 · 원료 재고가 그만큼 빠짐');
         console.log('  남음    개발 DB 에 원액 로트 1건 · 원료 줄 2건이 남음 (S03 으로 지울 수 없음)');
+
+        /*
+         * 원액 추적 화면의 원료 줄 바로잡기 (0121) · 이것도 되돌리지 않는다.
+         *
+         * 되돌리기 · 더하기는 줄을 고치지 않고 더하는 정정이라, 시험이 더한 줄도
+         * 지울 수 없다 (S03). 방금 세운 원액에 대고 한다 - 시연 원액의 구성은
+         * 건드리지 않는다. 폼은 접힌 칸 안에 있어도 첫 HTML 에 실린다.
+         */
+        const trace = `/trace/material/${made.id}`;
+        const net = async (raw) => Number(await v(
+          `select coalesce(sum(qty), 0) from v_solution_input
+            where solution_lot_id = $1 and material_lot_id = $2`, [made.id, raw]));
+        const stock = async (lot) => Number(await v(
+          'select qty_available from material_lot where id = $1', [lot]));
+        const line = async (raw, type) => (await rows(
+          `select qty, reason_code, reason_detail from stock_movement
+            where solution_lot_id = $1 and material_lot_id = $2 and type = $3::movement_type
+              and reason_code = '원액정정'`, [made.id, raw, type]))[0];
+
+        const aBefore = await stock(lotA);
+        const rb = await submitForm(BASE, trace, CK,
+          ['solution_lot_id', 'return_lot_id', 'qty', 'reason'],
+          { return_lot_id: lotA, qty: 0.5, reason: '저장 시험 되돌리기' });
+        if (!rb.ok) {
+          ok(false, '원액 정정 · 원료 줄 되돌리기', rb.reason ?? `HTTP ${rb.status}`);
+        } else {
+          await settle();
+          const back = await line(lotA, 'RETURN');
+          const n = await net(lotA);
+          ok(!!back && Number(back.qty) === 0.5
+               && String(back.reason_detail).includes('저장 시험 되돌리기')
+               && n === 1.5 && (await stock(lotA)) - aBefore === 0.5,
+             '원액 정정 · 원료 줄 되돌리기',
+             back ? `원료 A 순량 2 → ${n} · ${back.reason_detail}` : '되돌림 줄 없음');
+        }
+
+        const bBefore = await stock(lotB);
+        const ra = await submitForm(BASE, trace, CK,
+          ['solution_lot_id', 'add_lot_id', 'qty', 'reason'],
+          { add_lot_id: lotB, qty: 0.5, reason: '저장 시험 더하기' });
+        if (!ra.ok) {
+          ok(false, '원액 정정 · 원료 줄 더하기', ra.reason ?? `HTTP ${ra.status}`);
+        } else {
+          await settle();
+          const added = await line(lotB, 'SOLUTION');
+          const n = await net(lotB);
+          ok(!!added && Number(added.qty) === -0.5
+               && String(added.reason_detail).includes('저장 시험 더하기')
+               && n === 1.5 && bBefore - (await stock(lotB)) === 0.5,
+             '원액 정정 · 원료 줄 더하기',
+             added ? `원료 B 순량 1 → ${n} · ${added.reason_detail}` : '더한 줄 없음');
+        }
+        console.log('  남음    개발 DB 에 원액 정정 줄 2건(되돌림 · 더함)이 남음 (S03 으로 지울 수 없음)');
       }
     }
   }
