@@ -256,7 +256,12 @@ export default [
   name: 'S02 make_solution_lot 정상 - 차감 · 유효기간 · 단가 · 원료 연결',
   async run(t) {
     const m = await master(t);
-    const { item, id, a, b } = await brew(t, m);
+    /*
+     * 제조일은 지난달 날짜다. 번호의 날짜가 제조일에서 오는지 보려면 오늘과 다른
+     * 달이어야 한다 - next_number 에 날짜를 안 넘기거나 오늘 날짜를 넘기면 번호가
+     * ML-{지금 연월}- 로 나와 아래 단언이 잡는다 (0097 · 설계 3.6).
+     */
+    const { item, id, a, b } = await brew(t, m, { made: '2026-09-15' });
 
     /* 원료 두 종에서 3 · 2 가 빠졌다 (각 10) */
     t.eq(Number(await t.val(`select qty_available from material_lot where id = $1`, [a])), 7, 'a 잔여');
@@ -269,12 +274,13 @@ export default [
               coa_no, coa_date, supplier_id, supplier_lot_no, qc_passed_on, lot_no
          from material_lot where id = $1`, [id]);
     t.eq([lot.rec, lot.av, lot.st], [5, 5, 'AVAILABLE'], '제조량 · 가용 · 상태');
-    t.eq(lot.made, '2026-10-22', '제조일');
-    t.eq(lot.exp, '2027-04-22', '유효기간 = 제조일 + 6개월');
+    t.eq(lot.made, '2026-09-15', '제조일');
+    t.eq(lot.exp, '2027-03-15', '유효기간 = 제조일 + 6개월');
     t.eq(lot.price, 1000, '단가');                       // (3·1000 + 2·1000) / 5
     t.eq([lot.coa_no, lot.coa_date, lot.supplier_id, lot.supplier_lot_no, lot.qc_passed_on],
          [null, null, null, null, null], '성적서 · 공급자 칸');
-    t.ok(/\S/.test(lot.lot_no), '번호가 나왔다');
+    /* 번호 형식은 채번 규칙(픽스처 ML-{YY}{MM}-{SEQ:4})이 정하고, 날짜는 제조일이다 */
+    t.ok(/^ML-2609-\d{4}$/.test(lot.lot_no), `번호의 날짜는 제조일: ${lot.lot_no}`);
 
     /* 원료 줄: 두 건, 모두 새 원액을 가리킨다. 사유 '용액제조', 상세는 원액 번호 */
     const lines = await t.rows(
@@ -325,7 +331,7 @@ export default [
      */
     await t.rows(`update item set shelf_life_months = 12 where id = $1`, [item]);
     t.eq(await t.val(`select expiry_date::text from material_lot where id = $1`, [id]),
-         '2027-04-22', '사용기간을 바꾼 뒤 유효기간');
+         '2027-03-15', '사용기간을 바꾼 뒤 유효기간');
   },
 },
 
@@ -378,10 +384,10 @@ export default [
 
 {
   id: 'SL-10', expect: '예외',
-  name: 'S01 원료 줄은 원액을 가리킨다 - 연결 없는 원료 줄 · 원액이 아닌 로트 · 다른 유형의 줄',
+  name: 'S01 원료 줄은 원액을 가리킨다 - 연결 없는 줄 · 원액이 아닌 로트 · 다른 유형 · 되돌림 상한',
   async run(t) {
     const m = await master(t);
-    const { id: sol } = await brew(t, m);
+    const { id: sol, a, b } = await brew(t, m);               // 원료 a 에서 3, b 에서 2
     const plain = await newMaterialLot(t, m, m.reagent, { qty: 10 });
     const ins = (type, qty, link) => t.rows(
       `insert into stock_movement (material_lot_id, type, qty, solution_lot_id,
@@ -410,6 +416,47 @@ export default [
     await t.resolves(() => ins('ADJUSTMENT', 4, null));
     t.eq(Number(await t.val(`select qty_available from material_lot where id = $1`, [plain])),
          13, '10 + 2 - 3 + 4');
+
+    /*
+     * 되돌림 줄은 그 원액에서 꺼낸 만큼까지만 되돌린다. 0056 이 투입 줄의 반납에서
+     * 닫은 것과 같은 상한이다 - 상한이 없으면 꺼낸 적 없는 양이 재고로 돌아오고
+     * (차감 트리거는 부호만 본다), 순량이 0 이 된 원료가 원액의 원료 목록에서 사라진다.
+     */
+    const qty = async (lot) => Number(await t.val(
+      `select qty_available from material_lot where id = $1`, [lot]));
+    const back = (lot, n, link) => t.rows(
+      `insert into stock_movement (material_lot_id, type, qty, solution_lot_id,
+         reason_code, registered_by)
+       values ($1,'RETURN',$2,$3,'계량오차',$4)`, [lot, n, link, m.admin]);
+
+    /* 실제 원액을 가리키지만 그 원액에 들어간 적 없는 원료 로트 */
+    await t.rejects(() => back(plain, 1, sol),
+                    { code: 'P0001', message: '들어간 적 없는' });
+    /* 다른 원액에 들어간 원료 로트도 이 원액으로는 되돌릴 수 없다 */
+    const other = await brew(t, m);
+    await t.rejects(() => back(other.a, 1, sol),
+                    { code: 'P0001', message: '들어간 적 없는' });
+    /* 꺼낸 양(3)보다 큰 되돌림 */
+    await t.rejects(() => back(a, 5, sol),
+                    { code: 'P0001', message: '꺼낸 만큼까지만' });
+    t.eq(await qty(a), 7, '거부된 되돌림은 재고를 움직이지 않는다 (10 - 3)');
+
+    /* 이미 되돌린 양을 뺀 나머지까지만: 3 중 1 을 되돌리면 남은 2 */
+    await t.resolves(() => back(a, 1, sol));
+    await t.rejects(() => back(a, 2.5, sol),
+                    { code: 'P0001', message: '꺼낸 만큼까지만' });
+    await t.resolves(() => back(a, 2, sol));                   // 정확히 나머지 전부
+    await t.rejects(() => back(a, 1, sol),
+                    { code: 'P0001', message: '꺼낸 만큼까지만' });
+    t.eq(await qty(a), 10, '3 꺼내 3 을 되돌렸다');
+
+    /* 다 되돌린 원료는 원액의 원료 목록에서 빠지고, 안 되돌린 b 는 그대로다 */
+    t.eq(await t.val(
+      `select count(*)::int from v_solution_input where solution_lot_id = $1`, [sol]),
+      1, '원료 목록');
+    t.eq((await t.one(
+      `select material_lot_id, qty::float8 as qty from v_solution_input where solution_lot_id = $1`,
+      [sol])), { material_lot_id: b, qty: 2 }, '남은 원료 b');
   },
 },
 
@@ -458,14 +505,20 @@ export default [
      * 원액에 닿지 않던 줄에 나중에 원액을 붙이지 못한다. 빈 값에서 값으로 가는
      * 것은 한 번 적기 검사가 보내 주므로 연결을 거는 쪽에서 닫는다 - 이미 반영된
      * 반납 줄이 뒤늦게 원액의 순량을 깎는 길이 된다.
+     *
+     * 붙이려는 줄은 이 원액에 실제로 들어간 원료 로트(x.a)의 반납이다. 되돌림
+     * 상한(꺼낸 3 - 이미 되돌린 1 = 2 이내)을 지키는 1 이므로 상한은 이 줄을 막지
+     * 않는다 - 막는 것은 "적힌 줄에는 뒤늦게 연결할 수 없다" 하나뿐이다.
      */
-    const plainLot = await newMaterialLot(t, m, m.reagent, { qty: 10 });
     const ret = await t.val(
       `insert into stock_movement (material_lot_id, type, qty, reason_code, registered_by)
-       values ($1,'RETURN',1,'계량오차',$2) returning id`, [plainLot, m.admin]);
+       values ($1,'RETURN',1,'계량오차',$2) returning id`, [x.a, m.admin]);
     await t.rejects(
       () => t.rows(`update stock_movement set solution_lot_id = $2 where id = $1`, [ret, x.id]),
-      { code: 'P0001' });
+      { code: 'P0001', message: '뒤늦게' });
+
+    /* 옛 줄 단계가 쓸 이음 없는 입고 로트 */
+    const plainLot = await newMaterialLot(t, m, m.reagent, { qty: 10 });
 
     /*
      * 옛 용액 제조가 남긴 줄(원액 연결 없는 SOLUTION)은 다시 묻지 않는다. 검사가

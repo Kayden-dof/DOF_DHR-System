@@ -21,7 +21,8 @@
 
      T1  원료 줄이 하나도 없는 원액 로트        커밋 때 (S02 의 원액 갈래)
      T3  원료 줄이 원액 로트를 안 가리킴 · 원액이 아닌 로트를 가리킴 ·
-         다른 유형의 줄이 원액을 가리킴          줄을 넣을 때 (S01 의 짝)
+         다른 유형의 줄이 원액을 가리킴 · 되돌림이 그 원액에서 꺼낸 양을
+         넘거나 꺼낸 적 없는 원료를 가리킴      줄을 넣을 때 (S01 의 짝)
      T5  원료 줄의 원료 로트 · 원액 로트 · 수량 · 유형 고쳐 쓰기
          원액 로트의 제조일 고쳐 쓰기          고칠 때 (§2.1 불변식)
 
@@ -33,9 +34,12 @@
    ── 정정은 줄을 고치지 않고 더한다 ──────────────────────────────────
    틀리게 적었으면 같은 원액을 가리키는 반대 줄(RETURN, +)로 되돌리고 다시
    적는다. 두 줄이 다 남고, v_solution_input 은 원액 · 원료 로트별 순량(부호
-   합)을 낸다. stock_movement 의 다른 줄은 이번에 손대지 않는다 - 지금 UPDATE 가
-   열려 있어 수량을 고치면 재고와 장부가 갈라지는 자리지만, 원료 줄 밖의
-   줄까지 닫을지는 따로 묻는다.
+   합)을 낸다. 되돌림은 그 원액에서 꺼낸 만큼까지만 한다 - 0056 이 투입
+   줄의 반납에서 닫은 것과 같은 상한이다.
+
+   stock_movement 의 다른 줄은 이번에 손대지 않는다 - 지금 UPDATE 가 열려
+   있어 수량을 고치면 재고와 장부가 갈라지는 자리지만, 원료 줄 밖의 줄까지
+   닫을지는 따로 묻는다.
 
    ── 위 검사만으로는 새는 두 곳을 함께 닫았다 ─────────────────────────
    (1) 이미 적힌 줄에 원액을 뒤늦게 연결하는 길. 한 번 적기 검사
@@ -107,8 +111,16 @@ comment on trigger material_lot_made_inputs on material_lot is
  * 가리킬 수 있는 줄은 둘뿐이다.
  *
  *   SOLUTION  원료 줄. 반드시 원액 로트를 가리킨다
- *   RETURN    그 줄을 되돌리는 정정 줄. 가리키려면 원액 로트여야 한다.
+ *   RETURN    그 줄을 되돌리는 정정 줄. 가리키려면 원액 로트여야 하고, 그
+ *             원액에서 실제로 꺼낸 원료 로트를 **꺼낸 만큼까지만** 되돌린다.
  *             원액을 안 가리키는 반납은 전과 같다 (공정에서 남은 자재)
+ *
+ * 되돌림 줄은 "꺼낸 양 - 이미 되돌린 양" 을 넘지 못한다. 0056 이 투입 줄의
+ * 반납에서 같은 일을 닫았다 - 상한이 없으면 꺼낸 적 없는 양이 재고로 돌아오고
+ * (trg_sm_apply 는 부호만 본다), 순량이 0 이 된 원료는 v_solution_input 에서
+ * 사라져 원액이 무엇으로 만들어졌는지 보이지 않는다. 그 원액에 들어간 적 없는
+ * 원료 로트를 가리키는 되돌림도 같은 이유로 거부한다. 되돌릴 줄을 찾고 세는
+ * 동안 같은 원료 로트의 다른 되돌림이 끼어들지 못하게 그 로트를 잡는다.
  *
  * 폐기 · 조정 · 배치 장입이 원액 로트를 가리키는 일은 없다. 가리키면 원료
  * 줄의 순량이 그 줄들로 오염되어 v_solution_input 이 거짓을 말한다.
@@ -118,7 +130,12 @@ comment on trigger material_lot_made_inputs on material_lot is
  */
 create or replace function trg_sm_solution_link()
 returns trigger language plpgsql as $fn$
-declare v_ok boolean; v_no text;
+declare
+  v_ok    boolean;
+  v_no    text;
+  v_raw   text;
+  v_lines int;
+  v_drawn numeric;
 begin
   if tg_op = 'UPDATE' then
     /* 유형도 이음도 안 바뀌면 묻지 않는다. 옛 용액 제조가 남긴 줄이 그렇다 */
@@ -150,6 +167,33 @@ begin
   if v_ok is false then
     raise exception 'S01: 원액이 아닌 로트를 원액 로트로 가리킬 수 없습니다 (로트 %)', v_no;
   end if;
+
+  /* 되돌림 줄은 그 원액에서 꺼낸 만큼까지만. 이 줄 자신은 세지 않는다 */
+  if new.type = 'RETURN' then
+    perform 1 from material_lot where id = new.material_lot_id for update;
+
+    select count(*) filter (where type = 'SOLUTION'), coalesce(-sum(qty), 0)
+      into v_lines, v_drawn
+      from stock_movement
+     where solution_lot_id = new.solution_lot_id
+       and material_lot_id = new.material_lot_id
+       and type in ('SOLUTION', 'RETURN')
+       and id <> new.id;
+
+    select lot_no into v_raw from material_lot where id = new.material_lot_id;
+
+    if v_lines = 0 then
+      raise exception
+        'S01: 원액 로트 %에 들어간 적 없는 원료 로트 %는 되돌릴 수 없습니다', v_no, v_raw;
+    end if;
+    if new.qty > v_drawn then
+      raise exception
+        'S01: 원액 로트 %에서 원료 로트 %는 꺼낸 만큼까지만 되돌릴 수 있습니다 (아직 꺼낸 양 %, 이번 요청 %)',
+        v_no, v_raw,
+        trim(to_char(v_drawn, 'FM999999990.###')),
+        trim(to_char(new.qty, 'FM999999990.###'));
+    end if;
+  end if;
   return new;
 end $fn$;
 
@@ -158,7 +202,7 @@ create trigger stock_movement_solution_link before insert or update
   on stock_movement for each row execute function trg_sm_solution_link();
 
 comment on trigger stock_movement_solution_link on stock_movement is
-  '원료 줄은 원액 로트를 가리키고, 원액을 가리킬 수 있는 줄은 원료 줄과 그 반납 줄뿐이다. 이음은 줄을 적을 때만 정한다 (0119)';
+  '원료 줄은 원액 로트를 가리키고, 원액을 가리킬 수 있는 줄은 원료 줄과 그 되돌림 줄뿐이다. 되돌림은 꺼낸 만큼까지만 하고, 이음은 줄을 적을 때만 정한다 (0119)';
 
 
 /* === 4. 고쳐 쓰기 차단 - 제조일 · 원료 줄 (§2.1) ======================== */
