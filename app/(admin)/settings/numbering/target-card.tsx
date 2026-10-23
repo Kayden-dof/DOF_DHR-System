@@ -37,6 +37,8 @@ export interface RuleRow {
   effective_from: string;
   registered_at: Date;
   registered_by_name: string;
+  /** 종류별 규칙이면 그 종류. 공통 규칙과 품목별 규칙은 비어 있다 (0097) */
+  item_type: string | null;
   sample: string;
   item_code: string | null;
   item_name: string | null;
@@ -72,7 +74,13 @@ export default function TargetCard({
     retireRule, {},
   );
 
-  const active = rules.find((r) => r.is_active && !r.item_id) ?? null;
+  /*
+   * 공통 규칙. 품목도 종류도 없는 활성 규칙이다.
+   *
+   * `item_id` 만 보면 종류별 규칙(원자재 R · 포장재 P · 원액 ...)도 여기 걸려, 카드가
+   * 그 가운데 하나를 "공통 규칙" 이라고 보여 주고 교체 · 내리기가 그것을 가리켰다.
+   */
+  const active = rules.find((r) => r.is_active && !r.item_id && !r.item_type) ?? null;
   /*
    * 품목별 활성 규칙. 공통 규칙보다 우선한다 (§4.10).
    *
@@ -81,7 +89,16 @@ export default function TargetCard({
    * 형식을 보여 주는 셈이다.
    */
   const perItem = rules.filter((r) => r.is_active && r.item_id);
-  const history = rules.filter((r) => r !== active && !perItem.includes(r));
+  /* 종류별 활성 규칙. 공통 규칙과 나란히 살고, 공통 규칙보다 먼저 쓰인다 (0097) */
+  const perType = rules.filter((r) => r.is_active && !r.item_id && r.item_type);
+  const history = rules.filter(
+    (r) => r !== active && !perItem.includes(r) && !perType.includes(r));
+  /* 폼이 고른 범위의 활성 규칙을 찾는 재료 */
+  const activeRules = rules.filter((r) => r.is_active).map((r) => ({
+    id: r.id, pattern: r.pattern, reset: r.reset, seq_width: r.seq_width,
+    item_id: r.item_id, item_type: r.item_type,
+  }));
+  const typed = code === 'MATERIAL_LOT';
 
   return (
     <section className="card overflow-hidden">
@@ -99,7 +116,7 @@ export default function TargetCard({
           )}
           {writable && !open && (
             <button onClick={() => setOpen('replace')} className="btn-ghost h-8 px-3 text-xs">
-              {active ? '규칙 교체' : '규칙 등록'}
+              {typed ? '규칙 등록 · 교체' : active ? '규칙 교체' : '규칙 등록'}
             </button>
           )}
           {writable && active && !open && !confirming && (
@@ -141,6 +158,35 @@ export default function TargetCard({
           활성 규칙이 없습니다. 이 대상으로 <code className="font-mono">next_number()</code>를
           부르면 예외가 납니다.
         </p>
+      )}
+
+      {perType.length > 0 && (
+        <div className="border-t border-line-soft">
+          <p className="bg-surface-low px-4 py-2 text-[0.6875rem] font-bold tracking-wide text-muted">
+            종류별 규칙 {perType.length}건 · 공통 규칙보다 우선합니다
+          </p>
+          <ul className="divide-y divide-line-soft">
+            {perType.map((r) => (
+              <li key={r.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2.5">
+                <span className="text-[0.8125rem] font-bold text-ink">
+                  {MATERIAL_TYPES.find((t) => t.value === r.item_type)?.label ?? r.item_type}
+                </span>
+                <span className="min-w-0 flex-1" />
+                <code className="font-mono text-xs text-body">{r.pattern}</code>
+                <span className="font-mono text-xs tnum text-brand">{r.sample}</span>
+                {writable && (
+                  <form action={retireAction}>
+                    <input type="hidden" name="id" value={r.id} />
+                    <button type="submit" disabled={retiring}
+                            className="btn-quiet btn-row">
+                      내리기
+                    </button>
+                  </form>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {perItem.length > 0 && (
@@ -214,6 +260,7 @@ export default function TargetCard({
                   seq_width: active.seq_width, item_id: null }
               : null
           }
+          activeRules={activeRules}
           items={[]}
           types={code === 'MATERIAL_LOT' ? MATERIAL_TYPES : undefined}
           today={today}
@@ -226,6 +273,7 @@ export default function TargetCard({
           target={code}
           targetLabel={label}
           existing={null}
+          activeRules={activeRules}
           items={items.filter((i) => !perItem.some((r) => r.item_id === i.id))}
           today={today}
           onDone={() => setOpen(null)}

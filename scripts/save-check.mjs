@@ -36,7 +36,7 @@
 import pg from 'pg';
 import { pgSsl } from './pgssl.mjs';
 import { sessionCookie } from './session-cookie.mjs';
-import { submitForm } from './form-post.mjs';
+import { submitForm, clientActionId, postClientAction } from './form-post.mjs';
 
 const BASE = process.argv[2] ?? 'http://localhost:3100';
 
@@ -343,6 +343,89 @@ if (!scheme) {
         console.log('  남음    개발 DB 에 원액 로트 1건 · 원료 줄 2건이 남음 (S03 으로 지울 수 없음)');
       }
     }
+  }
+}
+
+/* ── 채번 규칙 · 같은 범위의 규칙만 교체한다 ───────────────────────────── */
+/*
+ * 등록 폼은 `규칙 교체` 를 눌러야 그려지므로 첫 HTML 에 없다. 화면이 싣고 오는
+ * 조각에서 액션 식별자를 읽어 폼이 내는 모양 그대로 보낸다 (form-post.mjs).
+ *
+ * 전에는 폼이 카드가 보여 주던 규칙의 식별자를 `replacing` 으로 실어 보냈고
+ * 서버는 그것을 범위와 상관없이 내렸다. 카드가 보여 주던 것은 `item_id` 가 빈
+ * 첫 활성 규칙이라 공통 규칙이거나 원자재 · 포장재 규칙이었고, 원액 유형 규칙을
+ * 넣는 순간 그 규칙이 함께 내려갔다. 내린 규칙은 되살릴 수 없다 (DB 가 막는다).
+ *
+ * 그래서 이 사례는 진짜 규칙을 위험에 올리지 않는다. 쓰지 않는 종류에 버려도 되는
+ * 규칙을 하나 세우고, 낡은 화면이 보냈을 모양(다른 범위 규칙의 식별자를
+ * `replacing` 으로)을 그 규칙으로 보낸다. 진짜 규칙은 아래에서 같이 지켜본다.
+ * 시험이 세운 규칙은 마지막에 전부 내린다 - 규칙은 지우지 않으므로 이력이 남는다.
+ */
+{
+  const today = await v(`select to_char(timezone('Asia/Seoul', now()), 'YYYY-MM-DD')`);
+  const P1 = 'LS{YY}{MM}{DD}-{SEQ:2}';
+  const P2 = 'LT{YY}{MM}{DD}-{SEQ:2}';
+  const mine = async () => rows(
+    `select id, item_type::text as item_type, pattern, is_active
+       from numbering_rule where target = 'MATERIAL_LOT'`);
+
+  const act = await clientActionId(BASE, '/settings/numbering', CK, 'saveRule', 'settings/numbering');
+  const known = new Set((await mine()).map((r) => r.id));
+  const before = (await mine()).filter((r) => r.is_active);
+  if (!act.id) {
+    ok(false, '채번 규칙 · 등록 폼', act.reason);
+  } else if (before.some((r) => r.item_type === 'SOLUTION')) {
+    /* 진짜 원액 규칙이 이미 있으면 교체 사례가 그것을 내린다. 건드리지 않는다 */
+    console.log('  건너뜀  원액 유형 규칙이 이미 활성입니다 (채번 규칙 교체)');
+  } else {
+    const taken = new Set(before.map((r) => r.item_type));
+    const decoyType = ['PROCESS', 'REAGENT'].find((t) => !taken.has(t)) ?? null;
+    const decoy = decoyType
+      ? await v(
+          `insert into numbering_rule (target, item_type, pattern, reset, seq_width,
+             effective_from, registered_by)
+           values ('MATERIAL_LOT', $1::item_type, 'ZZ{YY}{MM}{DD}-{SEQ:2}', 'DAILY', 2,
+                   $2::date, $3) returning id`, [decoyType, today, admin])
+      : null;
+    const guarded = [...before, ...(decoy ? [{ id: decoy, item_type: decoyType }] : [])];
+    const vals = { target: 'MATERIAL_LOT', item_type: 'SOLUTION', reset: 'DAILY',
+                   seq_width: 2, effective_from: today };
+    const stillActive = async () => {
+      const now = await mine();
+      return guarded.filter((g) => !now.some((n) => n.id === g.id && n.is_active));
+    };
+
+    /* 1. 낡은 화면이 다른 범위 규칙의 식별자를 `replacing` 으로 실어 보내도 그 규칙은 산다 */
+    const r1 = await postClientAction(BASE, '/settings/numbering', CK, act.id,
+      { ...vals, pattern: P1, ...(decoy ? { replacing: decoy } : {}) });
+    await settle();
+    const a = (await mine()).filter((r) => r.item_type === 'SOLUTION' && r.is_active);
+    ok(r1.ok && a.length === 1 && a[0].pattern === P1,
+       '채번 규칙 · 원액 유형 규칙이 활성으로 섬', a[0]?.pattern ?? '규칙 없음');
+    const lost1 = await stillActive();
+    ok(lost1.length === 0, '채번 규칙 · 다른 범위의 규칙이 그대로 활성',
+       lost1.length
+         ? `내려간 규칙: ${lost1.map((l) => l.item_type ?? '공통').join(', ')}`
+         : `${guarded.length}건 (공통 · 종류별 · 시험 규칙)`);
+
+    /* 2. 같은 범위에 이미 규칙이 있으면 그것만 내리고 바꾼다 (화면은 `replacing` 을 보내지 않는다) */
+    const r2 = await postClientAction(BASE, '/settings/numbering', CK, act.id,
+      { ...vals, pattern: P2 });
+    await settle();
+    const sol = (await mine()).filter((r) => r.item_type === 'SOLUTION');
+    const on = sol.filter((r) => r.is_active);
+    ok(r2.ok && on.length === 1 && on[0].pattern === P2
+         && sol.some((r) => r.pattern === P1 && !r.is_active),
+       '채번 규칙 · 같은 범위의 규칙만 교체됨',
+       on[0] ? `${P1} 내림 → ${on[0].pattern}` : '활성 규칙 없음');
+    const lost2 = await stillActive();
+    ok(lost2.length === 0, '채번 규칙 · 교체해도 다른 범위의 규칙이 그대로 활성',
+       lost2.length ? `내려간 규칙: ${lost2.map((l) => l.item_type ?? '공통').join(', ')}` : '');
+
+    /* 되돌린다. 이 사례가 세운 규칙만 내린다. 규칙은 지우지 않으므로 이력이 남는다 */
+    const made = (await mine()).filter((r) => !known.has(r.id)).map((r) => r.id);
+    await c.query('update numbering_rule set is_active = false where id = any($1::uuid[])', [made]);
+    console.log(`  남음    개발 DB 에 이 사례가 세운 채번 규칙 ${made.length}건이 내린 채 이력으로 남음 (지울 수 없음)`);
   }
 }
 

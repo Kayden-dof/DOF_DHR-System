@@ -46,7 +46,8 @@ export default async function NumberingPage() {
     rules: await db.rows<RuleRow>(
       // 미리보기도 그 규칙이 매인 품목 코드로 낸다. {ITEM} 이 든 패턴을 공통으로
       // 그리면 화면과 실제 발행이 어긋난다
-      `select r.id, r.target::text as target, r.item_id, r.pattern,
+      `select r.id, r.target::text as target, r.item_id, r.item_type::text as item_type,
+              r.pattern,
               r.reset::text as reset, r.seq_width, r.is_active,
               r.effective_from, r.registered_at,
               u.full_name as registered_by_name,
