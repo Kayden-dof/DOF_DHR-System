@@ -82,7 +82,7 @@ export async function amendMaterialLot(_p: FormState, form: FormData): Promise<F
     const reason = String(form.get('reason') ?? '').trim();
 
     if (!id) return { error: '어느 로트인지 알 수 없습니다' };
-    if (!coa) return { error: '성적서 번호는 비울 수 없습니다 (S02)' };
+    if (!coa) return { error: '성적서 번호는 비울 수 없습니다' };
     if (!coaDate) return { error: '성적서 일자를 입력하십시오' };
     if (!supplierLot) return { error: '공급자 로트번호를 입력하십시오' };
     if (!reason) return { error: '왜 고치는지 적으십시오' };

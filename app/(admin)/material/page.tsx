@@ -113,7 +113,7 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
     <PageShell
       section="자재"
       title="자재 로트"
-      lede="입고할 때 성적서 번호가 반드시 들어갑니다 (S02). 로트번호는 채번 규칙이 만들며 바코드 값으로 씁니다."
+      lede="입고할 때 성적서 번호가 반드시 들어갑니다. 로트번호는 채번 규칙이 만들며 바코드 값으로 씁니다."
       action={readOnly ? null : (<ReceiveForm items={d.items} suppliers={d.suppliers}
                            orders={d.orders} today={d.today ?? ''} />)}
       nav={<SubNav items={MATERIAL_NAV} />}
@@ -185,14 +185,14 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
                     />
                     <TwoLine top={l.item_name} bottom={l.item_code} />
                     <Td>
-                      <div className="flex items-center gap-1.5 text-[0.8125rem]">
+                      <div className="flex items-center gap-1.5 text-sm">
                         {l.supplier_name}
                         {l.supplier_status !== 'APPROVED' && <Tag tone="warn">미승인</Tag>}
                       </div>
                       <div className="font-mono text-xs text-faint">{l.supplier_lot_no}</div>
                     </Td>
                     <TwoLine
-                      top={<span className="font-mono text-[0.8125rem]">{l.coa_no}</span>}
+                      top={<span className="font-mono text-sm">{l.coa_no}</span>}
                       bottom={<span className="tnum">{fmtDate(l.coa_date)}</span>}
                     />
                     <Td right className="text-muted">

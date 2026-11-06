@@ -87,7 +87,7 @@ export default async function StockPage() {
                     return (
                       <tr key={r.item_id}>
                         <td className="td">
-                          <div className="text-sm">{r.name}</div>
+                          <div className="text-base">{r.name}</div>
                           <div className="font-mono text-xs text-faint">{r.code}</div>
                         </td>
                         <td className={`td tnum text-right font-semibold ${low ? 'text-warn' : ''}`}>
@@ -134,7 +134,7 @@ export default async function StockPage() {
                   <tr key={f.id}>
                     <td className="td font-mono text-xs font-semibold">{f.lot_no}</td>
                     <td className="td">
-                      <div className="text-sm">{f.name}</div>
+                      <div className="text-base">{f.name}</div>
                       <div className="font-mono text-xs text-faint">{f.code}</div>
                     </td>
                     <td className="td font-mono text-xs text-muted">{f.batch_no}</td>

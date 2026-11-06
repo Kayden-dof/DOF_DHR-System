@@ -112,9 +112,9 @@ export default async function ShipPage() {
                 {d.shipments.map((s) => (
                   <tr key={s.id}>
                     <td className="td tnum text-xs">{fmtDate(s.shipped_at)}</td>
-                    <td className="td text-sm">{s.customer_name}</td>
+                    <td className="td text-base">{s.customer_name}</td>
                     <td className="td font-mono text-xs font-semibold">{s.lot_no}</td>
-                    <td className="td text-sm">{s.item_name}</td>
+                    <td className="td text-base">{s.item_name}</td>
                     <td className="td font-mono text-xs text-muted">{s.batch_no}</td>
                     <td className="td font-mono text-xs">
                       {s.release_request_no ?? <span className="text-faint">-</span>}

@@ -89,7 +89,7 @@ export default async function DeviationPage() {
     >
       {(d.rule ?? 0) === 0 && (
         <div className="card border-warn/40 bg-warn-bg px-4 py-3">
-          <p className="text-sm leading-relaxed text-ink">
+          <p className="text-base leading-relaxed text-ink">
             일탈 번호의 채번 규칙이 없습니다. 규칙을 먼저 등록해야 번호를 만들 수 있습니다.
           </p>
         </div>

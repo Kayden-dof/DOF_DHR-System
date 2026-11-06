@@ -32,7 +32,7 @@ export default function Nav({ items }: { items: NavItem[] }) {
             key={it.href}
             href={it.href}
             aria-current={active ? 'page' : undefined}
-            className={`relative flex shrink-0 items-center px-2.5 text-[0.8125rem] font-bold transition-colors ${
+            className={`relative flex shrink-0 items-center px-2.5 text-sm font-bold transition-colors ${
               active ? 'text-ink' : 'text-muted hover:text-ink'
             }`}
           >

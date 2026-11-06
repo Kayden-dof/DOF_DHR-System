@@ -193,24 +193,26 @@
   /* 글자 */
   --color-ink:   #1F1F23;
   --color-body:  #2A2530;
-  /* 캔버스에서 4.5 를 넘기려고 한 칸 내렸다 (#6E6E6E → 4.49, 지금 4.56) */
-  --color-muted: #6D6D6D;
   /*
-   * faint 를 한 단계 내렸다 (#8B8394 → #767085).
+   * 회색 두 단계를 함께 내렸다 (디자인 점검 2026-11-06 · 사용자 확인).
    *
-   * 흰 바탕 3.64 → 4.74, 캔버스 3.07 → 4.18 로 올라간다. 캔버스에서 4.5 를
-   * 아직 못 넘는데, **넘기려면 muted 와 같아진다** - 계산해 보면 어느 밝은
-   * 바탕에서든 faint 가 4.5 를 넘는 순간 muted 보다 어두워진다. 네 단계를
-   * 다 AA 로 올릴 수는 없다.
+   * 전에는 muted #6D6D6D 가 하위 차림표 바탕(canvas-deep)에서 4.14, faint
+   * #767085 가 캔버스에서 4.18 이라 AA(4.5)를 못 넘었다. faint 를 넘기면
+   * muted 와 같아진다는 것이 걸림이었는데, **muted 를 먼저 한 칸 내리면**
+   * 둘 사이에 자리가 난다.
    *
-   * 그래서 여기까지만 온다. 단계는 지키고(faint 가 muted 보다 밝다) 읽히는
-   * 정도는 크게 올렸다. 엄격히 AA 를 맞춰야 하면 그때는 색이 아니라
-   * **faint 를 글자 단계에서 물리는 것**이 답이다 - 160곳을 muted 로 옮기고
-   * 회색을 셋으로 줄인다.
+   *   muted #59595F  회사 디자인 시스템 ink-600. 캔버스 6.12 · 차림 바탕 5.57
+   *   faint #6B6578  보라 기운을 남긴 회색.     캔버스 4.92 · 흰 면 5.59
+   *
+   * 단계(ink > muted > faint)는 그대로이고, 세 단계가 모든 밝은 바탕에서
+   * 4.5 를 넘는다.
    */
-  --color-faint: #767085;
+  --color-muted: #59595F;
+  --color-faint: #6B6578;
   --color-on-dark:      #FAFAF9;
   --color-on-dark-mute: #B8A2D0;
+  /* 어두운 면 위의 경고 글자. warn(#8A6100)은 머리줄 위에서 2.14 라 안 읽힌다 → 7.5 */
+  --color-warn-on-dark: #F2C46D;
 
   /* 상태. 주간보고 진행 상태 열에서 가져왔다 */
   --color-danger:    #B23A3A;
@@ -232,6 +234,80 @@
   --font-mono: 'Cascadia Mono', 'IBM Plex Mono', Consolas, 'D2Coding',
                ui-monospace, monospace;
   --font-display: 'Cinzel', 'Times New Roman', Times, serif;
+
+  /*
+   * 글자 크기 단계 (디자인 점검 2026-11-06 · 사용자 확인).
+   *
+   * 회사 디자인 시스템의 UI 단계(dof-design-system/tokens/typography.css)를
+   * 그대로 쓴다. 이름도 같다 - text-sm 이 13 이고 text-base 가 15 다.
+   * Tailwind 기본값(sm 14 · base 16 · xl 20 · 2xl 24)을 그대로 두었더니
+   * 아래에 적어 둔 여덟 단계와 따로 놀아 화면마다 9~11 가지 크기가 섞였다.
+   *
+   *   2xs 11  표 머리 · 조각 · 숫자 띠 이름
+   *   xs  12  딸린 값 · 안내
+   *   sm  13  단추 · 차림표 · 조밀한 목록
+   *   base 15 본문 · 표 내용
+   *   lg  18  카드 제목
+   *   xl  22  큰 숫자 · 작은 화면 제목
+   *   2xl 28  화면 제목
+   *   3xl 36  현장 숫자판 같은 큰 읽음값
+   *
+   * 인쇄 화면은 종이 배치가 정본이라 옛 값을 지킨다 (.print-scale).
+   */
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1rem;
+  --text-sm: 0.8125rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base: 0.9375rem;
+  --text-base--line-height: 1.375rem;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.625rem;
+  --text-xl: 1.375rem;
+  --text-xl--line-height: 1.875rem;
+  --text-2xl: 1.75rem;
+  --text-2xl--line-height: 2.25rem;
+  --text-3xl: 2.25rem;
+  --text-3xl--line-height: 2.625rem;
+
+  /*
+   * 모서리 (디자인 점검 2026-11-06). 조작 8 · 면 16 · 동그라미 셋으로 모은다.
+   * Tailwind 의 rounded · rounded-md(4 · 6)가 조작 8 로 올라온다.
+   */
+  --radius-sm: 0.5rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 1rem;
+}
+
+/*
+ * 인쇄 화면은 옛 크기를 지킨다.
+ *
+ * 종이 한 장에 무엇이 들어가는지가 크기에 걸려 있다 (쪽 나누기 · 서명란).
+ * 위 단계를 바꾸면서 인쇄 양식까지 따라 바뀌면 시험(test:print)이 보는 자료는
+ * 같아도 장이 넘어가는 자리가 달라진다. 그래서 인쇄 틀 안에서만 Tailwind
+ * 기본값으로 되돌린다 - 유틸리티가 var(--text-*) 를 읽으므로 조상에서 덮으면 된다.
+ */
+.print-scale {
+  --text-xs: 0.75rem;
+  --text-xs--line-height: calc(1 / 0.75);
+  --text-sm: 0.875rem;
+  --text-sm--line-height: calc(1.25 / 0.875);
+  --text-base: 1rem;
+  --text-base--line-height: 1.5;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: calc(1.75 / 1.125);
+  --text-xl: 1.25rem;
+  --text-xl--line-height: calc(1.75 / 1.25);
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: calc(2 / 1.5);
+  --text-3xl: 1.875rem;
+  --text-3xl--line-height: 1.2;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
 }
 
 :root {
@@ -241,7 +317,8 @@
   --tap-touch: 3.5rem; /* 실무자. 장갑 낀 손가락 */
 
   /* 모서리. 큰 면일수록 넉넉하게 준다 */
-  --r-sm: 0.375rem;
+  /* 조작 8 · 면 16 · 동그라미 (디자인 점검 2026-11-06). 6 · 14 를 걷었다 */
+  --r-sm: 0.5rem;
   --r-md: 0.5rem;
   /*
    * 카드 모서리 (2026-09-11 · 사용자 지시 "디자인이 너무 심심하다").
@@ -250,7 +327,7 @@
    * 이 화면에 안 맞는다 - 가장자리가 딱딱하게 끊기지 않을 만큼만이다.
    * 작은 칸(입력·조각)은 그대로 둔다. 다 같이 둥글면 화면이 물러진다.
    */
-  --r-lg: 0.875rem;
+  --r-lg: 1rem;
   --r-xl: 1rem;
 
   /* 그림자. 원본 슬라이드는 전부 헤어라인이고 그림자가 없다.
@@ -474,7 +551,7 @@ input, textarea, [contenteditable] { caret-color: var(--color-brand); }
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    padding: 1.25rem 1.25rem 1rem;
+    padding: 1rem 1.25rem 0.875rem;
     border-bottom: 1px solid var(--color-line);
   }
 
@@ -653,7 +730,7 @@ input, textarea, [contenteditable] { caret-color: var(--color-brand); }
     border-radius: var(--r-md);
     background: var(--color-surface);
     box-shadow: inset 0 1px 2px rgb(26 26 31 / .05);
-    font-size: 0.875rem;
+    font-size: 0.9375rem;
     color: var(--color-ink);
     outline: none;
     transition: border-color 140ms ease, box-shadow 140ms ease, background-color 140ms ease;
@@ -674,7 +751,7 @@ input, textarea, [contenteditable] { caret-color: var(--color-brand); }
     border: 1px dashed var(--color-line-strong);
     border-radius: var(--r-sm);
     background: var(--color-surface-sub);
-    font-size: 0.875rem;
+    font-size: 0.9375rem;
     color: var(--color-body);
   }
 
@@ -809,9 +886,9 @@ input, textarea, [contenteditable] { caret-color: var(--color-brand); }
     font-size: 0.6875rem;
     line-height: 1rem;
     font-weight: 700;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.02em;
     color: var(--color-muted);
-    padding: 0.75rem 1rem 0.625rem;
+    padding: 0.625rem 1rem 0.5rem;
     border-bottom: 1px solid var(--color-line-strong);
     white-space: nowrap;
     background: transparent;
@@ -822,10 +899,18 @@ input, textarea, [contenteditable] { caret-color: var(--color-brand); }
    * 표가 넓은 화면에서 납작한 글줄 더미로 보였다. 줄마다 숨을 주면 한 줄이
    * 한 건으로 읽힌다 - 목록을 훑는 시간이 이 시스템 쓰는 시간의 대부분이다.
    */
+  /*
+   * 줄 높이를 다시 좁혔다 (디자인 점검 2026-11-06 · 사용자 확인).
+   *
+   * 15px 위아래 여백이면 두 줄 칸이 약 70px 이라 1440×900 에서 자재 로트가
+   * 여섯 줄만 보였다. 여백을 7px 로 줄여 두 줄 칸 약 54px, 한 줄 칸 약 38px.
+   * 같은 화면에 9~10 줄이 든다. 글자는 본문 단계(15)로 한 칸 올렸다.
+   * 현장 표는 .touch .td 가 따로 잡는다.
+   */
   .td {
-    padding: 0.9375rem 1rem;
-    font-size: 0.875rem;
-    line-height: 1.45;
+    padding: 0.4375rem 1rem;
+    font-size: 0.9375rem;
+    line-height: 1.375rem;
     color: var(--color-body);
     border-bottom: 1px solid var(--color-line-soft);
     vertical-align: middle;
@@ -990,14 +1075,15 @@ input, textarea, [contenteditable] { caret-color: var(--color-brand); }
     gap: 0.1875rem;
     padding: 0.25rem;
     border: 1px solid var(--color-line);
-    border-radius: var(--r-md);
+    /* 안의 칸(8px)보다 여백만큼 더 둥글게. 안팎 곡선이 나란히 간다 */
+    border-radius: calc(var(--r-sm) + 0.25rem);
     background: var(--color-canvas-deep);
   }
   .segment-item {
     border-radius: var(--r-sm);
     padding: 0.375rem 0.75rem;
-    font-size: 0.75rem;
-    font-weight: 700;
+    font-size: 0.8125rem;
+    font-weight: 600;
     letter-spacing: -0.005em;
     color: var(--color-muted);
     transition: background-color 140ms var(--ease), color 140ms var(--ease),

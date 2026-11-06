@@ -237,7 +237,7 @@ export default async function CostPage() {
                     <tr key={l.product_lot_id}>
                       <td className="td font-mono text-xs font-semibold">{l.lot_no}</td>
                       <td className="td">
-                        <div className="text-sm">{l.item_name}</div>
+                        <div className="text-base">{l.item_name}</div>
                         <div className="font-mono text-xs text-faint">{l.item_code}</div>
                       </td>
                       <td className="td font-mono text-xs text-muted">{l.batch_no}</td>
@@ -287,7 +287,7 @@ export default async function CostPage() {
                           </td>
                         )}
                         <td className="td">
-                          <div className="text-sm">{s.item_name}</div>
+                          <div className="text-base">{s.item_name}</div>
                           <div className="font-mono text-xs text-faint">{s.item_code}</div>
                         </td>
                         <td className="td tnum text-right text-muted">{Number(s.qty)}</td>

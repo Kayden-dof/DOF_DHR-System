@@ -213,7 +213,7 @@ export function CancelForm({ id }: { id: string }) {
   return (
     <form action={action} className="w-full rounded-md border border-danger/30 bg-danger-bg p-3">
       <input type="hidden" name="id" value={id} />
-      <p className="text-sm font-semibold text-ink">작업 지시를 취소합니다</p>
+      <p className="text-base font-semibold text-ink">작업 지시를 취소합니다</p>
       <Caution>
         지시서번호와 배치번호는 소멸하며 재사용하지 않습니다. 번호가 비는 것이 정상이고,
         취소 기록이 그 설명이 됩니다.
@@ -240,15 +240,15 @@ export function FinishForm({ id }: { id: string }) {
   const [ask, setAsk] = useState(false);
 
   if (!ask) {
-    return <button onClick={() => setAsk(true)} className="btn-ghost h-9 px-3 text-xs">배치 종료</button>;
+    return <button onClick={() => setAsk(true)} className="btn-ghost">배치 종료</button>;
   }
 
   return (
-    <form action={action} className="inline-flex items-center gap-2">
+    <form action={action} className="inline-flex flex-wrap items-center gap-2">
       <input type="hidden" name="id" value={id} />
-      <span className="text-xs text-muted">종료하고 편철 표지를 출력하시겠습니까?</span>
-      <button type="submit" disabled={pending} className="btn-primary h-9 px-3 text-xs">종료</button>
-      <button type="button" onClick={() => setAsk(false)} className="btn-quiet h-9 px-2 text-xs">
+      <span className="text-sm text-muted">종료하고 편철 표지를 출력하시겠습니까?</span>
+      <button type="submit" disabled={pending} className="btn-primary">종료</button>
+      <button type="button" onClick={() => setAsk(false)} className="btn-quiet">
         아니오
       </button>
       <Msg state={state} />
@@ -463,7 +463,7 @@ export function NonconformityForm({ lot, woId, today, ops }: {
                 <button key={o.code} type="button" onClick={() => setOutcome(o.code)}
                         data-on={outcome === o.code}
                         className="tile items-center py-2.5 text-center">
-                  <span className="text-sm font-bold">{o.label}</span>
+                  <span className="text-base font-bold">{o.label}</span>
                   <span className="text-xs text-muted">{o.note}</span>
                 </button>
               ))}
@@ -601,7 +601,7 @@ export function WipNonconformityForm({ woId, today, ops, sheets }: {
                 <button key={o.code} type="button" onClick={() => setOutcome(o.code)}
                         data-on={outcome === o.code}
                         className="tile items-center py-2.5 text-center">
-                  <span className="text-sm font-bold">{o.label}</span>
+                  <span className="text-base font-bold">{o.label}</span>
                   <span className="text-xs text-muted">{o.note}</span>
                 </button>
               ))}

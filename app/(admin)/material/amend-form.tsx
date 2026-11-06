@@ -72,7 +72,7 @@ export default function AmendLotForm({ lot }: { lot: AmendLot }) {
               <label className="label" htmlFor={`${uid}-coa_no`}>성적서 번호</label>
               <input id={`${uid}-coa_no`} name="coa_no" required autoComplete="off"
                      defaultValue={lot.coa_no} className="input font-mono" />
-              <p className="mt-1 text-xs text-faint">서면 성적서와 잇는 고리입니다 (S02).</p>
+              <p className="mt-1 text-xs text-faint">서면 성적서와 잇는 고리입니다.</p>
             </div>
             <div>
               <label className="label" htmlFor={`${uid}-coa_date`}>성적서 일자</label>

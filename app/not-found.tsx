@@ -1,7 +1,12 @@
 import Link from 'next/link';
 import { BrandMark } from '@/components/brand-mark';
 
-/* 없는 번호를 눌렀을 때. 무엇을 찾으려 했는지 다시 물어볼 길을 준다. */
+/*
+ * 없는 주소나 없는 번호를 열었을 때. 무엇을 찾으려 했는지 다시 물어볼 길을 준다.
+ *
+ * 두 경우가 다 여기로 온다 - 화면마다 notFound() 를 부르는 기록 조회와, 아예
+ * 없는 주소. 제목이 "번호" 만 말하면 주소를 잘못 친 사람에게 엉뚱한 말이 된다.
+ */
 export default async function NotFound() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-canvas px-5 py-12">
@@ -9,10 +14,10 @@ export default async function NotFound() {
         <span className="inline-flex justify-center">
           <BrandMark className="h-6 w-auto text-[1.25rem]" />
         </span>
-        <h1 className="mt-7 text-[1.375rem] font-bold text-ink">
-          그 번호로는 찾을 수 없습니다
+        <h1 className="mt-7 text-xl font-bold text-ink">
+          찾는 화면이나 기록이 없습니다
         </h1>
-        <p className="mt-2.5 text-sm leading-relaxed text-muted">
+        <p className="mt-2.5 text-base leading-relaxed text-muted">
           주소가 잘못되었거나, 취소된 지시서일 수 있습니다.
           번호는 재사용하지 않으므로 취소된 번호는 빈자리로 남습니다.
         </p>

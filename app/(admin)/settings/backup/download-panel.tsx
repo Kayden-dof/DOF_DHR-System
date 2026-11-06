@@ -70,7 +70,7 @@ export default function DownloadPanel({ stale, children }: {
 
   return (
     <section className={`card flex flex-col p-5 ${stale ? 'border-warn/40 bg-warn-bg' : ''}`}>
-      <h3 className="text-[0.875rem] font-bold tracking-tight text-ink">백업 내려받기</h3>
+      <h3 className="text-lg font-bold tracking-tight text-ink">백업 내려받기</h3>
       <p className="mt-0.5 text-xs leading-relaxed text-muted">
         지금 담긴 것을 통째로 한 파일에 담습니다. 서버에 사본을 두지 않습니다.
       </p>
@@ -122,7 +122,7 @@ export default function DownloadPanel({ stale, children }: {
             </div>
           </div>
 
-          {err && <p role="alert" className="mt-3 text-sm text-danger">{err}</p>}
+          {err && <p role="alert" className="mt-3 text-base text-danger">{err}</p>}
 
           <div className="mt-4 flex gap-2">
             <button onClick={run} disabled={!ready || busy} className="btn-primary h-10 px-4 text-xs">

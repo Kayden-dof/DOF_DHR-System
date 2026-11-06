@@ -89,7 +89,7 @@ export default function Toasts({ states }: { states: (FormState | undefined)[] }
           key={n.id}
           role={n.tone === 'danger' ? 'alert' : 'status'}
           className={`rise pointer-events-auto flex items-start gap-2 rounded-md border px-3 py-2.5
-            text-sm leading-relaxed shadow-[var(--sh-3)] ${
+            text-base leading-relaxed shadow-[var(--sh-3)] ${
             n.tone === 'danger'
               ? 'border-danger-line bg-danger-bg text-danger'
               : 'border-ok/20 bg-ok-bg text-ink'}`}
@@ -102,7 +102,7 @@ export default function Toasts({ states }: { states: (FormState | undefined)[] }
             type="button"
             onClick={() => close(n.id)}
             aria-label="알림 닫기"
-            className="-mr-1 -mt-0.5 shrink-0 rounded px-1.5 py-0.5 text-xs text-muted
+            className="-mr-1 -mt-0.5 shrink-0 rounded-md px-1.5 py-0.5 text-xs text-muted
                        hover:bg-canvas hover:text-ink focus-visible:outline-2"
           >
             닫기

@@ -276,7 +276,7 @@ export default function WorkPanel({
       <section className="card p-5">
         <div className="flex items-baseline justify-between">
           <h2 className="text-base font-bold text-ink">일차</h2>
-          <span className="text-sm text-muted">지시서별 실작업일 순번</span>
+          <span className="text-base text-muted">지시서별 실작업일 순번</span>
         </div>
         <div className="mt-3.5 flex flex-wrap gap-2">
           {days.map((n) => {
@@ -329,7 +329,7 @@ export default function WorkPanel({
           */}
         {notToday && !locked && (
           <p className="mt-3 rounded-md border border-warn/40 bg-warn-bg px-3 py-2
-                        text-sm leading-relaxed text-ink">
+                        text-base leading-relaxed text-ink">
             고른 <b>{day}일차</b>의 작업일은 <b className="tnum">{pickedDate}</b>이고
             오늘은 <b className="tnum">{today}</b>입니다.
             여기에 적으면 제조기록서에는 <b className="tnum">{pickedDate}</b>로 찍힙니다.
@@ -338,7 +338,7 @@ export default function WorkPanel({
         )}
 
         {locked && (
-          <p className="mt-3 rounded-md border border-ok/30 bg-ok-bg px-3 py-2.5 text-sm leading-relaxed text-ink">
+          <p className="mt-3 rounded-md border border-ok/30 bg-ok-bg px-3 py-2.5 text-base leading-relaxed text-ink">
             <b>{day}일차는 마감되었습니다.</b> 기록서를 인쇄했으므로 더 이상 수정할 수 없습니다.
             누락된 것은 다음 일차에 정정 기록으로 남기십시오.
           </p>
@@ -349,7 +349,7 @@ export default function WorkPanel({
       <section className="card p-5">
         <div className="flex items-baseline justify-between">
           <h2 className="text-base font-bold text-ink">{day}일차 공정</h2>
-          <span className="text-sm text-muted">
+          <span className="text-base text-muted">
             마감 <b className="tnum text-ink">{mine}</b> / {ops.length}
             {dayRecords.some((r) => !r.ended_at) && (
               <span className="ml-2 font-bold text-warn">진행 중 {
@@ -371,7 +371,7 @@ export default function WorkPanel({
         </div>
 
         {todo.length === 0 && (
-          <p className="mt-3.5 rounded-md bg-surface-sub px-4 py-6 text-center text-sm text-muted">
+          <p className="mt-3.5 rounded-md bg-surface-sub px-4 py-6 text-center text-base text-muted">
             이 일차에 남은 공정이 없습니다.
           </p>
         )}
@@ -381,7 +381,7 @@ export default function WorkPanel({
             <button type="button" onClick={() => setShowEarlier((v) => !v)}
                     aria-expanded={showEarlier}
                     className="flex w-full items-center justify-between rounded-md px-1 py-2 text-left">
-              <span className="text-sm font-semibold text-muted">
+              <span className="text-base font-semibold text-muted">
                 앞 일차에 마감한 공정 <b className="tnum text-ink">{earlier.length}</b>
               </span>
               <span className="text-xs text-faint">
@@ -441,7 +441,7 @@ export default function WorkPanel({
       {locked && (
         <div className="flex justify-end">
           <Link href={`/print/day-record/${woId}/${day}/${meId}`}
-                className="btn-ghost h-12 px-5 text-sm">
+                className="btn-ghost h-14 px-5 text-base">
             {day}일차 기록서 다시 보기
           </Link>
         </div>
@@ -478,7 +478,7 @@ function OpTile({
       <span aria-hidden className={`absolute inset-y-2 left-2 w-1 rounded-full ${bar}`} />
 
       <div className="flex items-center gap-2">
-        <span className="w-5 text-center text-sm font-bold tnum text-faint">{o.seq}</span>
+        <span className="w-5 text-center text-base font-bold tnum text-faint">{o.seq}</span>
         <span className="flex-1 text-base font-semibold text-ink">{o.name}</span>
         {state === 'open' && <Tag tone="warn">진행 중</Tag>}
         {state === 'done' && <Tag tone="ok">마감</Tag>}
@@ -567,7 +567,7 @@ function OperationCard({
       </header>
 
       {locked ? (
-        <p className="px-4 py-6 text-sm text-muted">마감된 일차입니다.</p>
+        <p className="px-4 py-6 text-base text-muted">마감된 일차입니다.</p>
       ) : !rec || rec.ended_at ? (
         <StartCard woId={woId} day={day} op={op} people={people}
                    productLots={productLots} attempt={attemptCount + 1}
@@ -649,7 +649,7 @@ function StartCard({ woId, day, op, people, productLots, attempt, done, splitOp 
       <input type="hidden" name="equipment_ref" value={equip} />
 
       {done && (
-        <p className="rounded-md bg-warn-bg px-3 py-2.5 text-sm leading-relaxed text-ink">
+        <p className="rounded-md bg-warn-bg px-3 py-2.5 text-base leading-relaxed text-ink">
           이 공정은 이미 마감했습니다. 다시 시작하면 <b>{attempt}회차</b>로 기록됩니다.
           재작업이나 재세척일 때만 쓰십시오.
         </p>
@@ -659,7 +659,7 @@ function StartCard({ woId, day, op, people, productLots, attempt, done, splitOp 
         <div>
           <span className="label">제품 로트{splitOp ? ` (${splitOp} 이후 공정)` : ''}</span>
           {productLots.length === 0 ? (
-            <p className="rounded-md bg-danger-bg px-3 py-2.5 text-sm text-danger">
+            <p className="rounded-md bg-danger-bg px-3 py-2.5 text-base text-danger">
               아직 제조번호가 붙지 않았습니다.
               {splitOp ? ` ${splitOp} 전에는 ` : ' 그 전에는 '}이 공정을 기록할 수 없습니다.
             </p>
@@ -749,12 +749,12 @@ function StartCard({ woId, day, op, people, productLots, attempt, done, splitOp 
           <div className="grid gap-2 sm:grid-cols-3">
             <button type="button" onClick={() => setRotation('')}
                     data-on={rotation === ''} className="tile items-center text-center">
-              <span className="text-sm font-semibold">없음</span>
+              <span className="text-base font-semibold">없음</span>
             </button>
             {people.map((p) => (
               <button key={p.id} type="button" onClick={() => setRotation(p.id)}
                       data-on={rotation === p.id} className="tile items-center text-center">
-                <span className="text-sm font-semibold">{p.full_name}</span>
+                <span className="text-base font-semibold">{p.full_name}</span>
               </button>
             ))}
           </div>
@@ -796,7 +796,7 @@ function RunningCard({ woId, op, rec, lots, sheets, loadUnit, expiryWarnDays }: 
         * 자격 관리를 시작하지 않은 공정에는 아무것도 내지 않는다.
         */}
       {op.qual_managed && !op.qualified && (
-        <p className="border-b border-warn/40 bg-warn-bg px-4 py-2.5 text-sm leading-relaxed text-ink">
+        <p className="border-b border-warn/40 bg-warn-bg px-4 py-2.5 text-base leading-relaxed text-ink">
           이 공정의 <b>유효한 자격이 없습니다.</b> 기록은 남길 수 있으나
           검토에서 짚힙니다. 생산관리자에게 알리십시오.
         </p>
@@ -861,7 +861,7 @@ function MaterialForm({ woId, rec, op, lots, sheets, loadUnit, expiryWarnDays }:
   const recordedItems = new Set(rec.issues.map((x) => x.item_id));
 
   const guide = op.bom.length === 0 ? (
-    <p className="rounded-lg border border-line bg-surface-sub px-3.5 py-3 text-sm leading-relaxed text-muted">
+    <p className="rounded-lg border border-line bg-surface-sub px-3.5 py-3 text-base leading-relaxed text-muted">
       이 공정은 자재 구성표에 등록된 자재가 없습니다. 원재료는 작업 지시서에
       이미 지정되어 있습니다.
     </p>
@@ -872,7 +872,7 @@ function MaterialForm({ woId, rec, op, lots, sheets, loadUnit, expiryWarnDays }:
         {op.bom.map((b) => {
           const done = recordedItems.has(b.item_id);
           return (
-            <li key={b.item_id} className="flex items-baseline justify-between gap-3 text-sm">
+            <li key={b.item_id} className="flex items-baseline justify-between gap-3 text-base">
               <span className="min-w-0">
                 <span className={done ? 'text-muted line-through' : 'font-semibold text-ink'}>
                   {b.item_name}
@@ -904,7 +904,7 @@ function MaterialForm({ woId, rec, op, lots, sheets, loadUnit, expiryWarnDays }:
     return (
       <div className="space-y-4 p-4">
         {guide}
-        <p className="text-sm leading-relaxed text-muted">
+        <p className="text-base leading-relaxed text-muted">
           이 공정에 넣을 수 있는 자재 로트가 없습니다. 관리자에게 입고를 요청하십시오.
         </p>
       </div>
@@ -1012,13 +1012,13 @@ function EndForm({ woId, rec, op, missing }: {
 
       {missing.length > 0 && (
         <div className="rounded-md border border-warn/30 bg-warn-bg p-3">
-          <p className="text-sm font-bold text-ink">아직 기록하지 않은 자재가 있습니다</p>
-          <ul className="mt-1.5 space-y-0.5 text-sm text-ink">
+          <p className="text-base font-bold text-ink">아직 기록하지 않은 자재가 있습니다</p>
+          <ul className="mt-1.5 space-y-0.5 text-base text-ink">
             {missing.map((m) => (
               <li key={m.item_code}>· {m.item_name} ({m.item_code})</li>
             ))}
           </ul>
-          <p className="mt-2 text-sm leading-relaxed text-muted">
+          <p className="mt-2 text-base leading-relaxed text-muted">
             자재를 기록하거나, 아래에서 해당 없음 사유를 선택하십시오. 둘 다 없으면 마감되지 않습니다.
           </p>
         </div>
@@ -1042,7 +1042,7 @@ function EndForm({ woId, rec, op, missing }: {
         </button>
       ) : (
         <div className="space-y-3">
-          <p className="rounded-md bg-canvas px-3 py-2.5 text-sm leading-relaxed text-ink">
+          <p className="rounded-md bg-canvas px-3 py-2.5 text-base leading-relaxed text-ink">
             <b>{op.name}</b>을 마감합니다. 종료 시각이 지금으로 찍힙니다.
             마감 후에도 일차를 마감하기 전이면 자재를 더 넣을 수 있습니다.
           </p>
@@ -1083,13 +1083,13 @@ function CloseDayCard({ woId, day, batchNo, openOps }: {
   return (
     <section className="card border-brand-line p-4">
       <h2 className="text-base font-bold text-ink">{day}일차 마감</h2>
-      <p className="mt-1 text-sm leading-relaxed text-muted">
+      <p className="mt-1 text-base leading-relaxed text-muted">
         마감하면 제조기록서가 발행되고 <b className="text-ink">이 묶음은 더 이상 수정할 수 없습니다.</b>
         {' '}잠금을 푸는 방법은 없습니다. 누락된 것은 다음 일차에 정정 기록으로 남겨야 합니다.
       </p>
 
       {blocked && (
-        <div className="mt-3 rounded-md border border-danger/25 bg-danger-bg px-3 py-3 text-sm leading-relaxed text-ink">
+        <div className="mt-3 rounded-md border border-danger/25 bg-danger-bg px-3 py-3 text-base leading-relaxed text-ink">
           <b>종료 시각이 없는 공정이 {openOps.length}건 있습니다.</b>
           <ul className="mt-1.5 list-disc space-y-0.5 pl-5">
             {openOps.map((n, i) => <li key={i}>{n}</li>)}
@@ -1111,7 +1111,7 @@ function CloseDayCard({ woId, day, batchNo, openOps }: {
         <form action={action} className="mt-4 space-y-3">
           <input type="hidden" name="work_order_id" value={woId} />
           <input type="hidden" name="day_no" value={day} />
-          <p className="rounded-md border border-danger/25 bg-danger-bg px-3 py-2.5 text-sm leading-relaxed text-ink">
+          <p className="rounded-md border border-danger/25 bg-danger-bg px-3 py-2.5 text-base leading-relaxed text-ink">
             배치 <b className="font-mono">{batchNo}</b>의 <b>{day}일차</b>를 마감합니다.
             되돌릴 수 없습니다.
           </p>
@@ -1216,21 +1216,21 @@ function CutPanel({
             <li key={l.id}
                 className="flex flex-wrap items-baseline gap-x-3 rounded-md border border-line bg-surface px-3 py-2">
               <span className="font-mono text-base font-bold text-ink">{l.lot_no}</span>
-              <span className="text-sm text-body">{l.item_code}</span>
-              <span className="ml-auto text-sm text-muted">
+              <span className="text-base text-body">{l.item_code}</span>
+              <span className="ml-auto text-base text-muted">
                 생산 <b className="tnum text-ink">{l.qty_produced ?? 0}</b>
                 {(l.qty_sample ?? 0) > 0 && <> · 샘플 <b className="tnum text-ink">{l.qty_sample}</b></>}
               </span>
             </li>
           ))}
-          <li className="px-3 pt-1 text-sm text-muted">
+          <li className="px-3 pt-1 text-base text-muted">
             지금까지 <b className="tnum text-ink">{made}</b>개를 재단했습니다.
           </li>
         </ul>
       )}
 
       {finished.length === 0 ? (
-        <p className="mt-3 rounded-md bg-warn-bg px-3 py-2.5 text-sm leading-relaxed text-ink">
+        <p className="mt-3 rounded-md bg-warn-bg px-3 py-2.5 text-base leading-relaxed text-ink">
           이 두께 구간({band ?? '미기재'})에 해당하는 형명이 없습니다.
           관리자 화면에서 형명을 확인하십시오.
         </p>
@@ -1307,7 +1307,7 @@ function CutPanel({
             * 안내하지 않는 편이 낫다 (§1).
             */}
           {need !== null ? (
-            <p className="text-sm leading-relaxed text-muted">
+            <p className="text-base leading-relaxed text-muted">
               생산 <b className="tnum text-ink">{Number(produced)}</b>개는{' '}
               <b className="tnum text-ink">{needTier!.min_qty}~{needTier!.max_qty ?? ''}</b> 구간이라
               시료 <b className="tnum text-ink">{need}</b>개를 출력합니다.
@@ -1317,13 +1317,13 @@ function CutPanel({
               )}
             </p>
           ) : sampleTiers.length > 0 && Number(produced || 0) > 0 ? (
-            <p className="text-sm leading-relaxed text-muted">
+            <p className="text-base leading-relaxed text-muted">
               생산 {Number(produced)}개가 드는 시료 구간이 등록되어 있지 않습니다.
               시료 수는 검사기준서를 보고 입력하십시오.
             </p>
           ) : null}
 
-          <p className="text-sm leading-relaxed text-muted">
+          <p className="text-base leading-relaxed text-muted">
             {picked && <><b className="font-mono text-ink">{picked.code}</b> · </>}
             출하 가능 수량은 <b className="tnum text-ink">{avail}</b>개가 됩니다.
             샘플은 생산 수량에서 빠지며 회수되어도 복귀하지 않습니다.
@@ -1374,14 +1374,14 @@ function IssueRow({ woId, x, locked }: {
   return (
     <div className="border-b border-line-soft last:border-0">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3">
-        <span className="min-w-0 flex-1 text-sm font-semibold text-ink">{x.item_name}</span>
-        <span className="font-mono text-sm text-muted">{x.lot_no}</span>
+        <span className="min-w-0 flex-1 text-base font-semibold text-ink">{x.item_name}</span>
+        <span className="font-mono text-base text-muted">{x.lot_no}</span>
         <span className="tnum text-base font-bold text-ink">
           {Number(x.qty)} {x.usage_uom}
         </span>
         {!locked && (
           <button type="button" onClick={() => setMode(mode ? null : 'amend')}
-                  className="btn-quiet h-9 px-3 text-xs">
+                  className="btn-quiet h-14 px-5 text-base">
             {mode ? '닫기' : '정정'}
           </button>
         )}
@@ -1424,7 +1424,7 @@ function IssueRow({ woId, x, locked }: {
                     initial={String(Number(x.qty))} max={Number(x.qty)} />
             <PresetPicker name="reason" label="반납 사유"
                           presets={RETURN_REASONS} allowNone={false} />
-            <p className="text-sm leading-relaxed text-muted">
+            <p className="text-base leading-relaxed text-muted">
               투입 기록은 그대로 남고 반납이 따로 적힙니다. 개봉해서 되돌릴 수
               없는 자재는 반납이 아니라 폐기로 처리해야 합니다.
             </p>
@@ -1520,7 +1520,7 @@ function PrepCard(
         <h2 className="text-base font-bold text-ink">
           오늘 할 것{todayDay !== 99 ? ` · 보통 ${todayDay}일차` : ''}
         </h2>
-        <span className="text-sm text-muted">남은 공정 {left.length}개</span>
+        <span className="text-base text-muted">남은 공정 {left.length}개</span>
       </div>
 
       {/*
@@ -1529,7 +1529,7 @@ function PrepCard(
         */}
       {onGo && goLabel && (
         <button type="button" onClick={onGo}
-                className="btn-primary mt-3 h-11 w-full text-sm">
+                className="btn-primary mt-3 h-14 w-full text-base">
           {goLabel}
         </button>
       )}
@@ -1559,7 +1559,7 @@ function PrepCard(
                   <span className="tnum text-lg font-bold text-ink">
                     {n.known ? n.qty : '—'} {n.uom}
                   </span>
-                  <span className={`tnum text-sm ${short ? 'font-semibold text-warn' : 'text-muted'}`}>
+                  <span className={`tnum text-base ${short ? 'font-semibold text-warn' : 'text-muted'}`}>
                     재고 {have}{short ? ' · 모자람' : ''}
                   </span>
                 </li>

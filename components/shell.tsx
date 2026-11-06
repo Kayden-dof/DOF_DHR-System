@@ -77,7 +77,7 @@ export function PageShell({
               * 주황인 것과 같은 까닭). 자간을 조금 좁히면 큰 글자가 흩어지지
               * 않는다.
               */}
-            <h1 className="text-[1.75rem] font-bold leading-[1.15] tracking-[-0.015em] text-ink">
+            <h1 className="text-2xl font-bold leading-[1.15] tracking-[-0.015em] text-ink">
               {title}
             </h1>
             {/*
@@ -88,7 +88,7 @@ export function PageShell({
               * 두면 글자 크기를 고칠 때 어긋난다.
               */}
             {lede && (
-              <p className="mt-2 max-w-2xl min-h-[calc(2*1.625*0.9375rem)] text-[0.9375rem]
+              <p className="mt-2 max-w-2xl min-h-[calc(2*1.625*0.9375rem)] text-base
                             leading-relaxed text-muted">{lede}</p>
             )}
           </div>
@@ -211,13 +211,24 @@ export function StatStrip({ items }: { items: StatItem[] }) {
       * 얕게 띄우면 하나하나가 "볼 것" 으로 읽힌다.
       */
     <div>
+    {/*
+      * 줄을 고르게 나눈다 (디자인 점검 2026-11-06).
+      *
+      * auto-fit 만 두면 넓은 화면에 일곱 칸이 들어가, 여덟 개짜리 띠(경영 현황)가
+      * 7 + 1 로 끊겨 마지막 하나가 둘째 줄에 혼자 남았다. 한 줄에 일곱을 넘기지
+      * 않는 범위에서 줄 수를 먼저 정하고 그 줄 수로 고르게 나눈다 (8 → 4 + 4).
+      * 좁은 화면에서는 최소 폭(9.5rem)이 이겨 지금처럼 접힌다.
+      */}
     <dl className="grid gap-2.5"
-        style={{ gridTemplateColumns: `repeat(auto-fit, minmax(9.5rem, 1fr))` }}>
+        style={{ gridTemplateColumns: (() => {
+          const cols = Math.ceil(items.length / Math.ceil(items.length / 7));
+          return `repeat(auto-fit, minmax(max(9.5rem, calc((100% - ${cols - 1} * 0.625rem) / ${cols})), 1fr))`;
+        })() }}>
       {items.map((s) => {
         const zero = s.value === 0 || s.value === '0';
         const body = (
           <>
-            <dt className="text-[0.6875rem] font-bold tracking-wide text-muted">{s.label}</dt>
+            <dt className="text-2xs font-bold tracking-wide text-muted">{s.label}</dt>
             <dd className="mt-1.5 flex items-baseline gap-1">
               {/*
                 * 숫자를 키우고 자간을 좁힌다. 단위는 한 칸 더 물린다 -
@@ -247,7 +258,7 @@ export function StatStrip({ items }: { items: StatItem[] }) {
                     }`}>
                 {s.value}
               </span>
-              {s.unit && <span className="text-[0.6875rem] text-faint">{s.unit}</span>}
+              {s.unit && <span className="text-2xs text-faint">{s.unit}</span>}
             </dd>
           </>
         );
@@ -317,7 +328,7 @@ export function FilterBar({
             {it.count !== undefined && (
               <span className={`ml-1.5 tnum ${
                 it.on ? 'text-brand'
-                  : it.count === 0 ? 'text-faint/55' : 'text-faint'
+                  : it.count === 0 ? 'font-normal text-muted' : 'text-ink'
               }`}>
                 {it.count}
               </span>

@@ -76,8 +76,8 @@ export default function FindUnit() {
         className="btn-ghost hidden h-9 items-center gap-2 px-3 text-xs sm:flex"
       >
         개체 번호 찾기
-        <kbd className="rounded border border-line bg-canvas px-1.5 py-0.5 font-mono
-                        text-[0.625rem] leading-none text-muted">Ctrl K</kbd>
+        <kbd className="rounded-md border border-line bg-canvas px-1.5 py-0.5 font-mono
+                        text-2xs leading-none text-muted">Ctrl K</kbd>
       </button>
 
       {open && createPortal(
@@ -90,7 +90,7 @@ export default function FindUnit() {
         >
           <form onSubmit={submit}
                 className="w-full max-w-lg rounded-xl border border-line bg-surface p-4 shadow-[var(--sh-3)]">
-            <h2 className="text-sm font-bold text-ink">개체 번호 찾기</h2>
+            <h2 className="text-base font-bold text-ink">개체 번호 찾기</h2>
             <p className="mt-1 text-xs leading-relaxed text-muted">
               라벨의 번호를 그대로 적으십시오. 제조번호만 적어도 됩니다.
             </p>

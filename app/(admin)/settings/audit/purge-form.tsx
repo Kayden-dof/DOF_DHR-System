@@ -11,7 +11,7 @@ export default function PurgeForm() {
 
   return (
     <div className="card p-4">
-      <h2 className="text-sm font-bold text-ink">감사추적 비우기</h2>
+      <h2 className="text-base font-bold text-ink">감사추적 비우기</h2>
       <p className="mt-1 text-xs leading-relaxed text-muted">
         지금까지 쌓인 감사추적과 로그인 실패 기록을 모두 지웁니다. 누가 언제 몇 건을 비웠는지
         한 줄만 남고, 되돌릴 수 없습니다.

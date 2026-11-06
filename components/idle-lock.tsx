@@ -185,7 +185,7 @@ function LockScreen({
             {initial}
           </span>
           <h2 className="mt-4 text-xl font-bold text-white">{name} 님</h2>
-          <p className="mt-1.5 text-sm text-on-dark-mute">
+          <p className="mt-1.5 text-base text-on-dark-mute">
             자리를 비운 사이 화면을 잠갔습니다. 비밀번호를 누르면 하던 자리로 돌아갑니다.
           </p>
         </div>
@@ -215,7 +215,7 @@ function LockScreen({
 
           {state.error && (
             <p role="alert"
-               className="rise mt-3 rounded-md border border-danger-line bg-danger-bg px-3.5 py-2.5 text-sm leading-relaxed text-danger">
+               className="rise mt-3 rounded-md border border-danger-line bg-danger-bg px-3.5 py-2.5 text-base leading-relaxed text-danger">
               {state.error}
             </p>
           )}
@@ -233,7 +233,7 @@ function LockScreen({
         {/* 다른 사람이면 자기 계정으로 들어가야 한다 */}
         <form action={logout} className="mt-5 text-center">
           <button type="submit"
-                  className="rounded px-2 py-1 text-xs font-semibold text-on-dark-mute transition-colors hover:text-white">
+                  className="rounded-md px-2 py-1 text-xs font-semibold text-on-dark-mute transition-colors hover:text-white">
             다른 사람이 쓰려면 로그아웃
           </button>
         </form>

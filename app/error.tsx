@@ -25,10 +25,10 @@ export default function ErrorScreen({
       <div className="w-full max-w-lg">
         <BrandMarkClient className="text-[1.25rem]" />
 
-        <h1 className="mt-7 text-[1.375rem] font-bold text-ink">
+        <h1 className="mt-7 text-xl font-bold text-ink">
           화면을 그리지 못했습니다
         </h1>
-        <p className="mt-2.5 text-sm leading-relaxed text-muted">
+        <p className="mt-2.5 text-base leading-relaxed text-muted">
           이미 저장된 기록은 그대로 있습니다. 화면을 그리는 중에 멈춘 것이라
           기록이 지워지지는 않습니다. 다만 방금 누른 것이 저장되었는지는
           목록에서 확인하십시오.

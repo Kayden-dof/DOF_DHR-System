@@ -226,7 +226,7 @@ export default function LoginForm({ owners }: { owners: string[] }) {
       {state.error && (
         <p
           role="alert"
-          className="rise mt-3 flex items-start gap-2 rounded-lg border border-danger-line bg-danger-bg px-3.5 py-2.5 text-sm leading-relaxed text-danger"
+          className="rise mt-3 flex items-start gap-2 rounded-lg border border-danger-line bg-danger-bg px-3.5 py-2.5 text-base leading-relaxed text-danger"
         >
           <span aria-hidden className="mt-px font-bold">!</span>
           {state.error}
@@ -246,7 +246,7 @@ export default function LoginForm({ owners }: { owners: string[] }) {
           type="button"
           onClick={() => setAskReset((v) => !v)}
           aria-expanded={askReset}
-          className="rounded px-2 py-1 text-xs font-semibold text-muted transition-colors hover:text-brand"
+          className="rounded-md px-2 py-1 text-xs font-semibold text-muted transition-colors hover:text-brand"
         >
           비밀번호 초기화
         </button>
@@ -303,7 +303,7 @@ function Slot({
       />
 
       <span
-        className={`w-[3.5rem] shrink-0 text-[0.6875rem] font-bold tracking-[0.06em] transition-colors ${
+        className={`w-[3.5rem] shrink-0 text-2xs font-bold tracking-[0.06em] transition-colors ${
           active ? 'text-brand' : 'text-muted'
         }`}
       >
@@ -311,7 +311,7 @@ function Slot({
       </span>
 
       <span className="flex h-7 min-w-0 flex-1 items-center">
-        <span className="truncate text-[1.5rem] font-semibold leading-none tnum tracking-[0.2em] text-ink">
+        <span className="truncate text-xl font-semibold leading-none tnum tracking-[0.2em] text-ink">
           {shown}
         </span>
         {active && (
@@ -324,7 +324,7 @@ function Slot({
 
       <span
         aria-hidden
-        className={`shrink-0 text-sm font-bold text-brand transition-opacity duration-150 ${
+        className={`shrink-0 text-base font-bold text-brand transition-opacity duration-150 ${
           done ? 'opacity-100' : 'opacity-0'
         }`}
       >

@@ -166,10 +166,13 @@ export default async function WorkBatchPage({ params }: { params: Promise<{ id: 
   return (
     <div className="space-y-5">
       <div>
-        <Link href="/work" className="text-sm font-semibold text-on-dark-mute transition-colors hover:text-white">
-          배치 목록으로
+        {/* 현장 규칙(56px)대로. 글줄 링크(36px)였다 (디자인 점검 2026-11-06) */}
+        <Link href="/work"
+              className="-ml-2 inline-flex h-14 items-center gap-2 rounded-lg px-3 text-base font-semibold
+                         text-on-dark-mute transition-colors hover:bg-white/10 hover:text-white">
+          <span aria-hidden className="text-xl leading-none">‹</span> 배치 목록으로
         </Link>
-        <div className="mt-2 card p-4">
+        <div className="mt-1 card p-4">
           <div className="flex flex-wrap items-center gap-3">
             {/* 이 화면의 제목은 배치번호다. h1 로 적어 두면 읽어 주는 도구와
                 점검 도구가 그것을 제목으로 안다 */}
@@ -196,7 +199,7 @@ export default async function WorkBatchPage({ params }: { params: Promise<{ id: 
 
           {wo.status === 'CANCELLED' && (
             <p className="mt-3 rounded-md border border-danger/40 bg-danger-bg px-3 py-2
-                          text-sm leading-relaxed text-ink">
+                          text-base leading-relaxed text-ink">
               <b>이 배치는 취소되었습니다.</b> 여기에 적은 기록도 그대로 남고 지울 수
               없습니다. 취소된 배치에 기록할 일이 아니면 배치 목록으로 돌아가십시오.
             </p>
@@ -219,13 +222,13 @@ export default async function WorkBatchPage({ params }: { params: Promise<{ id: 
             */}
           {wo.status === 'DONE' && (
             <p className="mt-3 rounded-md border border-warn/40 bg-warn-bg px-3 py-2
-                          text-sm leading-relaxed text-ink">
+                          text-base leading-relaxed text-ink">
               <b>이 배치는 종료되었습니다.</b> 아래에 다음 일차를 시작할 수 있으나,
               종료 뒤에 나간 편철 표지의 기록서 매수는 그대로입니다. 정정 기록을
               더할 일이 아니면 배치 목록으로 돌아가십시오.
             </p>
           )}
-          <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-sm text-muted">
+          <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-base text-muted">
             <span>지시서 <span className="font-mono text-ink">{wo.wo_no}</span></span>
             <span>장입 <b className="tnum text-ink">{wo.sheet_count}</b>장</span>
             <span>원재료 <span className="font-mono text-ink">{wo.raw_lot_no}</span></span>

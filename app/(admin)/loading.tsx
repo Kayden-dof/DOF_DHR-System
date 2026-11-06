@@ -10,22 +10,22 @@ export default function Loading() {
     <div className="space-y-5" aria-busy="true" aria-label="불러오는 중">
       <div className="flex items-end justify-between gap-4 border-b border-line pb-4">
         <div className="space-y-2.5">
-          <div className="h-6 w-40 animate-pulse rounded bg-canvas-deep" />
-          <div className="h-3.5 w-72 animate-pulse rounded bg-canvas-deep/70" />
+          <div className="h-6 w-40 animate-pulse rounded-md bg-canvas-deep" />
+          <div className="h-3.5 w-72 animate-pulse rounded-md bg-canvas-deep/70" />
         </div>
         <div className="h-9 w-56 animate-pulse rounded-lg bg-canvas-deep/70" />
       </div>
 
       <div className="card overflow-hidden">
         <div className="section-head">
-          <div className="h-3.5 w-28 animate-pulse rounded bg-canvas-deep" />
+          <div className="h-3.5 w-28 animate-pulse rounded-md bg-canvas-deep" />
         </div>
         <div className="divide-y divide-line-soft">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="flex items-center gap-4 px-4 py-3">
-              <div className="h-3.5 w-28 animate-pulse rounded bg-canvas-deep/70" />
-              <div className="h-3.5 flex-1 animate-pulse rounded bg-canvas-deep/40" />
-              <div className="h-3.5 w-16 animate-pulse rounded bg-canvas-deep/40" />
+              <div className="h-3.5 w-28 animate-pulse rounded-md bg-canvas-deep/70" />
+              <div className="h-3.5 flex-1 animate-pulse rounded-md bg-canvas-deep/40" />
+              <div className="h-3.5 w-16 animate-pulse rounded-md bg-canvas-deep/40" />
             </div>
           ))}
         </div>

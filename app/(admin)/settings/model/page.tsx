@@ -67,7 +67,7 @@ export default async function ModelSchemePage() {
         <div className="card border-warn/40 bg-warn-bg p-4">
           <div className="flex items-start gap-3">
             <Tag tone="warn">먼저 할 일</Tag>
-            <div className="text-sm leading-relaxed">
+            <div className="text-base leading-relaxed">
               <p className="font-semibold text-ink">형명 체계가 없습니다.</p>
               <p className="mt-1 text-muted">
                 이것이 없으면 완제품 형명을 만들 수 없고, 규격 표기가 종이에 나가지

@@ -95,7 +95,7 @@ export default async function LoginPage() {
           * 비어 있어도 줄을 그린다. 없애면 로고가 그만큼 내려앉는다. 높이는
           * 글자 크기와 줄 간격에서 그대로 셈한다.
           */}
-        <p className="relative min-h-[calc(1.5*0.6875rem)] text-[0.6875rem]
+        <p className="relative min-h-[calc(1.5*0.6875rem)] text-2xs
                       font-medium tracking-[0.18em] text-on-dark-mute">
           {brand.companyTagline}
         </p>
@@ -133,7 +133,7 @@ export default async function LoginPage() {
               * 올라온 PNG 는 둘레에 투명 여백을 두른다. 상자 폭의 절반쯤만
               * 실제 그림이라, 눈에 맞추려면 상자를 그만큼 크게 잡아야 한다.
               */}
-            <BrandMark className="w-[min(15rem,72%)] text-[1.75rem]" />
+            <BrandMark className="w-[min(15rem,72%)] text-2xl" />
           </div>
 
           {/*
@@ -150,7 +150,7 @@ export default async function LoginPage() {
           )}
 
           {brand.systemTagline && (
-            <p className="mt-2.5 text-center text-sm font-medium tracking-tight text-muted">
+            <p className="mt-2.5 text-center text-base font-medium tracking-tight text-muted">
               {brand.systemTagline}
             </p>
           )}
@@ -169,7 +169,7 @@ export default async function LoginPage() {
           <LoginForm owners={owners} />
         </div>
 
-        <footer className="mt-10 w-full max-w-[25rem] border-t border-line pt-4 text-center text-[0.6875rem] leading-relaxed text-faint">
+        <footer className="mt-10 w-full max-w-[25rem] border-t border-line pt-4 text-center text-2xs leading-relaxed text-faint">
           {/*
             * 만든 사람을 남긴다 (사용자 지시). 로그인 화면은 이 시스템에서
             * 누구나 매일 보는 유일한 화면이다.

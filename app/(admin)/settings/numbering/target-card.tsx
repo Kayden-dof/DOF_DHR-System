@@ -81,7 +81,7 @@ export default function TargetCard({
   return (
     <section className="card overflow-hidden">
       <header className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line px-4 py-3">
-        <h2 className="text-sm font-bold text-ink">{label}</h2>
+        <h2 className="text-base font-bold text-ink">{label}</h2>
         <code className="font-mono text-xs text-faint">{note}</code>
         {!active && (
           <span className="chip bg-warn-bg text-warn">규칙 없음 · 채번 불가</span>
@@ -111,10 +111,10 @@ export default function TargetCard({
       {active ? (
         <div className="grid gap-x-6 gap-y-3 px-4 py-3 sm:grid-cols-2 lg:grid-cols-4">
           <Field label="패턴">
-            <code className="font-mono text-sm font-semibold text-ink">{active.pattern}</code>
+            <code className="font-mono text-base font-semibold text-ink">{active.pattern}</code>
           </Field>
           <Field label="형식 예시">
-            <span className="font-mono text-sm tnum text-brand">{active.sample}</span>
+            <span className="font-mono text-base tnum text-brand">{active.sample}</span>
           </Field>
           <Field label="초기화 주기">{cycleLabel(active.reset)}</Field>
           <Field label="순번 자릿수">
@@ -132,7 +132,7 @@ export default function TargetCard({
           </Field>
         </div>
       ) : (
-        <p className="px-4 py-4 text-sm leading-relaxed text-muted">
+        <p className="px-4 py-4 text-base leading-relaxed text-muted">
           활성 규칙이 없습니다. 이 대상으로 <code className="font-mono">next_number()</code>를
           부르면 예외가 납니다.
         </p>
@@ -140,13 +140,13 @@ export default function TargetCard({
 
       {perItem.length > 0 && (
         <div className="border-t border-line-soft">
-          <p className="bg-surface-low px-4 py-2 text-[0.6875rem] font-bold tracking-wide text-muted">
+          <p className="bg-surface-low px-4 py-2 text-2xs font-bold tracking-wide text-muted">
             품목별 규칙 {perItem.length}건 · 공통 규칙보다 우선합니다
           </p>
           <ul className="divide-y divide-line-soft">
             {perItem.map((r) => (
               <li key={r.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2.5">
-                <span className="font-mono text-[0.8125rem] font-bold text-ink">
+                <span className="font-mono text-sm font-bold text-ink">
                   {r.item_code}
                 </span>
                 <span className="min-w-0 flex-1 truncate text-xs text-muted">{r.item_name}</span>
@@ -168,7 +168,7 @@ export default function TargetCard({
       )}
 
       {retireState.ok && retireState.message && (
-        <p className="border-t border-line bg-ok-bg px-4 py-3 text-sm leading-relaxed text-ink">
+        <p className="border-t border-line bg-ok-bg px-4 py-3 text-base leading-relaxed text-ink">
           <span className="chip mr-2 bg-ok text-white">완료</span>
           {retireState.message}
         </p>
@@ -177,12 +177,12 @@ export default function TargetCard({
       {confirming && active && (
         <form action={retireAction} className="border-t border-line bg-warn-bg px-4 py-3">
           <input type="hidden" name="id" value={active.id} />
-          <p className="text-sm leading-relaxed text-ink">
+          <p className="text-base leading-relaxed text-ink">
             <b>{label}</b> 규칙을 내립니다. 내린 규칙은 <b>다시 활성화할 수 없습니다.</b>{' '}
             새 규칙을 등록하기 전까지 이 대상은 채번할 수 없습니다.
           </p>
           {retireState.error && (
-            <p role="alert" className="mt-2 text-sm text-danger">{retireState.error}</p>
+            <p role="alert" className="mt-2 text-base text-danger">{retireState.error}</p>
           )}
           <div className="mt-3 flex gap-2">
             <button type="submit" disabled={retiring} className="btn-danger h-9 px-3 text-xs">
@@ -282,7 +282,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   return (
     <div>
       <div className="text-xs font-semibold text-muted">{label}</div>
-      <div className="mt-0.5 text-sm text-ink">{children}</div>
+      <div className="mt-0.5 text-base text-ink">{children}</div>
     </div>
   );
 }

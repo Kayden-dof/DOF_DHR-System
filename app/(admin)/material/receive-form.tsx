@@ -141,7 +141,7 @@ export default function ReceiveForm({ items, suppliers, orders, today, presetPo,
       </button>
       <Dialog open={open} onClose={() => setOpen(false)} wide title="자재 입고 등록">
         <form action={action}>
-      <h3 className="text-sm font-bold text-ink">자재 입고</h3>
+      <h3 className="text-base font-bold text-ink">자재 입고</h3>
       <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="lg:col-span-2">
           <label className="label" htmlFor={`${uid}-item_id`}>품목</label>

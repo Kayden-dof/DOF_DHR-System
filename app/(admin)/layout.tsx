@@ -194,7 +194,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
                   canPurge={hasRole(user, 'SYS_ADMIN') && demo.gateOpen === true} />
 
       <header className="topbar sticky top-0 z-30 border-b">
-        <div className="mx-auto flex h-14 max-w-[1240px] items-center gap-6 px-5 lg:gap-9">
+        {/*
+          * 좁은 화면에서는 차림표가 둘째 줄로 내려간다 (디자인 점검 2026-11-06).
+          * 한 줄에 다 두었더니 휴대폰 폭에서 차림표 여덟 칸 중 한 칸 반만 보이고
+          * 나머지는 단서 없는 가로 스크롤 뒤에 있었다.
+          */}
+        <div className="mx-auto flex min-h-14 max-w-[1240px] flex-wrap items-center gap-x-6 px-5 md:h-14 md:flex-nowrap lg:gap-x-9">
           <Link href="/" className="flex shrink-0 items-center gap-3" aria-label="현황으로">
             {/*
               * 로고 상자를 글자보다 크게 잡는다.
@@ -207,16 +212,17 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               * 올리면 상자와 그림이 같아져 이 보정이 필요 없다 - 설정 화면이
               * 그렇게 안내한다.
               */}
-            <BrandMark className="h-7 w-auto text-[1.125rem]" dark />
+            <BrandMark className="h-7 w-auto text-lg" dark />
             <span className="h-5 w-px bg-white/28" aria-hidden />
-            <SystemName className="display text-[1.125rem] leading-none text-white" />
+            <SystemName className="display text-lg leading-none text-white" />
           </Link>
 
-          <div className="flex h-full min-w-0 flex-1 items-stretch">
+          <div className="order-last -mx-5 flex h-11 w-[calc(100%+2.5rem)] min-w-0 items-stretch border-t border-line-soft px-4
+                          md:order-none md:mx-0 md:h-full md:w-auto md:flex-1 md:border-t-0 md:px-0">
             <Nav items={menu} />
           </div>
 
-          <div className="flex shrink-0 items-center gap-3">
+          <div className="ml-auto flex h-14 shrink-0 items-center gap-3 md:ml-0">
             {/*
               * 오늘 며칠 몇 시인가. 시각만 덩그러니 두면 무엇의 시각인지
               * 짚이지 않는다 (사용자 지적 2026-09-01). 한국 시각으로 못 박는다
@@ -253,7 +259,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               <Link
                 href="/settings"
                 className="flex h-9 shrink-0 items-center gap-2 rounded-md bg-danger px-3
-                           text-[0.8125rem] font-bold text-white"
+                           text-sm font-bold text-white"
                 title="로그인된 기기가 지정 자리 밖에서 열었습니다. 눌러서 확인하십시오"
               >
                 <span aria-hidden className="size-2 rounded-full bg-white" />
@@ -273,7 +279,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
                 */}
               <span
                 aria-hidden
-                className={`grid size-9 place-items-center rounded-full text-[0.8125rem] font-bold ${
+                className={`grid size-9 place-items-center rounded-full text-sm font-bold ${
                   user.is_developer
                     ? 'bg-warn-bg text-warn ring-1 ring-warn/25'
                     : 'bg-brand-tint text-brand'
@@ -282,11 +288,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
                 {initial}
               </span>
               <div className="leading-tight">
-                <div className="text-[0.8125rem] font-bold text-ink">
+                <div className="text-sm font-bold text-ink">
                   {user.full_name}
                 </div>
-                <div className="text-[0.6875rem] text-muted">
-                  {user.is_developer && <span className="font-bold text-warn">개발 · </span>}
+                <div className="text-2xs text-muted">
+                  {user.is_developer && <span className="font-bold text-warn-on-dark">개발 · </span>}
                   {user.roles.length
                     ? user.roles.map((r) => ROLE_LABEL[r]).join(' · ')
                     : '역할 없음'}
@@ -320,9 +326,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <div className="flex items-center justify-between gap-4 border-t border-line pt-4">
           {/* 바닥글은 눈을 끌 자리가 아니다. 흐리게 얹는다 */}
           <span className="opacity-35">
-            <BrandMark className="h-3.5 w-auto text-[0.8125rem]" />
+            <BrandMark className="h-3.5 w-auto text-sm" />
           </span>
-          <p className="text-[0.6875rem] tracking-wide text-faint">
+          <p className="text-2xs tracking-wide text-faint">
             <BrandCopyright year={yearKST()} />
           </p>
         </div>

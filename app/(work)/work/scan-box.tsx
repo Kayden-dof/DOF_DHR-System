@@ -63,7 +63,7 @@ export default function ScanBox() {
         * Enter 대신 Tab 을 보내는 것이 있고, 손으로 칠 때도 누를 자리가
         * 있어야 한다. 폼에 단추가 하나면 Enter 도 이 단추를 누른다.
         */}
-      <button type="submit" className="btn-primary mt-2 h-12 w-full text-base">
+      <button type="submit" className="btn-primary mt-2 h-14 w-full text-base">
         열기
       </button>
       <p className="mt-1.5 text-xs leading-relaxed text-muted">

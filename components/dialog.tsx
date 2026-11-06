@@ -95,7 +95,7 @@ export function Dialog({
           <header className="section-head">
             <div className="min-w-0">
               <h3 className="text-base font-bold text-ink">{title}</h3>
-              {note && <p className="mt-0.5 text-sm leading-relaxed text-muted">{note}</p>}
+              {note && <p className="mt-0.5 text-base leading-relaxed text-muted">{note}</p>}
             </div>
             <button type="button" onClick={onClose} className="btn-ghost ml-auto shrink-0">
               닫기

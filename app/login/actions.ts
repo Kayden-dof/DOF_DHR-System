@@ -51,7 +51,7 @@ export async function login(_prev: LoginState, form: FormData): Promise<LoginSta
   const code = String(form.get('login_code') ?? '').trim();
   const pin = String(form.get('pin') ?? '');
 
-  if (!code || !pin) return { error: '로그인 번호와 비밀번호를 입력하십시오' };
+  if (!code || !pin) return { error: '사번과 비밀번호를 입력하십시오' };
 
   /*
    * 시도 제한을 먼저 본다.
@@ -110,7 +110,7 @@ export async function login(_prev: LoginState, form: FormData): Promise<LoginSta
     } catch (e) {
       console.error('[login] 실패 기록 실패', e);
     }
-    return { error: '로그인 번호 또는 비밀번호가 올바르지 않습니다' };
+    return { error: '사번 또는 비밀번호가 올바르지 않습니다' };
   }
 
   // 들어왔으면 쌓인 실패를 지운다. 잠금 계산용 자료이지 기록이 아니다.

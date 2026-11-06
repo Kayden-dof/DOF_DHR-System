@@ -141,7 +141,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Search
         extra={
           <form className="flex gap-2">
             {role && <input type="hidden" name="role" value={role} />}
-            <input name="q" defaultValue={q ?? ''} placeholder="이름 또는 로그인 번호"
+            <input name="q" defaultValue={q ?? ''} placeholder="이름 또는 사번"
                    className="input h-9 w-56 text-xs" autoComplete="off" />
             <button className="btn-ghost h-9 px-3 text-xs">검색</button>
           </form>
@@ -153,7 +153,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Search
           <table className="w-full">
             <thead>
               <tr>
-                <th className="th">로그인 번호</th>
+                <th className="th">사번</th>
                 <th className="th">이름</th>
                 <th className="th">역할</th>
                 <th className="th">상태</th>

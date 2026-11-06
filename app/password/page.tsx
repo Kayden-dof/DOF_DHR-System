@@ -33,12 +33,12 @@ export default async function PasswordPage() {
   return (
     <main className="flex min-h-screen items-center justify-center px-4 py-10">
       <div className="w-full max-w-sm">
-        <BrandMark className="h-7 w-auto text-[1.375rem]" />
+        <BrandMark className="h-7 w-auto text-xl" />
 
         <h1 className="mt-6 text-xl font-bold text-ink">
           {first ? '비밀번호를 정해 주십시오' : '비밀번호 바꾸기'}
         </h1>
-        <p className="mt-2 text-sm leading-relaxed text-muted">
+        <p className="mt-2 text-base leading-relaxed text-muted">
           {first ? (
             <>
               {user.full_name} 님의 비밀번호는 계정을 만든 사람이 정한 값입니다.
@@ -55,7 +55,7 @@ export default async function PasswordPage() {
         </div>
 
         <form action={logout} className="mt-4">
-          <button type="submit" className="btn-quiet h-10 w-full text-sm">
+          <button type="submit" className="btn-quiet h-10 w-full text-base">
             로그아웃
           </button>
         </form>

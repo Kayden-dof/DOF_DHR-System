@@ -255,7 +255,7 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
              note={<span className="font-mono">{sn}</span>}>
         {(
           d.unit.length === 0 ? (
-            <p className="border-t border-line-soft px-4 py-3 text-sm text-muted">
+            <p className="border-t border-line-soft px-4 py-3 text-base text-muted">
               <span className="font-mono text-ink">{sn}</span> 에 해당하는 제조번호가 없습니다.
             </p>
           ) : (
@@ -473,8 +473,8 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
                 {d.wipNc.map((w, i) => (
                   <tr key={i}>
                     <td className="td font-mono text-xs">{w.batch_no}</td>
-                    <td className="td text-sm">{w.op_name}</td>
-                    <td className="td text-sm text-muted">{w.reason_code}</td>
+                    <td className="td text-base">{w.op_name}</td>
+                    <td className="td text-base text-muted">{w.reason_code}</td>
                     <td className="td">
                       <Tag tone={w.outcome === 'SCRAP' ? 'danger'
                         : w.outcome === 'CONCESSION' ? 'warn' : 'quiet'}>
@@ -588,7 +588,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   return (
     <div>
       <dt className="label mb-0.5">{label}</dt>
-      <dd className="text-sm text-ink">{children}</dd>
+      <dd className="text-base text-ink">{children}</dd>
     </div>
   );
 }

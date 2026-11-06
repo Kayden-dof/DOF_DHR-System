@@ -151,7 +151,7 @@ export default async function EquipmentPage() {
     >
       {d.ops.length === 0 && (
         <div className="card border-warn/30 bg-warn-bg px-4 py-3">
-          <p className="text-sm leading-relaxed text-ink">
+          <p className="text-base leading-relaxed text-ink">
             서면 대조가 확인된 제품표준서가 없습니다. 공정 목록이 비어 있어 설비를
             공정에 걸 수 없습니다.
           </p>

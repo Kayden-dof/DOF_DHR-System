@@ -169,7 +169,7 @@ export default async function WorkHome(
     <div className="space-y-5">
       <div>
         <h1 className="text-2xl font-bold text-white">작업할 배치</h1>
-        <p className="mt-1.5 text-sm text-on-dark-mute">
+        <p className="mt-1.5 text-base text-on-dark-mute">
           {user.full_name} 님. 배치를 선택하여 공정 기록을 작성하십시오.
         </p>
       </div>
@@ -209,7 +209,7 @@ export default async function WorkHome(
             {picked.map((c) => (
               <Link key={c.id} href={`/work/${c.id}`} className="tile no-select gap-0.5">
                 <span className="font-mono text-lg font-bold text-ink">{c.batch_no}</span>
-                <span className="text-sm text-muted">
+                <span className="text-base text-muted">
                   {c.item_name} · {WO_STATUS_LABEL[c.status] ?? c.status}
                 </span>
               </Link>
@@ -229,15 +229,28 @@ export default async function WorkHome(
         * 없애지는 않는다 - 길을 하나만 두면 그 길이 막혔을 때 손이 묶인다.
         */}
       <details className="group">
-        <summary className="cursor-pointer list-none rounded-md px-1 py-2 text-sm text-on-dark-mute">
-          스캐너가 안 됩니까? <b className="text-white">배치 고르기</b>
-          <span className="tnum"> ({batches.length}건)</span>
+        {/*
+          * 스캐너가 안 될 때 쓰는 길이라 현장 규칙(56px)대로 세운다 (디자인 점검
+          * 2026-11-06). 전에는 36px 짜리 글줄이라, 기계가 말을 안 듣는 바로 그때
+          * 장갑 낀 손이 가장 작은 것을 겨냥해야 했다.
+          */}
+        <summary className="flex h-14 cursor-pointer list-none items-center justify-between gap-3 rounded-lg
+                            border border-white/25 px-5 text-base text-on-dark-mute transition-colors
+                            hover:bg-white/10 [&::-webkit-details-marker]:hidden">
+          <span>스캐너가 안 됩니까? <b className="text-white">배치 고르기</b></span>
+          <span className="flex items-center gap-2">
+            <span className="tnum">{batches.length}건</span>
+            <svg viewBox="0 0 24 24" aria-hidden className="size-5 transition-transform group-open:rotate-180"
+                 fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </span>
         </summary>
         <div className="mt-3">
       {batches.length === 0 ? (
         <div className="card p-10 text-center">
           <p className="text-lg font-semibold text-ink">진행 중인 배치가 없습니다.</p>
-          <p className="mt-2 text-sm text-muted">
+          <p className="mt-2 text-base text-muted">
             작업 지시가 발행되면 여기에 나타납니다.
           </p>
         </div>
@@ -301,7 +314,7 @@ export default async function WorkHome(
                 ))}
               </dl>
 
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-line-soft px-5 py-2.5 text-sm text-muted">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-line-soft px-5 py-2.5 text-base text-muted">
                 <span>원재료 <span className="font-mono text-body">{b.raw_lot_no}</span></span>
                 {b.thickness_band && <span>구간 {b.thickness_band}</span>}
                 {b.last_day && <span className="tnum">{b.last_day}일차까지 기록</span>}
@@ -324,7 +337,7 @@ export default async function WorkHome(
         * 그 자리에서 다시 말한다. 여기서는 되돌릴 수 없는 것 둘만 짚는다.
         */}
       <div className="border-t border-white/12 pt-5">
-        <ul className="space-y-2.5 text-sm leading-relaxed text-on-dark-mute">
+        <ul className="space-y-2.5 text-base leading-relaxed text-on-dark-mute">
           <li>
             자재를 넣지 않고 마감하려면{' '}
             <b className="font-semibold text-white">해당 없음 사유</b>를 선택해야 합니다.

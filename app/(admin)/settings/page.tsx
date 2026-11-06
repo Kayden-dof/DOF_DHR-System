@@ -263,7 +263,7 @@ export default async function SettingsHome() {
         <div className="card border-warn/40 bg-warn-bg p-4">
           <div className="flex items-start gap-3">
             <Tag tone="warn">먼저 할 일</Tag>
-            <div className="text-sm leading-relaxed">
+            <div className="text-base leading-relaxed">
               <p className="font-semibold text-ink">
                 {blocking.map((t) => t.label).join(' · ')} 채번 규칙이 없습니다.
               </p>
@@ -283,10 +283,10 @@ export default async function SettingsHome() {
           <Link key={x.href} href={x.href}
                 className="card-raised group p-4 transition-colors hover:border-brand-line">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-ink">{x.title}</h3>
+              <h3 className="text-base font-bold text-ink">{x.title}</h3>
               <span className="text-xs text-faint transition-colors group-hover:text-brand">열기</span>
             </div>
-            <p className="mt-2 text-2xl font-bold tnum text-ink">{x.value}</p>
+            <p className="mt-2 text-xl font-bold tnum text-ink">{x.value}</p>
             <p className="mt-1 text-xs text-muted">
               {x.tone === 'warn' ? <Tag tone="warn">{x.note}</Tag> : x.note}
             </p>
@@ -312,7 +312,7 @@ export default async function SettingsHome() {
         <div className="card border-danger/40 bg-danger-bg p-4">
           <div className="flex items-start gap-3">
             <Tag tone="danger">이관이 덜 올라갔습니다</Tag>
-            <div className="text-sm leading-relaxed">
+            <div className="text-base leading-relaxed">
               <p className="font-semibold text-ink">
                 이 코드가 기대하는 것이 DB 에 없습니다. 화면이 죽을 수 있습니다.
               </p>
@@ -502,7 +502,7 @@ export default async function SettingsHome() {
       {watches && blocks.length > 0 && (
         <section className="card border-warn/40 bg-warn-bg p-4">
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <h2 className="text-sm font-bold text-ink">지정 자리 밖에서 두드렸습니다</h2>
+            <h2 className="text-base font-bold text-ink">지정 자리 밖에서 두드렸습니다</h2>
             <span className="text-xs text-muted">
               최근 14일 · <b className="tnum text-ink">{blocks.length}</b>곳
             </span>

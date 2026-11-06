@@ -89,7 +89,7 @@ export default function RuleForm({
   if (state.ok && state.message) {
     return (
       <div className="border-t border-line bg-ok-bg px-4 py-4">
-        <p className="text-sm leading-relaxed text-ink">
+        <p className="text-base leading-relaxed text-ink">
           <span className="chip mr-2 bg-ok text-white">완료</span>
           {state.message}
         </p>
@@ -248,7 +248,7 @@ export default function RuleForm({
             type="button"
             onClick={() => setPattern((p) => p + k.t)}
             title={k.d}
-            className="rounded border border-line-strong bg-surface px-2 py-1 font-mono text-xs
+            className="rounded-md border border-line-strong bg-surface px-2 py-1 font-mono text-xs
                        text-muted hover:border-brand hover:text-brand"
           >
             {k.t}
@@ -260,14 +260,14 @@ export default function RuleForm({
       <div className="mt-4 rounded-md border border-line bg-surface px-4 py-3">
         <p className="label mb-2">형식 미리보기</p>
         {preview.error ? (
-          <p className="text-sm text-danger">{preview.error}</p>
+          <p className="text-base text-danger">{preview.error}</p>
         ) : preview.first ? (
           <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1">
             <span className="font-mono text-lg font-semibold tnum text-ink">{preview.first}</span>
-            <span className="font-mono text-sm tnum text-muted">→ {preview.second}</span>
+            <span className="font-mono text-base tnum text-muted">→ {preview.second}</span>
           </div>
         ) : (
-          <p className="text-sm text-faint">패턴을 입력하면 형식이 표시됩니다.</p>
+          <p className="text-base text-faint">패턴을 입력하면 형식이 표시됩니다.</p>
         )}
         <p className="mt-2 text-xs text-faint">
           순번 1·2회차의 형식입니다. 실제 다음 순번은 표시하지 않습니다 (§4.10 - 카운터는
@@ -330,7 +330,7 @@ function Alert({ tone, children }: { tone: 'danger' | 'warn'; children: React.Re
       ? 'bg-danger-bg text-danger border-danger/30'
       : 'bg-warn-bg text-warn border-warn/30';
   return (
-    <p role="alert" className={`mt-3 rounded-md border px-3 py-2 text-sm leading-relaxed ${cls}`}>
+    <p role="alert" className={`mt-3 rounded-md border px-3 py-2 text-base leading-relaxed ${cls}`}>
       {children}
     </p>
   );

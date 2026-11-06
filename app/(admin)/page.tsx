@@ -362,7 +362,7 @@ export default async function Dashboard() {
             <div className="space-y-2">
               {setup.map((s, i) => (
                 <div key={i} className="flex flex-wrap items-center gap-3">
-                  <p className="text-sm leading-relaxed text-ink">{s.text}</p>
+                  <p className="text-base leading-relaxed text-ink">{s.text}</p>
                   <Link href={s.href} className="btn-ghost h-8">{s.label}</Link>
                 </div>
               ))}
@@ -371,9 +371,15 @@ export default async function Dashboard() {
         </section>
       )}
 
-      <div className="grid items-start gap-5 lg:grid-cols-3">
+      {/*
+        * 진행 중인 배치 표는 폭을 다 쓴다 (디자인 점검 2026-11-06).
+        *
+        * 전에는 유효기한 임박과 2 : 1 로 나란히 섰는데, 9열 표가 2/3 칸에 눌려
+        * 1440 폭에서도 상태 열이 숨은 가로 스크롤 밖으로 밀렸다("● 진"). 마감
+        * 대기를 위아래로 쌓은 것(2026-09-01)과 같은 까닭이다 - 표는 폭을 다 쓴다.
+        */}
+      <div className="space-y-5">
         <Panel
-          className={d.expiring.length > 0 ? 'lg:col-span-2' : 'lg:col-span-3'}
           title="진행 중인 배치"
           action={
             <Link href="/production" className="text-xs font-bold text-brand hover:underline">
@@ -442,15 +448,16 @@ export default async function Dashboard() {
               </Link>
             }
           >
-            <ul className="divide-y divide-line-soft">
+            {/* 폭을 다 쓰므로 한 줄에 여럿 놓는다. 몇 건 안 되는 목록이 길게 늘어서지 않게 */}
+            <ul className="-mb-px grid sm:grid-cols-2 lg:grid-cols-3">
               {d.expiring.map((e) => (
-                <li key={e.id} className="flex items-center gap-3 px-4 py-2.5">
+                <li key={e.id} className="flex items-center gap-3 border-b border-line-soft px-5 py-3">
                   <span aria-hidden className={`h-8 w-[3px] shrink-0 rounded-full ${
                     e.days_left <= 0 ? 'bg-danger'
                       : e.days_left <= warnDays ? 'bg-warn' : 'bg-line-strong'
                   }`} />
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm text-ink">{e.item_name}</div>
+                    <div className="truncate text-base text-ink">{e.item_name}</div>
                     <div className="font-mono text-xs text-faint">{e.lot_no}</div>
                   </div>
                   <div className="shrink-0 text-right">

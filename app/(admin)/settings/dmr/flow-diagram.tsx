@@ -62,7 +62,7 @@ export default function FlowDiagram({
             <li key={op.id} className={after ? 'ml-6' : undefined}>
               {/* 재단 뒤에서 단위가 바뀐다. 그 사실을 한 줄로 알린다 */}
               {isCut && (
-                <p className="mb-1.5 mt-1 text-[0.6875rem] font-bold tracking-wide text-brand">
+                <p className="mb-1.5 mt-1 text-2xs font-bold tracking-wide text-brand">
                   여기서 형명별로 갈립니다 · 이후 기록은 제품 로트에 붙습니다
                 </p>
               )}
@@ -89,19 +89,19 @@ export default function FlowDiagram({
                 }`}>
                   <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                     <span className="tnum text-xs text-faint">{op.seq}</span>
-                    <span className={`text-sm ${isCut ? 'font-bold text-brand-deep' : 'font-semibold text-ink'}`}>
+                    <span className={`text-base ${isCut ? 'font-bold text-brand-deep' : 'font-semibold text-ink'}`}>
                       {op.name}
                     </span>
-                    <code className="font-mono text-[0.6875rem] text-faint">{op.code}</code>
+                    <code className="font-mono text-2xs text-faint">{op.code}</code>
                     {/* 보통 몇 일차. 흐름을 보며 며칠짜리인지 가늠하게 한다 */}
                     {op.typical_day !== null && (
-                      <span className="tnum text-[0.6875rem] text-muted">
+                      <span className="tnum text-2xs text-muted">
                         보통 {op.typical_day}일차
                       </span>
                     )}
                   </div>
 
-                  <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[0.6875rem]">
+                  <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-2xs">
                     {op.bom.length > 0 ? (
                       <span className="text-muted">
                         자재 {op.bom.map((b) => b.item_name).join(' · ')}

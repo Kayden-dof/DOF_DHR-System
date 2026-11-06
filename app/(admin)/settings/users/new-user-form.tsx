@@ -17,11 +17,11 @@ export default function NewUserForm({ sysAdmin }: { sysAdmin: boolean }) {
       <button onClick={() => setOpen(true)} className="btn-primary"> 새 계정 등록 </button>
       <Dialog open={open} onClose={() => setOpen(false)} wide title="새 계정 등록">
         <form action={action}>
-      <h2 className="mb-3 text-sm font-bold text-ink">새 계정</h2>
+      <h2 className="mb-3 text-base font-bold text-ink">새 계정</h2>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div>
-          <label className="label" htmlFor="login_code">로그인 번호</label>
+          <label className="label" htmlFor="login_code">사번</label>
           <input
             id="login_code"
             name="login_code"
@@ -52,7 +52,7 @@ export default function NewUserForm({ sysAdmin }: { sysAdmin: boolean }) {
           />
         </div>
         <div className="flex flex-col justify-end gap-2 pb-1">
-          <label className="flex items-center gap-2 text-sm text-ink">
+          <label className="flex items-center gap-2 text-base text-ink">
             <input
               type="checkbox"
               name="can_login"
@@ -68,7 +68,7 @@ export default function NewUserForm({ sysAdmin }: { sysAdmin: boolean }) {
             * 보이지 않는 편이 낫다.
             */}
           {sysAdmin && (
-            <label className="flex items-center gap-2 text-sm text-ink">
+            <label className="flex items-center gap-2 text-base text-ink">
               <input type="checkbox" name="is_developer" className="size-4 accent-brand" />
               개발 계정
             </label>

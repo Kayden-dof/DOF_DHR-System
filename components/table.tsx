@@ -73,7 +73,7 @@ export function IdCell({
         * B260810-01 과 B260811-01 을 가르는 것은 한 자리다. 자간이 그 일을
         * 돕는다. 인상과 실용이 같은 방향이다.
         * ------------------------------------------------------------------ */}
-      <div className="font-mono text-[0.875rem] font-bold tracking-[0.04em] text-ink">{id}</div>
+      <div className="font-mono text-base font-bold tracking-[0.04em] text-ink">{id}</div>
       {/*
         * 아랫줄은 고정폭으로 두지 않는다. 여기에 "1일차" 같은 한글이 들어가는
         * 자리가 있고(현황의 마감 대기), 고정폭 글꼴에 한글 글리프가 없어
@@ -90,7 +90,7 @@ export function TwoLine({
 }: { top: React.ReactNode; bottom?: React.ReactNode; nowrap?: boolean }) {
   return (
     <td className={`td ${nowrap ? 'whitespace-nowrap' : ''}`}>
-      <div className="text-sm text-body">{top}</div>
+      <div className="text-base text-body">{top}</div>
       {bottom && <div className="mt-0.5 font-mono text-xs text-faint">{bottom}</div>}
     </td>
   );

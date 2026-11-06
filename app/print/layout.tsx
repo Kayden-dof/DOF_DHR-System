@@ -34,7 +34,7 @@ export default async function PrintLayout({ children }: { children: React.ReactN
   --------------------------------------------------------------------- */
   void user;
   return (
-    <div className="min-h-screen bg-canvas py-6 print:bg-white print:py-0">
+    <div className="print-scale min-h-screen bg-canvas py-6 print:bg-white print:py-0">
       {children}
       {/*
         * 인쇄 화면에도 같은 자리에 둔다. 여기서 돌아갈 곳이 가장 많고 (배치 ·

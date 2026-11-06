@@ -176,7 +176,7 @@ export function NewEquipment() {
       <button onClick={() => setOpen(true)} className="btn-primary">설비 등록</button>
       <Dialog open={open} onClose={() => setOpen(false)} wide title="설비 등록">
         <form action={action}>
-      <h3 className="text-sm font-bold text-ink">설비 등록</h3>
+      <h3 className="text-base font-bold text-ink">설비 등록</h3>
       <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <label className="label">설비 코드</label>
@@ -246,8 +246,8 @@ export function EquipCard({ e, ops, warnDays, writable = true }: {
     <section className="card">
       <header className="section-head">
         <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
-          <span className="font-mono text-sm font-bold text-ink">{e.code}</span>
-          <span className="text-sm text-body">{e.name}</span>
+          <span className="font-mono text-base font-bold text-ink">{e.code}</span>
+          <span className="text-base text-body">{e.name}</span>
           {!e.is_active && <Tag tone="quiet">내림</Tag>}
           {e.note && <span className="text-xs text-faint">{e.note}</span>}
         </div>
@@ -304,7 +304,7 @@ export function EquipCard({ e, ops, warnDays, writable = true }: {
               <input id={`${uid}-note`} name="note" defaultValue={e.note ?? ''} className="input" />
             </div>
             <div className="flex items-end pb-2">
-              <label className="flex items-center gap-2 text-sm text-ink">
+              <label className="flex items-center gap-2 text-base text-ink">
                 <input type="checkbox" name="is_active" defaultChecked={e.is_active}
                        className="size-4 accent-brand" />
                 쓰는 설비
@@ -375,7 +375,7 @@ export function EquipCard({ e, ops, warnDays, writable = true }: {
                         className="text-xs text-faint transition-transform group-open:rotate-90">
                     &rsaquo;
                   </span>
-                  <span className="font-mono text-[0.8125rem] font-bold text-ink">{g.label}</span>
+                  <span className="font-mono text-sm font-bold text-ink">{g.label}</span>
                   <span className="min-w-0 flex-1 truncate text-xs text-muted">{g.sub}</span>
                   <span className={`tnum text-xs ${cnt ? 'font-bold text-brand' : 'text-faint'}`}>
                     {cnt ? `공정 ${cnt}곳에 걸림` : '걸린 공정 없음'}

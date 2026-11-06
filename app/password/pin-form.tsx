@@ -153,12 +153,12 @@ export default function PinForm({ first }: { first: boolean }) {
               <span aria-hidden
                     className={`absolute inset-y-0 left-0 w-[3px] transition-colors ${
                       at === s ? 'bg-brand' : 'bg-transparent'}`} />
-              <span className={`w-[5.5rem] shrink-0 text-[0.6875rem] font-bold tracking-[0.06em] transition-colors ${
+              <span className={`w-[5.5rem] shrink-0 text-2xs font-bold tracking-[0.06em] transition-colors ${
                       at === s ? 'text-brand' : 'text-muted'}`}>
                 {LABEL[s]}
               </span>
               <span className="flex h-7 min-w-0 flex-1 items-center">
-                <span className="truncate text-[1.5rem] font-semibold leading-none tnum tracking-[0.2em] text-ink">
+                <span className="truncate text-xl font-semibold leading-none tnum tracking-[0.2em] text-ink">
                   {'•'.repeat(v[s].length)}
                 </span>
                 {at === s && (
@@ -187,7 +187,7 @@ export default function PinForm({ first }: { first: boolean }) {
       </div>
 
       {state.error && (
-        <p className="mt-3 rounded-lg border border-danger/30 bg-danger-bg px-3 py-2 text-sm text-danger">
+        <p className="mt-3 rounded-lg border border-danger/30 bg-danger-bg px-3 py-2 text-base text-danger">
           {state.error}
         </p>
       )}

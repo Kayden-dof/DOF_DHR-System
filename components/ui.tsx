@@ -16,7 +16,7 @@ export function Msg({ state, className = '' }: { state: FormState; className?: s
     return (
       <p
         role="alert"
-        className={`rise mt-2.5 flex items-start gap-2 rounded-md border border-danger-line bg-danger-bg px-3 py-2.5 text-sm leading-relaxed text-danger ${className}`}
+        className={`rise mt-2.5 flex items-start gap-2 rounded-md border border-danger-line bg-danger-bg px-3 py-2.5 text-base leading-relaxed text-danger ${className}`}
       >
         <span aria-hidden className="mt-px shrink-0 font-bold">!</span>
         <span>{state.error}</span>
@@ -26,7 +26,7 @@ export function Msg({ state, className = '' }: { state: FormState; className?: s
   if (state.ok && state.message) {
     return (
       <p
-        className={`rise mt-2.5 flex items-start gap-2 rounded-md border border-ok/20 bg-ok-bg px-3 py-2.5 text-sm leading-relaxed text-ink ${className}`}
+        className={`rise mt-2.5 flex items-start gap-2 rounded-md border border-ok/20 bg-ok-bg px-3 py-2.5 text-base leading-relaxed text-ink ${className}`}
       >
         <span aria-hidden className="mt-px shrink-0 font-bold text-ok">&#10003;</span>
         <span>{state.message}</span>
@@ -55,8 +55,11 @@ export function Panel({
       {(title || action) && (
         <header className="section-head">
           <div className="min-w-0">
-            {/* 카드 제목도 한 칸 올린다. 본문과 같은 크기면 머리인지 줄인지 갈리지 않는다 */}
-            {title && <h3 className="text-[0.9375rem] font-bold tracking-[-0.01em] text-ink">{title}</h3>}
+            {/*
+              * 카드 제목은 본문(15)보다 한 단계 위 18 이다 (디자인 점검 2026-11-06).
+              * 전에는 15 로 본문과 같아 구역이 굵기로만 갈렸다.
+              */}
+            {title && <h3 className="text-lg font-bold tracking-[-0.015em] text-ink">{title}</h3>}
             {note && <p className="mt-0.5 text-xs leading-relaxed text-muted">{note}</p>}
           </div>
           {action && <div className="ml-auto shrink-0">{action}</div>}
@@ -101,9 +104,9 @@ export function Empty({ children, hint }: { children: React.ReactNode; hint?: Re
         * 본문을 한 칸 키운다 (2026-09-11). 빈 화면에서 유일하게 읽을 것이
         * 이 줄인데 본문보다 작았다.
         */}
-      <p className="text-[0.9375rem] font-semibold text-muted">{children}</p>
+      <p className="text-base font-semibold text-muted">{children}</p>
       {hint && (
-        <p className="mx-auto mt-2 max-w-md text-[0.8125rem] leading-relaxed text-faint">
+        <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-faint">
           {hint}
         </p>
       )}
@@ -131,10 +134,11 @@ export function Field({
       * 무엇인지 모른다. 색은 muted 그대로 두고 크기와 자간으로만 눕힌다.
       */
     <div className={wide ? 'sm:col-span-2' : undefined}>
-      <div className="text-[0.625rem] font-bold uppercase tracking-[0.08em] text-muted">
+      {/* 한글 이름에 자간을 벌리면 낱자가 흩어진다. 크기(11)와 색만으로 눕힌다 */}
+      <div className="text-2xs font-semibold text-muted">
         {label}
       </div>
-      <div className="mt-1 text-[0.9375rem] font-medium leading-snug text-ink">{children}</div>
+      <div className="mt-1 text-base font-medium leading-snug text-ink">{children}</div>
     </div>
   );
 }
@@ -190,9 +194,9 @@ export function Stat({
 
   const body = (
     <>
-      <div className="text-[0.6875rem] font-bold tracking-wide text-muted">{label}</div>
+      <div className="text-2xs font-bold tracking-wide text-muted">{label}</div>
       <div className="mt-1.5 flex items-baseline gap-1">
-        <span className={`text-[1.75rem] font-bold leading-none tnum ${color}`}>{value}</span>
+        <span className={`text-2xl font-bold leading-none tnum ${color}`}>{value}</span>
         {unit && <span className="text-xs text-muted">{unit}</span>}
       </div>
     </>
@@ -260,10 +264,10 @@ export function Warnings({ items }: { items: { kind: string; detail: string }[] 
       */
     <div className="overflow-hidden rounded-lg border border-warn/25 bg-warn-bg
                     border-l-[3px] border-l-warn px-3.5 py-3">
-      <p className="text-[0.6875rem] font-bold tracking-wide text-warn">확인하고 진행하십시오</p>
+      <p className="text-2xs font-bold tracking-wide text-warn">확인하고 진행하십시오</p>
       <ul className="mt-2 space-y-1.5">
         {items.map((w, i) => (
-          <li key={i} className="flex items-start gap-2 text-sm leading-relaxed text-ink">
+          <li key={i} className="flex items-start gap-2 text-base leading-relaxed text-ink">
             <span className="chip mt-px shrink-0 bg-warn text-white">{w.kind}</span>
             <span>{w.detail}</span>
           </li>
