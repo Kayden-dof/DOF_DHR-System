@@ -38,7 +38,7 @@ export default async function NoAccess() {
     <main className="mx-auto flex min-h-dvh max-w-lg flex-col justify-center px-6 py-16">
       <BrandMark className="mb-8 h-7 w-auto text-lg" />
       <h1 className="text-xl font-bold text-ink">이 화면은 열려 있지 않습니다</h1>
-      <p className="mt-3 text-base leading-relaxed text-muted">
+      <p className="mt-3 text-sm leading-relaxed text-muted">
         <b className="text-ink">{user.full_name}</b> 님에게는 이 화면이 배정되어 있지
         않습니다. 필요하시면 시스템관리자에게 요청하십시오.
       </p>

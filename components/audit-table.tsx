@@ -28,7 +28,7 @@ export default function AuditTable({ entries, collapseTo }: {
   const shown = folded ? entries.slice(0, collapseTo) : entries;
 
   if (entries.length === 0) {
-    return <p className="px-4 py-8 text-center text-base text-faint">기록이 없습니다.</p>;
+    return <p className="px-4 py-8 text-center text-sm text-faint">기록이 없습니다.</p>;
   }
 
   return (

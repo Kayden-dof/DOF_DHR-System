@@ -1,16 +1,33 @@
 @import "tailwindcss";
 
+/* ===========================================================================
+   Q-Design 을 입힌 DOF 화면 (2026-11-06 · 사용자 결정)
+
+   MedQraft 제품군의 디자인 정본 Q-Design(github.com/lierline/Q-Design)을 옮긴다.
+   그 제품군의 Q-Carnet 은 이 저장소에서 갈라져 나간 제품이라 같은 이름의 부품
+   (.card · .td · .section-head · .touch …)에 Q-Design 을 이미 입혀 두었다. 그
+   규칙을 이 자리에 그대로 옮기되 **색은 도프 것**이다 (사용자 결정 "포인트와
+   바탕 모두 도프").
+
+     구조 · 글자 · 간격 · 모서리 · 움직임   Q-Design
+     바탕 · 선 · 글자 색                   회사 디자인 시스템 (Downloads/dof-design-system)
+     포인트                                회사 표시 설정의 강조색 (도프는 #562C8D)
+
+   Q-Design 이 스스로를 알아보게 하는 장치는 다섯이다. 이 파일은 그중 셋을 옮긴다 -
+   제목 위의 짧은 막대, 구역 번호, 상자 대신 괘선. 리본 배경과 순차 등장은 업무
+   화면이라 두지 않는다.
+
+   지키는 것 (Q-Design 10장)
+   · 12px 아래 글자 없음. 굵기는 400 · 500 · 600 셋.
+   · 한글에 자간을 벌리지 않는다. 대문자 변환도 없다.
+   · 쉬는 면에 그림자 없음. 그림자는 떠 있는 것(대화상자 · 알림)에만.
+   · 옆 띠(왼쪽 색 막대) 없음. 상태는 글자가 있는 조각으로 말한다.
+   · 업무 화면에 기울기 없음. 로그인 왼쪽 면만 예외다.
+   · 강조색은 한 화면에 한 자리. 주 동작 단추는 먹색이다.
+   =========================================================================== */
+
 /* ---------------------------------------------------------------------------
-   클라이언트 부품이 쓰는 회사 표시
-
-   `app/error.tsx` 는 클라이언트 부품이라 설정을 읽지 못한다. 뿌리 배치가
-   :root 에 --brand-mark 를 내려보낸다 (lib/brand.ts · brandMarkVar).
-
-   로고가 있으면 그 값이 url(...) 이라 ::before 가 그림으로 바뀌고, height 가
-   먹는다. 없으면 따옴표 안의 글이라 이름이 글자로 나오고 height 는 무시된다
-   (글자에는 height 가 적용되지 않는다). 한 줄로 두 갈래가 다 선다.
-
-   둘 다 없으면 --brand-mark 자체가 없어 아무것도 그리지 않는다.
+   클라이언트 부품이 쓰는 회사 표시 (lib/brand.ts · brandMarkVar)
 --------------------------------------------------------------------------- */
 .brand-css::before {
   content: var(--brand-mark, "");
@@ -23,32 +40,13 @@
 /* ---------------------------------------------------------------------------
    글꼴
 
-   Pretendard 를 저장소에 넣고 앱과 같은 출처에서 함께 내보낸다. 바깥 CDN을
-   쓰지 않으므로 앱이 뜨는 곳이면 글꼴도 온다. 앱 자체가 서버에서 오는 이상
-   글꼴만 따로 못 올 이유가 없다.
+   Pretendard 하나로 위계를 굵기로 세운다 (Q-Design 원칙 1). 조각과 @font-face 는
+   app/fonts.css 에 있다. 이름 자리만 Cinzel 이다.
 
-   swap 대신 fallback 을 쓴다. 글꼴이 아주 늦게 오면 맑은 고딕으로 확정하고
-   더는 바꾸지 않는다. 로트번호를 읽는 중에 글자가 바뀌면 잘못 읽는다.
-
-   한 벌이 2MB 라 처음 오는 사람이 매번 그것을 받고 있었다. 자주 쓰는 한글과
-   드문 한글로 갈라 두었다 - 보통 화면은 490KB 만 받고, 드문 이름이 나오면
-   그때 그 조각만 더 받는다. 글자는 하나도 버리지 않았다.
-
-   조각과 @font-face 는 scripts/subset-font.py 가 app/fonts.css 로 만든다.
-   원본 한 벌은 fonts-src/ 에 있다 - public/ 밖이라 내보내지 않는다.
-
-   SIL Open Font License 1.1 · fonts-src/PretendardVariable.LICENSE.txt
+   모노는 JetBrains Mono (Q-Design 3장). 라틴만 받고 한글은 사슬에서 Pretendard 가
+   맡는다. 저장소에 파일을 실어 바깥에서 받지 않는다.
+   SIL Open Font License 1.1 · public/fonts/jetbrains-mono/OFL.txt
 --------------------------------------------------------------------------- */
-/*
- * 표시용. 이름을 세우는 자리에만 쓴다.
- *
- * Cinzel 은 로마 비문 각자체라 대문자가 본체다. 우리가 이름을 늘 대문자로
- * 쓰므로 소문자를 억지로 대문자로 바꾸는 것이 아니라 원래 모양 그대로다.
- * 획이 굵어 작은 크기에서도 버틴다 - 가라몬드 계열은 여기서 가늘어져 사라진다.
- *
- * 라틴만 받았다. 한글은 Pretendard 가 맡는다. 본문이나 표에는 쓰지 않는다.
- * SIL Open Font License 1.1 · public/fonts/Cinzel.LICENSE.txt
- */
 @font-face {
   font-family: 'Cinzel';
   src: url('/fonts/Cinzel-Regular.woff2') format('woff2');
@@ -63,231 +61,129 @@
   font-style: normal;
   font-display: fallback;
 }
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/jetbrains-mono/JetBrainsMono-latin.woff2') format('woff2');
+  font-weight: 400 700; font-style: normal; font-display: fallback;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+                 U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+                 U+2212, U+2215, U+FEFF, U+FFFD;
+}
 
 /* ---------------------------------------------------------------------------
-   DOF 색
+   값
 
-   값은 사내 디자인 시스템(Downloads/dof-design-system/tokens)의 실측 정본을
-   그대로 가져온다. 여기서 다시 재지 않는다. 내가 로고 PNG에서 뽑은 값과
-   1 단위쯤 어긋났는데, 그럴 때 이기는 쪽은 늘 정본이다. 슬라이드와 이 화면이
-   나란히 놓이는 자리가 생기기 때문이다.
+   색은 회사 디자인 시스템의 값에서 고르되, 선과 회색의 **세기**는 Q-Design 이
+   잰 대비를 따른다 (Q-Design 2장). 도프 바탕 #F2F0EF 위에서 다시 쟀다.
 
-     violet-600 #562C8D  로고 자주            기본 브랜드
-     violet-700 #420E69  제목 자주            전사 템플릿 XML의 유일한 명시색
-     violet-500 #6E4FA2  기본 채움
-     violet-200 #D9C8EC  틴트 위 헤어라인
-     page       #F2F0EF  웜 오프화이트 바탕
-     band       #E9E5E6  상단 웜그레이 밴드
-     mist-300   #E4E0E6  기본 구분선
-     logo-grey  #9FA0A0  로고 아래 블록
+     줄 괘선      #D9D5D6  바탕 대비 1.28   (Q-Design 1.26)
+     구역 괘선    #BCB8B8           1.73   (Q-Design 1.65)
+     조작 윤곽    #857E8E           3.44   (3:1 이상 · 가장 어두운 면에서도 3.13)
+     보조 글자    #59595F           6.12   (회사 디자인 시스템 ink-600)
+     옅은 글자    #655F72           5.38   (가장 어두운 면에서도 4.90)
 
-   여기에 CI 원본에서만 나오는 값 하나를 더한다.
+   강조색 열 단계는 설정에서 오고 layout.tsx 가 :root 에 덮어쓴다 (lib/tone.ts).
+   아래 brand 값은 설정을 못 읽었을 때의 바닥이다. 그 파생 공식(옅게 94 · 91 · 70 ·
+   45%, 짙게 28%)이 Q-Carnet 의 제조소 강조색 공식과 같다.
 
-     ci-indigo  #342C68  법인 로고(BI 정방)의 남보라. 어두운 면에 쓴다
-
-   현장 화면이라 다크 모드를 두지 않는다. 조명 밝은 제조소에서 대비만 확보한다.
+   중립 면은 강조색에서 만들지 않는다 (Q-Carnet). 머리 띠는 회사 양식의 웜그레이
+   띠(#E9E5E6)다. indigo 세 단계는 로그인 왼쪽 면에만 남는다.
 --------------------------------------------------------------------------- */
 @theme {
-  /*
-   * 면
-   *
-   * ── 바탕을 흰 쪽으로 올렸다 (사용자 결정 2026-09-08) ────────────────────
-   * 캔버스가 #EEEBE9 이던 때 그 위의 글자가 대비를 못 넘었다.
-   *
-   *     muted #6E6E6E   캔버스 4.30   ← WCAG AA 4.5 미달
-   *     faint #8B8394   캔버스 3.07   ← 한참 미달
-   *
-   * `text-faint` 는 160곳에서 장식이 아니라 **실제 안내**를 담는다 - "서면
-   * 성적서와 잇는 고리입니다" 같은 말이다. 밝은 회의실이나 빔프로젝터에서
-   * 안 읽히면 그 안내가 없는 것과 같다.
-   *
-   * 값을 지어내지 않았다. 위 CI 표에 **이미 바탕색이 정의되어 있다** -
-   * `page #F2F0EF 웜 오프화이트 바탕`. 지금 캔버스는 그것도 아니었다.
-   * CI 값으로 돌리니 muted 가 4.49 까지 오르고, muted 를 한 칸(#6E6E6E →
-   * #6D6D6D) 내리니 4.56 으로 넘는다. **브랜드도 맞고 대비도 선다.**
-   *
-   * 눌린 면은 CI 의 `band #E9E5E6` 그대로 둔다. 바탕이 밝아진 만큼 둘이
-   * 갈리는 폭이 오히려 넓어졌다 (1.05 → 1.10).
-   *
-   * 카드가 바탕에서 떠 보이는 정도는 1.19 에서 1.14 로 줄지만 여전히 보이고,
-   * 경계선은 잘 보이게 됐다 (1.10 → 1.15).
-   */
   --color-canvas:      #F2F0EF;
   --color-canvas-deep: #E9E5E6;
   --color-surface:     #FFFFFF;
-  --color-surface-sub: #FAFAF9;
-  /* 카드 안에서 한 단계 더 눌러야 할 때. 요약 띠 · 표 머리 · 접힌 칸 */
-  --color-surface-low: #F4F2F6;
-  --color-line:        #E4E0E6;
-  --color-line-soft:   #EFECF0;
-  --color-line-strong: #D4D1CD;
-  /*
-   * 카드 가장자리만 한 단계 진하다 (2026-09-08).
-   *
-   * 바탕을 CI 값(#F2F0EF)으로 올리면서 카드 면과 바탕의 차이가 1.19 에서
-   * 1.14 로 줄었다. 카드가 덜 떠 보인다는 뜻이다.
-   *
-   * 그렇다고 **가만히 있는 카드에 그림자를 얹지 않는다** - 이 화면은
-   * "깊이는 상태를 말할 때만 쓴다" 로 정해져 있고 (아래 .card-raised 주석),
-   * 쉬는 카드에 그림자를 지우면 손을 얹었을 때 뜨는 그 신호가 죽는다.
-   *
-   * 대신 가장자리를 진하게 한다. 테두리가 바탕과 갈리는 폭이 1.148 에서
-   * 1.215 로 올라 잃은 것보다 더 벌충된다.
-   *
-   * `--color-line` 자체는 건드리지 않는다. 그것은 표 줄과 입력칸에도 쓰이는
-   * 일반 구분선이고, 다 같이 진해지면 화면이 무거워진다. 짚는 자리는
-   * **카드의 가장자리 하나**다.
-   */
-  --color-card-edge:   #DEDAE0;
+  --color-surface-sub: #EDEAEA;
+  --color-surface-low: #E9E5E6;
+  --color-band:        #E9E5E6;
+  --color-line:        #D9D5D6;
+  --color-line-soft:   #D9D5D6;
+  --color-line-strong: #BCB8B8;
+  --color-ctl:         #857E8E;
+  /* 옛 이름. 쓰는 자리가 없어도 남긴다 - 설정 화면 미리보기가 읽을 수 있다 */
+  --color-card-edge:   #D9D5D6;
+  --color-card-floor:  #FFFFFF;
 
-  /*
-   * 카드 면의 아래끝 (2026-09-11).
-   *
-   * 카드에 위아래 빛을 넣을 때 아래끝으로 쓰는 값이다. **surface-sub 를 쓰지
-   * 않는다** - 현장 모드가 그 값을 #F5F2FA 로 갈아 끼우는데, 거기서
-   * faint(#767085) 가 4.28 로 떨어져 AA 를 못 넘는다. 그 글자는 160곳에서
-   * 장식이 아니라 **실제 안내**를 담는다.
-   *
-   * 여기 값에서 faint 는 4.63, muted 는 5.05 다. 두 모드 모두에서 같은 값이라
-   * 현장에서도 같은 수가 선다.
-   */
-  --color-card-floor:  #FCFCFD;
-
-  /* ---------------------------------------------------------------------
-     브랜드 - 여기 값은 **설정을 못 읽었을 때의 바닥**이다
-
-     회사 강조색은 설정에서 오고 layout.tsx 가 :root 에 덮어쓴다
-     (lib/brand.ts · brandVars). 아래 열 줄은 그것이 아직 없을 때만 쓰인다 -
-     첫 설치에서 회사 표시를 넣기 전까지.
-
-     ── 왜 DOF 자주가 아닌가 (7차 감사 2026-09-16) ─────────────────────────
-     전에는 이 바닥이 #562C8D 였다. 회사 이름은 비워 두었는데 (lib/brand.ts 의
-     FALLBACK) 색만 우리 것이라, 다른 제조소가 받으면 설정을 넣기 전까지 남의
-     자주색 화면을 본다. §2.0 이 "회사 이름·색이 코드에 있으면 못 쓴다" 고
-     적은 자리다.
-
-     그렇다고 무채색으로 두지도 않는다 - 강조가 사라지면 어느 것이 누를 수
-     있는 자리인지 화면이 말해 주지 못한다. 중립적인 청회색을 바닥으로 둔다.
-     아무 회사에나 어색하지 않고, 설정을 넣는 순간 그 회사 색으로 바뀐다.
-
-     아래 값들은 `brandVars('#475569')` 가 실제로 내놓는 파생값을 그대로 옮긴
-     것이다. 여기서 눈대중으로 고르면 설정이 있을 때와 없을 때의 단계가
-     달라진다 (§10 복제는 갈라진다).
-  --------------------------------------------------------------------- */
   --color-brand:       #475569;
   --color-brand-deep:  #333D4C;
   --color-brand-mid:   #6F7A8A;
+  --color-brand-lift:  #5C6A7D;
   --color-brand-soft:  #F4F5F6;
   --color-brand-tint:  #EEF0F2;
   --color-brand-line:  #C8CCD2;
   --color-brand-pale:  #9AA2AD;
 
-  /* 어두운 면. 상단 밴드와 바닥. 같은 강조색에서 파생한다 */
   --color-indigo:      #2C3541;
   --color-indigo-deep: #1E242C;
   --color-indigo-soft: #3A4656;
 
-  /* CI 회색 원본. 로고에만 쓴다 */
   --color-ci-gray:     #9FA0A0;
 
-  /* 글자 */
   --color-ink:   #1F1F23;
   --color-body:  #2A2530;
-  /*
-   * 회색 두 단계를 함께 내렸다 (디자인 점검 2026-11-06 · 사용자 확인).
-   *
-   * 전에는 muted #6D6D6D 가 하위 차림표 바탕(canvas-deep)에서 4.14, faint
-   * #767085 가 캔버스에서 4.18 이라 AA(4.5)를 못 넘었다. faint 를 넘기면
-   * muted 와 같아진다는 것이 걸림이었는데, **muted 를 먼저 한 칸 내리면**
-   * 둘 사이에 자리가 난다.
-   *
-   *   muted #59595F  회사 디자인 시스템 ink-600. 캔버스 6.12 · 차림 바탕 5.57
-   *   faint #6B6578  보라 기운을 남긴 회색.     캔버스 4.92 · 흰 면 5.59
-   *
-   * 단계(ink > muted > faint)는 그대로이고, 세 단계가 모든 밝은 바탕에서
-   * 4.5 를 넘는다.
-   */
   --color-muted: #59595F;
-  --color-faint: #6B6578;
+  --color-faint: #655F72;
+  --color-on-accent:    #FFFFFF;
   --color-on-dark:      #FAFAF9;
-  --color-on-dark-mute: #B8A2D0;
-  /* 어두운 면 위의 경고 글자. warn(#8A6100)은 머리줄 위에서 2.14 라 안 읽힌다 → 7.5 */
-  --color-warn-on-dark: #F2C46D;
+  --color-on-dark-mute: #C9BBDB;
 
-  /* 상태. 주간보고 진행 상태 열에서 가져왔다 */
-  --color-danger:    #B23A3A;
-  --color-danger-bg: #FBEAEA;
+  /* 상태. 회사 주간보고의 진행 상태 열에서 온 값 그대로 */
+  --color-danger:      #B23A3A;
+  --color-danger-bg:   #FBEAEA;
   --color-danger-line: #E8CFCF;
-  --color-ok:        #2E7D32;
-  --color-ok-bg:     #EAF5EA;
-  --color-warn:      #8A6100;
-  --color-warn-bg:   #FFF8E7;
-  --color-info:      #1D4ED8;
-  --color-info-bg:   #DBEAFE;
+  --color-ok:          #2E7D32;
+  --color-ok-bg:       #EAF5EA;
+  /* 머리 띠(#E9E5E6) 위에서도 4.5 를 넘게 한 칸 짙게 (#8A6100 → 4.44 · 지금 4.97) */
+  --color-warn:        #805A00;
+  --color-warn-bg:     #FFF8E7;
+  --color-info:        #1D4ED8;
+  --color-info-bg:     #E3ECFD;
 
-  /*
-   * Pretendard 가 먼저고, 없으면 맑은 고딕으로 떨어진다. 사내 문서 949개 글줄이
-   * 맑은 고딕이라 떨어져도 낯설지 않다. 바깥에서 받아오는 글꼴은 두지 않는다.
-   */
   --font-sans: 'Pretendard Variable', Pretendard, 'Malgun Gothic', '맑은 고딕',
                'Apple SD Gothic Neo', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-mono: 'Cascadia Mono', 'IBM Plex Mono', Consolas, 'D2Coding',
-               ui-monospace, monospace;
+  --font-mono: 'JetBrains Mono', Consolas, Menlo, ui-monospace,
+               'Pretendard Variable', Pretendard, monospace;
   --font-display: 'Cinzel', 'Times New Roman', Times, serif;
 
   /*
-   * 글자 크기 단계 (디자인 점검 2026-11-06 · 사용자 확인).
-   *
-   * 회사 디자인 시스템의 UI 단계(dof-design-system/tokens/typography.css)를
-   * 그대로 쓴다. 이름도 같다 - text-sm 이 13 이고 text-base 가 15 다.
-   * Tailwind 기본값(sm 14 · base 16 · xl 20 · 2xl 24)을 그대로 두었더니
-   * 아래에 적어 둔 여덟 단계와 따로 놀아 화면마다 9~11 가지 크기가 섞였다.
-   *
-   *   2xs 11  표 머리 · 조각 · 숫자 띠 이름
-   *   xs  12  딸린 값 · 안내
-   *   sm  13  단추 · 차림표 · 조밀한 목록
-   *   base 15 본문 · 표 내용
-   *   lg  18  카드 제목
-   *   xl  22  큰 숫자 · 작은 화면 제목
-   *   2xl 28  화면 제목
-   *   3xl 36  현장 숫자판 같은 큰 읽음값
-   *
-   * 인쇄 화면은 종이 배치가 정본이라 옛 값을 지킨다 (.print-scale).
+   * 글자 사다리 (Q-Design 3장 · Q-Carnet 의 Tailwind 대응).
+   * 12 · 14 · 16 · 18 · 20 · 24 · 32 · 40 밖의 크기를 만들지 않는다.
+   * 한 줄짜리(이름표 · 단추 · 표 · 조각)는 1.4, 글줄은 1.6, 20 이상은 1.2.
    */
-  --text-2xs: 0.6875rem;
-  --text-2xs--line-height: 1rem;
+  --text-2xs: 0.75rem;
+  --text-2xs--line-height: 1.4;
   --text-xs: 0.75rem;
-  --text-xs--line-height: 1rem;
-  --text-sm: 0.8125rem;
-  --text-sm--line-height: 1.25rem;
-  --text-base: 0.9375rem;
-  --text-base--line-height: 1.375rem;
+  --text-xs--line-height: 1.4;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.4;
+  --text-base: 1rem;
+  --text-base--line-height: 1.6;
   --text-lg: 1.125rem;
-  --text-lg--line-height: 1.625rem;
-  --text-xl: 1.375rem;
-  --text-xl--line-height: 1.875rem;
-  --text-2xl: 1.75rem;
-  --text-2xl--line-height: 2.25rem;
-  --text-3xl: 2.25rem;
-  --text-3xl--line-height: 2.625rem;
+  --text-lg--line-height: 1.4;
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 1.2;
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: 1.2;
+  --text-3xl: 2rem;
+  --text-3xl--line-height: 1.2;
+  --text-4xl: 2.5rem;
+  --text-4xl--line-height: 1.2;
 
-  /*
-   * 모서리 (디자인 점검 2026-11-06). 조작 8 · 면 16 · 동그라미 셋으로 모은다.
-   * Tailwind 의 rounded · rounded-md(4 · 6)가 조작 8 로 올라온다.
-   */
-  --radius-sm: 0.5rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 0.5rem;
-  --radius-xl: 1rem;
+  /* 굵기는 셋. 700 을 쓰던 자리(font-bold)는 600 이 된다 */
+  --font-weight-bold: 600;
+  --font-weight-extrabold: 600;
+
+  /* 네모난 것은 모서리 하나 (Q-Design 5장). 줄 · 괘선 판은 0 */
+  --radius-sm: 10px;
+  --radius-md: 10px;
+  --radius-lg: 10px;
+  --radius-xl: 10px;
+  --radius-2xl: 10px;
 }
 
 /*
- * 인쇄 화면은 옛 크기를 지킨다.
- *
- * 종이 한 장에 무엇이 들어가는지가 크기에 걸려 있다 (쪽 나누기 · 서명란).
- * 위 단계를 바꾸면서 인쇄 양식까지 따라 바뀌면 시험(test:print)이 보는 자료는
- * 같아도 장이 넘어가는 자리가 달라진다. 그래서 인쇄 틀 안에서만 Tailwind
- * 기본값으로 되돌린다 - 유틸리티가 var(--text-*) 를 읽으므로 조상에서 덮으면 된다.
+ * 인쇄 화면은 옛 크기를 지킨다. 종이 한 장에 무엇이 들어가는지가 크기에 걸려
+ * 있다 (쪽 나누기 · 서명란). 유틸리티가 var(--text-*) 를 읽으므로 조상에서 덮는다.
  */
 .print-scale {
   --text-xs: 0.75rem;
@@ -304,6 +200,7 @@
   --text-2xl--line-height: calc(2 / 1.5);
   --text-3xl: 1.875rem;
   --text-3xl--line-height: 1.2;
+  --font-weight-bold: 700;
   --radius-sm: 0.25rem;
   --radius-md: 0.375rem;
   --radius-lg: 0.5rem;
@@ -311,802 +208,483 @@
 }
 
 :root {
-  /* 조작 모드별 최소 타겟 크기.
-     현장은 장갑을 낀 손가락이다. 56px 아래로 내리지 않는다. */
-  --tap: 2.5rem;       /* 관리자. 키보드와 마우스를 쓴다 */
-  --tap-touch: 3.5rem; /* 실무자. 장갑 낀 손가락 */
+  /* 조작 높이. 사무 44 (Q-Design 단추 · 입력칸), 현장 56 (장갑) */
+  --tap: 2.75rem;
+  --tap-touch: 3.5rem;
+  --tap-sm: 2.25rem;
 
-  /* 모서리. 큰 면일수록 넉넉하게 준다 */
-  /* 조작 8 · 면 16 · 동그라미 (디자인 점검 2026-11-06). 6 · 14 를 걷었다 */
-  --r-sm: 0.5rem;
-  --r-md: 0.5rem;
-  /*
-   * 카드 모서리 (2026-09-11 · 사용자 지시 "디자인이 너무 심심하다").
-   *
-   * 12px 에서 14px 로 한 칸 넓혔다. 눈에 띄게 둥글어지는 폭이 아니라 - 그건
-   * 이 화면에 안 맞는다 - 가장자리가 딱딱하게 끊기지 않을 만큼만이다.
-   * 작은 칸(입력·조각)은 그대로 둔다. 다 같이 둥글면 화면이 물러진다.
-   */
-  --r-lg: 1rem;
-  --r-xl: 1rem;
+  --r-sm: 10px;
+  --r-md: 10px;
+  --r-lg: 10px;
+  --r-xl: 10px;
 
-  /* 그림자. 원본 슬라이드는 전부 헤어라인이고 그림자가 없다.
-     화면에서만, 떠 있어야 하는 것에만 준다. */
-  /*
-   * 원본 슬라이드는 전부 헤어라인이고 그림자가 없다. 화면에서만, 그리고 정말로
-   * 떠 있어야 하는 것에만 준다. 카드가 전부 떠 있으면 아무것도 떠 있지 않다.
-   */
-  /*
-   * 깊이 (2026-09-11 · 사용자 지시로 규칙을 고쳐 적었다).
-   *
-   * 전에는 "깊이는 상태를 말할 때만" 이라 쉬는 카드가 테두리 하나로만 서 있었다.
-   * 그래서 화면이 종이에 그은 선처럼 평평했다.
-   *
-   * 규칙의 원래 걱정은 **테두리와 그림자가 겹쳐 가장자리가 두 번 그어지는 것**
-   * 이었다. 그래서 겹치지 않게 바꾼다 - 쉬는 카드는 테두리를 옅게 하고 깊이로
-   * 세우고, 손이 얹히면 더 뜬다. 가장자리를 세우는 것은 여전히 하나다.
-   *
-   * 그림자는 두 겹으로 쌓는다. 가까운 것은 좁고 진하게(닿은 자리), 먼 것은
-   * 넓고 옅게(떠 있는 높이). 한 겹만 쓰면 오려 붙인 것처럼 보인다.
-   */
-  --sh-1: 0 1px 2px rgb(26 26 31 / .04), 0 1px 3px -1px rgb(26 26 31 / .05);
-  --sh-2: 0 1px 2px rgb(26 26 31 / .05), 0 8px 20px -10px rgb(26 26 31 / .16);
-  --sh-3: 0 2px 6px rgb(26 26 31 / .06), 0 24px 48px -16px rgb(26 26 31 / .24);
-  /* 쉬는 카드. 아주 얕게, 그러나 있게 */
-  --sh-rest: 0 1px 2px rgb(26 26 31 / .04), 0 4px 14px -8px rgb(26 26 31 / .12);
+  /* 쉬는 면에는 그림자가 없다. 떠 있는 층 하나만 (Q-Design 5장) */
+  --sh-rest: none;
+  --sh-1: none;
+  --sh-2: 0 6px 18px rgb(0 0 0 / .10);
+  --sh-3: 0 12px 36px rgb(0 0 0 / .16);
 
-  /*
-   * 초점 테두리 (2026-09-11).
-   *
-   * 전에는 rgb(110 79 162) 가 박혀 있었다. DOF 자주색이다. **다른 제조소가
-   * 초록을 넣어도 초점 링만 보라로 남는다** - 회사 색을 설정에서 받는다는
-   * §2.0 이 여기서 깨져 있었다.
-   *
-   * 강조색에서 섞어 낸다. 두 겹이다 - 안쪽 흰 테가 링과 요소 사이를 띄워
-   * 링이 요소에 눌어붙지 않는다.
-   */
-  --ring:
-    0 0 0 2px var(--color-surface),
-    0 0 0 4px color-mix(in srgb, var(--color-brand) 55%, transparent);
+  --ring: 0 0 0 3px color-mix(in srgb, var(--color-brand) 22%, transparent);
 
-  --ease: cubic-bezier(0.2, 0, 0.15, 1);
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-fast: 160ms;
+  --dur: 200ms;
+
+  /* 표가 깔리는 면. 괘선 판은 바탕 위에 그대로 놓이므로 바탕색이다 */
+  --table-fill: var(--color-canvas);
 }
 
 html, body { height: 100%; }
 
 body {
   background: var(--color-canvas);
-  color: var(--color-ink);
+  color: var(--color-body);
   font-family: var(--font-sans);
-  font-feature-settings: "ss01", "cv01";
+  font-size: 0.875rem;
+  line-height: 1.6;
+  font-feature-settings: "ss03", "tnum";
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   overscroll-behavior-y: none;
-
-  /*
-   * 한글은 낱말째 넘긴다.
-   *
-   * 브라우저 기본값은 한글을 음절 단위로 끊는다. 라틴 문자에는 맞지만 한글은
-   * "NaCl 처리·세 / 척" 처럼 낱말 가운데가 갈라진다. 좁은 칸이 많은 표에서
-   * 특히 자주 나오고, 읽는 사람이 한 번 더 붙여 읽어야 한다.
-   *
-   * 칸보다 긴 낱말은 어쩔 수 없이 끊어야 밖으로 삐져나가지 않으므로
-   * overflow-wrap 을 함께 둔다. 평소에는 지키고 정말 안 될 때만 끊는다.
-   */
+  /* 한글은 낱말째 넘긴다. 칸보다 긴 낱말만 끊는다 */
   word-break: keep-all;
   overflow-wrap: break-word;
 }
 
-/*
- * 글자 크기 계단. 이 여덟 개만 쓴다.
- *
- *   11  꼬리표 · 구역 이름          .crumb .chip
- *   12  표 머리 · 딸린 값
- *   13  단추 · 조밀한 목록
- *   15  본문 · 표 내용
- *   17  카드 제목
- *   20  구역 제목
- *   26  화면 제목
- *   34  숫자를 크게 세울 때
- *
- * 사이 값을 새로 만들지 않는다. 하나 늘 때마다 위계가 하나 흐려진다.
- */
-h1, h2, h3 { letter-spacing: -0.025em; font-weight: 700; }
-h1 { line-height: 1.22; }
-h2 { line-height: 1.3; }
+h1, h2, h3, h4 { font-weight: 600; color: var(--color-ink); letter-spacing: -0.01em; }
+h1 { line-height: 1.2; letter-spacing: -0.02em; }
+h2 { line-height: 1.2; }
+b, strong { font-weight: 600; }
 
-/* 표시용 서체. 큰 글자 하나에만 */
+/* 표시용 서체. 회사 이름 한 자리에만 */
 .display {
   font-family: var(--font-display);
   font-weight: 600;
   text-transform: uppercase;
-  /* 각자체 대문자는 자간이 있어야 새겨진 것처럼 보인다 */
   letter-spacing: 0.08em;
 }
-/* 크게 세울 때는 획을 얇게. 큰 글자에서 굵으면 둔해 보인다 */
 .display-lg { font-weight: 400; letter-spacing: 0.05em; }
 
-/* 숫자는 자리가 흔들리면 안 된다. 로트번호 · 순번 · 일시 · 수량 전부 */
 .tnum { font-variant-numeric: tabular-nums; }
 
-/* 현장 화면에서 길게 눌러 텍스트가 잡히면 조작이 끊긴다 */
 .no-select {
   -webkit-user-select: none;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
 }
 
-/*
- * 초점 테두리.
- *
- * 여기서 모서리를 강제하지 않는다. 강제하면 동그란 것(아바타 · 패드 키)이
- * 초점을 받는 순간 네모가 된다. 요소가 가진 모서리를 그대로 두고 테두리만 얹는다.
- */
-:focus-visible { outline: none; box-shadow: var(--ring); }
+/* 초점. 강조색 2px 윤곽 + 옅은 테 (Q-Design 5장). 요소의 모서리를 그대로 따른다 */
+:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+  box-shadow: var(--ring);
+}
 
-::selection { background: var(--color-brand-tint); color: var(--color-brand-deep); }
-
-/* 글자를 넣는 자리의 막대. 두지 않으면 브라우저 기본 검정이 그대로 나온다 */
+/* 회색을 쓰지 않는다 - 선택 영역과 스크롤 막대도 강조색을 섞는다 (Q-Design 원칙 2) */
+::selection { background: color-mix(in srgb, var(--color-brand) 30%, transparent); color: var(--color-ink); }
 input, textarea, [contenteditable] { caret-color: var(--color-brand); }
-
-/* 스크롤바. 넓은 표가 많아 기본 막대가 화면을 갈라 놓는다 */
-* { scrollbar-width: thin; scrollbar-color: var(--color-line-strong) transparent; }
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--color-brand) 22%, var(--color-line)) transparent;
+}
 *::-webkit-scrollbar { width: 10px; height: 10px; }
 *::-webkit-scrollbar-thumb {
-  background: var(--color-line-strong);
+  background: color-mix(in srgb, var(--color-brand) 22%, var(--color-line));
   border: 3px solid transparent;
-  border-radius: 99px;
+  border-radius: 0;
   background-clip: content-box;
 }
-*::-webkit-scrollbar-thumb:hover { background: var(--color-faint); background-clip: content-box; }
+*::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--color-brand) 55%, var(--color-line-strong));
+  background-clip: content-box;
+}
+
+/* 구역 번호는 화면마다 01 부터 센다 */
+main, [role='dialog'] { counter-reset: qd-sec; }
 
 /* ===========================================================================
-   컴포넌트 계층
+   부품
 
-   @layer components 안에 둔다. 레이어 밖에 두면 Tailwind 유틸리티보다 우선순위가
-   높아져서 className="input w-32" 의 w-32 나 "btn-ghost h-8" 의 h-8 이 먹지
-   않는다. 실제로 용액 제조 화면의 원료 선택칸이 화살표만 남고 접혀 있었다.
-   레이어 안에 두면 유틸리티가 이긴다 - 그게 원래 의도한 순서다.
+   @layer components 안에 둔다. 밖에 두면 Tailwind 유틸리티보다 앞서서
+   className="input w-32" 의 w-32 가 먹지 않는다.
    =========================================================================== */
 @layer components {
-  /* ---------------------------------------------------------------------------
-     면과 테두리
 
-     그림자를 아껴 쓴다. 인쇄물이 정본인 시스템이라 화면도 종이에 가깝게 둔다.
-     위계는 테두리와 배경 톤으로 만들고, 그림자는 떠 있어야 하는 것에만 준다.
-  --------------------------------------------------------------------------- */
-  /*
-   * 카드는 평평하다. 테두리 하나로 면을 가른다.
-   * 그림자는 진짜로 떠 있는 것(card-raised)에만 준다.
-   */
-  /*
-   * 전에는 바탕과 카드의 차이가 3% 뿐이라 테두리만으로는 카드가 바탕에
-   * 녹았고, 그래서 아주 얕은 그림자를 하나 얹었다. 테두리와 그림자가 겹쳐
-   * 가장자리가 두 번 그어지는 셈이었다.
-   *
-   * 바탕을 한 단계 내려 차이를 벌리고 그림자를 걷는다. 가장자리를 세우는
-   * 것은 하나면 된다 - 둘을 겹치면 화면이 무거워진다 (사용자 지시
-   * 2026-09-01 "Simple 하고 Modern").
-   */
-  .card {
-    /*
-     * 면에 빛을 넣는다. 위가 순백, 아래가 머리카락 한 올만큼 내려간 값이다.
-     * 눈으로 그라데이션이라고 알아볼 폭이 아니라, 면이 종이가 아니라 물체로
-     * 읽힐 만큼이다.
-     */
-    background: linear-gradient(180deg,
-      var(--color-surface) 0%, var(--color-card-floor) 100%);
-    border: 1px solid var(--color-line);
-    border-radius: var(--r-xl);
-    box-shadow: var(--sh-rest);
+  /* -------------------------------------------------------------------------
+     판 - 상자 대신 괘선 (Q-Design 7장 · 장부형)
+
+     카드를 상자로 쌓지 않는다. 바탕 위에 위아래 괘선 두 줄로 구역을 나눈다.
+     그림자 · 둥근 모서리 · 옆 테두리가 없다. 상자로 돌아오는 것은 떠 있는
+     층(대화상자) 안과 현장 화면뿐이다.
+  ------------------------------------------------------------------------- */
+  .card, .card-raised {
+    background: transparent;
+    border: 0;
+    border-top: 1px solid var(--color-line-strong);
+    border-bottom: 1px solid var(--color-line);
+    border-radius: 0;
+    box-shadow: none;
   }
-  /* 카드 안의 표는 카드 모서리에 맞춰 잘린다 */
   .card { overflow: hidden; }
+  .card-raised { transition: background-color var(--dur-fast) var(--ease); }
+  a.card-raised:hover, button.card-raised:hover { background: var(--color-surface-sub); }
 
-  /* 구역 머리 바로 아래 오는 표는 위쪽 테두리를 겹치지 않게 한다 */
-  .card > .overflow-x-auto > table > thead .th { border-top: none; }
-  /*
-   * 가만히 있을 때는 테두리 하나, 손이 얹히면 그때 뜬다.
-   *
-   * 전에는 가만히 있을 때도 그림자를 지고 있었고 hover 가 같은 그림자를 다시
-   * 얹었다 - 눌러도 아무 일이 없었다는 뜻이다. 깊이는 상태를 말할 때만 쓴다.
-   */
-  .card-raised {
-    background: linear-gradient(180deg,
-      var(--color-surface) 0%, var(--color-card-floor) 100%);
+  /* 상자로 남는 면. 로그인 · 비밀번호 · 잠금 화면처럼 판 하나가 화면의 전부일 때 */
+  .box {
+    background: var(--color-surface);
     border: 1px solid var(--color-line);
-    border-radius: var(--r-xl);
-    box-shadow: var(--sh-rest);
-    transition: box-shadow 180ms var(--ease), border-color 180ms var(--ease),
-                transform 180ms var(--ease);
-  }
-  a.card-raised:hover, button.card-raised:hover {
-    box-shadow: var(--sh-2);
-    border-color: var(--color-brand-line);
-    transform: translateY(-1px);
+    border-radius: var(--r-md);
   }
 
-  /* 제목 위에 아래보다 조금 더 둔다. 제목이 앞 덩어리에 붙으면 어디의 머리인지
-     흐려진다 */
-  /*
-   * 구역 머리.
-   *
-   * 밑선을 한 단계 올리고 위아래를 조금 더 띄운다 (2026-09-11). 카드 안의
-   * 첫 줄과 머리가 같은 무게로 붙어 있으면 머리가 내용의 일부로 읽힌다.
-   * 띠를 깔지 않는 것은 표 머리와 같은 까닭이다 - 선 하나로 가른다.
-   */
-  /*
-   * 빈 자리 (2026-09-11).
-   *
-   * 화면을 열었을 때 처음 만나는 것이 빈 상태인 일이 잦다 - 아직 아무것도
-   * 없는 제조소에서는 더 그렇다. 글자 두 줄만 가운데 놓여 있으면 화면이
-   * 덜 만들어진 것처럼 보인다. 자리를 넉넉히 주고 위에 얇은 선을 하나 둔다.
-   */
-  .empty-well {
-    padding: 3.25rem 1.25rem;
-    text-align: center;
+  .dialog-panel {
+    --table-fill: var(--color-surface);
+    background: var(--color-surface);
+    border: 1px solid var(--color-line);
+    border-radius: var(--r-md);
+    box-shadow: var(--sh-3);
+  }
+  .dialog-panel .card, .dialog-panel .card-raised {
+    background: var(--color-surface);
+    border: 1px solid var(--color-line);
+    border-radius: var(--r-md);
   }
 
+  /* 판 머리. 제목 앞에 강조색 모노 번호(01 · 02), 밑에 1px 괘선과 짧은 강조선 */
   .section-head {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    padding: 1rem 1.25rem 0.875rem;
+    padding: 1rem 0.75rem 0.875rem;
     border-bottom: 1px solid var(--color-line);
   }
-
-  /*
-   * 카드 머리에 강조색 한 조각 (2026-09-11).
-   *
-   * 사무 화면에 회사 색이 나타나는 자리가 주 동작 단추 하나뿐이었다. 그래서
-   * 화면이 흑백 서류처럼 보였다 - 어느 회사 것인지도 말해 주지 않는다.
-   *
-   * 제목 앞에 짧은 막대 하나를 세운다. 면을 물들이지 않으므로 글자 대비는
-   * 그대로이고, 카드가 어디서 시작하는지도 눈이 먼저 잡는다. 색은 설정에서
-   * 온다 (§2.0) - 회사 색을 바꾸면 이 막대도 따라간다.
-   */
-  .section-head > .min-w-0::before {
-    content: "";
-    display: block;
-    width: 1.75rem;
-    height: 3px;
-    margin-bottom: 0.5rem;
-    border-radius: 99px;
-    background: linear-gradient(90deg,
-      var(--color-brand) 0%, var(--color-brand-mid) 100%);
+  .section-head::after {
+    content: '';
+    position: absolute;
+    left: 0.75rem;
+    bottom: -1px;
+    width: clamp(1.75rem, 16%, 5rem);
+    height: 1px;
+    background: var(--color-brand);
+  }
+  .section-head h2, .section-head h3 { font-size: 1.125rem; line-height: 1.4; font-weight: 600; }
+  main .section-head h2::before, main .section-head h3::before {
+    counter-increment: qd-sec;
+    content: counter(qd-sec, decimal-leading-zero);
+    font: 600 0.75rem/1 var(--font-mono);
+    letter-spacing: 0.1em;
+    color: var(--color-brand);
+    margin-right: 0.625rem;
+    vertical-align: 2px;
   }
 
-  /*
-   * 브랜드 밴드. 전사 양식 상단 띠를 화면으로 옮긴 것.
-   *
-   * 기울기가 아니라 색이 딱 끊기는 구간 셋이다. 자주에서 남보라로 넘어가고
-   * 나머지는 구분선 색으로 화면 끝까지 간다. 3px 은 굵어서 장식으로 보였다.
-   * 2px 이면 문서 머리의 인쇄된 띠처럼 읽힌다.
-   */
-  /*
-   * 브랜드 띠. 전사 양식 상단 띠를 화면으로 옮긴 것.
-   *
-   * 세 토막의 경계를 조금 눕혔다 (2026-09-11). 칼로 자른 듯한 경계는 인쇄물
-   * 에서는 맞지만 화면에서는 딱딱하다. 토막의 폭은 그대로라 양식과 같은 짜임
-   * 이고, 만나는 자리 몇 px 만 섞인다.
-   */
+  .empty-well {
+    padding: 2.5rem 1.5rem;
+    text-align: center;
+  }
+
+  /* 회사 양식 머리의 세 토막 띠. 칼로 자른 경계 그대로 (Q-Carnet) */
   .brand-rule {
-    height: 3px;
+    height: 2px;
     background: linear-gradient(90deg,
-      var(--color-brand-lift) 0%, var(--color-brand) 20%,
-      var(--color-indigo) 24%, var(--color-indigo) 36%,
-      var(--color-line) 40%, var(--color-line) 100%);
+      var(--color-brand) 0%, var(--color-brand) 22%,
+      var(--color-indigo) 22%, var(--color-indigo) 38%,
+      var(--color-line) 38%, var(--color-line) 100%);
   }
 
-  /*
-   * 어두운 면.
-   *
-   * ── 규칙을 고쳐 적는다 (사용자 지시 2026-09-11) ───────────────────────────
-   * 전에는 "기울기를 쓰지 않는다" 였다. 까닭은 둘이었다 - 넓은 면에 깔면 계단이
-   * 지고, 값이 흐려져 브랜드 색이 무엇인지 말해 주지 못한다.
-   *
-   * 그 까닭은 **넓은 면**에만 닿는다. 머리띠는 56px 짜리 좁은 띠라 계단이 질
-   * 자리가 없고, 두 끝이 같은 강조색에서 파생한 값(indigo-soft ~ indigo-deep)
-   * 이라 브랜드 색이 흐려지지도 않는다.
-   *
-   * **현장 바탕(.touch 의 --color-canvas)은 그대로 평평하다.** 그쪽이 원래
-   * 까닭이 가리키던 넓은 면이다.
-   */
-  .band-solid {
-    background: linear-gradient(180deg,
-      var(--color-indigo-soft) 0%, var(--color-indigo-deep) 100%);
-    color: var(--color-on-dark);
-    /* 위쪽 1px 은 빛을 받은 모서리, 아래쪽 2px 은 브랜드 자주 */
-    box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / .09),
-      inset 0 -2px 0 var(--color-brand);
+  /* 머리 띠. 회사 양식의 웜그레이 띠 + 아래 2px 강조선 (Q-Carnet .band-solid) */
+  .topbar, .band-solid {
+    background: var(--color-band);
+    color: var(--color-ink);
+    box-shadow: inset 0 -2px 0 var(--color-brand);
   }
 
-  /*
-   * 로고만 놓이는 큰 면 (로그인 왼쪽).
-   *
-   * 여기는 기록을 읽는 자리가 아니라 **회사를 보여 주는 자리**다. 위에서
-   * 아래로 아주 완만하게 눕힌다 - 두 끝이 한 강조색에서 나온 값이라 색이
-   * 흐려지지 않고, 로고가 얹힌 면이 종이가 아니라 하나의 물체로 읽힌다.
-   *
-   * 각도를 비스듬히 준다. 세로로만 눕히면 띠처럼 보이고, 비스듬하면 면이 된다.
-   */
+  /* 로그인 왼쪽 면. 회사를 보여 주는 «얼굴» 이라 여기만 어두운 면과 기울기를 쓴다 */
   .band-dark {
     background: linear-gradient(155deg,
-      var(--color-indigo-soft) 0%,
-      var(--color-indigo) 42%,
-      var(--color-indigo-deep) 100%);
+      var(--color-indigo-soft) 0%, var(--color-indigo) 42%, var(--color-indigo-deep) 100%);
     color: var(--color-on-dark);
   }
 
-  /* ---------------------------------------------------------------------------
-     관리 화면 머리줄 (사용자 결정 2026-09-11)
+  .hairline { border-color: var(--color-line); }
 
-     ── 규칙을 바꾼 것이고, 바꾸는 까닭이 있다 ───────────────────────────────
-     전에는 "상단은 밝게 둔다. 어두운 면은 현장 화면이 가져갔다. 두 모드가 같은
-     얼굴을 하면 관리 화면인 줄 알고 현장 기록을 만지게 된다" 였다. 그 걱정은
-     **안전**이지 취향이 아니므로 가볍게 넘기지 않는다.
-
-     그래도 바꾼 까닭은 이것이다 - 흰 머리줄이 흰 카드 위에 있으니 이 시스템에
-     회사가 나타나는 자리가 로고 하나뿐이었다. 화면을 가리고 보면 어느 회사
-     제품인지 알 수 없었다.
-
-     ── 갈라지는 신호는 그대로 있다 ──────────────────────────────────────────
-     두 모드를 가르는 것은 **본문**이다. 화면의 95%가 밝은 흰 면(사무)이냐
-     어두운 남보라(현장)냐로 갈리고, 그 위에 얹히는 것도 다르다 - 사무는
-     차림표 여덟 개가 늘어선 줄이고, 현장은 그 자리가 비어 있으며 "현장"
-     꼬리표가 붙는다. 조작 크기도 다르다.
-
-     띠 하나가 같아졌다고 본문을 헷갈릴 자리는 아니라고 본다. 다만 이것은
-     판단이므로, 쓰다가 헷갈리는 일이 한 번이라도 있으면 되돌린다.
-
-     ── 자식마다 클래스를 고치지 않는다 ──────────────────────────────────────
-     띠 안에서 색 토큰을 갈아 끼운다. 그러면 차림표 · 단추 · 조각 · 시계가 저절로
-     따라온다. .touch 가 현장 화면 전체에 쓰는 방법과 같다 - 새 요소를 넣을
-     때마다 색을 기억해야 하면 언젠가 빠뜨린다.
-  --------------------------------------------------------------------------- */
-  .topbar {
-    background: linear-gradient(180deg,
-      var(--color-indigo-soft) 0%, var(--color-indigo-deep) 100%);
-    border-bottom-color: transparent;
-    box-shadow:
-      inset 0 -1px 0 rgb(255 255 255 / .10),
-      0 1px 2px rgb(12 8 28 / .18),
-      0 10px 24px -16px rgb(12 8 28 / .55);
-
-    /* 어두운 면 위의 글자. 값은 이미 정해져 있다 (--color-on-dark*) */
-    --color-ink:   var(--color-on-dark);
-    --color-body:  var(--color-on-dark);
-    --color-muted: var(--color-on-dark-mute);
-    --color-faint: rgb(255 255 255 / .62);
-
-    --color-line:        rgb(255 255 255 / .18);
-    --color-line-soft:   rgb(255 255 255 / .12);
-    --color-line-strong: rgb(255 255 255 / .28);
-
-    /* 띠 안의 작은 면(찾기 칸 · 조용한 단추)은 흰빛을 옅게 깐다 */
-    --color-surface:     rgb(255 255 255 / .10);
-    --color-surface-sub: rgb(255 255 255 / .16);
-    --color-surface-low: rgb(255 255 255 / .10);
-    --color-canvas:      rgb(255 255 255 / .08);
-    --color-canvas-deep: rgb(255 255 255 / .16);
-
-    /* 켜진 차림표는 흰색이다. 어두운 면에서 강조색은 글자로 서지 못한다 */
-    --color-brand:      #FFFFFF;
-    --color-brand-tint: rgb(255 255 255 / .16);
-    --color-brand-line: rgb(255 255 255 / .32);
-  }
-  /* 띠 안의 입력칸은 우물이 아니다. 어두운 면에서 안쪽 그림자는 때처럼 보인다 */
-  .topbar .input { box-shadow: none; }
-
-  /* 얇은 구분선. 표와 목록 사이 */
-  .hairline { border-color: var(--color-line-soft); }
-
-  /* ---------------------------------------------------------------------------
-     폼
-  --------------------------------------------------------------------------- */
+  /* -------------------------------------------------------------------------
+     입력 (Q-Design 7장 · 입력칸)
+  ------------------------------------------------------------------------- */
   .label {
     display: block;
     font-size: 0.75rem;
-    line-height: 1rem;
-    font-weight: 600;
+    line-height: 1.4;
+    font-weight: 500;
     color: var(--color-muted);
     margin-bottom: 0.375rem;
-    letter-spacing: 0.005em;
   }
 
-  /*
-   * 입력칸 (2026-09-11).
-   *
-   * 테두리만 두른 네모라 "여기 적는다" 가 형태로 읽히지 않았다. 아주 얕게
-   * 안으로 눌러 우물로 만든다 - 면은 솟고 입력칸은 들어간다는 것이 화면
-   * 전체의 한 가지 규칙이 된다.
-   */
   .input {
     width: 100%;
     height: var(--tap);
     padding: 0 0.75rem;
-    border: 1px solid var(--color-line-strong);
+    border: 1px solid var(--color-ctl);
     border-radius: var(--r-md);
     background: var(--color-surface);
-    box-shadow: inset 0 1px 2px rgb(26 26 31 / .05);
-    font-size: 0.9375rem;
+    font-size: 0.875rem;
     color: var(--color-ink);
     outline: none;
-    transition: border-color 140ms ease, box-shadow 140ms ease, background-color 140ms ease;
+    transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease),
+                background-color var(--dur-fast) var(--ease);
   }
-  select.input { padding-right: 0.5rem; }
-  textarea.input { height: auto; min-height: 5rem; padding: 0.5rem 0.75rem; line-height: 1.65; }
-  .input:hover:not(:disabled):not(:focus) { border-color: var(--color-faint); }
-  .input:focus { border-color: var(--color-brand); box-shadow: var(--ring); }
-  .input:disabled { background: var(--color-canvas); color: var(--color-faint); cursor: not-allowed; }
+  select.input { padding-right: 2rem; }
+  textarea.input { height: auto; min-height: 5rem; padding: 0.5rem 0.75rem; line-height: 1.6; }
+  .input:hover:not(:disabled):not(:focus) { border-color: var(--color-muted); }
+  .input:focus {
+    border-color: var(--color-brand);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-brand) 18%, transparent);
+    outline: none;
+  }
+  .input:disabled, .input[readonly] {
+    background: var(--color-canvas);
+    border-color: var(--color-line);
+    color: var(--color-faint);
+    cursor: not-allowed;
+  }
   .input::placeholder { color: var(--color-faint); }
+  .input[aria-invalid='true'] { border-color: var(--color-danger); }
 
-  /* 읽기 전용 값. 입력칸처럼 생겼지만 만질 수 없다 */
+  /* 읽기 전용 값. 입력칸 자리지만 만질 수 없다 */
   .readout {
     display: flex;
     align-items: center;
     min-height: var(--tap);
     padding: 0 0.75rem;
-    border: 1px dashed var(--color-line-strong);
-    border-radius: var(--r-sm);
-    background: var(--color-surface-sub);
-    font-size: 0.9375rem;
+    border: 1px solid var(--color-line);
+    border-radius: var(--r-md);
+    background: transparent;
+    font-size: 0.875rem;
     color: var(--color-body);
   }
 
-  /* ---------------------------------------------------------------------------
-     버튼
-  --------------------------------------------------------------------------- */
+  /* -------------------------------------------------------------------------
+     단추 (Q-Design 7장)
+
+     주 동작은 먹색이다. 강조색으로 칠하지 않는다 - 강조색은 표시의 몫이고,
+     단추까지 칠하면 한 화면에 강조가 둘이 된다. 손이 얹히면 강조색이 12% 스민다.
+  ------------------------------------------------------------------------- */
   .btn, .btn-primary, .btn-ghost, .btn-danger, .btn-quiet {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 0.375rem;
     height: var(--tap);
-    padding: 0 1rem;
+    padding: 0 1.375rem;
     border-radius: var(--r-md);
-    font-size: 0.8125rem;
-    font-weight: 600;
-    letter-spacing: -0.005em;
+    border: 1px solid transparent;
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1;
     white-space: nowrap;
     cursor: pointer;
-    border: 1px solid transparent;
-    transition: background-color 140ms ease, border-color 140ms ease,
-                color 140ms ease, box-shadow 140ms ease;
+    transition: background-color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease),
+                color var(--dur-fast) var(--ease);
     -webkit-tap-highlight-color: transparent;
   }
-  /*
-   * 줄 안의 작은 단추 (2026-09-11).
-   *
-   * 목록 오른쪽 끝에 붙는 "고치기" · "취소" 같은 것들이다. 스물두 자리가
-   * 각자 크기를 적고 있었고 높이가 h-7 과 h-8 로 갈려 있었다 - 같은 뜻의
-   * 단추가 화면마다 다른 크기였다는 뜻이다.
-   *
-   * 한 자리에 적는다. 복제는 갈라진다.
-   */
-  .btn-row { height: 2rem; padding: 0 0.625rem; font-size: 0.75rem; }
-
-  /* ---------------------------------------------------------------------------
-     줄 안의 동작을 눌러 둔다
-
-     ── 무엇이 문제였나 (2026-09-11) ─────────────────────────────────────────
-     자재 목록 오른쪽에 "고치기" 가 열한 개 똑같이 세로로 줄 서 있었다. 하나는
-     단추지만 열한 개가 줄 서면 그것은 무늬다. 눈이 거기 붙잡히고, 정작 읽어야
-     할 로트번호와 수량이 뒤로 밀린다.
-
-     ── 숨기지 않는다 ──────────────────────────────────────────────────────
-     처음에는 손이 얹혔을 때만 보이게 했다가 되돌렸다. 이 표의 동작 중에는
-     **누르면 그 자리에서 확인을 묻는 것**이 있다 (발주 취소 → 예/아니오).
-     손을 떼는 순간 그 확인 단추가 사라지면, 되돌릴 수 없는 조작 앞에서
-     화면이 사라지는 셈이다.
-
-     그래서 숨기는 대신 **눌러 둔다.** 평소에는 조용하고, 줄에 손이 얹히면
-     제 색으로 돌아온다. 무늬는 사라지고 길은 막히지 않는다. 사흘에 한 번
-     쓰는 화면에서 안 보이는 단추는 없는 단추다.
-  --------------------------------------------------------------------------- */
-  tbody tr .btn-row { opacity: 0.45; transition: opacity 140ms var(--ease); }
-  tbody tr:hover .btn-row,
-  tbody tr:focus-within .btn-row { opacity: 1; }
-  .touch tbody tr .btn-row { opacity: 1; }
-  @media (hover: none) { tbody tr .btn-row { opacity: 1; } }
-
+  .btn:active:not(:disabled), .btn-primary:active:not(:disabled), .btn-ghost:active:not(:disabled),
+  .btn-danger:active:not(:disabled), .btn-quiet:active:not(:disabled) { transform: translateY(1px); }
   .btn:disabled, .btn-primary:disabled, .btn-ghost:disabled,
   .btn-danger:disabled, .btn-quiet:disabled { opacity: 0.4; cursor: not-allowed; }
 
-  /*
-   * 주 동작 단추 (2026-09-11).
-   *
-   * 화면마다 색이 들어간 자리는 이것 하나다. 그 하나가 평평한 네모이면 화면
-   * 전체가 평평해 보인다. 위 가장자리에 아주 얕은 빛을 하나 넣는다 - 면이
-   * 아니라 **모서리**라 기울기 금지와 부딪히지 않고, 브랜드 값도 그대로다.
-   *
-   * 누르면 그 빛이 꺼지고 안쪽으로 눌린다. 손이 닿은 것과 눌린 것이 눈으로
-   * 갈려야 장갑 낀 손이 두 번 누르지 않는다.
-   */
   .btn-primary {
-    /*
-     * 위가 조금 밝다 (2026-09-11). 40px 짜리 조각이라 계단이 질 자리가 없고,
-     * 두 끝이 같은 강조색에서 나온 값이라 무슨 색인지도 그대로 말한다.
-     * 빛을 위에서 받은 물체로 읽혀 누를 것이 저절로 먼저 보인다.
-     */
-    background: linear-gradient(180deg,
-      var(--color-brand-lift) 0%, var(--color-brand) 100%);
-    color: #fff;
-    border-color: var(--color-brand);
-    box-shadow: inset 0 1px 0 rgb(255 255 255 / .18), var(--sh-1);
+    background: var(--color-ink);
+    color: var(--color-canvas);
+    border-color: var(--color-ink);
   }
   .btn-primary:hover:not(:disabled) {
-    background: linear-gradient(180deg,
-      var(--color-brand) 0%, var(--color-brand-deep) 100%);
-    border-color: var(--color-brand-deep);
-    box-shadow: inset 0 1px 0 rgb(255 255 255 / .18), var(--sh-2);
+    background: color-mix(in srgb, var(--color-ink) 88%, var(--color-brand));
+    border-color: color-mix(in srgb, var(--color-ink) 88%, var(--color-brand));
   }
   .btn-primary:active:not(:disabled) {
-    box-shadow: inset 0 2px 4px rgb(26 26 31 / .22);
+    background: color-mix(in srgb, var(--color-ink) 78%, var(--color-brand));
   }
 
-  .btn-ghost { background: var(--color-surface); color: var(--color-ink); border-color: var(--color-line-strong); }
-  .btn-ghost:hover:not(:disabled) { background: var(--color-surface-sub); border-color: var(--color-faint); }
+  .btn, .btn-ghost {
+    background: transparent;
+    color: var(--color-body);
+    border-color: var(--color-ctl);
+  }
+  .btn:hover:not(:disabled), .btn-ghost:hover:not(:disabled) {
+    border-color: var(--color-muted);
+    color: var(--color-ink);
+    background: color-mix(in srgb, var(--color-brand) 4%, transparent);
+  }
 
-  /*
-   * 조용한 단추도 눌리는 것으로 보여야 한다 (2026-09-11). 글자만 있던 자리에
-   * 아주 옅은 면을 깔아, 목록 오른쪽의 "고치기" 같은 것이 글이 아니라 단추로
-   * 읽히게 한다.
-   */
   .btn-quiet {
-    background: var(--color-surface-low);
+    background: transparent;
     color: var(--color-muted);
-    border-color: transparent;
   }
-  .btn-quiet:hover:not(:disabled) { background: var(--color-canvas-deep); color: var(--color-ink); }
+  .btn-quiet:hover:not(:disabled) { background: var(--color-surface-sub); color: var(--color-ink); }
 
-  .btn-danger { background: var(--color-surface); color: var(--color-danger); border-color: var(--color-danger-line); }
+  .btn-danger {
+    background: transparent;
+    color: var(--color-danger);
+    border-color: var(--color-danger-line);
+  }
   .btn-danger:hover:not(:disabled) { background: var(--color-danger-bg); border-color: var(--color-danger); }
 
-  /* ---------------------------------------------------------------------------
-     표
-  --------------------------------------------------------------------------- */
-  thead .th {
-    position: sticky;
-    top: 0;
-    z-index: 1;
+  /*
+   * 줄 안의 작은 동작. 표마다 같은 단추가 세로로 줄 서면 무늬가 된다 - 글자
+   * 동작으로 둔다 (Q-Design 텍스트 동작). 테두리 없이 보조 글자, 손이 얹히면
+   * 먹색과 밑줄. 숨기지 않으므로 확인을 묻는 동작도 그 자리에 있다.
+   */
+  .btn-row {
+    height: var(--tap-sm);
+    padding: 0 0.5rem;
+    font-size: 0.875rem;
+  }
+  tbody .btn-row.btn-ghost, tbody .btn-row.btn-quiet, tbody .btn-row.btn {
+    background: transparent;
+    border-color: transparent;
+    color: var(--color-muted);
+  }
+  tbody .btn-row.btn-ghost:hover:not(:disabled), tbody .btn-row.btn-quiet:hover:not(:disabled),
+  tbody .btn-row.btn:hover:not(:disabled) {
+    background: transparent;
+    color: var(--color-ink);
+    text-decoration: underline;
+    text-underline-offset: 4px;
   }
 
-  /*
-   * 표 머리에 회색 띠를 깔지 않는다. 표마다 띠가 하나씩 생기면 화면에 가로줄이
-   * 여럿 그어져 어디가 무엇의 시작인지 흐려진다. 밑줄 하나로 세운다.
-   *
-   * 그 밑줄만 한 단계 진하다 (2026-09-11). 머리 밑줄과 줄 사이 선이 같은 값
-   * 이면 표가 "줄이 여럿인 덩어리" 로만 보이고 머리가 서지 않았다. 띠를 까는
-   * 대신 선 하나의 무게로 가른다 - 위 규칙을 깨지 않고 머리가 선다.
-   */
+  /* -------------------------------------------------------------------------
+     표 (Q-Design 7장 · 목록)
+
+     머리는 12px 보조 글자에 괘선 한 줄. 줄은 1px 괘선으로만 가른다.
+     누르면 어딘가로 가는 줄만 손이 얹힐 때 면이 바뀐다.
+  ------------------------------------------------------------------------- */
+  thead .th { position: sticky; top: 0; z-index: 1; }
+
   .th {
     text-align: left;
-    font-size: 0.6875rem;
-    line-height: 1rem;
-    font-weight: 700;
-    letter-spacing: 0.02em;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    font-weight: 500;
     color: var(--color-muted);
-    padding: 0.625rem 1rem 0.5rem;
-    border-bottom: 1px solid var(--color-line-strong);
+    padding: 0.75rem 0.75rem;
+    border-bottom: 1px solid var(--color-line);
     white-space: nowrap;
-    background: transparent;
+    background: var(--table-fill);
   }
-  /*
-   * 줄 높이 (2026-09-11).
-   *
-   * 표가 넓은 화면에서 납작한 글줄 더미로 보였다. 줄마다 숨을 주면 한 줄이
-   * 한 건으로 읽힌다 - 목록을 훑는 시간이 이 시스템 쓰는 시간의 대부분이다.
-   */
-  /*
-   * 줄 높이를 다시 좁혔다 (디자인 점검 2026-11-06 · 사용자 확인).
-   *
-   * 15px 위아래 여백이면 두 줄 칸이 약 70px 이라 1440×900 에서 자재 로트가
-   * 여섯 줄만 보였다. 여백을 7px 로 줄여 두 줄 칸 약 54px, 한 줄 칸 약 38px.
-   * 같은 화면에 9~10 줄이 든다. 글자는 본문 단계(15)로 한 칸 올렸다.
-   * 현장 표는 .touch .td 가 따로 잡는다.
-   */
   .td {
-    padding: 0.4375rem 1rem;
-    font-size: 0.9375rem;
-    line-height: 1.375rem;
+    padding: 0.6875rem 0.75rem;
+    font-size: 0.875rem;
+    line-height: 1.4;
     color: var(--color-body);
-    border-bottom: 1px solid var(--color-line-soft);
+    border-bottom: 1px solid var(--color-line);
     vertical-align: middle;
   }
   tbody tr:last-child .td { border-bottom: none; }
 
-  /*
-   * 마지막 칸은 내용만큼만 (2026-09-11).
-   *
-   * 표의 내용을 다 더해도 폭이 남으면 브라우저가 남는 만큼을 열마다 나눠
-   * 준다. 그래서 오른쪽 끝 값 하나가 앞 열과 한참 떨어져 혼자 떠 있었다 -
-   * 넓은 화면에서 화면이 "덩그러니" 보이던 까닭의 하나다.
-   *
-   * 마지막 열을 내용 폭으로 붙들면 남는 폭이 **글자 열**로 간다. 빈자리가
-   * 사라지지는 않지만, 긴 글 옆의 여백은 눈에 띄지 않고 값 옆의 여백은
-   * 띈다. 같은 여백을 눈에 안 띄는 자리로 옮기는 것이다.
-   */
-  .card table .td:last-child, .card table .th:last-child {
-    width: 1%;
-    white-space: nowrap;
-  }
+  /* 마지막 칸은 내용만큼. 남는 폭이 글자 열로 간다 */
+  .card table .td:last-child, .card table .th:last-child { width: 1%; white-space: nowrap; }
 
-  /* 번호는 줄바꿈하지 않는다. 로트번호가 두 줄로 갈리면 눈으로 대조를 못 한다.
-     자리가 모자라면 표가 가로로 넘어가게 두고, 감싼 상자가 스크롤을 받는다. */
+  /* 번호는 줄을 바꾸지 않는다. 로트번호가 두 줄로 갈리면 대조를 못 한다 */
   .td .font-mono, .td.font-mono, .td .tnum, .td.tnum { white-space: nowrap; }
-
-  /*
-   * 숫자 칸을 한 단계 세운다 (2026-09-11).
-   *
-   * 줄마다 색을 갈아 리듬을 주는 방식(줄무늬)은 쓰지 않는다 - 표 머리에 띠를
-   * 깔지 않는 것과 같은 까닭으로 가로줄이 늘어난다. 대신 **읽는 값**을 세운다.
-   * 이 표에서 눈이 좇는 것은 수량과 번호이고, 그것이 설명 글과 같은 무게면
-   * 줄을 하나하나 훑게 된다.
-   */
   .td.tnum, .td .tnum { color: var(--color-ink); font-variant-numeric: tabular-nums; }
 
-  /* 표가 가로로 넘칠 때 오른쪽에 고정되는 칸. 배경이 없으면 글자가 겹쳐 보인다 */
-  .td.sticky, .th.sticky { background: var(--color-surface); }
-  .th.sticky { background: var(--color-surface); }
-  tbody tr { transition: background-color 120ms ease; }
-  tbody tr:hover .td { background: var(--color-surface-sub); }
-  tbody tr:hover .td.sticky { background: var(--color-surface-sub); }
+  .td.sticky, .th.sticky { background: var(--table-fill); }
+  tbody tr { transition: background-color var(--dur-fast) var(--ease); }
+  tbody tr:is([data-href], [role='link'], :has(a, button)):hover .td { background: var(--color-surface-sub); }
 
-  /*
-   * 대화상자 (2026-09-11).
-   *
-   * 카드와 같은 얕은 가장자리로 떠 있어, 뒤가 흐려진 것 말고는 위에 있다는
-   * 신호가 없었다. 대화상자는 **상태**다 - 지금 이것부터 끝내라는 자리이므로
-   * 깊이를 준다. 쉬는 면에 그림자를 얹지 않는 규칙과 어긋나지 않는다.
-   */
-  .dialog-panel {
-    background: var(--color-surface);
-    border: 1px solid var(--color-card-edge);
-    border-radius: var(--r-xl);
-    box-shadow: var(--sh-3);
-  }
+  /* -------------------------------------------------------------------------
+     상태 조각 (Q-Design 태그)
 
-  /*
-   * 상태 조각.
-   *
-   * 안쪽 여백을 조금 넓히고 모서리를 둥글린다 (2026-09-11). 글자에 바탕색만
-   * 입힌 것처럼 보이던 것이 조각으로 읽힌다. 색은 그대로다 - 뜻을 지고 있다.
-   */
+     면은 그 상태 색을 옅게, 테두리는 글자색을 35% 섞는다. 색만으로 말하지 않는다 -
+     조각에는 늘 글자가 있다.
+  ------------------------------------------------------------------------- */
   .chip {
     display: inline-flex;
     align-items: center;
     gap: 0.25rem;
-    padding: 0.1875rem 0.5625rem;
-    border-radius: 0.5rem;
-    font-size: 0.6875rem;
-    line-height: 1.125rem;
-    font-weight: 700;
-    letter-spacing: -0.005em;
+    padding: 0.125rem 0.5rem;
+    border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+    border-radius: var(--r-md);
+    font-size: 0.75rem;
+    line-height: 1.4;
+    font-weight: 500;
     white-space: nowrap;
   }
 
+  /* -------------------------------------------------------------------------
+     거르개 · 하위 차림표 - 탭 (Q-Design 7장)
 
-  /* ---------------------------------------------------------------------------
-     실무자 모드 (현장 패드 · 장갑)
-
-     .touch 아래에서는 모든 조작 대상이 커진다. 키보드 입력을 전제하지 않는다.
-     숫자와 선택은 패드로, 자유 입력은 미리 정한 문구에서 고른다.
-  --------------------------------------------------------------------------- */
-  /*
-   * 현장 모드는 바탕을 보라로 깔고 만질 것과 읽을 것만 밝게 띄운다.
-   *
-   * 두 조작 모드가 로그인 이후로 갈리는데, 화면이 비슷하게 생기면 관리 화면인 줄
-   * 알고 현장 기록을 만지거나 그 반대가 된다. 색을 통째로 뒤집어 두면 한눈에
-   * 안다. 흰 카드가 보라 위에 떠 있으므로 눌러야 할 것이 저절로 먼저 보인다.
-   *
-   * 카드 안쪽은 관리 화면과 같은 값을 그대로 쓴다. 글자 대비를 다시 맞출 필요가
-   * 없고, 같은 조각이 두 모드에서 다르게 보이지도 않는다.
-   */
-  /*
-   * 현장 바탕에 광원 하나 (2026-09-11).
-   *
-   * 평평한 남보라 한 판이라 카드가 그 위에 오려 붙인 것처럼 보였다. 위에서
-   * 빛이 드는 것처럼 아주 넓은 원형 밝기를 얹는다.
-   *
-   * **띠형 기울기가 아니라 원형이다.** 넓은 면에 띠를 깔면 계단이 진다는
-   * 원래 걱정이 여기 닿지 않는다 - 원형은 경계가 없고, 밝아지는 폭도
-   * 브랜드 색을 흐릴 만큼이 아니다(강조색에서 나온 두 값 사이다).
-   */
-  .touch {
-    --tap: var(--tap-touch);
-    font-size: 1.0625rem;
-
-    --color-canvas:      #2C2352;
-    --color-canvas-deep: #221A44;
-    --color-surface-sub: #F5F2FA;
-
-    background:
-      radial-gradient(120% 55% at 50% -10%,
-        var(--color-indigo-soft) 0%, transparent 62%),
-      var(--color-canvas);
-    background-attachment: fixed;
-  }
-
-  /*
-   * 바탕 글자색을 .touch 에 통째로 걸지 않는다. 내용의 대부분은 흰 카드 안에
-   * 있으므로 전역으로 밝게 두면 흰 바탕에 흰 글자가 된다. 바탕 위에 바로 놓이는
-   * 글자는 화면에서 하나씩 밝은 색을 지정한다. 그런 자리는 제목과 꼬리글 정도다.
-   */
-
-  /* 바탕이 어두우니 카드 테두리는 없애고 그림자로만 띄운다 */
-  .touch .card, .touch .card-raised {
-    border-color: transparent;
-    box-shadow: 0 1px 2px rgb(12 8 28 / .28), 0 10px 28px -12px rgb(12 8 28 / .5);
-  }
-  .touch .tile { box-shadow: 0 1px 2px rgb(12 8 28 / .22); }
-  .touch .padkey { box-shadow: 0 1px 2px rgb(12 8 28 / .22); }
-  .touch .label { font-size: 0.875rem; margin-bottom: 0.5rem; }
-  .touch .input { font-size: 1.0625rem; padding: 0 1rem; border-radius: var(--r-md); }
-  .touch .btn, .touch .btn-primary, .touch .btn-ghost,
-  .touch .btn-danger, .touch .btn-quiet {
-    font-size: 1rem; padding: 0 1.5rem; border-radius: var(--r-md);
-  }
-  .touch .td { padding: 0.875rem 1rem; font-size: 1rem; }
-  .touch .th { padding: 0.75rem 1rem; font-size: 0.75rem; }
-  .touch .chip { font-size: 0.8125rem; padding: 0.1875rem 0.5625rem; border-radius: var(--r-sm); }
-  .touch .card, .touch .card-raised { border-radius: var(--r-xl); }
-  .touch .section-head { padding: 1rem 1.25rem; }
-
-  /* ---------------------------------------------------------------------------
-     고르개 줄 (하위 차림표 · 거르개)
-
-     두 곳이 같은 모양을 각자 그리고 있었다. 한 자리에 모은다 - 복제는 갈라진다.
-
-     ── 트랙을 눌러 둔다 (2026-09-11) ─────────────────────────────────────────
-     바탕이 surface-sub(#FAFAF9)라 흰 화면 위에서 거의 보이지 않았다. 고르개가
-     보이지 않으면 지금 무엇으로 걸러 보고 있는지도 보이지 않는다. 트랙을 한
-     단계 누르고(canvas-deep) 고른 칸만 흰 면으로 띄운다 - 눌린 홈에 조각
-     하나가 올라앉은 모양이라 어느 것이 켜져 있는지가 형태로 읽힌다.
-
-     고른 칸의 그림자는 장식이 아니라 **상태**다. 쉬는 카드에 깊이를 주지
-     않는 규칙과 어긋나지 않는다.
-  --------------------------------------------------------------------------- */
+     알약도 상자도 아니다. 밑줄 하나로 지금 자리를 말한다.
+  ------------------------------------------------------------------------- */
   .segment {
-    display: inline-flex;
+    display: flex;
     flex-wrap: wrap;
-    align-items: center;
-    gap: 0.1875rem;
-    padding: 0.25rem;
-    border: 1px solid var(--color-line);
-    /* 안의 칸(8px)보다 여백만큼 더 둥글게. 안팎 곡선이 나란히 간다 */
-    border-radius: calc(var(--r-sm) + 0.25rem);
-    background: var(--color-canvas-deep);
+    align-items: stretch;
+    gap: 0 0.25rem;
+    border-bottom: 1px solid var(--color-line);
   }
   .segment-item {
-    border-radius: var(--r-sm);
-    padding: 0.375rem 0.75rem;
-    font-size: 0.8125rem;
-    font-weight: 600;
-    letter-spacing: -0.005em;
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    padding: 0 1rem;
+    margin-bottom: -1px;
+    border-bottom: 2px solid transparent;
+    font-size: 0.875rem;
+    font-weight: 400;
     color: var(--color-muted);
-    transition: background-color 140ms var(--ease), color 140ms var(--ease),
-                box-shadow 140ms var(--ease);
+    transition: color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
   }
   .segment-item:hover { color: var(--color-ink); }
   .segment-item[data-on="true"] {
-    background: var(--color-surface);
-    color: var(--color-brand);
-    box-shadow: var(--sh-1);
+    color: var(--color-ink);
+    font-weight: 600;
+    border-bottom-color: var(--color-brand);
   }
 
+  /* -------------------------------------------------------------------------
+     숫자 띠 (Q-Design KPI · 장부형)
+
+     칸마다 위 괘선 하나. 숫자는 크게, 이름과 단위는 작게.
+  ------------------------------------------------------------------------- */
+  .kpi {
+    position: relative;
+    display: block;
+    padding: 0.875rem 0 1rem;
+    border-top: 1px solid var(--color-line-strong);
+  }
+  a.kpi { transition: background-color var(--dur-fast) var(--ease); }
+  a.kpi:hover { background: var(--color-surface-sub); }
+
+  /* -------------------------------------------------------------------------
+     현장 (패드 · 장갑)
+
+     조작 높이 56. 바탕은 사무와 같은 밝은 면이고, 만질 판은 흰 상자로 띄운다 -
+     장갑 낀 손이 겨냥할 자리가 형태로 보여야 한다 (Q-Carnet 현장).
+  ------------------------------------------------------------------------- */
+  .touch {
+    --tap: var(--tap-touch);
+    --table-fill: var(--color-surface);
+    font-size: 1rem;
+    background: var(--color-canvas);
+  }
+  .touch .card, .touch .card-raised {
+    background: var(--color-surface);
+    border: 1px solid var(--color-line);
+    border-radius: var(--r-md);
+  }
+  .touch .label { font-size: 0.875rem; margin-bottom: 0.5rem; }
+  .touch .input { font-size: 1.125rem; padding: 0 1rem; }
+  .touch .btn, .touch .btn-primary, .touch .btn-ghost,
+  .touch .btn-danger, .touch .btn-quiet { font-size: 1rem; padding: 0 1.5rem; }
+  .touch .td { padding: 0.875rem 1rem; font-size: 1rem; }
+  .touch .th { padding: 0.75rem 1rem; font-size: 0.75rem; }
+  .touch .chip { font-size: 0.875rem; padding: 0.1875rem 0.5625rem; }
+  .touch .section-head { padding: 1rem 1.25rem; }
+  .touch .section-head::after { left: 1.25rem; }
+  .touch tbody .btn-row { height: var(--tap-touch); }
+
   /* 큰 선택 타일. 현장에서 손가락으로 고르는 모든 것 */
-  /*
-   * 고르는 타일 (2026-09-11).
-   *
-   * 화면 전체가 "면은 솟고 입력칸은 들어간다" 로 서 있는데, 타일만 테두리
-   * 두른 네모였다. 타일은 **누르는 것**이므로 솟아야 한다 - 카드와 같은
-   * 빛과 얕은 깊이를 준다.
-   *
-   * 모서리도 한 칸 넓힌다. 장갑 낀 손이 겨냥하는 물건이라 각이 날카로울
-   * 이유가 없다.
-   */
   .tile {
     display: flex;
     flex-direction: column;
@@ -1114,46 +692,21 @@ input, textarea, [contenteditable] { caret-color: var(--color-brand); }
     gap: 0.1875rem;
     min-height: var(--tap-touch);
     padding: 0.875rem 1rem;
-    border: 1px solid var(--color-line);
-    border-radius: var(--r-lg);
-    background: linear-gradient(180deg,
-      var(--color-surface) 0%, var(--color-card-floor) 100%);
-    box-shadow: var(--sh-rest);
+    border: 1px solid var(--color-line-strong);
+    border-radius: var(--r-md);
+    background: var(--color-surface);
     text-align: left;
     cursor: pointer;
-    transition: border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
+    transition: border-color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
     -webkit-tap-highlight-color: transparent;
   }
-  .tile:hover { border-color: var(--color-brand-line); box-shadow: var(--sh-2); }
-  /*
-   * 눌린 타일 (2026-09-11).
-   *
-   * canvas-deep 을 쓰고 있었다. 사무 화면에서는 연회색이지만 **현장에서는
-   * 어두운 보라(#221A44)** 다 (.touch 가 갈아 끼운다). 흰 타일이 누르는
-   * 동안 남보라로 덮이고 그 위 검은 글자가 안 읽혔다 - 장갑 낀 손이 가장
-   * 많이 누르는 자리에서.
-   *
-   * 숫자 패드 키와 같은 값을 쓴다. 두 모드 모두에서 밝고, 누른 자리가
-   * 브랜드 색으로 물들어 "지금 이걸 눌렀다" 가 형태로 남는다.
-   */
-  .tile:active {
-    background: var(--color-brand-soft);
-    border-color: var(--color-brand-line);
-    box-shadow: inset 0 2px 5px rgb(26 26 31 / .14);
-    transform: translateY(1px);
-  }
-  /*
-   * 고른 타일.
-   *
-   * 테두리 두 겹(테두리 + 안쪽 테)은 그대로 둔다 - 장갑 낀 손과 밝은 조명
-   * 에서 굵기가 필요하다. 거기에 깊이를 더해, 고른 것이 **한 칸 더 솟아**
-   * 나머지와 갈린다.
-   */
+  .tile:hover { background: var(--color-surface-sub); border-color: var(--color-faint); }
+  .tile:active { background: var(--color-brand-soft); border-color: var(--color-brand-line); transform: translateY(1px); }
   .tile[aria-pressed="true"], .tile[data-on="true"] {
     border-color: var(--color-brand);
-    background: linear-gradient(180deg,
-      var(--color-surface) 0%, var(--color-brand-soft) 100%);
-    box-shadow: inset 0 0 0 1px var(--color-brand), var(--sh-2);
+    background: var(--color-brand-soft);
+    box-shadow: inset 0 0 0 1px var(--color-brand);
+    font-weight: 600;
   }
   .tile:disabled { opacity: 0.4; cursor: not-allowed; }
 
@@ -1162,45 +715,35 @@ input, textarea, [contenteditable] { caret-color: var(--color-brand); }
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 3.5rem;
-    border: 1px solid var(--color-line-strong);
+    height: var(--tap-touch);
+    border: 1px solid var(--color-ctl);
     border-radius: var(--r-md);
     background: var(--color-surface);
     color: var(--color-ink);
-    font-size: 1.375rem;
+    font-size: 1.25rem;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
     cursor: pointer;
-    box-shadow: inset 0 1px 0 rgb(255 255 255 / .9), var(--sh-rest);
     -webkit-tap-highlight-color: transparent;
     -webkit-user-select: none;
     user-select: none;
-    transition: background-color 90ms ease, box-shadow 90ms ease, transform 90ms ease;
+    transition: background-color 90ms ease, transform 90ms ease;
   }
   .padkey:hover { background: var(--color-surface-sub); }
-  /*
-   * 눌린 키 (2026-09-11).
-   *
-   * 전에는 그림자만 껐다. 이제 **안으로 눌린다** - 솟아 있던 것이 들어가는
-   * 것이라, 손이 닿았다가 아니라 눌렸다가 형태로 보인다. 장갑 낀 손은
-   * 손끝의 감각이 줄어드는 만큼 눈이 대신 확인한다.
-   */
   .padkey:active {
     background: var(--color-brand-soft);
     border-color: var(--color-brand-line);
-    box-shadow: inset 0 2px 5px rgb(26 26 31 / .16);
     transform: translateY(1px);
   }
   .padkey-alt {
-    font-size: 0.9375rem;
+    font-size: 1rem;
     font-weight: 600;
     color: var(--color-muted);
     background: var(--color-surface-sub);
-    box-shadow: none;
   }
   .padkey-alt:hover { background: var(--color-canvas-deep); }
-
 }
+
 
 /* ---------------------------------------------------------------------------
    계정 워터마크
@@ -1325,23 +868,17 @@ input, textarea, [contenteditable] { caret-color: var(--color-brand); }
 
 
 
+
+/* 입력칸은 테두리와 테로 초점을 말한다. 윤곽까지 그으면 두 겹이 된다 */
+@layer components {
+  .input:focus-visible { outline: none; }
+}
+
 /* ---------------------------------------------------------------------------
    따라다니는 뒤로가기
 
-   홈 화면에서 전체 화면으로 띄우면 브라우저 뒤로가기가 없다. 그 자리를
-   화면 안에서 메운다. 오른쪽 아래에 두되 작게 둔다 - 이 단추가 화면의
-   주인공이 되면 안 된다.
-
-   바닥에서 넉넉히 띄운다. 표의 마지막 줄과 꼬리말을 가리지 않아야 하고,
-   홈 인디케이터가 있는 기기에서는 그만큼 더 올린다.
-
-   글자를 접었다 펼치지 않는다. 전에는 가리키면 "뒤로" 가 펼쳐졌는데, 그건
-   max-width 를 애니메이션하는 것이라 매 프레임 배치를 다시 잡는다. 그리고
-   손가락으로 쓰는 화면에는 가리키는 동작이 없어 그 이름표가 영영 뜨지 않았다 -
-   한 단추에 두 가지 모습을 만들어 둔 셈이다.
-
-   어디서나 동그라미 하나로 둔다. 이름은 aria-label 과 title 이 갖고 있어
-   읽어 주는 도구와 마우스 툴팁에 그대로 나온다. 현장 화면에서는 크기만 키운다.
+   홈 화면에서 전체 화면으로 띄우면 브라우저 뒤로가기가 없다. 그 자리를 화면
+   안에서 메운다. 동그라미 하나, 떠 있는 층이라 그림자를 진다 (Q-Design 아이콘 단추).
 --------------------------------------------------------------------------- */
 .back-fab {
   position: fixed;
@@ -1352,44 +889,33 @@ input, textarea, [contenteditable] { caret-color: var(--color-brand); }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0;
-
   height: 2.75rem;
+  min-width: 2.75rem;
   padding: 0 0.75rem;
   border-radius: 999px;
 
   background: var(--color-surface);
   color: var(--color-ink);
-  border: 1px solid var(--color-line-strong);
+  border: 1px solid var(--color-ctl);
   box-shadow: var(--sh-2);
 
-  font-size: 0.8125rem;
-  font-weight: 700;
+  font-size: 0.875rem;
+  font-weight: 500;
   cursor: pointer;
-  transition: box-shadow .18s var(--ease),
-              border-color .18s var(--ease), background .18s var(--ease);
+  transition: border-color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
 }
-.back-fab:hover {
-  background: var(--color-surface);
-  border-color: var(--color-brand-line);
-  box-shadow: var(--sh-3);
-}
-.back-fab:active { box-shadow: var(--sh-1); }
-.back-fab:focus-visible { outline: none; box-shadow: var(--ring), var(--sh-2); }
+.back-fab:hover { border-color: var(--color-muted); background: var(--color-surface-sub); }
+.back-fab:active { transform: translateY(1px); }
 
-/*
- * 현장. 장갑 낀 손가락이라 56px 아래로 내리지 않는다. 어두운 바탕 위에
- * 서므로 밝은 면으로 두어 눈에 띄게 한다. 가리킴이 없으니 글자는 접어 둔다.
- */
 .touch .back-fab {
   height: var(--tap-touch);
   min-width: var(--tap-touch);
   right: 1.5rem;
   bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
-  border-color: transparent;
   box-shadow: var(--sh-3);
 }
 .touch .back-fab svg { width: 1.625rem; height: 1.625rem; }
+
 
 @media print {
   @page { size: A4 portrait; margin: 14mm 12mm 16mm 12mm; }
@@ -1446,17 +972,18 @@ input, textarea, [contenteditable] { caret-color: var(--color-brand); }
   .print-table + p { break-before: avoid; page-break-before: avoid; }
 }
 
-/* ---------------------------------------------------------------------------
-   움직임
 
-   기록을 쓰는 화면이라 화려한 전환을 두지 않는다. 새로 나타나는 판만
-   짧게 올라오게 해 어디가 바뀌었는지 눈이 따라가게 한다.
+/* ---------------------------------------------------------------------------
+   움직임 (Q-Design 원칙 3)
+
+   떠오름 하나뿐이다. translateY 와 투명도만, 이징은 ease-out expo.
+   회전 · 크기 바꾸기는 쓰지 않는다.
 --------------------------------------------------------------------------- */
 @keyframes rise {
-  from { opacity: 0; transform: translateY(4px); }
+  from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: none; }
 }
-.rise { animation: rise 180ms ease-out both; }
+.rise { animation: rise var(--dur) var(--ease) both; }
 
 /* 입력 커서. 지금 어느 칸에 숫자가 들어가는지를 막대 하나로 말한다 */
 @keyframes blink {
@@ -1467,6 +994,7 @@ input, textarea, [contenteditable] { caret-color: var(--color-brand); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
 }

@@ -32,14 +32,21 @@ export default function Nav({ items }: { items: NavItem[] }) {
             key={it.href}
             href={it.href}
             aria-current={active ? 'page' : undefined}
-            className={`relative flex shrink-0 items-center px-2.5 text-sm font-bold transition-colors ${
-              active ? 'text-ink' : 'text-muted hover:text-ink'
+            className={`relative flex shrink-0 items-center px-3 text-sm transition-colors ${
+              active ? 'font-semibold text-ink' : 'font-normal text-muted hover:text-ink'
             }`}
           >
-            {it.label}
-            {active && (
-              <span aria-hidden className="absolute inset-x-2.5 bottom-0 h-[2px] bg-brand" />
-            )}
+            {/*
+              * 지금 자리는 굵기와 글자 밑 짧은 강조선 하나 (Q-Design 차림표 · 16×1.5px).
+              * 띠 아래 2px 강조선이 이미 있으므로 칸 전체 밑줄은 그 선에 묻힌다.
+              */}
+            <span className="relative">
+              {it.label}
+              {active && (
+                <span aria-hidden
+                      className="absolute left-1/2 top-full mt-[5px] h-[1.5px] w-4 -translate-x-1/2 rounded-full bg-brand" />
+              )}
+            </span>
           </Link>
         );
       })}

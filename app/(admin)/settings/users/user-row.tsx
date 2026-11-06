@@ -164,7 +164,7 @@ function RolePanel({ u, isMe, sysAdmin }: {
             <form key={r} action={revokeAction} className="flex items-center gap-2">
               <input type="hidden" name="id" value={u.id} />
               <input type="hidden" name="role" value={r} />
-              <span className="flex-1 text-base text-ink">{ROLE_LABEL[r]}</span>
+              <span className="flex-1 text-sm text-ink">{ROLE_LABEL[r]}</span>
               <button
                 type="submit"
                 disabled={revoking || (r === 'SYS_ADMIN' && (isMe || !sysAdmin))}
@@ -275,7 +275,7 @@ function FlagPanel({ u, isMe, sysAdmin }: { u: UserRow; isMe: boolean; sysAdmin:
         <form action={activeAction} className="flex items-center gap-2">
           <input type="hidden" name="id" value={u.id} />
           <input type="hidden" name="next" value={String(!u.is_active)} />
-          <span className="flex-1 text-base text-ink">
+          <span className="flex-1 text-sm text-ink">
             {u.is_active ? '활성 상태' : '비활성 상태'}
           </span>
           <button
@@ -299,7 +299,7 @@ function FlagPanel({ u, isMe, sysAdmin }: { u: UserRow; isMe: boolean; sysAdmin:
         <form action={devAction} className="flex items-center gap-2">
           <input type="hidden" name="id" value={u.id} />
           <input type="hidden" name="next" value="true" />
-          <span className="flex-1 text-base text-ink">
+          <span className="flex-1 text-sm text-ink">
             {u.is_developer ? '개발 계정' : '일반 계정'}
           </span>
           {u.is_developer ? (
@@ -323,7 +323,7 @@ function FlagPanel({ u, isMe, sysAdmin }: { u: UserRow; isMe: boolean; sysAdmin:
           className="flex items-center gap-2"
         >
           <input type="hidden" name="id" value={u.id} />
-          <span className="flex-1 text-base text-ink">남긴 기록 없음</span>
+          <span className="flex-1 text-sm text-ink">남긴 기록 없음</span>
           <button type="submit" disabled={a3} className="btn-danger btn-row">
             삭제
           </button>

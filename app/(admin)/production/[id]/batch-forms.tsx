@@ -213,7 +213,7 @@ export function CancelForm({ id }: { id: string }) {
   return (
     <form action={action} className="w-full rounded-md border border-danger/30 bg-danger-bg p-3">
       <input type="hidden" name="id" value={id} />
-      <p className="text-base font-semibold text-ink">작업 지시를 취소합니다</p>
+      <p className="text-sm font-semibold text-ink">작업 지시를 취소합니다</p>
       <Caution>
         지시서번호와 배치번호는 소멸하며 재사용하지 않습니다. 번호가 비는 것이 정상이고,
         취소 기록이 그 설명이 됩니다.
@@ -463,7 +463,7 @@ export function NonconformityForm({ lot, woId, today, ops }: {
                 <button key={o.code} type="button" onClick={() => setOutcome(o.code)}
                         data-on={outcome === o.code}
                         className="tile items-center py-2.5 text-center">
-                  <span className="text-base font-bold">{o.label}</span>
+                  <span className="text-sm font-bold">{o.label}</span>
                   <span className="text-xs text-muted">{o.note}</span>
                 </button>
               ))}
@@ -601,7 +601,7 @@ export function WipNonconformityForm({ woId, today, ops, sheets }: {
                 <button key={o.code} type="button" onClick={() => setOutcome(o.code)}
                         data-on={outcome === o.code}
                         className="tile items-center py-2.5 text-center">
-                  <span className="text-base font-bold">{o.label}</span>
+                  <span className="text-sm font-bold">{o.label}</span>
                   <span className="text-xs text-muted">{o.note}</span>
                 </button>
               ))}

@@ -105,7 +105,7 @@ export default async function ReleasePage() {
                   <tr key={l.id}>
                     <td className="td font-mono text-xs font-semibold">{l.lot_no}</td>
                     <td className="td">
-                      <div className="text-base">{l.item_name}</div>
+                      <div className="text-sm">{l.item_name}</div>
                       <div className="font-mono text-xs text-faint">{l.item_code}</div>
                     </td>
                     <td className="td font-mono text-xs text-muted">{l.batch_no}</td>
@@ -152,11 +152,11 @@ export default async function ReleasePage() {
                 {approved.map((l) => (
                   <tr key={l.id}>
                     <td className="td font-mono text-xs font-semibold">{l.lot_no}</td>
-                    <td className="td text-base">{l.item_name}</td>
+                    <td className="td text-sm">{l.item_name}</td>
                     <td className="td tnum text-right font-semibold">{l.qty_available}</td>
                     <td className="td tnum text-right text-muted">{l.shipped || ''}</td>
                     <td className="td tnum text-xs">{fmtDate(l.expiry_date)}</td>
-                    <td className="td text-base">{l.release_approved_by}</td>
+                    <td className="td text-sm">{l.release_approved_by}</td>
                     <td className="td tnum text-xs text-muted">
                       {fmtDate(l.release_approved_on)}
                     </td>

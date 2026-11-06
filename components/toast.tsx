@@ -89,7 +89,7 @@ export default function Toasts({ states }: { states: (FormState | undefined)[] }
           key={n.id}
           role={n.tone === 'danger' ? 'alert' : 'status'}
           className={`rise pointer-events-auto flex items-start gap-2 rounded-md border px-3 py-2.5
-            text-base leading-relaxed shadow-[var(--sh-3)] ${
+            text-sm leading-relaxed shadow-[var(--sh-3)] ${
             n.tone === 'danger'
               ? 'border-danger-line bg-danger-bg text-danger'
               : 'border-ok/20 bg-ok-bg text-ink'}`}

@@ -52,7 +52,7 @@ function krCount(n: number): string {
 const TONE: Record<Access, string> = {
   open:    'bg-ok-bg text-ok',
   blocked: 'bg-danger-bg text-danger',
-  away:    'bg-line-soft text-faint',
+  away:    'bg-canvas-deep text-muted',
 };
 
 /* 글자에 기대지 않는다. 색을 못 가리는 눈에도 모양이 다르게 보여야 한다 */
@@ -61,7 +61,7 @@ function Mark({ a }: { a: Access }) {
     <span
       title={`${ACCESS_LABEL[a]} · ${ACCESS_NOTE[a]}`}
       className={`inline-flex h-6 w-6 items-center justify-center rounded-md
-                  text-2xs font-bold ${TONE[a]}`}
+                  text-xs font-bold ${TONE[a]}`}
     >
       <span className="sr-only">{ACCESS_LABEL[a]}</span>
       <span aria-hidden>{a === 'open' ? '●' : a === 'blocked' ? '✕' : '–'}</span>
@@ -152,7 +152,7 @@ export default async function AccessPage({ searchParams }: {
                       className={`th text-center whitespace-nowrap
                                   ${i === 0 ? 'border-l border-line-soft' : ''}`}>
                     {ROLE_LABEL[r]}
-                    <span className="mt-0.5 block text-2xs font-normal text-faint">
+                    <span className="mt-0.5 block text-xs font-normal text-faint">
                       {byRole.get(r) ?? 0}명
                     </span>
                   </th>
@@ -164,7 +164,7 @@ export default async function AccessPage({ searchParams }: {
                 <tr>
                   <td colSpan={1 + ACCESS_ROLES.length}
                       className="border-y border-line bg-canvas px-4 py-1.5
-                                 text-2xs font-bold tracking-wide text-faint">
+                                 text-xs font-bold tracking-wide text-faint">
                     {g.group}
                   </td>
                 </tr>
@@ -172,7 +172,7 @@ export default async function AccessPage({ searchParams }: {
                   <tr key={row.path} className="hover:bg-canvas">
                     <td className="td">
                       <span className="font-semibold text-ink">{row.label}</span>
-                      <code className="ml-2 text-2xs text-faint">{row.path}</code>
+                      <code className="ml-2 text-xs text-faint">{row.path}</code>
                     </td>
                     {ACCESS_ROLES.map((r, i) => (
                       <td key={r}
@@ -191,7 +191,7 @@ export default async function AccessPage({ searchParams }: {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel title="표 읽는 법">
-          <dl className="space-y-3 p-4 text-base">
+          <dl className="space-y-3 p-4 text-sm">
             {(['open', 'blocked', 'away'] as Access[]).map((a) => (
               <div key={a} className="flex items-start gap-3">
                 <Mark a={a} />
@@ -207,7 +207,7 @@ export default async function AccessPage({ searchParams }: {
         </Panel>
 
         <Panel title="역할이 하는 일">
-          <dl className="space-y-3 p-4 text-base">
+          <dl className="space-y-3 p-4 text-sm">
             {ACCESS_ROLES.map((r) => (
               <div key={r} className="flex items-start gap-3">
                 <dt className="w-20 shrink-0 font-semibold text-ink">{ROLE_LABEL[r]}</dt>
@@ -244,11 +244,11 @@ export default async function AccessPage({ searchParams }: {
                       href={on ? '/settings/access' : `/settings/access?u=${p.id}`}
                       className={`chip ${on ? 'bg-brand text-white' : 'bg-surface-sub text-ink'}`}>
                   {p.full_name}
-                  <span className={`ml-1.5 font-mono text-2xs ${on ? 'text-white/70' : 'text-faint'}`}>
+                  <span className={`ml-1.5 font-mono text-xs ${on ? 'text-white/70' : 'text-faint'}`}>
                     {p.login_code}
                   </span>
                   {p.touched > 0 && (
-                    <span className={`ml-1.5 text-2xs ${on ? 'text-white/70' : 'text-warn'}`}>
+                    <span className={`ml-1.5 text-xs ${on ? 'text-white/70' : 'text-warn'}`}>
                       {p.touched}칸
                     </span>
                   )}
@@ -278,7 +278,7 @@ export default async function AccessPage({ searchParams }: {
                     <tr>
                       <td colSpan={3}
                           className="border-y border-line bg-canvas px-4 py-1.5
-                                     text-2xs font-bold tracking-wide text-faint">
+                                     text-xs font-bold tracking-wide text-faint">
                         {g.group}
                       </td>
                     </tr>
@@ -289,7 +289,7 @@ export default async function AccessPage({ searchParams }: {
                         <tr key={row.path}>
                           <td className="td">
                             <span className="text-ink">{row.label}</span>
-                            <span className="ml-1.5 font-mono text-2xs text-faint">
+                            <span className="ml-1.5 font-mono text-xs text-faint">
                               {row.path}
                             </span>
                           </td>

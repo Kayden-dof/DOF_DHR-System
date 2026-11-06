@@ -362,7 +362,7 @@ export default async function Dashboard() {
             <div className="space-y-2">
               {setup.map((s, i) => (
                 <div key={i} className="flex flex-wrap items-center gap-3">
-                  <p className="text-base leading-relaxed text-ink">{s.text}</p>
+                  <p className="text-sm leading-relaxed text-ink">{s.text}</p>
                   <Link href={s.href} className="btn-ghost h-8">{s.label}</Link>
                 </div>
               ))}
@@ -451,13 +451,10 @@ export default async function Dashboard() {
             {/* 폭을 다 쓰므로 한 줄에 여럿 놓는다. 몇 건 안 되는 목록이 길게 늘어서지 않게 */}
             <ul className="-mb-px grid sm:grid-cols-2 lg:grid-cols-3">
               {d.expiring.map((e) => (
-                <li key={e.id} className="flex items-center gap-3 border-b border-line-soft px-5 py-3">
-                  <span aria-hidden className={`h-8 w-[3px] shrink-0 rounded-full ${
-                    e.days_left <= 0 ? 'bg-danger'
-                      : e.days_left <= warnDays ? 'bg-warn' : 'bg-line-strong'
-                  }`} />
+                <li key={e.id} className="flex items-center gap-3 border-b border-line-soft px-3 py-3">
+                  {/* 기한 상태는 오른쪽 글자가 말한다. 왼쪽 색 기둥은 걷었다 (Q-Design) */}
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-base text-ink">{e.item_name}</div>
+                    <div className="truncate text-sm text-ink">{e.item_name}</div>
                     <div className="font-mono text-xs text-faint">{e.lot_no}</div>
                   </div>
                   <div className="shrink-0 text-right">

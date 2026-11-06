@@ -40,7 +40,7 @@ export function NewItemForm({ materialOnly = false }: { materialOnly?: boolean }
       <button onClick={() => setOpen(true)} className="btn-primary">품목 등록</button>
       <Dialog open={open} onClose={() => setOpen(false)} wide title="품목 등록">
         <form action={action}>
-      <h3 className="mb-3 text-base font-bold text-ink">새 품목</h3>
+      <h3 className="mb-3 text-sm font-bold text-ink">새 품목</h3>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div>
@@ -287,7 +287,7 @@ export function ItemRowView({ it, suppliers }: {
                 </div>
               )}
 
-              <label className="flex items-center gap-2 self-end pb-2 text-base text-ink">
+              <label className="flex items-center gap-2 self-end pb-2 text-sm text-ink">
                 <input type="checkbox" name="is_active" defaultChecked={it.is_active}
                        className="size-4 accent-brand" />
                 사용
@@ -384,7 +384,7 @@ export function GenerateFinished({ schemes }: { schemes: SchemeOpt[] }) {
       <button onClick={() => setOpen(true)} className="btn-ghost">완제품 형명 생성</button>
       <Dialog open={open} onClose={() => setOpen(false)} wide title="완제품 형명 생성">
         <form action={action}>
-      <h3 className="text-base font-bold text-ink">완제품 형명 생성</h3>
+      <h3 className="text-sm font-bold text-ink">완제품 형명 생성</h3>
       <p className="mt-1 text-xs leading-relaxed text-muted">
         형명 규칙은 <b className="text-ink">형명 체계</b>가 정합니다. 크기와 구간을 입력하고
         미리보기를 누르면 만들어질 형명이 격자로 펼쳐집니다. 만들지 않을 칸은 체크를
@@ -395,7 +395,7 @@ export function GenerateFinished({ schemes }: { schemes: SchemeOpt[] }) {
       <div className="mt-3">
         <label className="label" htmlFor={`${uid}-scheme`}>형명 체계</label>
         {schemes.length === 0 ? (
-          <p className="rounded-md bg-warn-bg px-3 py-2.5 text-base text-ink">
+          <p className="rounded-md bg-warn-bg px-3 py-2.5 text-sm text-ink">
             활성 형명 체계가 없습니다. <b>설정 · 형명 체계</b>에서 먼저 등록하십시오.
           </p>
         ) : (
@@ -463,7 +463,7 @@ export function GenerateFinished({ schemes }: { schemes: SchemeOpt[] }) {
       </div>
 
       {previewErr && (
-        <p className="mt-3 rounded-md border border-danger/40 bg-danger-bg px-3 py-2 text-base text-ink">
+        <p className="mt-3 rounded-md border border-danger/40 bg-danger-bg px-3 py-2 text-sm text-ink">
           {previewErr}
         </p>
       )}
@@ -503,7 +503,7 @@ export function GenerateFinished({ schemes }: { schemes: SchemeOpt[] }) {
                                  title={`${r.item_code} · ${r.item_name}${r.spec ? ` · ${r.spec}` : ''}`}>
                             <input type="checkbox" checked={on} className="size-4 accent-brand"
                                    onChange={() => toggle(r.item_code)} />
-                            <span className={`font-mono text-2xs ${on ? 'text-ink' : 'text-faint line-through'}`}>
+                            <span className={`font-mono text-xs ${on ? 'text-ink' : 'text-faint line-through'}`}>
                               {r.item_code}
                             </span>
                             {r.already && <Tag tone="faint">있음</Tag>}

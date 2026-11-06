@@ -253,13 +253,13 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                 className="inline-flex h-8 items-center gap-1 text-sm font-semibold text-muted hover:text-ink">
             <span aria-hidden>‹</span> 생산으로
           </Link>
-          <h1 className="mt-1 flex flex-wrap items-center gap-3 text-2xl font-bold leading-[1.15] tracking-[-0.015em] text-ink">
+          <h1 className="mt-1 flex flex-wrap items-center gap-3 text-2xl font-semibold leading-[1.2] tracking-[-0.02em] text-ink">
             <span className="font-mono">{wo.batch_no}</span>
             <Tag tone={wo.status === 'CANCELLED' ? 'faint' : 'brand'}>
               {WO_STATUS_LABEL[wo.status] ?? wo.status}
             </Tag>
           </h1>
-          <p className="mt-2 text-base text-muted">
+          <p className="mt-2 text-sm text-muted">
             {wo.item_name} · {wo.item_code} · {wo.dmr_revision}
           </p>
         </div>
@@ -283,8 +283,8 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
 
       {wo.status === 'CANCELLED' && (
         <div className="card border-danger/30 bg-danger-bg p-4">
-          <p className="text-base font-semibold text-ink">이 작업 지시는 취소되었습니다.</p>
-          <p className="mt-1 text-base text-muted">사유: {wo.cancelled_reason}</p>
+          <p className="text-sm font-semibold text-ink">이 작업 지시는 취소되었습니다.</p>
+          <p className="mt-1 text-sm text-muted">사유: {wo.cancelled_reason}</p>
           <p className="mt-1 text-xs text-muted">
             지시서번호와 배치번호는 소멸했으며 재사용하지 않습니다.
           </p>
@@ -324,7 +324,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
             {d.review.map((r, i) => (
               <li key={i} className="flex items-start gap-3 px-4 py-3">
                 <Tag tone="warn">{r.kind}</Tag>
-                <span className="min-w-0 flex-1 text-base leading-relaxed text-ink">
+                <span className="min-w-0 flex-1 text-sm leading-relaxed text-ink">
                   {r.detail}
                 </span>
                 {r.day_no !== null && (
@@ -441,7 +441,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                   <tr key={l.id}>
                     <td className="td font-mono text-xs font-semibold">{l.lot_no}</td>
                     <td className="td">
-                      <div className="text-base">{l.item_name}</div>
+                      <div className="text-sm">{l.item_name}</div>
                       <div className="font-mono text-xs text-faint">{l.item_code}</div>
                     </td>
                     <td className="td tnum text-right">{l.qty_produced}</td>
@@ -597,7 +597,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                       {r.attempt > 1 && <span className="ml-1 text-warn">{r.attempt}회차</span>}
                     </td>
                     <td className="td">
-                      <div className="text-base">{r.operation_name}</div>
+                      <div className="text-sm">{r.operation_name}</div>
                       <div className="font-mono text-xs text-faint">{r.operation_code}</div>
                     </td>
                     <td className="td font-mono text-xs">{r.product_lot_no ?? ''}</td>
@@ -728,7 +728,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
           <div className="min-w-0 space-y-1.5">
             {remaining.length > 0 ? (
               <>
-                <p className="text-base text-ink">
+                <p className="text-sm text-ink">
                   아직 남은 것이 있습니다: <b>{remaining.join(' · ')}</b>
                 </p>
                 <p className="text-xs leading-relaxed text-muted">
@@ -737,7 +737,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                 </p>
               </>
             ) : (
-              <p className="text-base leading-relaxed text-muted">
+              <p className="text-sm leading-relaxed text-muted">
                 기록서 <b className="tnum text-ink">{totalPages}</b>장 ·
                 제품 로트 <b className="tnum text-ink">{d.lots.length}</b>건.
                 표지를 출력하여 기록지 묶음 상단에 편철하고 매수를 대조하십시오.

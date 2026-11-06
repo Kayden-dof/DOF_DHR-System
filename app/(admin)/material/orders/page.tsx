@@ -101,7 +101,7 @@ export default async function OrdersPage() {
                 {d.alerts.map((a) => (
                   <tr key={a.id}>
                     <td className="td">
-                      <div className="text-base">{a.name}</div>
+                      <div className="text-sm">{a.name}</div>
                       <div className="font-mono text-xs text-faint">{a.code}</div>
                     </td>
                     <td className="td tnum text-right">{Number(a.on_hand)} {a.usage_uom}</td>
@@ -150,7 +150,7 @@ export default async function OrdersPage() {
                     <tr key={o.id}>
                       <td className="td font-mono text-xs font-semibold">{o.po_no}</td>
                       <td className="td">
-                        <div className="text-base">{o.item_name}</div>
+                        <div className="text-sm">{o.item_name}</div>
                         <div className="font-mono text-xs text-faint">{o.item_code}</div>
                       </td>
                       <td className="td text-xs">{o.supplier_name}</td>

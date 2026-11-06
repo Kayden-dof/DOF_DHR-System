@@ -58,7 +58,7 @@ export function SetupSteps({ steps, title = '첫 설정 차례' }: {
             <span className="tnum w-4 shrink-0 text-xs font-semibold text-faint">{i + 1}</span>
 
             <Link href={s.href}
-                  className="w-32 shrink-0 text-base font-semibold text-ink hover:text-brand">
+                  className="w-32 shrink-0 text-sm font-semibold text-ink hover:text-brand">
               {s.title}
             </Link>
 

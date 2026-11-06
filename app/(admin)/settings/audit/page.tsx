@@ -139,7 +139,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Search
         <form className="flex items-center gap-2">
           {action && <input type="hidden" name="action" value={action} />}
           {actor && <input type="hidden" name="actor" value={actor} />}
-          <label htmlFor="tbl" className="text-2xs font-bold tracking-wide text-muted">
+          <label htmlFor="tbl" className="text-xs font-bold tracking-wide text-muted">
             표
           </label>
           <select id="tbl" name="table" defaultValue={table ?? ''}
@@ -183,7 +183,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Search
       {/* 목록 --------------------------------------------------------------- */}
       <div className="card overflow-hidden">
         {data.entries.length === 0 ? (
-          <p className="px-4 py-8 text-center text-base text-faint">해당하는 기록이 없습니다.</p>
+          <p className="px-4 py-8 text-center text-sm text-faint">해당하는 기록이 없습니다.</p>
         ) : (
           <AuditTable entries={data.entries} />
         )}
@@ -225,7 +225,7 @@ function Filters({
     // 표 이름이 20종 넘는다. 한 줄에 밀어 넣으면 오른쪽이 잘려 안 보이는 거르개가
     // 생긴다. 줄바꿈해서 전부 보이게 둔다.
     <div className="flex flex-wrap items-center gap-1.5">
-      <span className="w-10 shrink-0 text-2xs font-bold tracking-wide text-muted">
+      <span className="w-10 shrink-0 text-xs font-bold tracking-wide text-muted">
         {label}
       </span>
       <Link

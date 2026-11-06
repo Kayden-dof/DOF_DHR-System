@@ -185,12 +185,12 @@ function LockScreen({
             {initial}
           </span>
           <h2 className="mt-4 text-xl font-bold text-white">{name} 님</h2>
-          <p className="mt-1.5 text-base text-on-dark-mute">
+          <p className="mt-1.5 text-sm text-on-dark-mute">
             자리를 비운 사이 화면을 잠갔습니다. 비밀번호를 누르면 하던 자리로 돌아갑니다.
           </p>
         </div>
 
-        <div className="card-raised mt-6 p-4">
+        <div className="box mt-6 p-4">
           <div className="flex h-[3.25rem] items-center justify-center rounded-md border border-line-strong bg-surface">
             <span className="text-2xl font-semibold tnum tracking-[0.3em] text-ink">
               {'•'.repeat(pin.current.length) || (
@@ -215,7 +215,7 @@ function LockScreen({
 
           {state.error && (
             <p role="alert"
-               className="rise mt-3 rounded-md border border-danger-line bg-danger-bg px-3.5 py-2.5 text-base leading-relaxed text-danger">
+               className="rise mt-3 rounded-md border border-danger-line bg-danger-bg px-3.5 py-2.5 text-sm leading-relaxed text-danger">
               {state.error}
             </p>
           )}

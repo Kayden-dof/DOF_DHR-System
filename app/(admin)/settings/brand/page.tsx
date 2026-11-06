@@ -59,7 +59,7 @@ export default async function BrandPage() {
     return (
       <PageShell section="설정" title="회사 표시" nav={<SubNav items={settingsNav(user.roles, user.screens)} />}>
         <Panel>
-          <p className="px-4 py-6 text-base text-muted">
+          <p className="px-4 py-6 text-sm text-muted">
             회사 표시 설정이 아직 없습니다. 이관을 올린 뒤 다시 열어 주십시오.
           </p>
         </Panel>

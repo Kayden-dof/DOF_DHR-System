@@ -80,8 +80,8 @@ export default function RestorePanel({ canRestore, left }: {
   if (done) {
     return (
       <section className="card border-ok/40 bg-ok-bg p-5">
-        <h3 className="text-base font-bold text-ink">되돌렸습니다</h3>
-        <p className="mt-2 text-base leading-relaxed text-ink">
+        <h3 className="text-sm font-bold text-ink">되돌렸습니다</h3>
+        <p className="mt-2 text-sm leading-relaxed text-ink">
           {done.rowsBefore.toLocaleString('ko-KR')}행이 있던 자리에{' '}
           {done.rowsAfter.toLocaleString('ko-KR')}행이 들어갔습니다.
           걸린 시간 {(done.ms / 1000).toFixed(1)}초.
@@ -157,7 +157,7 @@ export default function RestorePanel({ canRestore, left }: {
               </button>
             </div>
           </div>
-          {err && <p role="alert" className="mt-3 text-base text-danger">{err}</p>}
+          {err && <p role="alert" className="mt-3 text-sm text-danger">{err}</p>}
           {!err && !look && (
             <p className="mt-3 text-xs leading-relaxed text-faint">
               이 화면에서 내려받은 백업만 넣을 수 있습니다. 넣으면 지금 담긴 것과
@@ -181,7 +181,7 @@ export default function RestorePanel({ canRestore, left }: {
 
           {bad ? (
             <div className="border-b border-line-soft bg-danger-bg p-4">
-              <p className="text-base font-semibold text-danger">
+              <p className="text-sm font-semibold text-danger">
                 이 파일은 스스로와 맞지 않습니다. 되돌릴 수 없습니다.
               </p>
               <p className="mt-1 text-xs leading-relaxed text-body">
@@ -237,7 +237,7 @@ export default function RestorePanel({ canRestore, left }: {
 
           {!bad && (
             <div className="border-t border-line bg-danger-bg p-4">
-              <p className="text-base font-bold text-ink">
+              <p className="text-sm font-bold text-ink">
                 되돌리면 지금 있는 기록은 사라집니다. 되돌릴 수 없습니다.
               </p>
               <p className="mt-1 text-xs leading-relaxed text-body">
@@ -248,7 +248,7 @@ export default function RestorePanel({ canRestore, left }: {
 
               {!look.hasFresh ? (
                 <div className="mt-3 rounded-md border border-line bg-surface p-3">
-                  <p className="text-base font-semibold text-ink">
+                  <p className="text-sm font-semibold text-ink">
                     먼저 지금 상태를 백업하십시오.
                   </p>
                   <p className="mt-1 text-xs leading-relaxed text-muted">
@@ -327,8 +327,8 @@ export default function RestorePanel({ canRestore, left }: {
 function Field({ label, v, mono = false }: { label: string; v: string; mono?: boolean }) {
   return (
     <div>
-      <div className="text-2xs font-bold tracking-wide text-muted">{label}</div>
-      <div className={`mt-0.5 text-base text-ink ${mono ? 'font-mono text-xs' : 'tnum'}`}>{v}</div>
+      <div className="text-xs font-bold tracking-wide text-muted">{label}</div>
+      <div className={`mt-0.5 text-sm text-ink ${mono ? 'font-mono text-xs' : 'tnum'}`}>{v}</div>
     </div>
   );
 }

@@ -30,7 +30,7 @@ export default function AssignCell({ userId, path, state, roleOpen }: {
     <button type="submit" name="state" value={want} disabled={pending}
             title={title}
             aria-pressed={state === want}
-            className={`h-7 rounded-md px-2 text-2xs font-semibold transition-colors
+            className={`h-7 rounded-md px-2 text-xs font-semibold transition-colors
               ${state === want
                 ? want === 'open' ? 'bg-brand text-white'
                   : want === 'closed' ? 'bg-danger text-white'

@@ -105,8 +105,8 @@ export default async function TracePage({ searchParams }: { searchParams: Search
                   <Tag tone={h.kind === 'product' ? 'brand' : h.kind === 'material' ? 'info' : 'quiet'}>
                     {h.kind === 'product' ? '제조번호' : h.kind === 'material' ? '자재 로트' : '배치'}
                   </Tag>
-                  <span className="font-mono text-base font-semibold text-ink">{h.label}</span>
-                  <span className="text-base text-muted">{h.sub}</span>
+                  <span className="font-mono text-sm font-semibold text-ink">{h.label}</span>
+                  <span className="text-sm text-muted">{h.sub}</span>
                   <span className="ml-auto text-xs text-faint">계보 보기</span>
                 </Link>
               ))}

@@ -53,14 +53,14 @@ export function IdCell({
   id: React.ReactNode; sub?: React.ReactNode;
   tone?: 'warn' | 'danger' | 'ok' | 'brand' | 'info';
 }) {
-  const bar = tone && {
-    warn: 'bg-warn', danger: 'bg-danger', ok: 'bg-ok',
-    brand: 'bg-brand', info: 'bg-info',
-  }[tone];
+  /*
+   * tone 은 받되 그리지 않는다 (Q-Design · 2026-11-06). 줄 왼쪽의 색 기둥은 옆 띠라
+   * 걷었다. 그 줄의 상태는 같은 줄의 상태 조각이 글자로 말한다.
+   */
+  void tone;
 
   return (
-    <td className="td relative whitespace-nowrap pl-5">
-      {bar && <span aria-hidden className={`absolute inset-y-1.5 left-1.5 w-[3px] rounded-full ${bar}`} />}
+    <td className="td whitespace-nowrap">
       {/* --------------------------------------------------------------------
         * 번호가 이 제품의 명사다 (2026-09-11).
         *
@@ -73,7 +73,7 @@ export function IdCell({
         * B260810-01 과 B260811-01 을 가르는 것은 한 자리다. 자간이 그 일을
         * 돕는다. 인상과 실용이 같은 방향이다.
         * ------------------------------------------------------------------ */}
-      <div className="font-mono text-base font-bold tracking-[0.04em] text-ink">{id}</div>
+      <div className="font-mono text-sm font-semibold tracking-[0.04em] text-ink">{id}</div>
       {/*
         * 아랫줄은 고정폭으로 두지 않는다. 여기에 "1일차" 같은 한글이 들어가는
         * 자리가 있고(현황의 마감 대기), 고정폭 글꼴에 한글 글리프가 없어
@@ -90,7 +90,7 @@ export function TwoLine({
 }: { top: React.ReactNode; bottom?: React.ReactNode; nowrap?: boolean }) {
   return (
     <td className={`td ${nowrap ? 'whitespace-nowrap' : ''}`}>
-      <div className="text-base text-body">{top}</div>
+      <div className="text-sm text-body">{top}</div>
       {bottom && <div className="mt-0.5 font-mono text-xs text-faint">{bottom}</div>}
     </td>
   );
@@ -99,7 +99,7 @@ export function TwoLine({
 /** 맨 오른쪽 동작 칸. 표가 가로로 넘쳐도 붙어 있는다. */
 export function ActionTd({ children }: { children: React.ReactNode }) {
   return (
-    <td className="td sticky right-0 bg-surface text-right shadow-[-10px_0_10px_-10px_rgb(31_29_36/.14)]">
+    <td className="td sticky right-0 text-right">
       {/* 손이 얹히거나 초점이 오면 나온다. 자리는 늘 차지한다 (globals.css) */}
       <span className="row-action inline-flex items-center justify-end gap-1.5">
         {children}
@@ -109,7 +109,7 @@ export function ActionTd({ children }: { children: React.ReactNode }) {
 }
 
 export function ActionTh() {
-  return <th className="th sticky right-0 w-0 shadow-[-10px_0_10px_-10px_rgb(31_29_36/.14)]" />;
+  return <th className="th sticky right-0 w-0" />;
 }
 
 /*

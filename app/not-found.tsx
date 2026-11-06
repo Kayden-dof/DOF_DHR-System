@@ -12,12 +12,12 @@ export default async function NotFound() {
     <main className="flex min-h-screen flex-col items-center justify-center bg-canvas px-5 py-12">
       <div className="w-full max-w-md text-center">
         <span className="inline-flex justify-center">
-          <BrandMark className="h-6 w-auto text-[1.25rem]" />
+          <BrandMark className="h-6 w-auto text-xl" />
         </span>
         <h1 className="mt-7 text-xl font-bold text-ink">
           찾는 화면이나 기록이 없습니다
         </h1>
-        <p className="mt-2.5 text-base leading-relaxed text-muted">
+        <p className="mt-2.5 text-sm leading-relaxed text-muted">
           주소가 잘못되었거나, 취소된 지시서일 수 있습니다.
           번호는 재사용하지 않으므로 취소된 번호는 빈자리로 남습니다.
         </p>

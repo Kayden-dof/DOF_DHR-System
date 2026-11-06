@@ -164,31 +164,18 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const initial = user.full_name.slice(0, 1);
 
   /*
-   * 바탕에 아주 옅은 빛 (2026-09-11).
-   *
-   * 평평한 오프화이트 한 판 위에 흰 카드가 놓이니, 카드와 바탕의 차이가
-   * 1.14 뿐이라 면이 하나로 보였다. 위에서 빛이 드는 것처럼 넓게 밝혀
-   * 카드가 그 위에 놓인 것으로 읽히게 한다.
-   *
-   * 중립색이라 브랜드 색을 흐리지 않는다 - 원래 기울기를 막은 걱정은
-   * 브랜드를 지는 면에 대한 것이었다.
+   * 바탕은 평평한 한 판이다 (Q-Design · 2026-11-06). 업무 화면에 기울기를 깔지
+   * 않는다. 판은 상자가 아니라 괘선으로 가르므로 면이 떠 보일 필요가 없다.
    */
-  const lit = {
-    background:
-      'radial-gradient(110% 40% at 50% 0%, #FFFFFF 0%, transparent 70%), var(--color-canvas)',
-    backgroundAttachment: 'fixed' as const,
-  };
-
   return (
-    <div className="flex min-h-screen flex-col" style={lit}
->
+    <div className="flex min-h-screen flex-col bg-canvas">
       <div className="brand-rule" />
 
       {/*
         * 자리를 넉넉히 준다. 44px 에 다 밀어 넣으니 로고도 메뉴도 이름도 전부
         * 작아져서 무엇 하나 서지 못했다. 크기를 키우는 대신 높이를 준다.
         *
-        * 띠가 어두운 까닭은 globals.css 의 .topbar 에 적어 두었다.
+        * 띠는 회사 양식의 웜그레이 띠에 강조색 2px 선이다 (globals.css 의 .topbar).
         */}
       <DemoBanner seededAt={demo.seededAt ?? null}
                   canPurge={hasRole(user, 'SYS_ADMIN') && demo.gateOpen === true} />
@@ -212,9 +199,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               * 올리면 상자와 그림이 같아져 이 보정이 필요 없다 - 설정 화면이
               * 그렇게 안내한다.
               */}
-            <BrandMark className="h-7 w-auto text-lg" dark />
-            <span className="h-5 w-px bg-white/28" aria-hidden />
-            <SystemName className="display text-lg leading-none text-white" />
+            <BrandMark className="h-7 w-auto text-lg" />
+            <span className="h-5 w-px bg-line-strong" aria-hidden />
+            <SystemName className="display text-lg leading-none text-ink" />
           </Link>
 
           <div className="order-last -mx-5 flex h-11 w-[calc(100%+2.5rem)] min-w-0 items-stretch border-t border-line-soft px-4
@@ -291,8 +278,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
                 <div className="text-sm font-bold text-ink">
                   {user.full_name}
                 </div>
-                <div className="text-2xs text-muted">
-                  {user.is_developer && <span className="font-bold text-warn-on-dark">개발 · </span>}
+                <div className="text-xs text-muted">
+                  {user.is_developer && <span className="font-semibold text-warn">개발 · </span>}
                   {user.roles.length
                     ? user.roles.map((r) => ROLE_LABEL[r]).join(' · ')
                     : '역할 없음'}
@@ -328,7 +315,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <span className="opacity-35">
             <BrandMark className="h-3.5 w-auto text-sm" />
           </span>
-          <p className="text-2xs tracking-wide text-faint">
+          <p className="text-xs tracking-wide text-faint">
             <BrandCopyright year={yearKST()} />
           </p>
         </div>

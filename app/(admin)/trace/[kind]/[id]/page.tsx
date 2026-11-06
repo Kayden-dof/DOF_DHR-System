@@ -202,7 +202,7 @@ async function MaterialView({ me, id }: { me: Me; id: string }) {
                   {d.products.map((p, i) => (
                     <tr key={i}>
                       <td className="td font-mono text-xs">{p.batch_no}</td>
-                      <td className="td text-base">{p.operation_name}</td>
+                      <td className="td text-sm">{p.operation_name}</td>
                       <td className="td font-mono text-xs font-semibold">
                         {p.lot_no || <span className="font-sans text-muted">배치 전체</span>}
                       </td>
@@ -362,7 +362,7 @@ async function BatchView({ me, kind, id }: {
                   <tr key={l.id}
                       className={l.id === focusLot ? 'bg-brand-soft' : undefined}>
                     <td className="td font-mono text-xs font-semibold">{l.lot_no}</td>
-                    <td className="td text-base">{l.item_name}</td>
+                    <td className="td text-sm">{l.item_name}</td>
                     <td className="td tnum text-right">{l.qty_produced}</td>
                     <td className="td tnum text-right text-muted">{l.qty_sample || ''}</td>
                     <td className="td tnum text-right">{l.qty_available}</td>
@@ -413,10 +413,10 @@ async function BatchView({ me, kind, id }: {
                     </td>
                     <td className="td tnum text-xs text-muted">{w.work_date}</td>
                     <td className="td">
-                      <div className="text-base">{w.operation_name}</div>
+                      <div className="text-sm">{w.operation_name}</div>
                       <div className="font-mono text-xs text-faint">{w.operation_code}</div>
                     </td>
-                    <td className="td text-base">
+                    <td className="td text-sm">
                       {w.worker_name}
                       {w.rotation_name && (
                         <span className="ml-1.5 text-xs text-muted">
@@ -478,7 +478,7 @@ function GenTable({ rows, lots }: {
           {rows.map((g, i) => (
             <tr key={i}>
               <td className="td">
-                <div className="text-base">{g.item_name}</div>
+                <div className="text-sm">{g.item_name}</div>
                 <div className="font-mono text-xs text-faint">{g.item_code}</div>
               </td>
               <td className="td font-mono text-xs font-semibold">{g.material_lot_no}</td>

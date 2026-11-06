@@ -77,7 +77,12 @@ export function PageShell({
               * 주황인 것과 같은 까닭). 자간을 조금 좁히면 큰 글자가 흩어지지
               * 않는다.
               */}
-            <h1 className="text-2xl font-bold leading-[1.15] tracking-[-0.015em] text-ink">
+            {/*
+              * 제목 위의 짧은 강조선 (Q-Design 시각 서명 ①, 32×1.5px). 화면마다
+              * 같은 자리에 되풀이되어 이 시스템을 알아보게 한다.
+              */}
+            <span aria-hidden className="mb-3.5 block h-[1.5px] w-8 bg-brand" />
+            <h1 className="text-2xl font-semibold leading-[1.2] tracking-[-0.02em] text-ink">
               {title}
             </h1>
             {/*
@@ -88,8 +93,8 @@ export function PageShell({
               * 두면 글자 크기를 고칠 때 어긋난다.
               */}
             {lede && (
-              <p className="mt-2 max-w-2xl min-h-[calc(2*1.625*0.9375rem)] text-base
-                            leading-relaxed text-muted">{lede}</p>
+              <p className="mt-2 max-w-2xl min-h-[calc(2*1.6*0.875rem)] text-sm
+                            leading-[1.6] text-muted">{lede}</p>
             )}
           </div>
           {/*
@@ -176,16 +181,17 @@ export interface StatItem {
    여기 한 곳에서 정한다. 띠를 쓰는 화면이 넷이고 (경영 현황 · 홈 · 설비 ·
    일탈) 각자 재면 갈라진다 (§10 복제는 갈라진다).
 --------------------------------------------------------------------------- */
-const CARD_TEXT_PX = 9.5 * 16 - 32 - 2;   // 칸 최소 폭 - 좌우 여백 - 여유
+/*
+ * 숫자는 40px 까지 세운다 (Q-Design KPI 값 40/600). 칸이 좁거나 자리 수가 많으면
+ * 위 셈대로 줄인다. 괘선 판이라 좌우 여백이 없다.
+ */
+const CARD_TEXT_PX = 8.5 * 16 - 2;   // 칸 최소 폭 - 여유
 
 function valueStyle(v: number | string): React.CSSProperties {
-  const px = Math.min(28, Math.floor(CARD_TEXT_PX / (String(v).length * 0.58)));
+  const px = Math.min(40, Math.floor(CARD_TEXT_PX / (String(v).length * 0.58)));
   return { fontSize: `${px}px`, letterSpacing: px >= 20 ? '-0.02em' : undefined };
 }
 
-const EDGE: Record<string, string> = {
-  warn: 'bg-warn', danger: 'bg-danger', info: 'bg-info', brand: 'bg-brand',
-};
 const TEXT: Record<string, string> = {
   warn: 'text-warn', danger: 'text-danger', info: 'text-info', brand: 'text-brand',
 };
@@ -219,17 +225,17 @@ export function StatStrip({ items }: { items: StatItem[] }) {
       * 않는 범위에서 줄 수를 먼저 정하고 그 줄 수로 고르게 나눈다 (8 → 4 + 4).
       * 좁은 화면에서는 최소 폭(9.5rem)이 이겨 지금처럼 접힌다.
       */}
-    <dl className="grid gap-2.5"
+    <dl className="grid gap-x-5 gap-y-2"
         style={{ gridTemplateColumns: (() => {
           const cols = Math.ceil(items.length / Math.ceil(items.length / 7));
-          return `repeat(auto-fit, minmax(max(9.5rem, calc((100% - ${cols - 1} * 0.625rem) / ${cols})), 1fr))`;
+          return `repeat(auto-fit, minmax(max(8.5rem, calc((100% - ${cols - 1} * 1.25rem) / ${cols})), 1fr))`;
         })() }}>
       {items.map((s) => {
         const zero = s.value === 0 || s.value === '0';
         const body = (
           <>
-            <dt className="text-2xs font-bold tracking-wide text-muted">{s.label}</dt>
-            <dd className="mt-1.5 flex items-baseline gap-1">
+            <dt className="text-xs font-medium text-muted">{s.label}</dt>
+            <dd className="mt-2.5 flex items-baseline gap-1.5">
               {/*
                 * 숫자를 키우고 자간을 좁힌다. 단위는 한 칸 더 물린다 -
                 * 읽는 것은 숫자이고 단위는 그 숫자가 무엇인지 알려 줄 뿐이다.
@@ -253,35 +259,29 @@ export function StatStrip({ items }: { items: StatItem[] }) {
                 * 머리줄의 어두운 면이 지고 간다 (globals.css 의 .topbar).
                 * ------------------------------------------------------------ */}
               <span style={valueStyle(s.value)}
-                    className={`font-bold leading-none tnum ${
+                    className={`font-semibold leading-none tnum ${
                       zero ? 'text-faint' : s.tone ? TEXT[s.tone] : 'text-ink'
                     }`}>
                 {s.value}
               </span>
-              {s.unit && <span className="text-2xs text-faint">{s.unit}</span>}
+              {s.unit && <span className="text-xs text-faint">{s.unit}</span>}
             </dd>
           </>
         );
 
-        const cls = 'card relative overflow-hidden px-4 py-4 transition-all';
         /*
-          * 눈에 띄어야 하는 값은 위쪽 가장자리를 물들인다 (2026-09-11).
-          *
-          * 전에는 왼쪽에 3px 짜리 띠였다. 칸이 테두리로 붙어 있을 때는 그것이
-          * 맞았지만, 카드로 떼어 놓으니 왼쪽 띠가 카드를 자르는 선으로 보였다.
-          * 위쪽 가장자리는 카드의 머리라 자르지 않고 물든다.
+          * 칸은 상자가 아니라 위 괘선 하나다 (Q-Design KPI · 2026-11-06). 눈에 띄어야
+          * 하는 값은 숫자의 색이 말한다 - 가장자리를 물들이던 띠는 걷었다.
           */
-        const edge = s.tone && !zero
-          ? <span aria-hidden className={`absolute inset-x-0 top-0 h-[3px] ${EDGE[s.tone]}`} />
-          : null;
+        const cls = 'kpi';
+        const edge = null;
 
         const tip = s.detail
           ? <StatDetail title={s.label}>{s.detail}</StatDetail>
           : null;
 
         return s.href ? (
-          <Link key={s.label} href={s.href}
-                className={`${cls} hover:-translate-y-px hover:shadow-[var(--sh-2)]`}>
+          <Link key={s.label} href={s.href} className={cls}>
             {edge}{body}{tip}
           </Link>
         ) : (

@@ -94,7 +94,7 @@ export function SterilForm({ lots, today, boxQty }: {
 
   return (
     <form action={action} className="card w-full p-4">
-      <h3 className="text-base font-bold text-ink">멸균 위탁 발송</h3>
+      <h3 className="text-sm font-bold text-ink">멸균 위탁 발송</h3>
       <p className="mt-1 text-xs leading-relaxed text-muted">
         한 박스에 여러 제품 로트가 들어갈 수 있습니다. 파괴검사용 2개를 박스에 동봉하는 것은
         제조번호를 붙일 때 시료 수량에 이미 반영되어 있습니다.
@@ -172,7 +172,7 @@ export function SterilForm({ lots, today, boxQty }: {
               <div key={x.code} className="flex items-baseline justify-between gap-3 text-xs">
                 <dt className="truncate text-muted">
                   {x.name}
-                  <span className="ml-1.5 font-mono text-2xs text-faint">{x.code}</span>
+                  <span className="ml-1.5 font-mono text-xs text-faint">{x.code}</span>
                 </dt>
                 <dd className="shrink-0 font-bold tnum text-ink">{x.qty} 개</dd>
               </div>
@@ -209,7 +209,7 @@ export function SterilRow({ sb, today }: { sb: SbRow; today: string }) {
           {/* 규격별로 묶어 보여 준다. 제조번호는 펼쳐 보면 나온다 */}
           {bySpec(sb.lots).map((x) => (
             <div key={x.code} className="flex items-baseline gap-2">
-              <span className="font-mono text-2xs text-muted">{x.code}</span>
+              <span className="font-mono text-xs text-muted">{x.code}</span>
               <span className="tnum font-semibold text-ink">{x.qty}</span>
             </div>
           ))}
@@ -306,7 +306,7 @@ export function RequestBuilder({ groups }: {
         return (
           <div key={g.wo_id} className="px-4 py-3">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <span className="font-mono text-base font-bold text-ink">{g.batch_no}</span>
+              <span className="font-mono text-sm font-bold text-ink">{g.batch_no}</span>
               <span className="min-w-0 flex-1 truncate text-xs text-muted">{g.item_name}</span>
               <button
                 type="button"
@@ -447,7 +447,7 @@ export function ShipList({ lots, today }: { lots: PlOpt[]; today: string }) {
                 >
                   <td className="td font-mono text-xs font-semibold">{l.lot_no}</td>
                   <td className="td">
-                    <div className="text-base">{l.item_name}</div>
+                    <div className="text-sm">{l.item_name}</div>
                     <div className="font-mono text-xs text-faint">{l.item_code}</div>
                   </td>
                   <td className="td font-mono text-xs text-muted">{l.batch_no}</td>
@@ -503,7 +503,7 @@ function ShipRowForm({ lot, today }: { lot: PlOpt; today: string }) {
   return (
     <form action={action} className="px-5 py-4">
       <input type="hidden" name="product_lot_id" value={lot.id} />
-      <p className="text-base font-semibold text-ink">
+      <p className="text-sm font-semibold text-ink">
         <span className="font-mono">{lot.lot_no}</span> 출고 기록
       </p>
       <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
@@ -558,7 +558,7 @@ function ShipRowForm({ lot, today }: { lot: PlOpt; today: string }) {
             <input name="unit_from" type="number" min={1} required
                    value={from} onChange={(e) => setFrom(e.target.value)}
                    className="input w-20 tnum" />
-            <span className="text-base text-muted">~</span>
+            <span className="text-sm text-muted">~</span>
             <input name="unit_to" type="number" min={1} required readOnly
                    value={unitTo} className="input w-20 tnum bg-canvas" />
           </div>

@@ -108,7 +108,7 @@ export default function IssueForm({ masters, rawLots, finished, users, today }: 
 
   return (
     <form action={action} className="card w-full p-4">
-      <h3 className="text-base font-bold text-ink">작업 지시 발행</h3>
+      <h3 className="text-sm font-bold text-ink">작업 지시 발행</h3>
       <p className="mt-1 text-xs leading-relaxed text-muted">
         지시서번호와 배치번호는 채번 규칙이 만듭니다. 원재료 로트는 배치당 하나입니다.
       </p>

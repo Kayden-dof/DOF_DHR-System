@@ -41,7 +41,7 @@ export function NewDeviceMaster({ items }: { items: ItemOption[] }) {
       <button onClick={() => setOpen(true)} className="btn-primary" disabled={fin.length === 0}> 제품표준서 개정 추가 </button>
       <Dialog open={open} onClose={() => setOpen(false)} wide title="제품표준서 개정 추가">
         <form action={action}>
-      <h3 className="mb-3 text-base font-bold text-ink">새 개정</h3>
+      <h3 className="mb-3 text-sm font-bold text-ink">새 개정</h3>
 
       {/*
         * 제품이 먼저다.
@@ -147,7 +147,7 @@ export function VerifyForm({
 
   return (
     <div className="rounded-md border border-warn/30 bg-warn-bg p-3">
-      <p className="text-base leading-relaxed text-ink">
+      <p className="text-sm leading-relaxed text-ink">
         <b>아직 서면 대조 확인 전입니다.</b> 확인 전에는 작업 지시 발행에서 선택할 수 없습니다.
         공정과 자재 구성표를 모두 넣은 뒤, 서면 제품표준서와 한 항목씩 대조하고 확인하십시오.
       </p>
@@ -194,10 +194,10 @@ export function VerifyForm({
                       className="mt-0.5 size-4 shrink-0 accent-brand"
                     />
                     <span className="min-w-0 flex-1">
-                      <span className="text-2xs font-bold tracking-wide text-muted">
+                      <span className="text-xs font-bold tracking-wide text-muted">
                         {r.group}
                       </span>
-                      <span className="block text-base leading-relaxed text-ink">{r.label}</span>
+                      <span className="block text-sm leading-relaxed text-ink">{r.label}</span>
                       {r.value && (
                         <span className="mt-0.5 block font-mono text-xs text-body">{r.value}</span>
                       )}
@@ -317,11 +317,11 @@ export function AddOperationForm({ dm, nextSeq }: { dm: string; nextSeq: number 
           <label className="label" htmlFor={`${uid}-name`}>공정명</label>
           <input id={`${uid}-name`} name="name" required autoComplete="off" className="input" />
         </div>
-        <label className="flex items-center gap-2 self-end pb-2 text-base text-ink">
+        <label className="flex items-center gap-2 self-end pb-2 text-sm text-ink">
           <input type="checkbox" name="after_cutting" className="size-4 accent-brand" />
           제품 로트 단위 공정
         </label>
-        <label className="flex items-center gap-2 text-base text-ink">
+        <label className="flex items-center gap-2 text-sm text-ink">
           <input type="checkbox" name="takes_rework" className="size-4 accent-brand" />
           재작업 수량을 적는다
         </label>
@@ -612,7 +612,7 @@ export function OperationCard({ dm, op, items, editable, equipment = [] }: {
       >
         <span className="w-7 shrink-0 text-center text-xs font-bold tnum text-faint">{op.seq}</span>
         <code className="font-mono text-xs text-muted">{op.code}</code>
-        <span className="text-base font-semibold text-ink">{op.name}</span>
+        <span className="text-sm font-semibold text-ink">{op.name}</span>
         <Tag tone={op.after_cutting ? 'brand' : 'quiet'}>
           {op.after_cutting ? '제품 로트 단위' : '배치 단위'}
         </Tag>
@@ -681,7 +681,7 @@ export function OperationCard({ dm, op, items, editable, equipment = [] }: {
                 <div key={b.id} className="rounded-md border border-line bg-surface">
                   <div className="flex flex-wrap items-center gap-2 px-3 py-2">
                     <code className="font-mono text-xs font-semibold">{b.item_code}</code>
-                    <span className="text-base text-ink">{b.item_name}</span>
+                    <span className="text-sm text-ink">{b.item_name}</span>
                     <Tag tone={b.basis === 'PER_UNIT' ? 'info' : 'quiet'}>
                       {b.basis === 'PER_UNIT'
                         ? `제품 1개당 ${Number(b.qty_per_unit)} ${b.usage_uom}`
@@ -1069,7 +1069,7 @@ export function BomSetForm({ dm, opCodes }: { dm: string; opCodes: string[] }) {
   return (
     <form action={action} className="border-t border-line bg-canvas px-4 py-3">
       <input type="hidden" name="device_master_id" value={dm} />
-      <p className="text-base font-semibold text-ink">자재 구성표 붙여넣기</p>
+      <p className="text-sm font-semibold text-ink">자재 구성표 붙여넣기</p>
       <p className="mt-1 text-xs leading-relaxed text-muted">
         한 줄에 자재 하나입니다.{' '}
         <b className="text-ink">공정코드 | 품목코드 | 기준 | 값</b> 순이고,
@@ -1130,7 +1130,7 @@ export function OperationSetForm({
   if (mode === null) {
     return (
       <div className="border-t border-line bg-canvas px-4 py-3">
-        <p className="text-base font-semibold text-ink">공정이 없습니다. 흐름부터 입력하십시오.</p>
+        <p className="text-sm font-semibold text-ink">공정이 없습니다. 흐름부터 입력하십시오.</p>
         <p className="mt-1 text-xs leading-relaxed text-muted">
           공정 흐름을 한 번에 적거나, 이미 만들어 둔 제품표준서에서 가져옵니다.
           가져오면 자재 구성표와 설비 연결까지 함께 옵니다.
@@ -1153,7 +1153,7 @@ export function OperationSetForm({
     return (
       <form action={copyAction} className="border-t border-line bg-canvas px-4 py-3">
         <input type="hidden" name="device_master_id" value={dm} />
-        <p className="text-base font-semibold text-ink">다른 제품표준서에서 가져오기</p>
+        <p className="text-sm font-semibold text-ink">다른 제품표준서에서 가져오기</p>
         <p className="mt-1 text-xs leading-relaxed text-muted">
           공정 · 자재 구성표 · 장입 구간 · 설비 연결이 함께 옵니다.
           <b className="text-ink"> 대조 확인은 오지 않습니다</b> - 가져온 표준서는
@@ -1183,7 +1183,7 @@ export function OperationSetForm({
   return (
     <form action={bulkAction} className="border-t border-line bg-canvas px-4 py-3">
       <input type="hidden" name="device_master_id" value={dm} />
-      <p className="text-base font-semibold text-ink">공정 흐름 적기</p>
+      <p className="text-sm font-semibold text-ink">공정 흐름 적기</p>
       <p className="mt-1 text-xs leading-relaxed text-muted">
         한 줄에 공정 하나입니다. <b className="text-ink">공정코드 | 공정명</b> 이고,
         제품 로트 단위 공정이면 뒤에 <b className="text-ink">| 로트단위</b> 를

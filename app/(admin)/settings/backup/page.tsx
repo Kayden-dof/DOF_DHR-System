@@ -118,7 +118,7 @@ export default async function BackupPage() {
           <DownloadPanel stale={stale}>
             <div className="mt-4 flex flex-wrap items-baseline gap-x-8 gap-y-3">
               <div>
-                <p className="text-2xs font-bold tracking-wide text-muted">마지막 백업</p>
+                <p className="text-xs font-bold tracking-wide text-muted">마지막 백업</p>
                 {last ? (
                   <>
                     <p className="mt-1 text-xl font-bold tnum text-ink">
@@ -135,7 +135,7 @@ export default async function BackupPage() {
                 )}
               </div>
               <div>
-                <p className="text-2xs font-bold tracking-wide text-muted">지금 담긴 것</p>
+                <p className="text-xs font-bold tracking-wide text-muted">지금 담긴 것</p>
                 <p className="mt-1 text-xl font-bold tnum text-ink">{d.now?.tables ?? 0}개 표</p>
                 <p className="mt-0.5 text-xs tnum text-muted">
                   기록·계보·감사추적 {(d.now?.rows ?? 0).toLocaleString('ko-KR')}행
@@ -191,7 +191,7 @@ export default async function BackupPage() {
                     <td className="td tnum text-right">
                       {b.total_rows.toLocaleString('ko-KR')}
                     </td>
-                    <td className="td font-mono text-2xs text-faint">
+                    <td className="td font-mono text-xs text-faint">
                       {b.data_sha256.slice(0, 12)}
                     </td>
                   </tr>

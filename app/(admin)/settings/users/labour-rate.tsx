@@ -55,7 +55,7 @@ export function LabourRates({ rows, today, writable = true }: {
   return (
     <section className="card overflow-hidden">
       <div className="section-head">
-        <h3 className="text-base font-bold text-ink">공수 단가</h3>
+        <h3 className="text-sm font-bold text-ink">공수 단가</h3>
         <p className="mt-0.5 text-xs leading-relaxed text-muted">
           역할별 시간당 단가입니다. 기록의 시작 · 종료 시각으로 시간을 재어
           생산 원가에 얹습니다. <b className="text-ink">고쳐 쓰지 않습니다</b> -

@@ -95,7 +95,7 @@ export default async function LoginPage() {
           * 비어 있어도 줄을 그린다. 없애면 로고가 그만큼 내려앉는다. 높이는
           * 글자 크기와 줄 간격에서 그대로 셈한다.
           */}
-        <p className="relative min-h-[calc(1.5*0.6875rem)] text-2xs
+        <p className="relative min-h-[calc(1.5*0.6875rem)] text-xs
                       font-medium tracking-[0.18em] text-on-dark-mute">
           {brand.companyTagline}
         </p>
@@ -144,13 +144,13 @@ export default async function LoginPage() {
             * 옆에 남의 제품 이름이 남아 있으면 안 된다.
             */}
           {brand.systemNameLong && (
-            <h1 className="display display-lg text-center text-[1.5rem] leading-[1.35] text-ink">
+            <h1 className="display display-lg text-center text-2xl leading-[1.35] text-ink">
               {brand.systemNameLong}
             </h1>
           )}
 
           {brand.systemTagline && (
-            <p className="mt-2.5 text-center text-base font-medium tracking-tight text-muted">
+            <p className="mt-2.5 text-center text-sm font-medium tracking-tight text-muted">
               {brand.systemTagline}
             </p>
           )}
@@ -169,7 +169,7 @@ export default async function LoginPage() {
           <LoginForm owners={owners} />
         </div>
 
-        <footer className="mt-10 w-full max-w-[25rem] border-t border-line pt-4 text-center text-2xs leading-relaxed text-faint">
+        <footer className="mt-10 w-full max-w-[25rem] border-t border-line pt-4 text-center text-xs leading-relaxed text-faint">
           {/*
             * 만든 사람을 남긴다 (사용자 지시). 로그인 화면은 이 시스템에서
             * 누구나 매일 보는 유일한 화면이다.

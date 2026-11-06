@@ -38,7 +38,7 @@ export default async function PasswordPage() {
         <h1 className="mt-6 text-xl font-bold text-ink">
           {first ? '비밀번호를 정해 주십시오' : '비밀번호 바꾸기'}
         </h1>
-        <p className="mt-2 text-base leading-relaxed text-muted">
+        <p className="mt-2 text-sm leading-relaxed text-muted">
           {first ? (
             <>
               {user.full_name} 님의 비밀번호는 계정을 만든 사람이 정한 값입니다.
@@ -55,7 +55,7 @@ export default async function PasswordPage() {
         </div>
 
         <form action={logout} className="mt-4">
-          <button type="submit" className="btn-quiet h-10 w-full text-base">
+          <button type="submit" className="btn-quiet h-10 w-full text-sm">
             로그아웃
           </button>
         </form>

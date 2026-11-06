@@ -52,10 +52,10 @@ export default async function WorkLayout({ children }: { children: React.ReactNo
         <div className="mx-auto flex max-w-[1240px] flex-wrap items-center gap-x-4 gap-y-3 px-5 py-3">
           <Link href="/work" className="flex h-14 shrink-0 items-center gap-3" aria-label="배치 목록으로">
             {/* 어두운 바탕용 그림은 여백이 더 넓어 상자를 더 크게 잡는다 */}
-            <BrandMark className="h-9 w-auto text-lg" dark />
-            <span className="h-5 w-px bg-white/25" aria-hidden />
-            <SystemName className="display text-lg leading-none text-white" />
-            <span className="chip bg-white/15 text-white">현장</span>
+            <BrandMark className="h-9 w-auto text-lg" />
+            <span className="h-5 w-px bg-line-strong" aria-hidden />
+            <SystemName className="display text-lg leading-none text-ink" />
+            <span className="chip bg-surface text-ink">현장</span>
           </Link>
 
           {/*
@@ -63,19 +63,19 @@ export default async function WorkLayout({ children }: { children: React.ReactNo
             * 화면이 말하는 시각과 기록에 남는 시각이 같아야 한다
             * (components/clock.tsx).
             */}
-          <Clock withDate className="hidden text-base text-on-dark-mute sm:inline" />
+          <Clock withDate className="hidden text-sm text-muted sm:inline" />
 
           <div className="ml-auto flex items-center gap-3">
             <div className="flex items-center gap-2.5">
               <span
                 aria-hidden
-                className="grid h-11 w-11 place-items-center rounded-full bg-white/15 text-base font-bold text-white"
+                className="grid h-11 w-11 place-items-center rounded-full bg-brand-tint text-base font-semibold text-brand"
               >
                 {user.full_name.slice(0, 1)}
               </span>
               <div className="leading-tight">
-                <div className="text-base font-bold text-white">{user.full_name}</div>
-                <div className="text-xs text-on-dark-mute">
+                <div className="text-base font-semibold text-ink">{user.full_name}</div>
+                <div className="text-xs text-muted">
                   {isAdmin(user.roles) ? '관리자' : '작업자'}
                 </div>
               </div>
@@ -83,13 +83,13 @@ export default async function WorkLayout({ children }: { children: React.ReactNo
 
             {isAdmin(user.roles) && (
               <Link href="/"
-                    className="inline-flex h-14 items-center rounded-md border border-white/25 px-5 text-base font-semibold text-white transition-colors hover:bg-white/10">
+                    className="btn-ghost h-14 px-5 text-base">
                 관리 화면
               </Link>
             )}
             <form action={logout}>
               <button type="submit"
-                      className="inline-flex h-14 items-center rounded-md border border-white/25 px-5 text-base font-semibold text-white transition-colors hover:bg-white/10">
+                      className="btn-ghost h-14 px-5 text-base">
                 로그아웃
               </button>
             </form>
@@ -107,11 +107,11 @@ export default async function WorkLayout({ children }: { children: React.ReactNo
       <IdleLock minutes={20} name={user.full_name} initial={user.full_name.slice(0, 1)} />
 
       <footer className="mx-auto w-full max-w-[1240px] px-5 pb-8 pt-4">
-        <div className="flex items-center justify-between gap-4 border-t border-white/12 pt-4">
+        <div className="flex items-center justify-between gap-4 border-t border-line pt-4">
           <span className="opacity-30">
-            <BrandMark className="h-3.5 w-auto text-sm" dark />
+            <BrandMark className="h-3.5 w-auto text-sm" />
           </span>
-          <p className="text-2xs tracking-wide text-white/60">
+          <p className="text-xs text-faint">
             <BrandCopyright year={yearKST()} />
           </p>
         </div>

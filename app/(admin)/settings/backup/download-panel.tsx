@@ -122,7 +122,7 @@ export default function DownloadPanel({ stale, children }: {
             </div>
           </div>
 
-          {err && <p role="alert" className="mt-3 text-base text-danger">{err}</p>}
+          {err && <p role="alert" className="mt-3 text-sm text-danger">{err}</p>}
 
           <div className="mt-4 flex gap-2">
             <button onClick={run} disabled={!ready || busy} className="btn-primary h-10 px-4 text-xs">

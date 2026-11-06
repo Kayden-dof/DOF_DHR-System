@@ -119,7 +119,7 @@ export default async function VerifyPage({
               {hits.map((h) => (
                 <li key={h.id} className="space-y-3 p-4">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-mono text-base font-bold text-ink">
+                    <span className="font-mono text-sm font-bold text-ink">
                       {h.short_hash}
                     </span>
                     <Tag tone="brand">{KIND_LABEL[h.kind] ?? h.kind}</Tag>
@@ -201,12 +201,12 @@ export default async function VerifyPage({
                     */}
                   {h.recomputed !== undefined && (
                     h.recomputed === h.data_hash ? (
-                      <p className="rounded-md border border-line bg-surface-sub px-3.5 py-2.5 text-base leading-relaxed text-muted">
+                      <p className="rounded-md border border-line bg-surface-sub px-3.5 py-2.5 text-sm leading-relaxed text-muted">
                         지금 자료로 다시 계산해도 같은 식별자입니다. 이 종이가 나온 뒤
                         이 묶음의 자료는 달라지지 않았습니다.
                       </p>
                     ) : (
-                      <p className="rounded-md border border-warn/40 bg-warn-bg px-3.5 py-2.5 text-base leading-relaxed text-ink">
+                      <p className="rounded-md border border-warn/40 bg-warn-bg px-3.5 py-2.5 text-sm leading-relaxed text-ink">
                         <b>지금 자료로 다시 계산하면 값이 다릅니다.</b>{' '}
                         <span className="font-mono text-xs">
                           {h.recomputed ? h.recomputed.slice(0, 12) : '자료 없음'}
@@ -218,7 +218,7 @@ export default async function VerifyPage({
                   )}
 
                   {h.newer_count > 0 && (
-                    <p className="rounded-md border border-danger-line bg-danger-bg px-3.5 py-2.5 text-base leading-relaxed text-ink">
+                    <p className="rounded-md border border-danger-line bg-danger-bg px-3.5 py-2.5 text-sm leading-relaxed text-ink">
                       이 종이는 <b className="tnum">{h.seq}회차</b>이고, 같은 묶음에서
                       뒤에 <b className="tnum">{h.newer_count}</b>회 더 뽑혔습니다
                       (가장 최근 <b className="tnum">{h.latest_seq}회차</b>).

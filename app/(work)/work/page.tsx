@@ -168,8 +168,8 @@ export default async function WorkHome(
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-bold text-white">작업할 배치</h1>
-        <p className="mt-1.5 text-base text-on-dark-mute">
+        <h1 className="text-2xl font-semibold text-ink">작업할 배치</h1>
+        <p className="mt-1.5 text-sm text-muted">
           {user.full_name} 님. 배치를 선택하여 공정 기록을 작성하십시오.
         </p>
       </div>
@@ -209,7 +209,7 @@ export default async function WorkHome(
             {picked.map((c) => (
               <Link key={c.id} href={`/work/${c.id}`} className="tile no-select gap-0.5">
                 <span className="font-mono text-lg font-bold text-ink">{c.batch_no}</span>
-                <span className="text-base text-muted">
+                <span className="text-sm text-muted">
                   {c.item_name} · {WO_STATUS_LABEL[c.status] ?? c.status}
                 </span>
               </Link>
@@ -235,9 +235,9 @@ export default async function WorkHome(
           * 장갑 낀 손이 가장 작은 것을 겨냥해야 했다.
           */}
         <summary className="flex h-14 cursor-pointer list-none items-center justify-between gap-3 rounded-lg
-                            border border-white/25 px-5 text-base text-on-dark-mute transition-colors
-                            hover:bg-white/10 [&::-webkit-details-marker]:hidden">
-          <span>스캐너가 안 됩니까? <b className="text-white">배치 고르기</b></span>
+                            border border-ctl px-5 text-base text-muted transition-colors
+                            hover:bg-surface-sub [&::-webkit-details-marker]:hidden">
+          <span>스캐너가 안 됩니까? <b className="text-ink">배치 고르기</b></span>
           <span className="flex items-center gap-2">
             <span className="tnum">{batches.length}건</span>
             <svg viewBox="0 0 24 24" aria-hidden className="size-5 transition-transform group-open:rotate-180"
@@ -250,7 +250,7 @@ export default async function WorkHome(
       {batches.length === 0 ? (
         <div className="card p-10 text-center">
           <p className="text-lg font-semibold text-ink">진행 중인 배치가 없습니다.</p>
-          <p className="mt-2 text-base text-muted">
+          <p className="mt-2 text-sm text-muted">
             작업 지시가 발행되면 여기에 나타납니다.
           </p>
         </div>
@@ -264,10 +264,7 @@ export default async function WorkHome(
           {batches.map((b) => (
             <Link key={b.id} href={`/work/${b.id}`}
                   className="tile no-select relative gap-0 overflow-hidden p-0">
-              {/* 진행 중인 배치는 왼쪽 띠로 먼저 눈에 들어오게 한다 */}
-              <span aria-hidden className={`absolute inset-y-0 left-0 w-1 ${
-                b.my_open > 0 ? 'bg-warn' : b.status === 'IN_PROCESS' ? 'bg-brand' : 'bg-line-strong'
-              }`} />
+              {/* 진행 상태는 아래 조각이 글자로 말한다. 왼쪽 띠는 걷었다 (Q-Design) */}
 
               {/*
                 * 현장에서 이 타일을 보는 이유는 하나다. "이 배치, 몇 일차를 할
@@ -289,7 +286,7 @@ export default async function WorkHome(
                   </div>
                 </div>
                 <div className="flex shrink-0 flex-col items-center justify-center rounded-lg bg-brand-tint px-4 py-2">
-                  <span className="text-[2rem] font-bold leading-none tnum text-brand-deep">
+                  <span className="text-3xl font-semibold leading-none tnum text-brand-deep">
                     {b.last_day === null ? 1 : b.last_day_open ? b.last_day : b.last_day + 1}
                     <span className="ml-0.5 text-base font-bold">일차</span>
                   </span>
@@ -314,7 +311,7 @@ export default async function WorkHome(
                 ))}
               </dl>
 
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-line-soft px-5 py-2.5 text-base text-muted">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-line-soft px-5 py-2.5 text-sm text-muted">
                 <span>원재료 <span className="font-mono text-body">{b.raw_lot_no}</span></span>
                 {b.thickness_band && <span>구간 {b.thickness_band}</span>}
                 {b.last_day && <span className="tnum">{b.last_day}일차까지 기록</span>}
@@ -336,15 +333,15 @@ export default async function WorkHome(
         * 네 줄 중 두 줄만 남긴다. 시각이 찍히는 것과 정정 기록은 화면이 그때
         * 그 자리에서 다시 말한다. 여기서는 되돌릴 수 없는 것 둘만 짚는다.
         */}
-      <div className="border-t border-white/12 pt-5">
-        <ul className="space-y-2.5 text-base leading-relaxed text-on-dark-mute">
+      <div className="border-t border-line pt-5">
+        <ul className="space-y-2.5 text-sm leading-relaxed text-muted">
           <li>
             자재를 넣지 않고 마감하려면{' '}
-            <b className="font-semibold text-white">해당 없음 사유</b>를 선택해야 합니다.
+            <b className="font-semibold text-ink">해당 없음 사유</b>를 선택해야 합니다.
           </li>
           <li>
             일차를 마감하고 기록서를 인쇄하면{' '}
-            <b className="font-semibold text-white">그 묶음은 수정할 수 없습니다.</b>{' '}
+            <b className="font-semibold text-ink">그 묶음은 수정할 수 없습니다.</b>{' '}
             누락된 것은 다음 일차에 정정 기록으로 남기십시오.
           </li>
         </ul>

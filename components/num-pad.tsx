@@ -69,7 +69,7 @@ export default function NumPad({
         <span className="text-2xl font-bold tnum text-ink">
           {value || <span className="text-faint">0</span>}
         </span>
-        {unit && <span className="ml-2 text-base text-muted">{unit}</span>}
+        {unit && <span className="ml-2 text-sm text-muted">{unit}</span>}
       </div>
 
       <div className="mt-2 grid grid-cols-3 gap-2">
@@ -118,13 +118,13 @@ export function PresetPicker({
         {allowNone && (
           <button type="button" onClick={() => setValue('')}
                   data-on={value === ''} className="tile">
-            <span className="text-base font-semibold">해당 없음</span>
+            <span className="text-sm font-semibold">해당 없음</span>
           </button>
         )}
         {presets.map((p) => (
           <button key={p} type="button" onClick={() => setValue(p)}
                   data-on={value === p} className="tile">
-            <span className="text-base font-semibold">{p}</span>
+            <span className="text-sm font-semibold">{p}</span>
           </button>
         ))}
       </div>

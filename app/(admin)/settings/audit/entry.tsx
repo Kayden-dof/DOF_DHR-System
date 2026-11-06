@@ -64,7 +64,7 @@ export default function Entry({ e }: { e: AuditEntry }) {
       <tr>
         <td className="td tnum text-muted whitespace-nowrap">{fmtDateTime(e.acted_at)}</td>
         <td className="td">
-          <span className="text-base text-ink">{tableLabel(e.table_name)}</span>
+          <span className="text-sm text-ink">{tableLabel(e.table_name)}</span>
         </td>
         <td className="td"><ActionChip action={e.action} /></td>
         <td className="td whitespace-nowrap font-mono text-xs">

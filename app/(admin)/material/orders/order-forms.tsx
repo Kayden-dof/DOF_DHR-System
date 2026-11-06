@@ -53,7 +53,7 @@ export function NewOrder({ items, suppliers, today }: {
       <button onClick={() => setOpen(true)} className="btn-primary">발주 등록</button>
       <Dialog open={open} onClose={() => setOpen(false)} wide title="발주 등록">
         <form action={action}>
-      <h3 className="mb-3 text-base font-bold text-ink">새 발주</h3>
+      <h3 className="mb-3 text-sm font-bold text-ink">새 발주</h3>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <label className="label" htmlFor={`${uid}-po_no`}>발주번호</label>
