@@ -198,6 +198,32 @@ export async function setActive(_prev: FormState, form: FormData): Promise<FormS
   }
 }
 
+/*
+ * 기록을 남기지 않은 계정을 지운다 (0122 · 사용자 지시 2026-11-06).
+ *
+ * 지울 수 있는가는 DB 함수 user_unused() 가 판정하고, 지우는 함수가 같은
+ * 판정을 다시 한다. 여기서는 시스템관리자인지만 먼저 본다.
+ */
+export async function deleteUser(_prev: FormState, form: FormData): Promise<FormState> {
+  try {
+    const me = await admin();
+    if (!hasRole(me, 'SYS_ADMIN')) {
+      return { error: '계정 삭제는 시스템관리자만 할 수 있습니다' };
+    }
+    const id = String(form.get('id') ?? '');
+    if (id === me.id) {
+      return { error: '자기 계정은 삭제할 수 없습니다' };
+    }
+
+    await withActor(me.id, (db) => db.rows(`select delete_unused_user($1)`, [id]));
+    revalidatePath('/settings/users');
+    revalidatePath('/');
+    return { ok: true, message: '계정을 삭제했습니다.' };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
 export async function setDeveloper(_prev: FormState, form: FormData): Promise<FormState> {
   try {
     const me = await admin();

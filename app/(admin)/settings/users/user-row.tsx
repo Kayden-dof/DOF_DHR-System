@@ -8,7 +8,7 @@ import { ROLE_LABEL, ROLE_NOTE, ROLE_ORDER, type RoleCode } from '@/lib/roles';
 import { PIN_MIN_LENGTH } from '@/lib/auth-const';
 import type { FormState } from '@/lib/forms';
 import { grantRole, revokeRole, setActive, setDeveloper, setPin, setFullName,
-         saveQualification } from './actions';
+         saveQualification, deleteUser } from './actions';
 
 export interface UserRow {
   id: string;
@@ -18,6 +18,8 @@ export interface UserRow {
   is_developer: boolean;
   can_login: boolean;
   has_pin: boolean;
+  /** 이 계정이 남긴 기록이 없어 지울 수 있는가 (0122) */
+  deletable: boolean;
   roles: RoleCode[];
   /** 이 사람의 공정 자격 (GMP 점검 G3 · 0108) */
   quals: { operation_code: string; valid_from: string;
@@ -265,6 +267,7 @@ function PinPanel({ u, isMe, canReset }: { u: UserRow; isMe: boolean; canReset: 
 function FlagPanel({ u, isMe, sysAdmin }: { u: UserRow; isMe: boolean; sysAdmin: boolean }) {
   const [activeState, activeAction, a1] = useActionState<FormState, FormData>(setActive, {});
   const [devState, devAction, a2] = useActionState<FormState, FormData>(setDeveloper, {});
+  const [delState, delAction, a3] = useActionState<FormState, FormData>(deleteUser, {});
 
   return (
     <Panel title="계정 상태">
@@ -308,12 +311,30 @@ function FlagPanel({ u, isMe, sysAdmin }: { u: UserRow; isMe: boolean; sysAdmin:
           )}
         </form>
         )}
+
+        {sysAdmin && !isMe && u.deletable && (
+        <form
+          action={delAction}
+          onSubmit={(e) => {
+            if (!window.confirm(`${u.login_code} ${u.full_name} 계정을 삭제합니다. 되돌릴 수 없습니다.`)) {
+              e.preventDefault();
+            }
+          }}
+          className="flex items-center gap-2"
+        >
+          <input type="hidden" name="id" value={u.id} />
+          <span className="flex-1 text-sm text-ink">남긴 기록 없음</span>
+          <button type="submit" disabled={a3} className="btn-danger btn-row">
+            삭제
+          </button>
+        </form>
+        )}
       </div>
       <p className="mt-2 text-xs leading-relaxed text-faint">
-        계정은 삭제하지 않습니다. 쓰지 않는 계정은 비활성화합니다 - 기록을 남긴 계정을
+        기록을 남기지 않은 계정만 삭제할 수 있습니다. 기록을 남긴 계정은 비활성화합니다 -
         지우면 그 기록의 작성자를 설명할 수 없습니다.
       </p>
-      <Toasts states={[activeState, devState]} />
+      <Toasts states={[activeState, devState, delState]} />
     </Panel>
   );
 }

@@ -84,6 +84,8 @@ export default async function UsersPage({ searchParams }: { searchParams: Search
     users: await db.rows<UserRow>(
       `select u.id, u.login_code, u.full_name, u.is_active, u.is_developer, u.can_login,
               (u.pin_hash is not null) as has_pin,
+              /* 기록을 남기지 않은 계정만 지울 수 있다 (0122) */
+              user_unused(u.id) as deletable,
               array_remove(array_agg(r.role::text order by r.role), null)::text[] as roles,
               /* 작업자 자격 (G3). 화면이 사람마다 목록을 낸다 */
               coalesce((

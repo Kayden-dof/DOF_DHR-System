@@ -116,6 +116,7 @@ export const TABLE_LABEL: Record<string, string> = {
   wip_nonconformity:    '반제품 부적합',
   sample_plan:          '시료 기준',
   work_order_plan:      '생산 계획',
+  audit_log:            '감사추적',
 };
 
 export const tableLabel = (name: string) => TABLE_LABEL[name] ?? name;

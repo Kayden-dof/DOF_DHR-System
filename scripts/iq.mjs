@@ -242,6 +242,9 @@ const WRITE_FUNCS = [
   'sync_po_status(uuid)',
   /* 0105 · 인쇄물에 담긴 제품 로트를 적는다 */
   'record_print_lots(uuid, uuid[], int[])',
+  /* 0122 · 감사추적 비우기 · 쓰지 않은 계정 지우기 */
+  'purge_logs()',
+  'delete_unused_user(uuid)',
 ];
 const leaky = [];
 for (const f of WRITE_FUNCS) {
