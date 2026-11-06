@@ -28,6 +28,7 @@
     "cut_operation_id",
     "cut_product_lot",
     "cut_product_lot_field",
+    "delete_unused_user",
     "equipment_hourly_cost",
     "expire_material_lots",
     "find_unit",
@@ -58,6 +59,7 @@
     "preview_number",
     "print_day_record",
     "purge_demo_data",
+    "purge_logs",
     "record_print_log",
     "record_print_lots",
     "render_number",
@@ -121,6 +123,7 @@
     "trg_wo_plan_fin",
     "trg_wo_root_immutable",
     "trg_wo_sheet_range",
+    "user_unused",
     "work_order_warnings",
     "worker_qualified"
   ],
