@@ -25,8 +25,13 @@ export function Unblock({
                      ${align === 'end' ? 'justify-end text-right' : ''} ${className}`}>
       {why && <span className="text-muted">{why}</span>}
       {fix && (fix.href ? (
+        /* 정본 이동 글귀(.qd-text-action--go · 먹색 · 600 · 끝 꺾쇠). 막힌 단추 옆의 «가서 할 일» 이다 */
         <Link href={fix.href} className="qd-text-action qd-text-action--go" title={fix.place}>
-          {todo} <span aria-hidden="true">→</span>
+          {todo}
+          <svg aria-hidden viewBox="0 0 16 16" className="size-3.5" fill="none" stroke="currentColor"
+               strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M6 3.5 10.5 8 6 12.5" />
+          </svg>
         </Link>
       ) : (
         <span className="text-faint">
