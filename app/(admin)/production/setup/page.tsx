@@ -1,4 +1,5 @@
 import { requireUser, hasRole, canWrite, blocksScreen } from '@/lib/session';
+import { fixAt } from '@/lib/unblock';
 import { withActor } from '@/lib/db';
 import Denied from '@/components/denied';
 import { PageShell } from '@/components/shell';
@@ -59,7 +60,8 @@ export default async function ProductionSetupPage({
       action={<NewProduct finished={d.finished} today={d.today} />}
       nav={<SubNav items={PRODUCTION_NAV} />}
     >
-      <DmrWorkbench userId={user.id} dmParam={sp.dm} base="/production/setup" writable={canWrite(user)} />
+      <DmrWorkbench userId={user.id} dmParam={sp.dm} base="/production/setup" writable={canWrite(user)}
+                    fixes={{ fin: fixAt(user, '/settings/items', '?type=FIN'), material: fixAt(user, '/material/items') }} />
     </PageShell>
   );
 }

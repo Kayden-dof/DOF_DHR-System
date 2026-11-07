@@ -3,6 +3,8 @@
 import { useActionState, useState, useId } from 'react';
 import { MOVEMENT_TYPES, MOVEMENT_REASONS, type FormState } from '@/lib/forms';
 import { Msg } from '@/components/ui';
+import { Unblock } from '@/components/unblock';
+import type { Fix } from '@/lib/unblock';
 import { moveStock, makeSolution } from '../actions';
 
 export interface LotOpt {
@@ -17,7 +19,11 @@ export interface WoOpt { id: string; batch_no: string; wo_no: string }
    반납은 원 로트로 복귀시킨다. 성적서와의 연결을 유지하기 위함이다.
    개봉 후 반납이 안 되는 건은 공정 폐기로 처리한다.
 --------------------------------------------------------------------------- */
-export function MovementForm({ lots, orders }: { lots: LotOpt[]; orders: WoOpt[] }) {
+export function MovementForm({ lots, orders, fix }: {
+  lots: LotOpt[]; orders: WoOpt[];
+  /** 자재 로트가 없을 때 입고하러 가는 자리 (lib/unblock.ts) */
+  fix?: Fix;
+}) {
   /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
   const uid = useId();
 
@@ -89,6 +95,10 @@ export function MovementForm({ lots, orders }: { lots: LotOpt[]; orders: WoOpt[]
         <button type="submit" disabled={pending || lots.length === 0} className="btn-primary">
           기록
         </button>
+        {lots.length === 0 && (
+          <Unblock fix={fix} align="start" className="mt-2"
+                   why="기록할 자재 로트가 없습니다." todo="자재 입고 등록하기" />
+        )}
       </div>
     </form>
   );
@@ -100,7 +110,7 @@ export function MovementForm({ lots, orders }: { lots: LotOpt[]; orders: WoOpt[]
    20× PBS와 30% 에탄올 희석액은 당일 제조 · 당일 폐기라 로트를 만들지 않는다.
    원료가 차감되는 것만 기록한다.
 --------------------------------------------------------------------------- */
-export function SolutionForm({ lots }: { lots: LotOpt[] }) {
+export function SolutionForm({ lots, fix }: { lots: LotOpt[]; fix?: Fix }) {
   /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
   const uid = useId();
 
@@ -153,6 +163,10 @@ export function SolutionForm({ lots }: { lots: LotOpt[] }) {
         <button type="submit" disabled={pending || lots.length === 0} className="btn-primary">
           제조 기록
         </button>
+        {lots.length === 0 && (
+          <Unblock fix={fix} align="start" className="mt-2"
+                   why="원료로 쓸 자재 로트가 없습니다." todo="자재 입고 등록하기" />
+        )}
       </div>
     </form>
   );

@@ -4,6 +4,8 @@ import { useActionState, useState, useId, useTransition, useEffect } from 'react
 import type { FormState } from '@/lib/forms';
 import { ITEM_TYPES } from '@/lib/forms';
 import { Msg, Tag } from '@/components/ui';
+import { Unblock } from '@/components/unblock';
+import type { Fix } from '@/lib/unblock';
 import { Dialog, useDialog } from '@/components/dialog';
 import { createItem, updateItem, bulkItems, generateFinished, previewFinished,
          type GenResult, type PreviewRow } from './actions';
@@ -342,7 +344,11 @@ export interface SchemeOpt {
    그것이 두 번째 출처가 되고, 언젠가 보여 준 것과 만들어진 것이 갈라진다
    (§10 - 복제는 갈라진다).
 --------------------------------------------------------------------------- */
-export function GenerateFinished({ schemes }: { schemes: SchemeOpt[] }) {
+export function GenerateFinished({ schemes, fix }: {
+  schemes: SchemeOpt[];
+  /** 형명 체계가 없을 때 등록하러 가는 자리 (lib/unblock.ts) */
+  fix?: Fix;
+}) {
   const uid = useId();
   const [state, action, pending] = useActionState<GenResult, FormData>(generateFinished, {});
   const { open, setOpen } = useDialog(state);
@@ -395,9 +401,10 @@ export function GenerateFinished({ schemes }: { schemes: SchemeOpt[] }) {
       <div className="mt-3">
         <label className="label" htmlFor={`${uid}-scheme`}>형명 체계</label>
         {schemes.length === 0 ? (
-          <p className="rounded-md bg-warn-bg px-3 py-2.5 text-sm text-ink">
-            활성 형명 체계가 없습니다. <b>설정 · 형명 체계</b>에서 먼저 등록하십시오.
-          </p>
+          <div className="rounded-md bg-warn-bg px-3 py-2.5">
+            <Unblock fix={fix} align="start" why="활성 형명 체계가 없어 형명을 만들 수 없습니다."
+                     todo="형명 체계 등록하기" />
+          </div>
         ) : (
           <select id={`${uid}-scheme`} name="scheme_id" required value={schemeId}
                   onChange={(e) => { setSchemeId(e.target.value); setRows(null); }}

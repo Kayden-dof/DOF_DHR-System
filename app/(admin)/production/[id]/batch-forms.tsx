@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useActionState, useEffect, useState, useId } from 'react';
 import { PL_STATUS_LABEL, type FormState } from '@/lib/forms';
 import { Msg, Caution } from '@/components/ui';
+import { Unblock } from '@/components/unblock';
+import type { Fix } from '@/lib/unblock';
 import { Dialog, useDialog } from '@/components/dialog';
 import {
   cutLot, setLotStatus, cancelWorkOrder, finishWorkOrder, retrievePrint,
@@ -39,8 +41,10 @@ export interface FinOpt {
    아니다. 원재료 로트에 두께가 안 적혀 있을 수도 있다. 고를 수는 있게 두되
    고른 것이 이 배치의 두께와 다르면 그 사실만 적는다 (§8.5).
 --------------------------------------------------------------------------- */
-export function CutForm({ woId, options, today, used, band, cutDate }: {
+export function CutForm({ woId, options, today, used, band, cutDate, fix }: {
   woId: string; options: FinOpt[]; today: string; used: Set<string>;
+  /** 나눌 형명이 없을 때 만들러 가는 자리 (lib/unblock.ts) */
+  fix?: Fix;
   /** 이 배치 원재료 로트의 두께 구간. 예 '1015' */
   band?: string | null;
   /** 재단 공정을 적은 날. 없으면 null - 그때만 오늘로 떨어진다 */
@@ -149,7 +153,8 @@ export function CutForm({ woId, options, today, used, band, cutDate }: {
           제조번호 부여
         </button>
         {pool.length === 0 && (
-          <span className="ml-2 text-xs text-faint">더 나눌 형명이 없습니다.</span>
+          <Unblock fix={fix} align="start" className="mt-2"
+                   why="이 배치에 더 나눌 완제품 형명이 없습니다." todo="완제품 형명 만들기" />
         )}
       </div>
     </form>

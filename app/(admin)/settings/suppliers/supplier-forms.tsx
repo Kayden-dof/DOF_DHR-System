@@ -5,6 +5,8 @@ import { isPastKST } from '@/lib/kst';
 import { fmtDate } from '@/lib/fmt';
 import { SUPPLIER_STATUS, type FormState } from '@/lib/forms';
 import { Msg, Tag } from '@/components/ui';
+import { Unblock } from '@/components/unblock';
+import type { Fix } from '@/lib/unblock';
 import { Dialog, useDialog } from '@/components/dialog';
 import { saveSupplier, savePrice, saveShelfLife } from './actions';
 
@@ -224,7 +226,11 @@ export function PriceForm({ items, suppliers, today }: {
   );
 }
 
-export function ShelfLifeForm({ items, today }: { items: ItemOption[]; today: string }) {
+export function ShelfLifeForm({ items, today, fix }: {
+  items: ItemOption[]; today: string;
+  /** 완제품 형명이 없을 때 만들러 가는 자리 (lib/unblock.ts) */
+  fix?: Fix;
+}) {
   /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
   const uid = useId();
 
@@ -280,7 +286,8 @@ export function ShelfLifeForm({ items, today }: { items: ItemOption[]; today: st
         </button>
       </div>
       {fin.length === 0 && (
-        <p className="mt-2 text-xs text-faint">완제품 형명을 먼저 생성하십시오.</p>
+        <Unblock fix={fix} align="start" className="mt-2"
+                 why="사용기간을 붙일 완제품 형명이 없습니다." todo="완제품 형명 만들기" />
       )}
     </form>
   );

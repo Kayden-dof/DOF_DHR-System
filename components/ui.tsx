@@ -72,7 +72,11 @@ export function TableWrap({ children }: { children: React.ReactNode }) {
   return <div className="overflow-x-auto">{children}</div>;
 }
 
-export function Empty({ children, hint }: { children: React.ReactNode; hint?: React.ReactNode }) {
+export function Empty({ children, hint, action }: {
+  children: React.ReactNode; hint?: React.ReactNode;
+  /** 채우러 가는 단추 (components/unblock.tsx). 안내 줄은 <p> 라 그 안에 두지 않는다 */
+  action?: React.ReactNode;
+}) {
   return (
     /*
      * 빈 상태의 글자를 한 단계씩 올렸다 (2026-09-08).
@@ -107,6 +111,7 @@ export function Empty({ children, hint }: { children: React.ReactNode; hint?: Re
           {hint}
         </p>
       )}
+      {action && <div className="mt-3 flex justify-center">{action}</div>}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { requireUser, hasRole, canWrite, blocksScreen } from '@/lib/session';
+import { fixAt } from '@/lib/unblock';
 import Denied from '@/components/denied';
 import { PageShell } from '@/components/shell';
 import { SubNav } from '../../nav';
@@ -31,7 +32,8 @@ export default async function DmrPage({
       lede="서면 제품표준서가 정본입니다. 여기에는 개정 표기와 공정 · 자재 구성표만 옮겨 기재합니다. 이 내용이 작업 지시서의 소요량 계산 근거가 됩니다."
       nav={<SubNav items={settingsNav(user.roles, user.screens)} />}
     >
-      <DmrWorkbench userId={user.id} dmParam={sp.dm} base="/settings/dmr" writable={canWrite(user)} />
+      <DmrWorkbench userId={user.id} dmParam={sp.dm} base="/settings/dmr" writable={canWrite(user)}
+                    fixes={{ fin: fixAt(user, '/settings/items', '?type=FIN'), material: fixAt(user, '/material/items') }} />
     </PageShell>
   );
 }

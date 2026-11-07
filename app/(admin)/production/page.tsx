@@ -9,6 +9,7 @@ import { SubNav } from '../nav';
 import { PRODUCTION_NAV } from '../sections';
 import { PageShell, FilterBar } from '@/components/shell';
 import { Table, Th, Td, IdCell, TwoLine, ActionTh, RowLink } from '@/components/table';
+import { fixAt } from '@/lib/unblock';
 import IssueForm, {
   type DmOpt, type RawLotOpt, type UserOpt, type FinOpt,
 } from './issue-form';
@@ -106,6 +107,13 @@ export default async function ProductionPage({ searchParams }: { searchParams: S
       `select status::text as status, count(*)::int as n from work_order group by status`),
   }));
 
+  /* 발행 단추가 막혔을 때 푸는 자리 (사용자 요청 2026-11-07) */
+  const unverified = d.masters.find((m) => !m.verified_at);
+  const fixes = {
+    dmr: fixAt(user, '/settings/dmr', unverified ? `?dm=${unverified.id}` : ''),
+    material: fixAt(user, '/material'),
+  };
+
   const byStatus = new Map(d.counts.map((c) => [c.status, c.n]));
   const total = d.counts.reduce((s, c) => s + c.n, 0);
 
@@ -118,7 +126,7 @@ export default async function ProductionPage({ searchParams }: { searchParams: S
         공정 기록 입력은 현장 화면에서 합니다.
       </>}
       action={readOnly ? null : (<IssueForm masters={d.masters} rawLots={d.rawLots} finished={d.finished}
-                         users={d.users} today={d.today ?? ''} />)}
+                         users={d.users} today={d.today ?? ''} fixes={fixes} />)}
       nav={<SubNav items={PRODUCTION_NAV} />}
     >
       {/*

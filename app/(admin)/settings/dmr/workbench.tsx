@@ -3,6 +3,8 @@ import FlowDiagram from './flow-diagram';
 import { withActor } from '@/lib/db';
 import { fmtDate, fmtDateTime } from '@/lib/fmt';
 import { Panel, Empty, Tag, Field } from '@/components/ui';
+import { Unblock } from '@/components/unblock';
+import type { Fix } from '@/lib/unblock';
 import {
   NewDeviceMaster, VerifyForm, AddOperationForm, OperationCard, ExpectedUnitsForm,
   SamplePlanForm, type SampleTier,
@@ -35,9 +37,14 @@ interface DmRow {
 type Search = Promise<{ dm?: string }>;
 
 export async function DmrWorkbench({
-  userId, dmParam, base, writable = true,
+  userId, dmParam, base, writable = true, fixes,
 }: {
   userId: string;
+  /**
+   * 막힌 단추를 푸는 자리 (사용자 요청 2026-11-07). 부르는 화면이 그 사람의
+   * 권한으로 정해 넘긴다 (lib/unblock.ts) - 완제품 형명과 자재 품목.
+   */
+  fixes?: { fin: Fix; material: Fix };
   /*
    * 쓰지 못하는 세션이면 쓰기 자리를 그리지 않는다 (사용자 결정 2026-09-11).
    *
@@ -125,13 +132,14 @@ export async function DmrWorkbench({
     <div className="space-y-6">
       {writable && (
         <div className="flex flex-wrap items-center gap-2">
-          <NewDeviceMaster items={d.items} />
+          <NewDeviceMaster items={d.items} fix={fixes?.fin} />
         </div>
       )}
 
       {d.masters.length === 0 ? (
         <Panel>
-          <Empty hint="설정 · 품목에서 완제품 형명을 먼저 만들고, 위의 제품표준서 개정 추가를 누릅니다.">
+          <Empty hint="완제품 형명을 먼저 만들고, 위의 제품표준서 개정 추가를 누릅니다."
+                 action={fixes?.fin && <Unblock fix={fixes.fin} todo="완제품 형명 만들기" />}>
             등록된 제품표준서가 없습니다.
           </Empty>
         </Panel>
@@ -259,7 +267,7 @@ export async function DmrWorkbench({
                   <div>
                     {d.operations.map((op) => (
                       <OperationCard key={op.id} dm={dm.id} op={op}
-                                     items={d.items} editable={editable}
+                                     items={d.items} editable={editable} bomFix={fixes?.material}
                                      equipment={d.equipment.map((e) => ({
                                        ...e,
                                        linked: d.opEquip.some((x) =>

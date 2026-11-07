@@ -1,4 +1,5 @@
 import { requireUser, blocksScreen } from '@/lib/session';
+import { fixAt } from '@/lib/unblock';
 import Denied from '@/components/denied';
 import { withActor } from '@/lib/db';
 import { PageShell } from '@/components/shell';
@@ -65,10 +66,10 @@ export default async function MovementPage() {
 
       <div className="grid gap-5 lg:grid-cols-2">
         <Panel title="재고 증감" note="반납 · 폐기 · 조정">
-          <MovementForm lots={d.lots} orders={d.orders} />
+          <MovementForm lots={d.lots} orders={d.orders} fix={fixAt(user, '/material')} />
         </Panel>
         <Panel title="용액 제조" note="당일 제조 · 당일 폐기">
-          <SolutionForm lots={d.lots} />
+          <SolutionForm lots={d.lots} fix={fixAt(user, '/material')} />
         </Panel>
       </div>
 

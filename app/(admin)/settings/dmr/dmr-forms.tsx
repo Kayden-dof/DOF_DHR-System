@@ -4,6 +4,8 @@ import { useActionState, useState, useId, useEffect } from 'react';
 import type { FormState } from '@/lib/forms';
 import { Msg, Tag } from '@/components/ui';
 import { Dialog, useDialog } from '@/components/dialog';
+import { Unblock } from '@/components/unblock';
+import type { Fix } from '@/lib/unblock';
 import {
   createDeviceMaster, verifyDeviceMaster, addOperation, addBom, addTier, setExpectedUnits, setProductCode,
   addOperationsBulk, copyDmr, createProduct, addSampleTier, setSampleBasis,
@@ -28,7 +30,11 @@ export interface ItemOption { id: string; code: string; name: string; usage_uom:
 
 /* -------------------------------------------------------------------------- */
 
-export function NewDeviceMaster({ items }: { items: ItemOption[] }) {
+export function NewDeviceMaster({ items, fix }: {
+  items: ItemOption[];
+  /** 완제품 형명이 없을 때 만들러 가는 자리 (lib/unblock.ts) */
+  fix?: Fix;
+}) {
   /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
   const uid = useId();
 
@@ -39,6 +45,10 @@ export function NewDeviceMaster({ items }: { items: ItemOption[] }) {
   return (
     <>
       <button onClick={() => setOpen(true)} className="btn-primary" disabled={fin.length === 0}> 제품표준서 개정 추가 </button>
+      {fin.length === 0 && (
+        <Unblock fix={fix} align="start" why="완제품 형명이 없어 대상 형명을 고를 수 없습니다."
+                 todo="완제품 형명 만들기" />
+      )}
       <Dialog open={open} onClose={() => setOpen(false)} wide title="제품표준서 개정 추가">
         <form action={action}>
       <h3 className="mb-3 text-sm font-bold text-ink">새 개정</h3>
@@ -340,8 +350,10 @@ export function AddOperationForm({ dm, nextSeq }: { dm: string; nextSeq: number 
   );
 }
 
-export function AddBomForm({ dm, op, items }: {
+export function AddBomForm({ dm, op, items, fix }: {
   dm: string; op: OperationRow; items: ItemOption[];
+  /** 고를 자재가 없을 때 품목을 등록하러 가는 자리 */
+  fix?: Fix;
 }) {
   /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
   const uid = useId();
@@ -386,7 +398,9 @@ export function AddBomForm({ dm, op, items }: {
           자재 추가
         </button>
         {pool.length === 0 && (
-          <span className="ml-2 text-xs text-faint">추가할 수 있는 자재가 없습니다.</span>
+          <Unblock fix={fix} align="start" className="mt-2"
+                   why="이 공정에 더 넣을 수 있는 자재 품목이 없습니다."
+                   todo="자재 품목 등록하기" />
         )}
       </div>
     </form>
@@ -596,8 +610,10 @@ export function AddTierForm({ dm, bom }: { dm: string; bom: BomRow }) {
 
 /* -------------------------------------------------------------------------- */
 
-export function OperationCard({ dm, op, items, editable, equipment = [] }: {
+export function OperationCard({ dm, op, items, editable, equipment = [], bomFix }: {
   dm: string; op: OperationRow; items: ItemOption[]; editable: boolean;
+  /** 자재 구성표에 넣을 품목이 없을 때 가는 자리 */
+  bomFix?: Fix;
   /** 걸 수 있는 설비 전체와 이 공정에 걸렸는지. 셋업 화면에서 칩으로 켠다 */
   equipment?: { id: string; code: string; name: string; linked: boolean }[];
 }) {
@@ -726,7 +742,7 @@ export function OperationCard({ dm, op, items, editable, equipment = [] }: {
               ))}
             </div>
           )}
-          {editable && <AddBomForm dm={dm} op={op} items={items} />}
+          {editable && <AddBomForm dm={dm} op={op} items={items} fix={bomFix} />}
         </div>
       )}
     </div>

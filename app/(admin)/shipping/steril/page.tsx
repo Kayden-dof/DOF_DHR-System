@@ -1,4 +1,6 @@
 import { requireUser, blocksScreen } from '@/lib/session';
+import { fixAt } from '@/lib/unblock';
+import { Unblock } from '@/components/unblock';
 import Denied from '@/components/denied';
 import { withActor } from '@/lib/db';
 import { PageShell } from '@/components/shell';
@@ -89,7 +91,8 @@ export default async function SterilPage() {
               : '박스 단위로 발송합니다. ')
             + '한 박스에 여러 제품 로트가 들어갈 수 있습니다.'}
       action={<SterilForm lots={d.lots} today={d.today ?? ''}
-                          boxQty={d.boxQtys.length === 1 ? Number(d.boxQtys[0].qty) : null} />}
+                          boxQty={d.boxQtys.length === 1 ? Number(d.boxQtys[0].qty) : null}
+                          fix={fixAt(user, '/production')} />}
       nav={<SubNav items={SHIPPING_NAV} />}
     >
 

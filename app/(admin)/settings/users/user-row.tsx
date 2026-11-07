@@ -165,6 +165,16 @@ function RolePanel({ u, isMe, sysAdmin }: {
               <input type="hidden" name="id" value={u.id} />
               <input type="hidden" name="role" value={r} />
               <span className="flex-1 text-sm text-ink">{ROLE_LABEL[r]}</span>
+              {/*
+                * 막힌 까닭을 글로 보인다 (사용자 요청 2026-11-07). 전에는 마우스를
+                * 올려야 나오는 title 뿐이라 패드에서는 읽을 길이 없었다. 갈 화면이
+                * 없는 막힘이라 단추 대신 누가 푸는지를 적는다.
+                */}
+              {r === 'SYS_ADMIN' && (isMe || !sysAdmin) && (
+                <span className="text-xs text-faint">
+                  {!sysAdmin ? '시스템관리자만 회수합니다' : '다른 시스템관리자가 회수합니다'}
+                </span>
+              )}
               <button
                 type="submit"
                 disabled={revoking || (r === 'SYS_ADMIN' && (isMe || !sysAdmin))}
@@ -278,6 +288,9 @@ function FlagPanel({ u, isMe, sysAdmin }: { u: UserRow; isMe: boolean; sysAdmin:
           <span className="flex-1 text-sm text-ink">
             {u.is_active ? '활성 상태' : '비활성 상태'}
           </span>
+          {isMe && u.is_active && (
+            <span className="text-xs text-faint">자기 계정은 다른 시스템관리자가 바꿉니다</span>
+          )}
           <button
             type="submit"
             disabled={a1 || (isMe && u.is_active)}
