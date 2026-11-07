@@ -17,7 +17,7 @@ export default function NewUserForm({ sysAdmin }: { sysAdmin: boolean }) {
       <button onClick={() => setOpen(true)} className="btn-primary"> 새 계정 등록 </button>
       <Dialog open={open} onClose={() => setOpen(false)} wide title="새 계정 등록">
         <form action={action}>
-      <h2 className="mb-3 text-sm font-bold text-ink">새 계정</h2>
+      <h2 className="mb-3 text-sm font-semibold text-ink">새 계정</h2>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div>

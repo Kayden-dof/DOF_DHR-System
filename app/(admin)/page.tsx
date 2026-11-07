@@ -382,7 +382,7 @@ export default async function Dashboard() {
         <Panel
           title="진행 중인 배치"
           action={
-            <Link href="/production" className="text-xs font-bold text-brand hover:underline">
+            <Link href="/production" className="text-xs font-semibold text-brand hover:underline">
               전체 보기
             </Link>
           }
@@ -443,7 +443,7 @@ export default async function Dashboard() {
             title="유효기한 임박"
             note={`${warnDays}일 이내`}
             action={
-              <Link href="/material" className="text-xs font-bold text-brand hover:underline">
+              <Link href="/material" className="text-xs font-semibold text-brand hover:underline">
                 자재로
               </Link>
             }
@@ -458,7 +458,7 @@ export default async function Dashboard() {
                     <div className="font-mono text-xs text-faint">{e.lot_no}</div>
                   </div>
                   <div className="shrink-0 text-right">
-                    <div className={`tnum text-xs font-bold ${
+                    <div className={`tnum text-xs font-semibold ${
                       e.days_left <= 0 ? 'text-danger' : 'text-warn'}`}>
                       {e.days_left <= 0 ? '기한 경과' : `${e.days_left}일`}
                     </div>
@@ -492,7 +492,7 @@ export default async function Dashboard() {
         <Panel
           title="마감 대기"
           action={
-            <Link href="/production" className="text-xs font-bold text-brand hover:underline">
+            <Link href="/production" className="text-xs font-semibold text-brand hover:underline">
               생산으로
             </Link>
           }
@@ -540,7 +540,7 @@ export default async function Dashboard() {
         <Panel
           title="최근 활동"
           action={admin
-            ? <Link href="/settings/audit" className="text-xs font-bold text-brand hover:underline">감사추적</Link>
+            ? <Link href="/settings/audit" className="text-xs font-semibold text-brand hover:underline">감사추적</Link>
             : null}
         >
           {/* 감사추적 화면과 같은 표다 (components/audit-table.tsx) */}

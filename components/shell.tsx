@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import StatDetail from './stat-detail';
+import { responsiveColumns } from '@/lib/design/q-design-responsive';
 
 /* ---------------------------------------------------------------------------
    화면 골격
@@ -18,7 +19,7 @@ import StatDetail from './stat-detail';
 --------------------------------------------------------------------------- */
 
 export function PageShell({
-  section, title, lede, action, nav, stats, children,
+  title, lede, action, nav, stats, children,
 }: {
   /** 구역 이름. 상단 메뉴와 같은 말을 쓴다 */
   section?: string;
@@ -34,100 +35,51 @@ export function PageShell({
 }) {
   return (
     <div className="space-y-6">
-      <header className="space-y-5">
-        {/*
-          * 하위 차림표가 제목 위에 온다.
-          *
-          * 아래에 두면 그 자리가 제목과 설명의 높이에 딸려 다닌다. 설명이 한
-          * 줄인 화면과 두 줄인 화면을 오갈 때 차림표가 위아래로 뛰었다 - 같은
-          * 구역 안을 오가는데 방금 누른 것이 움직인다 (사용자 지적 2026-09-01).
-          *
-          * 위로 올리면 그 자리는 머리줄 바로 아래로 고정된다. 무엇을 누르든
-          * 차림표는 같은 곳에 있고, 화면마다 달라지는 것은 그 아래뿐이다.
-          */}
-        {nav}
+      {/*
+        * 하위 차림표가 제목 위에 온다.
+        *
+        * 아래에 두면 그 자리가 제목과 설명의 높이에 딸려 다닌다. 설명이 한
+        * 줄인 화면과 두 줄인 화면을 오갈 때 차림표가 위아래로 뛰었다 - 같은
+        * 구역 안을 오가는데 방금 누른 것이 움직인다 (사용자 지적 2026-09-01).
+        */}
+      {nav}
 
-        <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
-          {/*
-            * 제목 칸에 max-w 를 주면 설명이 길 때 칸이 그 너비까지 벌어져 주
-            * 동작이 아래 줄로 밀린다. 밀린 단추는 왼쪽에 붙어서 설명문에 딸린
-            * 것처럼 보였다. 칸은 남는 만큼 줄어들게 두고, 글줄 길이는 설명문
-            * 자체에서 잡는다.
-            */}
-          <div className="min-w-0 flex-1">
-            {/*
-              * 제목 위에 구역 이름을 적지 않는다.
-              *
-              * 머리줄이 이미 어느 구역인지 밝히고, 하위 차림표가 있으면 그것이
-              * 어느 화면인지 밝힌다. 그 아래 다시 "설정" 을 적으면 같은 말이 세
-              * 번이고, 제목 앞에 줄이 하나 더 생겨 화면이 무거워진다.
-              *
-              * section 은 남겨 둔다 - 화면이 어느 구역에 속하는지는 여전히
-              * 사실이고, 나중에 다른 자리에서 쓸 수 있다.
-              */}
-            {/*
-              * 제목을 키운다 (사용자 지시 2026-09-11 "디자인이 너무 심심하다").
-              *
-              * 22px 는 본문 15px 과 차이가 크지 않아, 화면을 열었을 때 눈이
-              * 먼저 붙는 자리가 없었다. 카드도 표도 다 같은 무게로 보이는
-              * 까닭의 절반이 여기였다.
-              *
-              * 색이나 장식이 아니라 크기와 자간으로 올린다 - 이 화면은 기록을
-              * 읽는 자리이고, 무게를 색으로 주면 색이 뜻을 잃는다 (경고가
-              * 주황인 것과 같은 까닭). 자간을 조금 좁히면 큰 글자가 흩어지지
-              * 않는다.
-              */}
-            {/*
-              * 제목 위의 짧은 강조선 (Q-Design 시각 서명 ①, 32×1.5px). 화면마다
-              * 같은 자리에 되풀이되어 이 시스템을 알아보게 한다.
-              */}
-            <span aria-hidden className="mb-3.5 block h-[1.5px] w-8 bg-brand" />
-            <h1 className="text-2xl font-semibold leading-[1.2] tracking-[-0.02em] text-ink">
-              {title}
-            </h1>
+      {/*
+        * 화면 머리는 정본 `.qd-page-head` 다 (Q-Design 7장 «화면 뼈대»).
+        * 금색 막대 · 제목 · 아래 괘선이 모든 화면 맨 위에 같은 모양으로 선다.
+        * 제목 크기 · 굵기 · 막대 · 괘선은 정본이 준다 - 여기서 다시 적지 않는다.
+        *
+        * 제목 위에 구역 이름(눈썹)을 적지 않는다. 차림표가 이미 어느 구역인지
+        * 밝히고, 하위 차림표가 어느 화면인지 밝힌다. 같은 말이 세 번이 된다.
+        */}
+      <header className="qd-page-head">
+        <div className="qd-page-head-row">
+          <div className="qd-page-head-text">
+            <h1 className="qd-page-head-title">{title}</h1>
             {/*
               * 설명은 늘 두 줄 자리를 차지한다. 한 줄짜리 화면과 두 줄짜리
-              * 화면을 오갈 때 아래가 통째로 뛰던 것을 막는다.
-              *
-              * 높이는 글자 크기와 줄 간격에서 그대로 셈한다 - 어림수를 박아
-              * 두면 글자 크기를 고칠 때 어긋난다.
+              * 화면을 오갈 때 아래가 통째로 뛰던 것을 막는다. 높이는 글자 크기와
+              * 줄 간격에서 그대로 셈한다.
               */}
             {lede && (
-              <p className="mt-2 max-w-2xl min-h-[calc(2*1.6*0.875rem)] text-sm
-                            leading-[1.6] text-muted">{lede}</p>
+              <p className="mt-2 max-w-2xl min-h-[calc(2*1.6*0.875rem)] text-sm leading-relaxed text-muted">
+                {lede}
+              </p>
             )}
           </div>
           {/*
-            * 주 동작 자리에 놓이는 것이 단추 하나일 때도 있고, 눌러서 그 자리에
-            * 펼쳐지는 입력 폼일 때도 있다. 폼이 펼쳐지면 칸 하나에 눌려 절반
-            * 폭으로 접혔다 - 입고 등록처럼 열 개 넘는 칸이 들어가는 폼이 화면
-            * 왼쪽 절반에 끼어 있었다.
-            *
-            * 폼이 들어오면 그 줄을 통째로 내준다. 단추일 때는 지금처럼 제목
-            * 오른쪽에 붙는다.
+            * 주 동작 자리에 펼쳐지는 입력 폼이 오면 그 줄을 통째로 내준다. 단추일
+            * 때는 제목 오른쪽에 붙는다.
             */}
           {action && (
-            <div className="flex shrink-0 items-center gap-2 pt-1 has-[form]:block has-[form]:w-full">
+            <div className="qd-page-head-actions has-[form]:block has-[form]:w-full">
               {action}
             </div>
           )}
         </div>
-
-        {stats}
       </header>
 
-      {/*
-        * 머리와 본문을 가르는 얇은 선 (사용자 지적 2026-09-11 "덩그러니").
-        *
-        * 화면마다 제목과 설명이 캔버스 위에 그냥 떠 있고 그 아래로 카드가
-        * 바로 이어졌다. 틀이 없으니 머리가 첫 카드에 딸린 글처럼 보이고,
-        * 화면 전체가 "놓여 있다" 가 아니라 "흩어져 있다" 로 읽힌다.
-        *
-        * 선 하나면 머리가 머리로 선다. 숫자 띠가 있는 화면은 그 띠가 이미
-        * 가르므로 긋지 않는다 - 가로줄이 둘이면 어느 쪽이 시작인지 흐려진다
-        * (표 머리에 띠를 깔지 않는 것과 같은 까닭).
-        */}
-      {!stats && <div className="border-t border-line-soft" />}
+      {stats}
 
       {children}
     </div>
@@ -157,141 +109,54 @@ export interface StatItem {
   detail?: React.ReactNode;
 }
 
-/* ---------------------------------------------------------------------------
-   긴 값은 자르지 않고 줄인다
-
-   카드 한 칸의 최소 폭이 9.5rem 이고 좌우 여백을 빼면 글자가 설 자리는 120px
-   남짓이다. 28px 로는 다섯 자가 한계다 - 금액이 들어오면 `3,890,000원` 이
-   163px 을 먹어 카드 밖으로 밀려났다 (사용자 지적 2026-09-16).
-
-   **자르는 것은 답이 아니다.** 카드에 overflow-hidden 이 걸려 있어 넘친 자리는
-   조용히 잘렸는데, 잘린 숫자는 못 읽는 숫자가 아니라 **틀린 숫자**다.
-   13,890,000 의 뒤가 잘리면 1,389 로 읽힌다. 자리 수를 눈으로 세는 자리에서
-   그것은 §8.5 가 금지한 잘못된 신호와 같은 종류다.
-
-   그래서 자리 수만큼 글자를 줄인다. 숫자는 tabular(tnum) 이라 글자 폭이 고르고,
-   자당 폭이 글꼴 크기의 0.58배로 거의 정비례한다 (브라우저에서 실측). 그래서
-   길이 하나로 설 자리를 셈할 수 있다.
-
-   **단계로 끊지 않는다.** 몇 구간으로 나눠 봤더니 구간 끝자리마다 1~2px 씩
-   다시 넘쳤다 - 구간을 촘촘히 할수록 표만 길어지고 경계는 계속 남는다.
-   길이로 셈하면 자리 수가 몇이든 들어간다. 자간을 좁히는 것은 큰 글자에만
-   어울리므로 작아지면 함께 푼다.
-
-   여기 한 곳에서 정한다. 띠를 쓰는 화면이 넷이고 (경영 현황 · 홈 · 설비 ·
-   일탈) 각자 재면 갈라진다 (§10 복제는 갈라진다).
---------------------------------------------------------------------------- */
 /*
- * 숫자는 40px 까지 세운다 (Q-Design KPI 값 40/600). 칸이 좁거나 자리 수가 많으면
- * 위 셈대로 줄인다. 괘선 판이라 좌우 여백이 없다.
+ * 칸은 정본 `.qd-kpi` 다. 라벨이 위, 숫자가 아래. 숫자 크기는 칸 폭을 따라 정본
+ * 사다리(40 · 32 · 28 · 24)에서 고른다 - 긴 금액(3,890,000원)도 잘리지 않고
+ * 한 단계씩 줄어든다. 여기서 크기를 셈하지 않는다.
+ *
+ * 0 은 눌러 둔다 (`.qd-kpi--zero`). 0 을 강조하면 아무 일도 없는 것이 일처럼
+ * 보인다. 눈에 띄어야 하는 값은 숫자의 색이 말한다 (data-tone).
  */
-const CARD_TEXT_PX = 8.5 * 16 - 2;   // 칸 최소 폭 - 여유
-
-function valueStyle(v: number | string): React.CSSProperties {
-  const px = Math.min(40, Math.floor(CARD_TEXT_PX / (String(v).length * 0.58)));
-  return { fontSize: `${px}px`, letterSpacing: px >= 20 ? '-0.02em' : undefined };
-}
-
-const TEXT: Record<string, string> = {
-  warn: 'text-warn', danger: 'text-danger', info: 'text-info', brand: 'text-brand',
-};
-
 export function StatStrip({ items }: { items: StatItem[] }) {
   if (items.length === 0) return null;
-
   /*
-   * 칸 사이를 gap-px 로 벌리고 바탕을 선 색으로 깔면, 항목이 줄바꿈될 때 남는
-   * 자리가 회색 덩어리로 남는다. 여섯 개가 네 개씩 끊기면 오른쪽 두 칸이
-   * 통째로 회색이 되어 무언가 깨진 것처럼 보였다.
-   *
-   * 바탕은 흰 면으로 두고 칸마다 왼쪽 · 위쪽 선을 그린다. 격자를 1px 씩 밖으로
-   * 밀어 첫 줄과 첫 칸의 선이 바깥 테두리 위에 정확히 겹치게 한다. 남는 자리는
-   * 그냥 흰 면이다.
+   * 줄을 고르게 나눈다 (디자인 점검 2026-11-06). auto-fit 만 두면 일곱 개짜리 띠가
+   * 6 + 1 로 끊겨 마지막 하나가 혼자 남는다. 한 줄에 여섯을 넘기지 않는 범위에서
+   * 줄 수를 먼저 정하고 고르게 나눈다 (7 → 4 + 3 · 8 → 4 + 4). 칸 수는 상한일 뿐이라
+   * 좁은 화면에서는 정본 최소 폭이 이겨 접힌다 (정본 responsiveColumns).
    */
+  const cols = Math.ceil(items.length / Math.ceil(items.length / 6));
   return (
-    /*
-      * 숫자 띠를 한 덩어리가 아니라 **카드 묶음**으로 낸다 (2026-09-11).
-      *
-      * 테두리로만 칸을 나눈 격자는 표로 읽힌다. 화면 맨 위에서 지금 상태를
-      * 말하는 자리인데 표처럼 보이면 눈이 그냥 지나간다. 칸마다 떼어 놓고
-      * 얕게 띄우면 하나하나가 "볼 것" 으로 읽힌다.
-      */
-    <div>
-    {/*
-      * 줄을 고르게 나눈다 (디자인 점검 2026-11-06).
-      *
-      * auto-fit 만 두면 넓은 화면에 일곱 칸이 들어가, 여덟 개짜리 띠(경영 현황)가
-      * 7 + 1 로 끊겨 마지막 하나가 둘째 줄에 혼자 남았다. 한 줄에 일곱을 넘기지
-      * 않는 범위에서 줄 수를 먼저 정하고 그 줄 수로 고르게 나눈다 (8 → 4 + 4).
-      * 좁은 화면에서는 최소 폭(9.5rem)이 이겨 지금처럼 접힌다.
-      */}
-    <dl className="grid gap-x-5 gap-y-2"
-        style={{ gridTemplateColumns: (() => {
-          const cols = Math.ceil(items.length / Math.ceil(items.length / 7));
-          return `repeat(auto-fit, minmax(max(8.5rem, calc((100% - ${cols - 1} * 1.25rem) / ${cols})), 1fr))`;
-        })() }}>
+    <dl className="qd-grid-kpi"
+        style={{ gridTemplateColumns: responsiveColumns(cols, 'var(--qd-kpi-min-width)', 14) }}>
       {items.map((s) => {
         const zero = s.value === 0 || s.value === '0';
         const body = (
           <>
-            <dt className="text-xs font-medium text-muted">{s.label}</dt>
-            <dd className="mt-2.5 flex items-baseline gap-1.5">
-              {/*
-                * 숫자를 키우고 자간을 좁힌다. 단위는 한 칸 더 물린다 -
-                * 읽는 것은 숫자이고 단위는 그 숫자가 무엇인지 알려 줄 뿐이다.
-                * 둘이 같은 무게면 눈이 어디를 먼저 볼지 정하지 못한다.
-                */}
-              {/* --------------------------------------------------------------
-                * 각자체(Cinzel)를 여기 숫자에 써 봤다가 되돌렸다
-                * (사용자와 함께 시험 2026-09-11).
-                *
-                * Cinzel 은 이 제품의 유일한 목소리인데 로그인에만 있다. 한글이
-                * 없는 글꼴이라 제목에는 못 쓰고, 안쪽에서 쓸 수 있는 자리는
-                * 숫자뿐이라 여기를 시험했다.
-                *
-                * **1 이 로마 숫자 I 처럼 보인다.** 로마 비문 각자체라 그게
-                * 본래 모양이고, 글자로는 아름답다. 그런데 이 화면에서 가장
-                * 자주 나오는 값이 1 이고, 이 자리가 하는 일은 "몇 건인가" 를
-                * 한눈에 말하는 것 하나다. 한눈에 못 읽히면 예뻐도 나빠진 것이다.
-                *
-                * 결론은 이렇다 - **안쪽이 한글이라 이 글꼴은 안쪽에 못 산다.**
-                * 노력이 모자라서가 아니라 글꼴이 가진 성질이다. 브랜드는
-                * 머리줄의 어두운 면이 지고 간다 (globals.css 의 .topbar).
-                * ------------------------------------------------------------ */}
-              <span style={valueStyle(s.value)}
-                    className={`font-semibold leading-none tnum ${
-                      zero ? 'text-faint' : s.tone ? TEXT[s.tone] : 'text-ink'
-                    }`}>
-                {s.value}
-              </span>
-              {s.unit && <span className="text-xs text-faint">{s.unit}</span>}
+            <dt className="qd-kpi-label" data-hangul="">{s.label}</dt>
+            <dd className="qd-kpi-value">
+              {s.value}
+              {s.unit && <span className="qd-kpi-unit">{s.unit}</span>}
             </dd>
           </>
         );
-
-        /*
-          * 칸은 상자가 아니라 위 괘선 하나다 (Q-Design KPI · 2026-11-06). 눈에 띄어야
-          * 하는 값은 숫자의 색이 말한다 - 가장자리를 물들이던 띠는 걷었다.
-          */
-        const cls = 'kpi';
-        const edge = null;
-
+        const cls = `qd-kpi${zero ? ' qd-kpi--zero' : ''}`;
+        const tone = zero ? undefined : s.tone;
         const tip = s.detail
           ? <StatDetail title={s.label}>{s.detail}</StatDetail>
           : null;
 
         return s.href ? (
-          <Link key={s.label} href={s.href} className={cls}>
-            {edge}{body}{tip}
+          <Link key={s.label} href={s.href} className={`${cls} qd-kpi--link`} data-tone={tone}>
+            {body}{tip}
           </Link>
         ) : (
-          <div key={s.label} className={`${cls} ${s.detail ? 'hover:bg-surface-sub' : ''}`}>
-            {edge}{body}{tip}
+          <div key={s.label} className={`${cls}${s.detail ? ' qd-kpi--link' : ''}`} data-tone={tone}>
+            {body}{tip}
           </div>
         );
       })}
     </dl>
-    </div>
   );
 }
 
@@ -308,22 +173,21 @@ export function FilterBar({
   extra?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      {/* 모양은 globals.css 의 .segment 하나에서 나온다 - 하위 차림표와 같은 것이다 */}
-      <nav className="segment">
+    <div className="flex flex-wrap items-end justify-between gap-3">
+      {/* 갈래는 정본 2차 탭(.qd-tabs · 금색 밑줄)이다 - 하위 차림표와 같은 모양 */}
+      <nav className="qd-tabs !mb-0" aria-label="갈래">
         {items.map((it) => (
           <Link
             key={it.href}
             href={it.href}
             aria-current={it.on ? 'page' : undefined}
-            data-on={it.on}
-            className="segment-item"
+            className={`qd-tab${it.on ? ' qd-tab--active' : ''}`}
           >
             {it.label}
             {/*
               * 0 건인 갈래는 세어 봐야 갈 곳이 없다. 숫자를 한 단계 눌러 눈이
               * 값이 있는 갈래에 먼저 닿게 한다. StatStrip 이 0 을 눌러 두는 것과
-              * 같은 규칙이다 - 화면마다 다르게 굴면 규칙이 아니다.
+              * 같은 규칙이다.
               */}
             {it.count !== undefined && (
               <span className={`ml-1.5 tnum ${

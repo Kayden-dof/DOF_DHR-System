@@ -94,7 +94,7 @@ export function SterilForm({ lots, today, boxQty }: {
 
   return (
     <form action={action} className="card w-full p-4">
-      <h3 className="text-sm font-bold text-ink">멸균 위탁 발송</h3>
+      <h3 className="text-sm font-semibold text-ink">멸균 위탁 발송</h3>
       <p className="mt-1 text-xs leading-relaxed text-muted">
         한 박스에 여러 제품 로트가 들어갈 수 있습니다. 파괴검사용 2개를 박스에 동봉하는 것은
         제조번호를 붙일 때 시료 수량에 이미 반영되어 있습니다.
@@ -113,7 +113,7 @@ export function SterilForm({ lots, today, boxQty }: {
 
       <p className="label mt-4">동봉할 제품 로트</p>
       <div className="overflow-x-auto rounded-md border border-line">
-        <table className="w-full">
+        <table className="qd-table qd-table--hangul" data-grow="2">
           <thead>
             <tr>
               <th className="th w-10" />
@@ -174,7 +174,7 @@ export function SterilForm({ lots, today, boxQty }: {
                   {x.name}
                   <span className="ml-1.5 font-mono text-xs text-faint">{x.code}</span>
                 </dt>
-                <dd className="shrink-0 font-bold tnum text-ink">{x.qty} 개</dd>
+                <dd className="shrink-0 font-semibold tnum text-ink">{x.qty} 개</dd>
               </div>
             ))}
           </dl>
@@ -222,7 +222,7 @@ export function SterilRow({ sb, today }: { sb: SbRow; today: string }) {
           <Tag tone={sb.received_at ? 'ok' : sb.shipped_at ? 'brand' : 'quiet'}>{stage}</Tag>
         </td>
         <td className="td text-right">
-          <button onClick={() => setOpen((v) => !v)} className="btn-quiet btn-row">
+          <button onClick={() => setOpen((v) => !v)} className="qd-text-action">
             {open ? '닫기' : '기록'}
           </button>
         </td>
@@ -306,7 +306,7 @@ export function RequestBuilder({ groups }: {
         return (
           <div key={g.wo_id} className="px-4 py-3">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <span className="font-mono text-sm font-bold text-ink">{g.batch_no}</span>
+              <span className="font-mono text-sm font-semibold text-ink">{g.batch_no}</span>
               <span className="min-w-0 flex-1 truncate text-xs text-muted">{g.item_name}</span>
               <button
                 type="button"
@@ -331,7 +331,7 @@ export function RequestBuilder({ groups }: {
                         onChange={(e) => set(l.id, e.target.checked ? l.qty_available : 0, l.qty_available)}
                         className="size-4 shrink-0 accent-brand"
                       />
-                      <span className={`font-mono text-sm font-bold ${on ? 'text-ink' : 'text-faint'}`}>
+                      <span className={`font-mono text-sm font-semibold ${on ? 'text-ink' : 'text-faint'}`}>
                         {l.lot_no}
                       </span>
                       <span className="min-w-0 truncate text-xs text-muted">{l.item_name}</span>
@@ -420,8 +420,8 @@ export function ShipList({ lots, today }: { lots: PlOpt[]; today: string }) {
   const [openId, setOpenId] = useState<string | null>(null);
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full">
+    <div className="qd-table-scroll">
+      <table className="qd-table qd-table--hangul" data-grow="2">
         <thead>
           <tr>
             <th className="th">제조번호</th>

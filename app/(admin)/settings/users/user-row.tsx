@@ -94,7 +94,7 @@ export default function UserRowView(
       <Dialog open={open} onClose={() => setOpen(false)} wide
               title={`${u.full_name} 계정 관리`}
               note={<><span className="tnum">{u.login_code}</span>
-                {u.is_developer && <span className="ml-1.5 font-bold text-warn">개발 계정</span>}</>}>
+                {u.is_developer && <span className="ml-1.5 font-semibold text-warn">개발 계정</span>}</>}>
         <NamePanel u={u} />
         <div className="mt-5 grid gap-5 lg:grid-cols-3">
           <RolePanel u={u} isMe={isMe} sysAdmin={meIsSysAdmin} />
@@ -168,7 +168,7 @@ function RolePanel({ u, isMe, sysAdmin }: {
               <button
                 type="submit"
                 disabled={revoking || (r === 'SYS_ADMIN' && (isMe || !sysAdmin))}
-                className="btn-ghost btn-row text-muted"
+                className="qd-text-action"
                 title={r !== 'SYS_ADMIN' ? ''
                   : !sysAdmin ? '시스템관리자 역할은 시스템관리자만 회수할 수 있습니다'
                   : isMe ? '자기 계정의 시스템관리자는 회수할 수 없습니다' : ''}
@@ -281,7 +281,7 @@ function FlagPanel({ u, isMe, sysAdmin }: { u: UserRow; isMe: boolean; sysAdmin:
           <button
             type="submit"
             disabled={a1 || (isMe && u.is_active)}
-            className="btn-ghost btn-row"
+            className="qd-text-action"
             title={isMe && u.is_active ? '자기 계정은 비활성화할 수 없습니다' : ''}
           >
             {u.is_active ? '비활성화' : '활성화'}
@@ -305,7 +305,7 @@ function FlagPanel({ u, isMe, sysAdmin }: { u: UserRow; isMe: boolean; sysAdmin:
           {u.is_developer ? (
             <span className="text-xs text-faint">되돌릴 수 없음</span>
           ) : (
-            <button type="submit" disabled={a2} className="btn-ghost btn-row">
+            <button type="submit" disabled={a2} className="qd-text-action">
               개발 계정으로
             </button>
           )}
@@ -324,7 +324,7 @@ function FlagPanel({ u, isMe, sysAdmin }: { u: UserRow; isMe: boolean; sysAdmin:
         >
           <input type="hidden" name="id" value={u.id} />
           <span className="flex-1 text-sm text-ink">남긴 기록 없음</span>
-          <button type="submit" disabled={a3} className="btn-danger btn-row">
+          <button type="submit" disabled={a3} className="qd-text-action qd-text-action--danger">
             삭제
           </button>
         </form>
@@ -344,7 +344,7 @@ function FlagPanel({ u, isMe, sysAdmin }: { u: UserRow; isMe: boolean; sysAdmin:
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="rounded-md border border-line bg-surface p-3">
-      <h3 className="mb-2 text-xs font-bold text-ink">{title}</h3>
+      <h3 className="mb-2 text-xs font-semibold text-ink">{title}</h3>
       {children}
     </div>
   );

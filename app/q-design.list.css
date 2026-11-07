@@ -1,0 +1,802 @@
+/* =============================================================================
+   Q-Design 에서 온 사본입니다. **이 파일을 손으로 고치지 마세요.**
+
+   출처   D:/Claude/Q-Design/dist/q-design.list.css
+   갱신   cd D:/Claude/Q-Design
+          node tools/extract-all.mjs && node tools/sync.mjs --write
+
+   고칠 일이 생기면 Q-Design 의 원본을 고치고 추출기를 다시 돌립니다.
+   여기서 고치면 제품들의 화면·문서가 갈립니다.
+   아래 지문은 본문의 sha256 이고, 이 저장소의 검사가 대조합니다.
+
+   q-design-nav-sha256: a720780fcde9b73f2e5da597cc29fcf7dd0b091fd152c20f670588ce8cd05eee
+   ============================================================================= */
+@layer components {
+/* =============================================================================
+   q-design.list.css · 목록 정본
+   생성물입니다. 손대지 마세요.  node tools/extract-list.mjs
+   원본: Q-Atelier lib/design/components.tsx (DataTable · EntityRow · Tag)
+   =============================================================================
+
+   ── 무엇을 언제 쓰나 ───────────────────────────────────────────────────────
+   `.qd-table`  수백~수천 줄을 훑는 자리. 밀도가 값어치입니다
+   `.qd-row`    항목 수가 적고 «하나하나가 사건» 인 목록. 부적합 · 불만 · 변경
+   `.qd-tag`    상태 배지. 두 꼴 모두에서 씁니다
+
+   꼴을 하나로 합치지 않습니다. 4만 개 회사를 카드로 바꾸면 한 화면에 여섯 줄만
+   보입니다. **같은 꼴끼리** 맞추는 것이 통일입니다.
+
+   ── 진짜 <table> 에도 걸립니다 ─────────────────────────────────────────────
+   원본은 grid 로 짠 div 이지만 이 CSS 는 `table/th/td` 에도 같은 값을 겁니다.
+   마크업을 통째로 바꾸면 열 너비 · colspan · 정렬이 다 흔들립니다.
+
+       <table class="qd-table">
+         <thead><tr><th>기업명</th>…</tr></thead>
+         <tbody><tr><td>…</td></tr></tbody>
+       </table>
+
+   ── 색 잇기 ────────────────────────────────────────────────────────────────
+   `q-design.nav.css` 와 같은 `--qd-*` 를 읽습니다. 그쪽에 잇는 줄을 이미
+   두었으면 여기서 더 할 일이 없습니다. 두 개만 더 씁니다: `--qd-bg-src` ·
+   `--qd-borderHi-src`.
+
+   ── 한글 자간 ──────────────────────────────────────────────────────────────
+   표 머리글과 배지는 모노 · 대문자 · 넓은 자간입니다. 한글이 섞이면
+   `data-hangul` 을 붙이세요. 자간과 대문자가 함께 풀립니다.
+   ============================================================================= */
+
+:root {
+  --qd-bg: var(--qd-bg-src, var(--qa-bg, #0c0c0c));
+  --qd-surface: var(--qd-surface-src, var(--qa-surface, #141414));
+  --qd-surface2: var(--qd-surface2-src, var(--qa-surface2, #1b1b1b));
+  --qd-border: var(--qd-border-src, var(--qa-border, #242424));
+  --qd-borderHi: var(--qd-borderHi-src, var(--qa-borderHi, #333333));
+  --qd-ctl: var(--qd-ctl-src, var(--qa-ctl, #7a7364));
+  --qd-text: var(--qd-text-src, var(--qa-text, #f0ebe0));
+  --qd-subtle: var(--qd-subtle-src, var(--qa-subtle, #b7b0a5));
+  --qd-muted: var(--qd-muted-src, var(--qa-muted, #898271));
+  --qd-accent: var(--qd-accent-src, var(--qa-champagne, #b8935a));
+
+  /* 모서리는 테마 축이 «아니라» 사다리입니다. 그래서 light 블록에는 안 넣습니다.
+     값은 Q-Atelier lib/design/tokens.ts 의 RADIUS 에서 옵니다.
+     각진 모서리를 브랜드로 쓰는 쪽은 `--qd-radius-control-src: 0` 한 줄이면 됩니다. */
+  --qd-radius-control: var(--qd-radius-control-src, var(--qd-radius, 10px));
+}
+
+html[data-theme='light'] {
+  --qd-bg: var(--qd-bg-src, var(--qa-bg, #faf9f6));
+  --qd-surface: var(--qd-surface-src, var(--qa-surface, #ffffff));
+  --qd-surface2: var(--qd-surface2-src, var(--qa-surface2, #f3f1ec));
+  --qd-border: var(--qd-border-src, var(--qa-border, #e2dfd8));
+  --qd-borderHi: var(--qd-borderHi-src, var(--qa-borderHi, #c8c4ba));
+  --qd-ctl: var(--qd-ctl-src, var(--qa-ctl, #8c8575));
+  --qd-text: var(--qd-text-src, var(--qa-text, #1c1a16));
+  --qd-subtle: var(--qd-subtle-src, var(--qa-subtle, #4a4540));
+  --qd-muted: var(--qd-muted-src, var(--qa-muted, #726b5e));
+  --qd-accent: var(--qd-accent-src, var(--qa-champagne, #805f32));
+}
+
+/* ── 판 ────────────────────────────────────────────────────────────────────
+   목록은 캔버스 위에 맨몸으로 놓이지 않고 **판 하나 안에** 들어갑니다.
+   판이 없으면 표의 첫 줄과 마지막 줄이 어디서 시작하고 끝나는지 흐려집니다.
+
+   판은 장부형입니다(2026-10-23 오너 결정 «3» · docs/08-paper.md). 면 · 옆 선 · 아랫선 · 모서리를
+   걷고 **위 괘선 하나**로 구역을 가릅니다. 떠 있는 섬이 화면을 조각내지 않게, 판이 문서의 한
+   단락처럼 화면 바탕 위에 놓입니다(원본 Bx 의 RULE_CARD 와 같은 변수를 읽습니다).
+
+   상자로 돌아가는 자리는 patterns/components.css 가 변수(--qd-card-face · -rule · -radius · -fill)로
+   정합니다: 떠 있는 층(창 · 메뉴 · 말풍선) 안, 고른 칸, 상태 판(--accent · --ok · --warn · --danger),
+   그리고 직접 거는 --box. 변수는 물려받으므로 창 안의 판은 저절로 상자입니다.
+
+   상자일 때의 모서리는 «맥락을 읽습니다». 각진 모서리를 브랜드로 쓰는 자매 테마가 있어서,
+   그쪽은 `--qd-radius-card: 0` 한 줄로 자기 언어를 말합니다(components.css 의 상자 값이 읽습니다). */
+.qd-panel {
+  box-sizing: border-box;
+  background: var(--qd-card-face, transparent);
+  border: 1px solid var(--qd-border);
+  border-width: var(--qd-card-rule, 1px 0 0);
+  border-radius: var(--qd-card-radius, 0);
+  /* 면이 없으면 표의 따라오는 머리글 · 고정 칸이 덮을 바탕은 놓인 자리의 바탕입니다 */
+  --qd-table-fill: var(--qd-card-fill, var(--qd-bg));
+}
+/* 표 상자 · 빈 칸 판은 장부형입니다(2026-10-23 오너 결정 «B» · docs/08-paper.md).
+   면 · 옆 선 · 모서리를 걷고 위아래 괘선만 남깁니다. 떠 있는 섬이 화면을 조각내지 않게,
+   목록이 문서의 한 단락처럼 화면 바탕 위에 놓입니다(원본 Bx 의 ledger 갈래와 같은 모양).
+
+   «표나 빈 칸을 바로 담은 판» 만 해당합니다. 글 · 입력 · 경고를 담은 판은 그대로 판입니다.
+   카르네는 서식 · 잠금 창 · 경고 상자에도 .qd-panel 을 써서, 기본값을 통째로 바꾸면 그쪽까지 줄만 남습니다.
+   짜임이 달라 판별이 안 되는 자리는 --ledger 를 직접 겁니다.
+
+   면이 없으니 표의 따라오는 머리글 · 고정 칸이 덮을 바탕(--qd-table-fill)은 놓인 자리의 바탕입니다
+   (화면 위면 화면 바탕, 창 안이면 창의 면). */
+.qd-panel:has(> .qd-table-scroll, > .qd-table, > .qd-empty),
+.qd-panel.qd-table-scroll,
+.qd-panel--ledger {
+  --qd-table-fill: var(--qd-card-fill, var(--qd-bg));
+  background: transparent;
+  border-width: 1px 0;
+  border-radius: 0;
+}
+/* 상태 판 · 강조 판. 2026-09-27 «문서 결»(오너 결정 · docs/08-paper.md): 왼쪽 3px 세로줄을 걷고
+   **테두리 전체를 옅은 상태 색**으로 칠합니다(원본 Bx 의 accent 와 같은 규칙 · 55%).
+
+   🔴 색«만»으로 가르지 않습니다. 다크 판 위에서 주의색과 액센트(금)의 색차 ΔE76 이 10.37 밖에
+      안 됩니다(성공 40.94 · 막힘 32.84 는 색만으로 갈립니다). 종전에는 그 간격을 세로줄로 메웠고,
+      이제는 판 **안의 글자**(«주의» · «막힘» 같은 첫 낱말)가 메웁니다. 상태 판을 쓰는 쪽이 그 말을 둡니다.
+
+   🔑 ok·warn 은 q-design.state.css 가 내는데 그 파일을 «모든» 제품이 받지는
+      않습니다(Q-Forge 는 자기 이름을 이미 갖고 있어 안 받습니다). 값을 못 찾으면
+      선언이 통째로 무효가 되어 «조용히 테두리 색만 사라집니다» · 그래서
+      이 파일이 스스로 값을 들고 있습니다(extract-nav 의 Z 사다리와 같은 이유). */
+.qd-panel--accent { border-color: color-mix(in srgb, var(--qd-panel-accent, var(--qd-accent)) 55%, transparent); }
+.qd-panel--ok { border-color: color-mix(in srgb, var(--qd-ok, var(--qa-green, #7ab87a)) 55%, transparent); }
+.qd-panel--warn { border-color: color-mix(in srgb, var(--qd-warn, var(--qa-warning, #c9a87a)) 55%, transparent); }
+.qd-panel--danger { border-color: color-mix(in srgb, var(--qd-danger) 55%, transparent); }
+/* 표가 아니라 글이 들어가는 판 */
+.qd-panel--pad { padding: 24px; }
+/* 판 안에 표가 꽉 차게 들어갈 때, 표의 모서리가 판 밖으로 삐져나오지 않게 */
+.qd-panel > .qd-table-scroll:first-child,
+.qd-panel > .qd-table:first-child { border-top-left-radius: inherit; border-top-right-radius: inherit; }
+.qd-panel > .qd-table-scroll:last-child,
+.qd-panel > .qd-table:last-child { border-bottom-left-radius: inherit; border-bottom-right-radius: inherit; }
+/* 모서리를 자르는 것은 맨 표뿐입니다. 감싸개는 제 overflow-x: auto 로 이미 자기 모서리에서
+   잘립니다. 🔴 감싸개까지 hidden 으로 덮었더니(선택자 무게가 .qd-table-scroll 보다 셉니다)
+   판의 마지막 표가 가로로 안 밀렸습니다. 넓은 표의 오른쪽 칸이 보이지도 닿지도 않았습니다
+   (2026-09-24 Q-Carnet 육안 대조 · /settings/users 실측 auto → hidden). */
+.qd-panel > .qd-table:last-child { overflow: hidden; }
+
+/* ── 표 ────────────────────────────────────────────────────────────────────
+   수백 줄을 세로로 훑는 자리입니다. 행 사이를 벌리지 않고 경계선 하나로 가릅니다.
+   가로 스크롤은 감싸개(.qd-table-scroll)가 맡습니다. */
+.qd-table-scroll {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+/* ── 따라오는 머리글 ──────────────────────────────────────────────────────
+   백 줄을 세로로 훑으면 머리글이 화면 밖으로 나가고, 그때부터 셋째 칸이 무엇인지
+   모르고 읽습니다.
+
+   🔴 position: sticky 는 «세로 한계가 있는 조상» 이 있어야 붙습니다.
+      Q-Forge 는 이 한계 없이 thead .th { position: sticky } 를 걸어 두어
+      **한 번도 안 붙었습니다**(실측 감싸개 294/294 · 그쪽 감사 #8).
+      그래서 한계를 주는 --tall 을 함께 냅니다. 제품이 자기 한계(max-h-*)를
+      이미 갖고 있으면 --sticky 만 걸면 됩니다.
+
+   ⚠️ 스크롤 host 가 감싸개가 아니라 화면 전체인 제품도 있습니다
+      (Q-Atelier 는 <main> 이 host · 실측 1927/900). 그쪽은 감싸개 없이도
+      붙으므로 --tall 을 걸지 않습니다.
+--------------------------------------------------------------------------- */
+.qd-table-scroll--tall {
+  max-height: var(--qd-table-scroll-max-height, 70vh);
+  overflow-y: auto;
+}
+.qd-table--sticky thead th,
+.qd-table--sticky .qd-thead .qd-th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  /* 덮는 바탕은 표가 놓인 자리의 바탕입니다. 장부형 판(면 없음) 안이면 화면 바탕(.qd-panel 규칙이 줍니다) */
+  background: var(--qd-table-fill, var(--qd-surface));
+}
+.qd-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  color: var(--qd-text);
+}
+
+.qd-table thead tr,
+.qd-table .qd-thead {
+  border-bottom: 1px solid var(--qd-border);
+}
+.qd-table th,
+.qd-table .qd-th {
+  padding: calc(var(--qd-table-pad-y, 11px) + 1px) var(--qd-table-pad-x, 12px);
+  font-family: var(--qd-font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--qd-subtle);
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.qd-table th[data-hangul],
+.qd-table .qd-th[data-hangul] {
+  letter-spacing: 0;
+  text-transform: none;
+  word-spacing: var(--qd-hangul-word-space);
+}
+/*
+ * 머리글이 «거의 다» 한글인 제품을 위한 갈래.
+ *
+ * 머리글마다 data-hangul 을 붙이는 것이 원칙이지만, 표를 400곳 넘게 손으로 짠
+ * 저장소에서는 언젠가 한 곳이 빠지고 그 한 곳만 「로 트 번 호」 로 벌어집니다.
+ * 표에 이 클래스를 걸면 기본이 뒤집히고, 섞여 있는 라틴 머리글만 data-latin 을
+ * 답니다. 「많은 쪽을 기본으로」 두면 빠뜨려도 조용히 틀리지 않습니다.
+ */
+.qd-table--hangul th,
+.qd-table--hangul .qd-th {
+  letter-spacing: 0;
+  text-transform: none;
+  word-spacing: var(--qd-hangul-word-space);
+}
+/* 🔴 되돌리는 갈래도 공백을 함께 되돌립니다. 안 그러면 통째로 뒤집은 표에서
+   라틴 머리글만 조여집니다. 특정도가 같고(0,2,1) 뒤에 오므로 이깁니다. */
+.qd-table--hangul th[data-latin],
+.qd-table--hangul .qd-th[data-latin] {
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  word-spacing: normal;
+}
+
+.qd-table tbody tr,
+.qd-table .qd-tr {
+  border-bottom: 1px solid var(--qd-border);
+  transition: background 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  color: inherit;
+  text-decoration: none;
+}
+.qd-table tbody tr:last-child,
+.qd-table .qd-tr:last-child {
+  border-bottom: none;
+}
+/* 누를 수 있는 행만 반응합니다. 전부 반응하면 어디가 링크인지 알 수 없습니다.
+   «누를 수 있다» 를 알아보는 길이 셋입니다 - 안에 링크·단추가 있거나,
+   행 자체가 role="link" 이거나(tr 은 a 로 감쌀 수 없습니다), 클래스를 붙였거나. */
+.qd-table tbody tr:hover:has(a, button),
+.qd-table tbody tr[role='link']:hover,
+.qd-table a.qd-tr:hover,
+.qd-table .qd-tr--click:hover {
+  background: var(--qd-surface2);
+}
+.qd-table tbody tr[role='link'] { cursor: pointer; }
+
+.qd-table td,
+.qd-table .qd-td {
+  padding: var(--qd-table-pad-y, 11px) var(--qd-table-pad-x, 12px);
+  font-size: var(--qd-table-size, 13px);
+  color: var(--qd-text);
+  vertical-align: middle;
+}
+/* 숫자는 자리가 고정입니다. 세로로 훑을 때 자릿수가 흔들리면 못 읽습니다. */
+.qd-table .qd-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.qd-table .qd-quiet { color: var(--qd-subtle); }
+/* 강조 칸. 코드·식별자처럼 «이 칸이 이 줄의 열쇠» 인 자리에 씁니다.
+   🔴 이 장치가 없으면 제품이 칸에 유틸리티(text-gold 같은)를 적는데, 정본은
+   레이어 밖이라 그것이 안 먹습니다. «적혀 있는데 화면은 그대로» 가 됩니다.
+   실제로 Q-Sonar 에서 그런 자리가 78개 있었습니다. 정본이 잡는 속성은
+   정본이 장치를 함께 줘야 합니다. */
+.qd-table .qd-accent { color: var(--qd-accent); }
+
+.qd-table--dense th,
+.qd-table--dense .qd-th { padding: calc(var(--qd-table-pad-y-dense) + var(--qd-border-width, 1px)) var(--qd-table-pad-x, 12px); }
+.qd-table--dense td,
+.qd-table--dense .qd-td { padding: var(--qd-table-pad-y-dense) var(--qd-table-pad-x, 12px); }
+
+/* 빈 목록. 「없음」 을 조용히 말합니다 */
+.qd-table-empty {
+  padding: 20px 12px;
+  font-family: var(--qd-font-mono);
+  font-size: 12px;
+  color: var(--qd-muted);
+}
+/* 표 «안» 의 빈 줄(td colspan)에 걸어도 같은 얼굴이어야 합니다. 표 칸 규칙(13px · text)이 더 무거워
+   글꼴만 바뀌고 색은 오히려 밝아졌습니다(2026-09-25 Q-Sonar 실측). 칸 선택자보다 무겁게 겁니다. */
+.qd-table td.qd-table-empty,
+.qd-table .qd-td.qd-table-empty {
+  padding: 20px 12px;
+  font-family: var(--qd-font-mono);
+  font-size: 12px;
+  color: var(--qd-muted);
+}
+/* 한글 글이면 모노 글꼴의 넓은 빈칸을 한글 낱말 간격으로 되돌립니다(이름표와 같은 한글 규칙) */
+.qd-table-empty[data-hangul] { word-spacing: var(--qd-hangul-word-space); }
+/*
+ * 못 읽은 자리. 「없음」(.qd-table-empty)과 **반드시 달라 보여야** 합니다.
+ *
+ * 비었다는 말은 사실이고, 못 읽었다는 말은 «모른다» 입니다. 정본에 이 자리가
+ * 없으면 제품이 실패를 없음으로 그릴 수밖에 없고, 사람은 「아직 담긴 기업이
+ * 없습니다」 를 보고 정말 없다고 믿습니다. 실제로 그렇게 그려지는 자리가
+ * Q-Sonar 에 43곳 있었습니다 (2026-09-09 감사).
+ *
+ * 원인 문자열은 code 로 함께 답니다. 원인을 버리면 고칠 수가 없습니다.
+ */
+/* The error block receives the current canonical notice surface. Its code stays below the message. */
+.qd-state-error {
+  --qd-status: var(--qd-danger);
+  box-sizing: border-box;
+  padding: var(--qd-space-3) var(--qd-space-4);
+  border: 1px solid color-mix(in srgb, var(--qd-status) 45%, var(--qd-border));
+  border-radius: var(--qd-radius);
+  background: var(--qd-surface);
+  color: var(--qd-text);
+  font-size: var(--qd-control-size);
+  line-height: 1.6;
+  font-family: var(--qd-font-ui);
+}
+.qd-state-error code {
+  display: block;
+  margin-top: 4px;
+  color: var(--qd-subtle);
+  font-size: 12px; /* 보조 글씨 최소 12px (오너 결정 2026-09-27 · 원본 오류 코드 줄도 12) */
+  word-break: break-all;
+}
+
+/* ── 빈 목록 ───────────────────────────────────────────────────────────────
+   목록이 «통째로» 비었을 때 목록 자리를 대신합니다(원본 EmptyState). 판 하나 · 넉넉한
+   여백 · 가운데 · 조용한 제목. 다음에 할 일이 있으면 단추(.qd-btn)나 금색 테두리 표지로 둡니다.
+   .qd-table-empty 와 다릅니다. 그쪽은 표 «안» 의 한 줄(찾은 것 없음)입니다.
+   🔴 대조에서 점선 반투명 · 다음 할 일 줄 · 실선 판(원본)으로 갈렸습니다.
+
+     <div class="qd-empty">
+       <div class="qd-empty-title">아직 등록된 부적합이 없습니다</div>
+       <p class="qd-empty-desc">검사에서 벗어난 것이 나오면 여기에 쌓입니다.</p>
+       <div class="qd-empty-actions"><a class="qd-btn qd-btn--primary" href="…">부적합 등록</a></div>
+       <div class="qd-empty-hints"><a class="qd-empty-hint" data-hangul href="…">검사 기록 보기</a></div>
+     </div>
+
+   옆 판 · 대화상자처럼 좁은 자리는 .qd-empty--compact 입니다(여백 · 글자만 작아집니다).
+   제목 아래 간격은 뒤따르는 것이 정합니다(원본과 같은 계산: 설명 10px ·
+   단추나 표지 18px). */
+.qd-empty {
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+  padding: 96px 24px;
+  text-align: center;
+  /* 빛무리(radial-gradient)와 장식 글리프(.qd-empty-icon)는 2026-09-28 원본에서 걷혔다.
+     2026-10-23 오너 결정 «B»: 면 · 옆 선 · 모서리도 걷고 위아래 괘선만 남는다(원본 EmptyState 의 Bx ledger) */
+  background-color: transparent;
+  border: 1px solid var(--qd-border);
+  border-width: 1px 0;
+  border-radius: 0;
+}
+/* 판 안의 빈 칸은 겉 판이 이미 괘선을 그으므로 제 선을 내려놓습니다(겹줄 방지) */
+.qd-panel > .qd-empty { border: 0; }
+.qd-empty--compact {
+  padding: 32px 24px;
+}
+.qd-empty-title {
+  font-family: var(--qd-font-ui);
+  font-size: 24px;
+  font-weight: 600;
+  /* 원본은 본문 줄간격(1.6)을 물려받습니다. 제품마다 바탕 줄간격이 달라 못 박습니다 */
+  line-height: 1.6;
+  letter-spacing: -0.01em;
+  color: var(--qd-subtle);
+}
+.qd-empty--compact .qd-empty-title { font-size: 16px; }
+.qd-empty-desc {
+  max-width: 460px;
+  margin: 0 auto;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--qd-muted);
+}
+.qd-empty-title + .qd-empty-desc { margin-top: 10px; }
+.qd-empty-title + .qd-empty-actions { margin-top: 18px; }
+.qd-empty-title + .qd-empty-hints { margin-top: 26px; }
+.qd-empty-desc + .qd-empty-actions { margin-top: 22px; }
+.qd-empty-desc + .qd-empty-hints { margin-top: 30px; }
+.qd-empty-actions + .qd-empty-hints { margin-top: 18px; }
+.qd-empty-hints {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+.qd-empty-hint {
+  padding: 6px 12px;
+  border: 1px solid color-mix(in srgb, var(--qd-accent) 40%, transparent);
+  border-radius: var(--qd-radius-control, 10px);
+  background: transparent;
+  color: var(--qd-accent);
+  font-family: var(--qd-font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 200ms cubic-bezier(0.16, 1, 0.3, 1), border-color 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.qd-empty-hint[data-hangul] {
+  letter-spacing: 0;
+  text-transform: none;
+  word-spacing: var(--qd-hangul-word-space);
+}
+.qd-empty-hint::before { content: '→'; margin-right: 6px; }
+
+/* ── 쪽 이동 줄 ────────────────────────────────────────────────────────────
+   목록 «아래» 를 닫는 줄입니다(원본 ListPager). 윗선 하나 · 왼쪽에 「1-20 / 총 57건」 ·
+   오른쪽에 이전 · 쪽 번호 · 다음. 한 쪽에 다 들어오면 이동은 그리지 않고 건수만 둡니다.
+   「내가 보는 것이 전부인가」 에 답이 없으면 목록을 믿을 수 없습니다.
+   목록 «위» (거르개 띠 안)에 둘 때는 --top: 선과 건수를 빼고 오른쪽에 붙습니다.
+   🔴 대조에서 테두리 판 · 선 아래 모노 글(원본)로 갈렸습니다.
+
+     <nav class="qd-pager" aria-label="목록 페이지 이동">
+       <span class="qd-pager-count">1-20 / 총 57건</span>
+       <span class="qd-pager-nav">
+         <a class="qd-pager-btn" href="?page=1" aria-disabled="true">이전</a>
+         <span class="qd-pager-page">1 / 3</span>
+         <a class="qd-pager-btn" href="?page=2">다음</a>
+       </span>
+     </nav>
+
+   🔑 한글 단추(이전 · 다음)는 자간을 두지 않습니다. 라틴(PREV · NEXT)만 data-latin 을 붙여
+      대문자 · 1.2px 를 받습니다(.qd-btn 과 같은 한글 규칙). 원본도 2026-09-25 부터
+      같습니다(Q-Atelier 476e8096 · 전에는 한글에도 벌렸다). 찾기 단추 글은 원본을 따라 「검색」 입니다. */
+.qd-pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--qd-border);
+}
+.qd-pager--top {
+  justify-content: flex-end;
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+.qd-pager-count,
+.qd-pager-page {
+  font-family: var(--qd-font-mono);
+  font-size: 12px;
+  line-height: 1;
+  letter-spacing: 0.4px;
+  font-variant-numeric: tabular-nums;
+  color: var(--qd-muted);
+}
+.qd-pager-page {
+  min-width: 64px;
+  text-align: center;
+}
+/* 건수 글에 한글(총 · 건)이 들어가면 data-hangul 을 붙입니다. 숫자만이면 그대로 둡니다.
+   원본(2026-09-28 고정폭 한글 걷기)은 한글이 섞이면 글꼴도 본문체로 바꿉니다.
+   🔴 본문체로 바꿨으면 어절 공백은 그대로(normal) 둡니다. --qd-hangul-word-space(-0.35em)는
+      고정폭 공백(0.6em)을 본문 폭으로 줄이는 값이라, 본문체(공백 0.251em)에 걸면 공백이
+      음수가 되어 «1-31/총31건» 처럼 붙습니다(2026-10-27 Q-Carnet 화면 점검 · 세 제품 공통). */
+.qd-pager-count[data-hangul],
+.qd-pager-page[data-hangul] {
+  font-family: var(--qd-font-ui);
+  letter-spacing: 0;
+  word-spacing: normal;
+}
+.qd-pager-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.qd-pager-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  box-sizing: border-box;
+  min-height: var(--qd-control-height-sm, 36px);
+  padding: 7px 12px;
+  border: 1px solid var(--qd-ctl);
+  border-radius: var(--qd-radius-control, 10px);
+  background: transparent;
+  color: var(--qd-text);
+  font-family: var(--qd-font-ui);
+  font-size: var(--qd-control-size, 14px);
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+}
+.qd-pager-btn[data-latin] {
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+.qd-pager-btn[aria-disabled='true'],
+.qd-pager-btn:disabled {
+  color: var(--qd-muted);
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* ── 거르개 띠 ─────────────────────────────────────────────────────────────
+   목록 «위» 에서 좁히는 줄입니다(원본 ListToolbar): 찾기 칸 · 정렬 · 찾기 단추 · 오른쪽
+   끝에 건수. GET 폼으로 두면 JS 없이 돌고, 지금 좁혀 놓은 것이 주소창에 남습니다.
+   좁혀 놓았으면 푸는 길(검색 지우기)이 화면에 있어야 합니다.
+   🔴 대조에서 제품마다 모양이 달랐습니다(알약 고르개 · 제각각의 거르개).
+
+     <div class="qd-filter-bar">
+       <form class="qd-filter-row" method="get" action="/nc">
+         <span class="qd-filter-search">
+           <svg class="qd-filter-search-icon" aria-hidden="true">…</svg>
+           <input class="qd-filter-input" type="search" name="q" placeholder="코드·제목 검색" aria-label="코드·제목 검색">
+         </span>
+         <select class="qd-filter-select" name="sort" aria-label="정렬">…</select>
+         <button class="qd-filter-submit" type="submit">찾기</button>
+         <a class="qd-filter-clear" href="/nc">검색 지우기</a>
+         <span class="qd-filter-count">1-20 / 총 57건</span>
+       </form>
+       <nav class="qd-pager qd-pager--top">…</nav>
+     </div>
+
+   굴려도 따라오게 하려면 --sticky 와 --qd-sticky-top 을 줍니다. 원본은 머리띠 아래에 붙는데
+   머리띠 높이가 제품마다 달라 그 값은 제품이 줍니다(없으면 0). 단추의 한글 규칙은 쪽 이동 줄과 같습니다. */
+.qd-filter-bar {
+  padding: 8px 0 12px;
+  margin-bottom: 4px;
+  background: var(--qd-bg);
+}
+.qd-filter-bar--sticky {
+  position: sticky;
+  top: var(--qd-sticky-top, 0px);
+  z-index: var(--qd-z-sticky, 100);
+}
+/* 낮은 화면(작은 폰 세로 · 폰 가로)에서는 따라오지 않습니다. 좁으면 띠가 여러 줄로 접혀
+   머리띠와 함께 화면의 절반 넘게 덮었습니다(2026-10-23 실측: Q-Carnet 품목 320×568 에서 남는 높이 227px,
+   Q-Maison 재고 이동 228px). 노트북 낮은 창(1280×600)은 띠가 한 줄이라 그대로 붙습니다. */
+@media (max-height: 580px) {
+  .qd-filter-bar--sticky { position: static; }
+}
+.qd-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.qd-filter-search {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex: 1 1 220px;
+}
+.qd-filter-search-icon {
+  position: absolute;
+  left: 10px;
+  width: 14px;
+  height: 14px;
+  color: var(--qd-muted);
+  pointer-events: none;
+}
+.qd-filter-input,
+.qd-filter-select {
+  box-sizing: border-box;
+  height: var(--qd-control-height-sm, 36px);
+  min-width: 0;
+  padding: 0 12px;
+  border: 1px solid var(--qd-ctl);
+  border-radius: var(--qd-radius-control, 10px);
+  background: var(--qd-surface);
+  color: var(--qd-text);
+  font-family: var(--qd-font-ui);
+  font-size: var(--qd-control-size, 14px);
+}
+.qd-filter-input {
+  flex: 1;
+  padding: 0 12px 0 var(--qd-space-8);
+}
+.qd-filter-select { flex: 0 0 auto; }
+.qd-filter-submit {
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  min-height: var(--qd-control-height-sm, 36px);
+  padding: var(--qd-control-pad-sm-y, 7px) var(--qd-control-pad-sm-x, 14px);
+  border: 1px solid var(--qd-ctl);
+  border-radius: var(--qd-radius-control, 10px);
+  background: transparent;
+  /* 원본은 공용 Btn 보조 단추(2026-10-07)다: 글자는 subtle, 옆 여백 14px(전에는 text · 16) */
+  color: var(--qd-subtle);
+  font-family: var(--qd-font-ui);
+  font-size: var(--qd-control-size, 14px);
+  line-height: 1;
+  cursor: pointer;
+}
+.qd-filter-submit[data-latin] {
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+.qd-filter-count,
+.qd-filter-clear {
+  flex: 0 0 auto;
+  font-family: var(--qd-font-mono);
+  font-size: 12px;
+  line-height: 1;
+  letter-spacing: 0.4px;
+  font-variant-numeric: tabular-nums;
+  color: var(--qd-muted);
+}
+.qd-filter-count { margin-left: auto; }
+.qd-filter-clear { text-decoration: underline; }
+/* 본문체로 바꾸므로 어절 공백은 그대로 둡니다(위 쪽 이동 줄과 같은 까닭 · «3682건1/74쪽» 이 붙었다) */
+.qd-filter-count[data-hangul],
+.qd-filter-clear[data-hangul] {
+  font-family: var(--qd-font-ui);
+  letter-spacing: 0;
+  word-spacing: normal;
+}
+
+/* ── 초점 고리 (목록 둘레 조작부) ──────────────────────────────────────────
+   원본은 전역 :focus-visible 규칙이 단추 · 링크 · 입력칸 · 탭에 금색 외곽선과 옅은 고리를 겁니다.
+   제품마다 그 규칙이 있다고 믿지 않고 정본 조작부에 같은 값을 둡니다(.qd-btn · .qd-input 과 같은 이유). */
+.qd-pager-btn:focus-visible,
+.qd-filter-submit:focus-visible,
+.qd-filter-input:focus-visible,
+.qd-filter-select:focus-visible,
+.qd-filter-clear:focus-visible,
+.qd-empty-hint:focus-visible {
+  outline: 2px solid var(--qd-accent);
+  outline-offset: 4px;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--qd-accent) 22%, transparent);
+}
+
+/* ── 항목 줄 ───────────────────────────────────────────────────────────────
+   2026-09-27 «문서 결»(오너 결정 · docs/08-paper.md): 상자(바탕 · 테두리 · 둥근 모서리 · 떠오름)와 왼쪽 색 띠를
+   걷고 **괘선 목록** 으로 섭니다. 행 아래 가는 선 하나, 상태는 배지 글자와 아이콘 칩 색이 말합니다.
+   --qd-row-accent 는 아이콘 칩의 색으로만 씁니다. */
+.qd-row {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 68px;
+  padding: 14px 6px;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--qd-border);
+  border-radius: 0px;
+  color: var(--qd-text);
+  text-align: left;
+  text-decoration: none;
+  transition: background-color 0.12s ease;
+}
+/* 누를 수 있는 줄만 옅은 바탕으로 답합니다. 못 누르는 줄이 반응하면 거짓 어포던스입니다. */
+a.qd-row, button.qd-row { cursor: pointer; }
+a.qd-row:hover, button.qd-row:hover { background-color: var(--qd-surface2) !important; }
+
+.qd-row-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--qd-row-accent, var(--qd-accent)) 8%, transparent);
+  color: var(--qd-row-accent, var(--qd-accent));
+}
+.qd-row-body { flex: 1; min-width: 0; }
+.qd-row-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 3px;
+  flex-wrap: wrap;
+}
+.qd-row-code {
+  font-family: var(--qd-font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  color: var(--qd-accent);
+}
+.qd-row-code[data-hangul] {
+  letter-spacing: 0;
+  word-spacing: var(--qd-hangul-word-space);
+}
+.qd-row-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--qd-text);
+  line-height: 1.4;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+}
+.qd-row-meta {
+  margin-top: 2px;
+  font-size: 14px;
+  color: var(--qd-subtle);
+  line-height: 1.4;
+}
+.qd-row-right { flex-shrink: 0; }
+.qd-row-chevron {
+  flex-shrink: 0;
+  margin-left: 4px;
+  color: var(--qd-muted);
+  font-size: 18px;
+  line-height: 1;
+}
+
+/* ── 배지 ──────────────────────────────────────────────────────────────────
+   색은 `--qd-tag-color` 로 받습니다. 안 주면 muted 입니다.
+   층은 셋: primary(채움) · secondary(헤어라인, 기본) · tertiary(아주 옅게) */
+.qd-tag {
+  --_c: var(--qd-tag-color, var(--qd-muted));
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  white-space: nowrap;
+  font-family: var(--qd-font-mono);
+  /* 원본 Tag 는 굵기를 적지 않고 둘레의 400 을 물려받아 그렇게 보입니다. 제목(700) 안에 놓이면
+     배지까지 굵어져서(Q-Forge 배치 상세 · Q-Sonar 600) 물려받지 않게 원본이 «그려지는» 값을 적습니다 (2026-09-24) */
+  font-weight: 400;
+  line-height: 1.4;
+  letter-spacing: 1px;
+  color: var(--_c);
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--_c) 33%, transparent);
+  border-radius: var(--qd-radius, 10px);
+}
+.qd-tag[data-hangul] {
+  letter-spacing: 0;
+  word-spacing: var(--qd-hangul-word-space);
+}
+
+.qd-tag--xs {
+  min-height: var(--qd-tag-xs-min-height, 20px);
+  font-size: var(--qd-tag-xs-size, 12px);
+  padding: var(--qd-tag-xs-padding-y, 0px) var(--qd-tag-xs-padding-x, 6px);
+  gap: var(--qd-tag-xs-gap, 4px);
+}
+.qd-tag--xs .qd-tag-dot { width: var(--qd-tag-xs-dot-size, 5px); height: var(--qd-tag-xs-dot-size, 5px); }
+
+.qd-tag--sm {
+  min-height: var(--qd-tag-sm-min-height, 24px);
+  font-size: var(--qd-tag-sm-size, 12px);
+  padding: var(--qd-tag-sm-padding-y, 2px) var(--qd-tag-sm-padding-x, 8px);
+  gap: var(--qd-tag-sm-gap, 4px);
+}
+.qd-tag--sm .qd-tag-dot { width: var(--qd-tag-sm-dot-size, 6px); height: var(--qd-tag-sm-dot-size, 6px); }
+
+.qd-tag--md {
+  min-height: var(--qd-tag-md-min-height, 28px);
+  font-size: var(--qd-tag-md-size, 14px);
+  padding: var(--qd-tag-md-padding-y, 3px) var(--qd-tag-md-padding-x, 10px);
+  gap: var(--qd-tag-md-gap, 5px);
+}
+.qd-tag--md .qd-tag-dot { width: var(--qd-tag-md-dot-size, 7px); height: var(--qd-tag-md-dot-size, 7px); }
+.qd-tag--primary {
+  background: color-mix(in srgb, var(--_c) 10%, transparent);
+  border-color: color-mix(in srgb, var(--_c) 55%, transparent);
+}
+.qd-tag--tertiary {
+  border-color: color-mix(in srgb, var(--_c) 18%, transparent);
+  color: var(--qd-muted);
+}
+.qd-tag-dot {
+  border-radius: 50%;
+  background: var(--_c);
+  flex-shrink: 0;
+}
+
+/* 배지에 걸 수 있는 상태색. 이름은 저쪽 상태색과 같습니다.
+   ⚠️ 이 일곱은 대비 계약 밖입니다(Q-Design 02) · 배지 «면» 위 글자로만 쓰세요. */
+.qd-tag--gray { --qd-tag-color: var(--qa-state-gray, #928c86); }
+.qd-tag--cobalt { --qd-tag-color: var(--qa-state-cobalt, #6b8fc4); }
+.qd-tag--copper { --qd-tag-color: var(--qa-state-copper, #d49850); }
+.qd-tag--gold { --qd-tag-color: var(--qa-state-gold, #c9a878); }
+.qd-tag--violet { --qd-tag-color: var(--qa-state-violet, #a27dca); }
+.qd-tag--green { --qd-tag-color: var(--qa-state-green, #7ab87a); }
+.qd-tag--red { --qd-tag-color: var(--qa-state-red, #c97a7a); }
+
+@media print {
+  .qd-row { break-inside: avoid; }
+  .qd-table tbody tr { break-inside: avoid; }
+
+  /* 따라오는 거르개 띠: 종이에는 스크롤이 없어 sticky 가 첫 장에만 남고 나머지 장에서 자리만
+     차지합니다. 제자리로 돌리고, 찾기 폼(칸 · 단추 · 건수)은 종이에서 쓸 수 없으니 걷습니다.
+     지금 무엇으로 좁혀 놓았는지는 주소가 말합니다(원본 globals.css 의 .qa-list-toolbar 인쇄 규칙과 같음).
+     인쇄 정본(q-design.print.css)이 아니라 여기 두는 까닭: 목록 정본은 네 제품이 모두 불러 쓰지만
+     인쇄 정본을 불러 쓰는 곳은 Q-Maison 하나뿐입니다(2026-09-25 운영 CSS 로 확인) */
+  .qd-filter-bar { position: static !important; }
+  .qd-filter-row { display: none !important; }
+}
+}

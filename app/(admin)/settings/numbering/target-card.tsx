@@ -81,7 +81,7 @@ export default function TargetCard({
   return (
     <section className="card overflow-hidden">
       <header className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line px-4 py-3">
-        <h2 className="text-sm font-bold text-ink">{label}</h2>
+        <h2 className="text-sm font-semibold text-ink">{label}</h2>
         <code className="font-mono text-xs text-faint">{note}</code>
         {!active && (
           <span className="chip bg-warn-bg text-warn">규칙 없음 · 채번 불가</span>
@@ -140,13 +140,13 @@ export default function TargetCard({
 
       {perItem.length > 0 && (
         <div className="border-t border-line-soft">
-          <p className="bg-surface-low px-4 py-2 text-xs font-bold tracking-wide text-muted">
+          <p className="bg-surface-low px-4 py-2 text-xs font-semibold tracking-wide text-muted">
             품목별 규칙 {perItem.length}건 · 공통 규칙보다 우선합니다
           </p>
           <ul className="divide-y divide-line-soft">
             {perItem.map((r) => (
               <li key={r.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2.5">
-                <span className="font-mono text-sm font-bold text-ink">
+                <span className="font-mono text-sm font-semibold text-ink">
                   {r.item_code}
                 </span>
                 <span className="min-w-0 flex-1 truncate text-xs text-muted">{r.item_name}</span>
@@ -156,7 +156,7 @@ export default function TargetCard({
                   <form action={retireAction}>
                     <input type="hidden" name="id" value={r.id} />
                     <button type="submit" disabled={retiring}
-                            className="btn-quiet btn-row">
+                            className="qd-text-action">
                       내리기
                     </button>
                   </form>
@@ -232,8 +232,8 @@ export default function TargetCard({
           <summary className="cursor-pointer px-4 py-2 text-xs font-semibold text-muted hover:bg-canvas">
             지난 규칙 {history.length}건
           </summary>
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="qd-table-scroll">
+            <table className="qd-table qd-table--hangul">
               <thead>
                 <tr>
                   <th className="th">패턴</th>

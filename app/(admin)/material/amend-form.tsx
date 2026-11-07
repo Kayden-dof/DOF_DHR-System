@@ -49,7 +49,7 @@ export default function AmendLotForm({ lot }: { lot: AmendLot }) {
 
   return (
     <>
-      <button onClick={() => setOpen(true)} className="btn-quiet btn-row">
+      <button onClick={() => setOpen(true)} className="qd-text-action">
         고치기
       </button>
       <Dialog

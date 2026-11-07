@@ -150,8 +150,8 @@ async function MaterialView({ me, id }: { me: Me; id: string }) {
 
         {d.batches.length > 0 && (
           <Panel title="이 원재료로 만든 배치">
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            <div className="qd-table-scroll">
+              <table className="qd-table qd-table--hangul">
                 <thead>
                   <tr>
                     <th className="th">배치번호</th>
@@ -188,8 +188,8 @@ async function MaterialView({ me, id }: { me: Me; id: string }) {
               아직 공정에 투입되지 않았습니다.
             </Empty>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            <div className="qd-table-scroll">
+              <table className="qd-table qd-table--hangul" data-grow="0">
                 <thead>
                   <tr>
                     <th className="th">배치</th>
@@ -343,8 +343,8 @@ async function BatchView({ me, kind, id }: {
             제조번호가 붙지 않았습니다.
           </Empty>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="qd-table-scroll">
+            <table className="qd-table qd-table--hangul" data-grow="2">
               <thead>
                 <tr>
                   <th className="th">제조번호</th>
@@ -389,8 +389,8 @@ async function BatchView({ me, kind, id }: {
             기록된 공정이 없습니다.
           </Empty>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="qd-table-scroll">
+            <table className="qd-table qd-table--hangul" data-grow="0">
               <thead>
                 <tr>
                   <th className="th">일차</th>
@@ -462,8 +462,8 @@ function GenTable({ rows, lots }: {
 }) {
   const lotNo = (id: string | null) => lots?.find((l) => l.id === id)?.lot_no ?? '';
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full">
+    <div className="qd-table-scroll">
+      <table className="qd-table qd-table--hangul">
         <thead>
           <tr>
             <th className="th">자재</th>

@@ -85,8 +85,8 @@ export default async function OrdersPage() {
 
       {d.alerts.length > 0 && (
         <Panel title="최소 재고선 아래" note="보유 + 발주중이 기준선에 못 미치는 품목">
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="qd-table-scroll">
+            <table className="qd-table qd-table--hangul">
               <thead>
                 <tr>
                   <th className="th">품목</th>
@@ -127,8 +127,8 @@ export default async function OrdersPage() {
             등록된 발주가 없습니다.
           </Empty>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="qd-table-scroll">
+            <table className="qd-table qd-table--hangul" data-grow="2">
               <thead>
                 <tr>
                   <th className="th">발주번호</th>

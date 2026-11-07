@@ -66,7 +66,7 @@ export default function NumPad({
           over ? 'border-danger bg-danger-bg' : 'border-line-strong bg-surface'
         }`}
       >
-        <span className="text-2xl font-bold tnum text-ink">
+        <span className="text-2xl font-semibold tnum text-ink">
           {value || <span className="text-faint">0</span>}
         </span>
         {unit && <span className="ml-2 text-sm text-muted">{unit}</span>}

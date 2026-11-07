@@ -1,0 +1,30 @@
+/* =============================================================================
+   Q-Design 에서 온 사본입니다. **이 파일을 손으로 고치지 마세요.**
+
+   출처   D:/Claude/Q-Design/dist/q-design.mono-fonts.css
+   갱신   cd D:/Claude/Q-Design
+          node tools/extract-all.mjs && node tools/sync.mjs --write
+
+   고칠 일이 생기면 Q-Design 의 원본을 고치고 추출기를 다시 돌립니다.
+   여기서 고치면 제품들의 화면·문서가 갈립니다.
+   아래 지문은 본문의 sha256 이고, 이 저장소의 검사가 대조합니다.
+
+   q-design-nav-sha256: beff74dc6085ce2608bcdbe35a030f5d67b64d67bbbaa9e5711c11438c9756fb
+   ============================================================================= */
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400 800;
+  src: url('/fonts/jetbrains-mono/JetBrainsMono-latin.83c005d4.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400 800;
+  src: url('/fonts/jetbrains-mono/JetBrainsMono-latin-ext.db5ff4db.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}

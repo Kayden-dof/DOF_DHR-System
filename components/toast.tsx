@@ -88,22 +88,18 @@ export default function Toasts({ states }: { states: (FormState | undefined)[] }
         <div
           key={n.id}
           role={n.tone === 'danger' ? 'alert' : 'status'}
-          className={`rise pointer-events-auto flex items-start gap-2 rounded-md border px-3 py-2.5
-            text-sm leading-relaxed shadow-[var(--sh-3)] ${
-            n.tone === 'danger'
-              ? 'border-danger-line bg-danger-bg text-danger'
-              : 'border-ok/20 bg-ok-bg text-ink'}`}
+          data-tone={n.tone === 'danger' ? 'error' : 'success'}
+          className="qd-toast pointer-events-auto"
         >
-          <span aria-hidden className={`mt-px shrink-0 font-bold ${n.tone === 'ok' ? 'text-ok' : ''}`}>
+          <span aria-hidden className={`mt-px shrink-0 font-semibold ${n.tone === 'ok' ? 'text-ok' : ''}`}>
             {n.tone === 'danger' ? '!' : '✓'}
           </span>
-          <span className="flex-1">{n.text}</span>
+          <span className="min-w-0 flex-1">{n.text}</span>
           <button
             type="button"
             onClick={() => close(n.id)}
             aria-label="알림 닫기"
-            className="-mr-1 -mt-0.5 shrink-0 rounded-md px-1.5 py-0.5 text-xs text-muted
-                       hover:bg-canvas hover:text-ink focus-visible:outline-2"
+            className="qd-text-action shrink-0"
           >
             닫기
           </button>

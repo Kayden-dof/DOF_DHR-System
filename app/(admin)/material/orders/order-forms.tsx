@@ -53,7 +53,7 @@ export function NewOrder({ items, suppliers, today }: {
       <button onClick={() => setOpen(true)} className="btn-primary">발주 등록</button>
       <Dialog open={open} onClose={() => setOpen(false)} wide title="발주 등록">
         <form action={action}>
-      <h3 className="mb-3 text-sm font-bold text-ink">새 발주</h3>
+      <h3 className="mb-3 text-sm font-semibold text-ink">새 발주</h3>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <label className="label" htmlFor={`${uid}-po_no`}>발주번호</label>
@@ -118,15 +118,15 @@ export function CancelOrder({ id, poNo }: { id: string; poNo: string }) {
   if (state.ok) return <span className="text-xs text-ok">취소됨</span>;
   if (!ask) {
     return (
-      <button onClick={() => setAsk(true)} className="btn-quiet btn-row">취소</button>
+      <button onClick={() => setAsk(true)} className="qd-text-action">취소</button>
     );
   }
   return (
     <form action={action} className="inline-flex items-center gap-1.5">
       <input type="hidden" name="id" value={id} />
       <span className="text-xs text-muted">{poNo} 취소?</span>
-      <button type="submit" disabled={pending} className="btn-danger btn-row">예</button>
-      <button type="button" onClick={() => setAsk(false)} className="btn-quiet btn-row">
+      <button type="submit" disabled={pending} className="qd-text-action qd-text-action--danger">예</button>
+      <button type="button" onClick={() => setAsk(false)} className="qd-text-action">
         아니오
       </button>
       <Msg state={state} />

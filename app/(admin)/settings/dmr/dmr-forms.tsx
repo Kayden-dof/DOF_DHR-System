@@ -41,7 +41,7 @@ export function NewDeviceMaster({ items }: { items: ItemOption[] }) {
       <button onClick={() => setOpen(true)} className="btn-primary" disabled={fin.length === 0}> 제품표준서 개정 추가 </button>
       <Dialog open={open} onClose={() => setOpen(false)} wide title="제품표준서 개정 추가">
         <form action={action}>
-      <h3 className="mb-3 text-sm font-bold text-ink">새 개정</h3>
+      <h3 className="mb-3 text-sm font-semibold text-ink">새 개정</h3>
 
       {/*
         * 제품이 먼저다.
@@ -170,13 +170,13 @@ export function VerifyForm({
           <div className="card-raised my-6 w-full max-w-3xl">
             <header className="section-head">
               <div>
-                <h3 className="text-lg font-bold text-ink">서면 제품표준서와 대조</h3>
+                <h3 className="text-lg font-semibold text-ink">서면 제품표준서와 대조</h3>
                 <p className="mt-0.5 text-xs leading-relaxed text-muted">
                   아래는 이 화면에 기재된 값입니다. 서면과 한 항목씩 견주고 같으면
                   확인하십시오. 다르면 닫고 수정한 뒤 다시 확인하십시오.
                 </p>
               </div>
-              <span className={`ml-auto shrink-0 tnum text-xs font-bold ${
+              <span className={`ml-auto shrink-0 tnum text-xs font-semibold ${
                 all ? 'text-ok' : 'text-warn'}`}>
                 {all ? '전부 대조함' : `남은 ${left}`}
               </span>
@@ -194,7 +194,7 @@ export function VerifyForm({
                       className="mt-0.5 size-4 shrink-0 accent-brand"
                     />
                     <span className="min-w-0 flex-1">
-                      <span className="text-xs font-bold tracking-wide text-muted">
+                      <span className="text-xs font-semibold tracking-wide text-muted">
                         {r.group}
                       </span>
                       <span className="block text-sm leading-relaxed text-ink">{r.label}</span>
@@ -524,7 +524,7 @@ export function EditTierForm({ dm, tier }: {
   if (!show) {
     return (
       <button type="button" onClick={() => setShow(true)}
-              className="btn-quiet btn-row">고치기</button>
+              className="qd-text-action">고치기</button>
     );
   }
 
@@ -547,11 +547,11 @@ export function EditTierForm({ dm, tier }: {
         <input id={`${uid}-q`} name="qty" type="number" step="any" min="0.0001" required
                defaultValue={Number(tier.qty)} className="input h-8 tnum text-xs" />
       </div>
-      <button type="submit" disabled={pending} className="btn-quiet btn-row">
+      <button type="submit" disabled={pending} className="qd-text-action">
         {pending ? '중' : '고친다'}
       </button>
       <button type="button" onClick={() => setShow(false)}
-              className="btn-ghost btn-row">취소</button>
+              className="qd-text-action">취소</button>
       <div className="w-full"><Msg state={state} /></div>
     </form>
   );
@@ -610,7 +610,7 @@ export function OperationCard({ dm, op, items, editable, equipment = [] }: {
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-canvas"
       >
-        <span className="w-7 shrink-0 text-center text-xs font-bold tnum text-faint">{op.seq}</span>
+        <span className="w-7 shrink-0 text-center text-xs font-semibold tnum text-faint">{op.seq}</span>
         <code className="font-mono text-xs text-muted">{op.code}</code>
         <span className="text-sm font-semibold text-ink">{op.name}</span>
         <Tag tone={op.after_cutting ? 'brand' : 'quiet'}>
@@ -692,7 +692,7 @@ export function OperationCard({ dm, op, items, editable, equipment = [] }: {
                   {b.basis === 'SHEET_TIER' && (
                     <>
                       {b.tiers.length > 0 && (
-                        <table className="w-full">
+                        <table className="qd-table qd-table--hangul">
                           <thead>
                             <tr>
                               <th className="th">장입 구간</th>
@@ -845,7 +845,7 @@ export function TypicalDayForm({ id, dm, value }: {
       <input name="typical_day" type="number" min="1" defaultValue={value ?? ''}
              placeholder="일차" aria-label="보통 일차"
              className="input h-8 w-16 tnum text-xs" />
-      <button type="submit" disabled={pending} className="btn-quiet btn-row">
+      <button type="submit" disabled={pending} className="qd-text-action">
         저장
       </button>
       {state.error && <span className="text-xs text-danger">{state.error}</span>}
@@ -898,7 +898,7 @@ export function SamplePlanForm({ id, tiers, basis }: {
                   {t.min_qty} ~ {t.max_qty ?? ''}
                   {t.max_qty === null && <span className="text-faint"> (상한 없음)</span>}
                 </td>
-                <td className="td tnum text-right font-bold">{t.sample_qty}</td>
+                <td className="td tnum text-right font-semibold">{t.sample_qty}</td>
               </tr>
             ))}
           </tbody>

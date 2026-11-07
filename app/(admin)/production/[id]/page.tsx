@@ -311,7 +311,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
         <section className="card border-warn/40">
           <header className="section-head bg-warn-bg">
             <div>
-              <h3 className="text-lg font-bold text-ink">
+              <h3 className="text-lg font-semibold text-ink">
                 확인해 볼 항목 <span className="tnum">{d.review.length}</span>
               </h3>
               <p className="mt-0.5 text-xs leading-relaxed text-muted">
@@ -420,8 +420,8 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
             아직 제조번호가 붙지 않았습니다.
           </Empty>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="qd-table-scroll">
+            <table className="qd-table qd-table--hangul" data-grow="2">
               <thead>
                 <tr>
                   <th className="th">제조번호</th>
@@ -518,8 +518,8 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
             아직 공정 기록이 없습니다.
           </Empty>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="qd-table-scroll">
+            <table className="qd-table qd-table--hangul" data-grow="0">
               <thead>
                 <tr>
                   <th className="th">일차</th>
@@ -575,8 +575,8 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
             기록이 없습니다.
           </Empty>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="qd-table-scroll">
+            <table className="qd-table qd-table--hangul" data-grow="0">
               <thead>
                 <tr>
                   <th className="th">일차</th>
@@ -642,8 +642,8 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
           title="인쇄 이력"
           note="재출력한 회차가 있으면 앞 종이를 회수하고 그 사실을 남깁니다"
         >
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="qd-table-scroll">
+            <table className="qd-table qd-table--hangul" data-grow="0">
               <thead>
                 <tr>
                   <th className="th">양식</th>
@@ -694,7 +694,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                         */}
                       <span className="inline-flex gap-1.5">
                         {viewHref(p)
-                          ? <Link href={viewHref(p)!} className="btn-quiet btn-row">
+                          ? <Link href={viewHref(p)!} className="qd-text-action">
                               보기
                             </Link>
                           : <span className="text-xs text-faint" title="담긴 로트와 수량이 주소에만 있어 되살릴 수 없습니다">

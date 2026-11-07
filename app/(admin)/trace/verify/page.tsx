@@ -119,7 +119,7 @@ export default async function VerifyPage({
               {hits.map((h) => (
                 <li key={h.id} className="space-y-3 p-4">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-mono text-sm font-bold text-ink">
+                    <span className="font-mono text-sm font-semibold text-ink">
                       {h.short_hash}
                     </span>
                     <Tag tone="brand">{KIND_LABEL[h.kind] ?? h.kind}</Tag>
@@ -246,7 +246,7 @@ export default async function VerifyPage({
       )}
 
       <section className="card p-4">
-        <h3 className="text-xs font-bold text-ink">자료 식별자가 말해 주는 것과 아닌 것</h3>
+        <h3 className="text-xs font-semibold text-ink">자료 식별자가 말해 주는 것과 아닌 것</h3>
         <ul className="mt-2 space-y-1.5 text-xs leading-relaxed text-muted">
           <li>
             · <b className="text-ink">말해 주는 것.</b> 이 종이가 언제, 누가, 어떤 자료로

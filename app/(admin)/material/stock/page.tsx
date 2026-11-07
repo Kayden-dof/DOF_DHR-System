@@ -70,8 +70,8 @@ export default async function StockPage() {
         if (rows.length === 0) return null;
         return (
           <Panel key={t.code} title={t.label} note={t.note}>
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            <div className="qd-table-scroll">
+              <table className="qd-table qd-table--hangul">
                 <thead>
                   <tr>
                     <th className="th">품목</th>
@@ -114,8 +114,8 @@ export default async function StockPage() {
             출하 가능한 완제품이 없습니다.
           </Empty>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="qd-table-scroll">
+            <table className="qd-table qd-table--hangul" data-grow="2">
               <thead>
                 <tr>
                   <th className="th">제조번호</th>

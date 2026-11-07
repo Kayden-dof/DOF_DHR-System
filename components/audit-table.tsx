@@ -33,8 +33,8 @@ export default function AuditTable({ entries, collapseTo }: {
 
   return (
     <>
-      <div className="overflow-x-auto">
-        <table className="w-full">
+      <div className="qd-table-scroll">
+        <table className="qd-table qd-table--hangul" data-grow="4">
           <thead>
             <tr>
               <th className="th">일시</th>
@@ -58,7 +58,7 @@ export default function AuditTable({ entries, collapseTo }: {
       {collapseTo != null && entries.length > collapseTo && (
         <button
           onClick={() => setOpen((v) => !v)}
-          className="w-full border-t border-line-soft px-4 py-2.5 text-xs font-bold
+          className="w-full border-t border-line-soft px-4 py-2.5 text-xs font-semibold
                      text-muted transition-colors hover:bg-surface-sub hover:text-ink"
         >
           {folded ? `${entries.length - collapseTo}건 더 보기` : '접기'}

@@ -73,7 +73,8 @@ export function SubNav({ items }: { items: NavItem[] }) {
 
   /* 모양은 globals.css 의 .segment 하나에서 나온다 - 거르개 줄과 같은 것이다 */
   return (
-    <nav className="segment">
+    /* 하위 차림표는 정본 2차 탭(.qd-tabs · 금색 밑줄)이다 */
+    <nav className="qd-tabs !mb-0" aria-label="하위 차림표">
       {items.map((it) => {
         const active = it.href === current;
         return (
@@ -81,8 +82,7 @@ export function SubNav({ items }: { items: NavItem[] }) {
             key={it.href}
             href={it.href}
             aria-current={active ? 'page' : undefined}
-            data-on={active}
-            className="segment-item"
+            className={`qd-tab${active ? ' qd-tab--active' : ''}`}
           >
             {it.label}
           </Link>

@@ -176,7 +176,7 @@ export default async function WorkBatchPage({ params }: { params: Promise<{ id: 
           <div className="flex flex-wrap items-center gap-3">
             {/* 이 화면의 제목은 배치번호다. h1 로 적어 두면 읽어 주는 도구와
                 점검 도구가 그것을 제목으로 안다 */}
-            <h1 className="font-mono text-2xl font-bold text-ink">{wo.batch_no}</h1>
+            <h1 className="font-mono text-2xl font-semibold text-ink">{wo.batch_no}</h1>
             <Tag tone="brand">{wo.item_name}</Tag>
             {/*
               * 배치 상태를 말한다 (4차 감사 E4).

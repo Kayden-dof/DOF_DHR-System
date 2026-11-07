@@ -92,7 +92,7 @@ export default async function NumberingPage() {
     >
 
       <div className="card p-4">
-        <h2 className="text-xs font-bold text-ink">알아둘 것</h2>
+        <h2 className="text-xs font-semibold text-ink">알아둘 것</h2>
         <ul className="mt-2 space-y-1.5 text-xs leading-relaxed text-muted">
           <li>
             · 규칙을 교체하면 <b className="text-ink">순번은 이어집니다.</b> 같은 대상·주기의

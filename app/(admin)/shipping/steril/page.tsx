@@ -99,8 +99,8 @@ export default async function SterilPage() {
             멸균 배치가 없습니다.
           </Empty>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="qd-table-scroll">
+            <table className="qd-table qd-table--hangul">
               <thead>
                 <tr>
                   <th className="th">멸균 배치</th>
@@ -126,7 +126,7 @@ export default async function SterilPage() {
       </Panel>
 
       <section className="card p-4">
-        <h3 className="text-xs font-bold text-ink">이 화면이 하는 일과 하지 않는 일</h3>
+        <h3 className="text-xs font-semibold text-ink">이 화면이 하는 일과 하지 않는 일</h3>
         <ul className="mt-2 space-y-1.5 text-xs leading-relaxed text-muted">
           <li>· 발송·회수 시점과 성적서 번호를 기록합니다.</li>
           <li>· 발송하면 제품 로트가 멸균 중으로, 회수하면 멸균 회수로 넘어갑니다.</li>

@@ -85,7 +85,7 @@ export default function Entry({ e }: { e: AuditEntry }) {
             * 손이 갔을 때만 또렷해지게 둔다.
             */}
           <button onClick={() => setOpen((v) => !v)}
-                  className="btn-quiet btn-row">
+                  className="qd-text-action">
             {open ? '접기' : <>변경 <span className="tnum">{changes.length}</span></>}
           </button>
         </td>
@@ -96,7 +96,7 @@ export default function Entry({ e }: { e: AuditEntry }) {
             {changes.length === 0 ? (
               <p className="text-xs text-faint">값 변화가 없습니다.</p>
             ) : (
-              <table className="w-full max-w-3xl">
+              <table className="qd-table qd-table--hangul max-w-3xl">
                 <tbody>
                   {changes.map((c) => (
                     <tr key={c.key}>

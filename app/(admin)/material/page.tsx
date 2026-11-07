@@ -148,7 +148,7 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
             해당하는 자재 로트가 없습니다.
           </Empty>
         ) : (
-          <Table>
+          <Table grow={2}>
             <thead>
               <tr>
                 <Th>로트번호</Th>

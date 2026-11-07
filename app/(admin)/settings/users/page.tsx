@@ -149,8 +149,8 @@ export default async function UsersPage({ searchParams }: { searchParams: Search
       />
 
       <div className="card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
+        <div className="qd-table-scroll">
+          <table className="qd-table qd-table--hangul" data-grow="2">
             <thead>
               <tr>
                 <th className="th">사번</th>
@@ -182,7 +182,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Search
       {showRates && <LabourRates rows={d.rates} today={d.rateToday ?? ''} writable={writable} />}
 
       <section className="card p-4">
-        <h2 className="text-xs font-bold text-ink">역할</h2>
+        <h2 className="text-xs font-semibold text-ink">역할</h2>
         <dl className="mt-2 grid gap-x-6 gap-y-1.5 text-xs sm:grid-cols-2">
           {ROLE_ORDER.map((r) => (
             <div key={r} className="flex gap-2">

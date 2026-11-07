@@ -131,7 +131,7 @@ export default async function CostPage() {
         if (!untimed && !noRate && !noEquip) return null;
         return (
           <div className="card border-warn/40 bg-warn-bg p-4">
-            <h3 className="text-xs font-bold text-ink">원가에서 빠진 것</h3>
+            <h3 className="text-xs font-semibold text-ink">원가에서 빠진 것</h3>
             <ul className="mt-2 space-y-1 text-xs leading-relaxed text-ink">
               {untimed > 0 && (
                 <li>
@@ -165,8 +165,8 @@ export default async function CostPage() {
             배치가 없습니다.
           </Empty>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="qd-table-scroll">
+            <table className="qd-table qd-table--hangul">
               <thead>
                 <tr>
                   <th className="th">배치</th>
@@ -214,8 +214,8 @@ export default async function CostPage() {
             제품 로트가 없습니다.
           </Empty>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="qd-table-scroll">
+            <table className="qd-table qd-table--hangul" data-grow="2">
               <thead>
                 <tr>
                   <th className="th">제조번호</th>
@@ -264,8 +264,8 @@ export default async function CostPage() {
             입고 기록이 없습니다.
           </Empty>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="qd-table-scroll">
+            <table className="qd-table qd-table--hangul" data-grow="2">
               <thead>
                 <tr>
                   <th className="th">월</th>
@@ -296,7 +296,7 @@ export default async function CostPage() {
                     ))}
                     <tr key={`${month}-sum`}>
                       <th className="th text-right" colSpan={2}>{month.slice(0, 7)} 합계</th>
-                      <td className="td tnum text-right font-bold">
+                      <td className="td tnum text-right font-semibold">
                         {won(rows.reduce((a, r) => a + Number(r.amount), 0))}
                       </td>
                     </tr>
@@ -309,7 +309,7 @@ export default async function CostPage() {
       </Panel>
 
       <section className="card p-4">
-        <h3 className="text-xs font-bold text-ink">계산 방식</h3>
+        <h3 className="text-xs font-semibold text-ink">계산 방식</h3>
         <ul className="mt-2 space-y-1.5 text-xs leading-relaxed text-muted">
           <li>
             · <b className="text-ink">원재료</b>는 로트 단가 x 장입 수량입니다.

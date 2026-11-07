@@ -1,0 +1,547 @@
+/* =============================================================================
+   Q-Design 에서 온 사본입니다. **이 파일을 손으로 고치지 마세요.**
+
+   출처   D:/Claude/Q-Design/patterns/components.css
+   갱신   cd D:/Claude/Q-Design
+          node tools/extract-all.mjs && node tools/sync.mjs --write
+
+   고칠 일이 생기면 Q-Design 의 원본을 고치고 추출기를 다시 돌립니다.
+   여기서 고치면 제품들의 화면·문서가 갈립니다.
+   아래 지문은 본문의 sha256 이고, 이 저장소의 검사가 대조합니다.
+
+   q-design-nav-sha256: 07b9f854e51f9b04d9e9e737d4ef7d7645ceed17fcf7147b575c3fed7aa46938
+   ============================================================================= */
+@layer components {
+/* Q-Design owns these component rules. Product adapters own data and interaction.
+   Shape, type, spacing, surfaces, states and motion are configured here.
+   Sectioned overlays set data-layout="sections". Position is owned by the adapter. */
+:root {
+  --qd-radius: 10px;
+  --qd-radius-card: var(--qd-radius);
+  --qd-radius-control: var(--qd-radius);
+  --qa-radius-card: var(--qd-radius);
+  --qd-space-1: calc(var(--qd-space-unit, 4px) * 1);
+  --qd-space-2: calc(var(--qd-space-unit, 4px) * 2);
+  --qd-space-3: calc(var(--qd-space-unit, 4px) * 3);
+  --qd-space-4: calc(var(--qd-space-unit, 4px) * 4);
+  --qd-space-5: calc(var(--qd-space-unit, 4px) * 5);
+  --qd-space-6: calc(var(--qd-space-unit, 4px) * 6);
+  --qd-control-height: 44px;
+  --qd-control-height-sm: 36px;
+  --qd-choice-glyph-size: 16px;
+  --qd-control-icon: 44px;
+  --qd-icon-size: 20px;
+  --qd-icon-size-sm: 16px;
+  --qd-icon-align: -0.18em;
+  --qd-control-size: 14px;
+  --qd-control-pad-y: 11px;
+  --qd-control-pad-x: 22px;
+  --qd-control-pad-sm-y: 7px;
+  --qd-control-pad-sm-x: 14px;
+  --qd-body-size: 14px;
+  --qd-caption-size: 12px;
+  --qd-tag-min-width: 6.5em;
+  --qd-field-gap: var(--qd-space-1);
+  --qd-textarea-min-height: 80px;
+  --qd-select-end-padding: calc(var(--qd-space-4) * 2);
+  --qd-title-size: 24px;
+  --qd-section-size: 16px;
+  --qd-overlay-title-size: 18px;
+  --qd-row-title-size: 16px;
+  --qd-table-size: 14px;
+  --qd-table-pad-y: 11px;
+  --qd-table-pad-y-dense: var(--qd-space-2);
+  --qd-table-pad-x: 12px;
+  --qd-table-scroll-max-height: 70dvh;
+  --qd-table-header-layer: 2;
+  --qd-table-description-min-width: 160px;
+  --qd-table-grow-min-width: 8em;
+  /* 지표 값은 사다리 네 단 중 하나로만 선다 (2026-10-27 카르넷 정밀 감사 D1). 전에는 16cqw 로 칸 폭을
+     따라 22.88 · 21.6 · 36.72px 처럼 사다리 밖 크기가 나왔다. 칸 폭(.qd-kpi 는 inline-size 컨테이너)에 따라
+     40 · 32 · 28 · 24 로 내려간다. 네 값 모두 docs/03 의 아홉 단 안이다 */
+  --qd-kpi-size: 40px;
+  --qd-kpi-size-lg: 32px;
+  --qd-kpi-size-md: 28px;
+  --qd-kpi-size-sm: 24px;
+  /* 🔴 아래 둘은 아뜰리에 지표 부품(component-implementations/atelier/lib/design/components.tsx 의 inline clamp)이 아직
+     읽는다. 그 부품을 위 네 단으로 옮기면 함께 걷는다(추출기 extract-screen.mjs 의 Z.kpiValue 정규식도 같이). 카르넷 ·
+     메종의 .qd-kpi-value 는 더 이상 쓰지 않는다 */
+  --qd-kpi-min-size: 20px;
+  --qd-kpi-fluid-size: 16cqw;
+  --qd-motion-fast: 160ms;
+  --qd-motion-normal: 200ms;
+  --qd-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --qd-dialog-width: 560px;
+  --qd-dialog-gap: 16px;
+  --qd-overlay-padding: 24px;
+  --qd-mobile-header-height: 64px;
+  --qd-shadow-overlay: 0 12px 36px rgb(0 0 0 / 0.16);
+  --qd-backdrop: rgb(0 0 0 / 0.48);
+  --qd-bg: var(--qd-bg-src, var(--qa-bg, #0c0c0c));
+  --qd-surface: var(--qd-surface-src, var(--qa-surface, #141414));
+  --qd-surface2: var(--qd-surface2-src, var(--qa-surface2, #1b1b1b));
+  --qd-border: var(--qd-border-src, var(--qa-border, #242424));
+  --qd-borderHi: var(--qd-borderHi-src, var(--qa-borderHi, #333333));
+  --qd-ctl: var(--qd-ctl-src, var(--qa-ctl, #7a7364));
+  --qd-text: var(--qd-text-src, var(--qa-text, #f0ebe0));
+  --qd-subtle: var(--qd-subtle-src, var(--qa-subtle, #b7b0a5));
+  --qd-muted: var(--qd-muted-src, var(--qa-muted, #898271));
+  --qd-accent: var(--qd-accent-src, var(--qa-champagne, #b8935a));
+  --qd-danger: var(--qd-danger-src, var(--qa-red, #c97a7a));
+  --qd-ok: var(--qd-ok-src, var(--qa-green, #7ab87a));
+  --qd-warn: var(--qd-warn-src, var(--qa-warning, #c9a87a));
+  --qd-info: var(--qd-info-src, var(--qa-blue, #7a9ec9));
+  --qd-z-overlay: var(--qd-z-overlay-src, var(--qa-z-overlay, 1000));
+  --qd-z-modal: var(--qd-z-modal-src, var(--qa-z-modal, 1100));
+  --qd-z-tooltip: var(--qd-z-tooltip-src, var(--qa-z-tooltip, 9999));
+  --qd-z-toast: var(--qd-z-toast-src, var(--qa-z-toast, 10000));
+  --qd-z-blocking: var(--qd-z-blocking-src, var(--qa-z-blocking, 10001));
+}
+
+/* Existing canonical roles subscribe to the same live component tokens. */
+.qd-table-scroll--tall { max-height: var(--qd-table-scroll-max-height); overflow: auto; }
+.qd-table-scroll-header { position: sticky; top: 0; z-index: var(--qd-table-header-layer); background: var(--qd-surface); }
+.qd-table-sticky-first { position: sticky; left: 0; z-index: calc(var(--qd-table-header-layer) - 1); background: var(--qd-surface); }
+.qd-table-description { min-width: var(--qd-table-description-min-width); }
+.qd-table-group-label { display: inline-block; position: sticky; left: var(--qd-space-3); }
+@media print {
+  .qd-table-scroll-header { position: static; }
+  .qd-table-sticky-first { position: static; }
+  .qd-table-group-label { position: static; }
+  .qd-table-scroll--tall { max-height: none; overflow: visible; }
+}
+:where(.qd-phosphor-icon[data-qd-default-size]) { width: var(--qd-icon-size); height: var(--qd-icon-size); }
+.qd-icon--sm { width: var(--qd-icon-size-sm); height: var(--qd-icon-size-sm); }
+.qd-btn { min-height: var(--qd-control-height); padding: var(--qd-control-pad-y) var(--qd-control-pad-x); border-radius: var(--qd-radius); font-size: var(--qd-control-size); }
+.qd-btn--sm { min-height: var(--qd-control-height-sm); padding: var(--qd-control-pad-sm-y) var(--qd-control-pad-sm-x); font-size: var(--qd-control-size); }
+.qd-input { display: block; border-radius: var(--qd-radius); font-size: var(--qd-control-size); background: var(--qd-surface); color: var(--qd-text); }
+.qd-section-title { font-size: var(--qd-section-size); }
+.qd-field-label, .qd-tag { font-size: var(--qd-caption-size); }
+/* 알약은 글자 수와 상관없이 같은 크기(2026-10-27 오너 지시 «알약 크기를 정본에서 통일성 있게»). 한 표 칸에서
+   «종료» 49px · «재단 완료» 73px 로 갈렸다. 바닥은 «4글자 + 상태 점» 이 같은 크기가 되는 6.5em(12px 배지 78px).
+   카르넷 43화면 452개를 세니 4글자 이하가 95% 였고, 그보다 긴 드문 이름만 늘어난다. em 이라 배지 크기를 따른다 */
+.qd-tag { min-width: var(--qd-tag-min-width); }
+.qd-tab { font-size: var(--qd-control-size); }
+.qd-page-head-title { font-size: var(--qd-title-size); }
+.qd-table { font-size: var(--qd-table-size); }
+/* 표 열 폭 규칙 «표 하나에 늘어나는 열 하나» (2026-10-28 오너 결정 · 카르넷 표 41개 실측).
+   열 폭을 아무도 정하지 않으면 브라우저가 남는 폭을 «가장 긴 글이 있는 열» 에 비례로 주어 표마다 생김새가 갈린다
+   (홈 «마감 대기» 는 글 폭 603px 에 남는 518px 가 작업일 37% · 진행 알약 26% 로 갔다).
+   그래서 표의 주인 열 하나만 남는 폭을 받고 줄바꿈하며, 나머지 열은 글 폭으로 줄바꿈 없이 선다.
+   · 늘어나는 열은 표에 data-grow="N"(1부터) 으로 적는다. 적지 않으면 첫 열. 셀에 .qd-col-grow 를 직접 거는 길도 남긴다
+     (두 열이 함께 늘어나야 하는 드문 표). 칸을 합친 셀([colspan]) · 설명 열(.qd-table-description)도 줄바꿈한다.
+   · 표는 두 결이다(2026-10-28 오너 결정). 열이 전부 짧은 «기록 · 수치» 표는 data-grow="0": 어느 열도 auto 가 아니라서
+     브라우저가 남는 폭을 모든 열에 같은 몫으로 나눈다(7장 «표»). 0 에 걸리는 nth-child 규칙을 두지 말 것.
+   · width: 1% 는 «내용 폭만 차지하라» 는 오래된 표 배치 관용구다. 늘어나는 열의 바닥 8em 은 폰에서 주인 열이 너무 좁아지지 않게(12em 이면 발주 표가 1440 에서 30px 넘쳤다).
+   · 적는 표(.qd-table--editable)는 입력 칸이 제 폭을 쥐므로 이 규칙 밖이다. 폰에서는 열을 숨기지 않고 .qd-table-scroll 로 굴린다. */
+.qd-table { width: 100%; table-layout: auto; }
+.qd-table:not(.qd-table--editable) > :is(thead, tbody, tfoot) > tr > :is(th, td) { width: 1%; white-space: nowrap; }
+.qd-table:not(.qd-table--editable) > :is(thead, tbody, tfoot) > tr > :is(th, td):is(.qd-col-grow, .qd-table-description, [colspan]),
+.qd-table:not(.qd-table--editable):not([data-grow]):not(:has(.qd-col-grow)) > :is(thead, tbody, tfoot) > tr > :is(th, td):first-child,
+.qd-table[data-grow="1"]:not(.qd-table--editable) > :is(thead, tbody, tfoot) > tr > :is(th, td):nth-child(1),
+.qd-table[data-grow="2"]:not(.qd-table--editable) > :is(thead, tbody, tfoot) > tr > :is(th, td):nth-child(2),
+.qd-table[data-grow="3"]:not(.qd-table--editable) > :is(thead, tbody, tfoot) > tr > :is(th, td):nth-child(3),
+.qd-table[data-grow="4"]:not(.qd-table--editable) > :is(thead, tbody, tfoot) > tr > :is(th, td):nth-child(4),
+.qd-table[data-grow="5"]:not(.qd-table--editable) > :is(thead, tbody, tfoot) > tr > :is(th, td):nth-child(5),
+.qd-table[data-grow="6"]:not(.qd-table--editable) > :is(thead, tbody, tfoot) > tr > :is(th, td):nth-child(6),
+.qd-table[data-grow="7"]:not(.qd-table--editable) > :is(thead, tbody, tfoot) > tr > :is(th, td):nth-child(7),
+.qd-table[data-grow="8"]:not(.qd-table--editable) > :is(thead, tbody, tfoot) > tr > :is(th, td):nth-child(8),
+.qd-table[data-grow="9"]:not(.qd-table--editable) > :is(thead, tbody, tfoot) > tr > :is(th, td):nth-child(9),
+.qd-table[data-grow="10"]:not(.qd-table--editable) > :is(thead, tbody, tfoot) > tr > :is(th, td):nth-child(10),
+.qd-table[data-grow="11"]:not(.qd-table--editable) > :is(thead, tbody, tfoot) > tr > :is(th, td):nth-child(11),
+.qd-table[data-grow="12"]:not(.qd-table--editable) > :is(thead, tbody, tfoot) > tr > :is(th, td):nth-child(12) {
+  width: auto; min-width: var(--qd-table-grow-min-width); white-space: normal;
+}
+/* 글 폭 칸 안의 단추 · 글 단추는 낱말 사이에서 꺾이지 않는다. 기초(foundation.css)가 단추를 normal 로 두는 것은
+   좁은 칸에서 한 글자씩 끊기지 않게 한 것인데, 글 폭(1%) 칸은 내용 폭을 그대로 받으므로 «변경 항목 0» 이 두 줄로 꺾였다 (2026-10-28) */
+html .qd-table:not(.qd-table--editable) > :is(thead, tbody, tfoot) > tr > :is(th, td):not(.qd-col-grow) :is(.qd-btn, .qd-text-action) { white-space: nowrap; }
+.qd-table td, .qd-table .qd-td { padding: var(--qd-table-pad-y) var(--qd-table-pad-x); }
+.qd-kpi-value { font-size: var(--qd-kpi-size); }
+@container (width < 260px) { .qd-kpi-value { font-size: var(--qd-kpi-size-lg); } }
+@container (width < 200px) { .qd-kpi-value { font-size: var(--qd-kpi-size-md); } }
+@container (width < 150px) { .qd-kpi-value { font-size: var(--qd-kpi-size-sm); } }
+html[data-theme='light'] {
+  --qd-bg: var(--qd-bg-src, var(--qa-bg, #faf9f6));
+  --qd-surface: var(--qd-surface-src, var(--qa-surface, #ffffff));
+  --qd-surface2: var(--qd-surface2-src, var(--qa-surface2, #f3f1ec));
+  --qd-border: var(--qd-border-src, var(--qa-border, #e2dfd8));
+  --qd-borderHi: var(--qd-borderHi-src, var(--qa-borderHi, #c8c4ba));
+  --qd-ctl: var(--qd-ctl-src, var(--qa-ctl, #8c8575));
+  --qd-text: var(--qd-text-src, var(--qa-text, #1c1a16));
+  --qd-subtle: var(--qd-subtle-src, var(--qa-subtle, #4a4540));
+  --qd-muted: var(--qd-muted-src, var(--qa-muted, #726b5e));
+  --qd-accent: var(--qd-accent-src, var(--qa-champagne, #805f32));
+  --qd-danger: var(--qd-danger-src, var(--qa-red, #a83838));
+  --qd-ok: var(--qd-ok-src, var(--qa-green, #3d6b3d));
+  --qd-warn: var(--qd-warn-src, var(--qa-warning, #7a5a28));
+  --qd-info: var(--qd-info-src, var(--qa-blue, #3d5f8a));
+}
+
+/* Native controls and adapter controls share the same non-interactive states. */
+.qd-input::placeholder { color: var(--qd-muted); opacity: 1; }
+.qd-input:disabled {
+  background: var(--qd-bg) !important;
+  border-color: var(--qd-border) !important;
+  color: var(--qd-muted) !important;
+  cursor: not-allowed;
+}
+/* 잠긴 칸(읽기 전용)도 적는 칸과 달라 보여야 한다. 흰 상자 · 진한 테두리 그대로면 «적어야 하나, 이미 적혔나» 가
+   갈리지 않는다(2026-10-27 폼 배치 점검). 꺼진 칸과 같은 바탕과 옅은 테두리를 쓰고, 값은 고를 수 있게 둔다. */
+.qd-input[readonly] {
+  background: var(--qd-bg) !important;
+  border-color: var(--qd-border) !important;
+  cursor: default;
+}
+/* 잠긴 칸 · 꺼진 칸에는 회색 안내를 띄우지 않는다. 빈 칸의 «예: …» 가 적힌 값처럼 읽힌다
+   (우리 디자인 규칙 S10 · 2026-10-27). 아뜰리에는 In · Txt 부품이 안내를 빼고, 두 제품은 이 줄이 가린다. */
+.qd-input:is([readonly], :disabled)::placeholder { color: transparent; }
+.qd-control-icon, .qd-dialog-close, .qd-mobile-menu {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: var(--qd-control-icon);
+  min-height: var(--qd-control-icon);
+  padding: var(--qd-space-2);
+  border: 1px solid transparent;
+  /* Shared square controls cannot acquire a different radius from caller styles. */
+  border-radius: var(--qd-radius) !important;
+  background: transparent;
+  color: var(--qd-muted);
+  cursor: pointer;
+  transition: color var(--qd-motion-fast), background var(--qd-motion-fast);
+}
+.qd-control-icon:hover, .qd-dialog-close:hover, .qd-mobile-menu:hover {
+  color: var(--qd-text);
+  background: var(--qd-surface2);
+}
+.qd-text-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--qd-space-2);
+  min-height: var(--qd-control-height-sm);
+  padding: var(--qd-space-1) var(--qd-space-2);
+  border: 1px solid transparent;
+  border-radius: var(--qd-radius);
+  background: transparent;
+  color: var(--qd-subtle);
+  font: inherit;
+  font-size: var(--qd-control-size);
+  line-height: 1.4;
+  letter-spacing: 0;
+  cursor: pointer;
+  text-decoration: none;
+  transition: color var(--qd-motion-fast), background var(--qd-motion-fast);
+}
+.qd-text-action:hover { color: var(--qd-text); text-decoration: underline; text-underline-offset: 4px; }
+/* 이동 글귀(2026-10-27 오너 결정 «F»): 안내 문구 · 구역 머리 옆에 홀로 선 «다른 화면으로 가는» 글귀. 흐린 글귀는 설명 문장과
+   구별되지 않았다. 본문 먹색 · 굵기 600 · 끝 꺾쇠 아이콘으로 가른다. 줄마다 되풀이되는 열기 · 보기와 취소 · 뒤로는 기본 글귀 그대로. */
+.qd-text-action--go { gap: var(--qd-space-1); color: var(--qd-text); font-weight: var(--qd-font-weight-semibold); }
+.qd-text-action--go > svg { flex: none; }
+:where(.qd-control-icon, .qd-dialog-close, .qd-text-action, .qd-choice, .qd-calendar-day, .qd-mobile-menu):focus-visible {
+  outline: 2px solid var(--qd-accent);
+  outline-offset: 2px;
+}
+:where(.qd-control-icon, .qd-dialog-close, .qd-text-action, .qd-choice, .qd-calendar-day):disabled {
+  cursor: not-allowed;
+  color: var(--qd-muted);
+}
+
+/* Backdrops do not blur the work underneath. Content surfaces are opaque. */
+.qd-dialog-backdrop, .qd-drawer-backdrop {
+  background: var(--qd-backdrop);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.qd-dialog-content, .qd-drawer-content {
+  box-sizing: border-box;
+  min-width: 0;
+  padding: var(--qd-overlay-padding);
+  border: 1px solid var(--qd-borderHi);
+  border-radius: var(--qd-radius);
+  background: var(--qd-surface);
+  color: var(--qd-text);
+  box-shadow: var(--qd-shadow-overlay);
+  font-size: var(--qd-body-size);
+  line-height: 1.6;
+}
+.qd-dialog-content { width: 100%; max-width: var(--qd-dialog-width); }
+.qd-dialog-content--wide { --qd-dialog-width: 672px; }
+.qd-dialog-content[data-layout='sections'], .qd-drawer-content[data-layout='sections'] { padding: 0; }
+.qd-dialog-header, .qd-drawer-header { display: flex; align-items: flex-start; gap: var(--qd-space-3); }
+.qd-dialog-title, .qd-drawer-title {
+  min-width: 0;
+  margin: 0;
+  color: var(--qd-text);
+  font-family: inherit;
+  font-size: var(--qd-overlay-title-size);
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0;
+  text-transform: none;
+  overflow-wrap: anywhere;
+}
+.qd-dialog-description, .qd-toast-description { color: var(--qd-muted); font-size: var(--qd-caption-size); line-height: 1.6; }
+.qd-control-label { color: var(--qd-subtle); font-size: var(--qd-caption-size); font-weight: 500; line-height: 1.6; letter-spacing: 0; }
+.qd-text-action--sm { padding: var(--qd-space-1) var(--qd-space-2); font-size: var(--qd-caption-size); }
+.qd-text-action--regular { min-height: var(--qd-control-height); }
+.qd-dialog-body, .qd-drawer-body { min-width: 0; min-height: 0; }
+.qd-dialog-actions, .qd-drawer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--qd-space-2);
+}
+:where(.qd-dialog-content, .qd-drawer-content)[data-layout='sections'] > :where(.qd-dialog-header, .qd-drawer-header, .qd-dialog-body, .qd-drawer-body, .qd-dialog-actions, .qd-drawer-actions) { padding: var(--qd-overlay-padding); }
+:where(.qd-dialog-content, .qd-drawer-content)[data-layout='sections'] > :where(.qd-dialog-header, .qd-drawer-header) { border-bottom: 1px solid var(--qd-border); }
+:where(.qd-dialog-content, .qd-drawer-content)[data-layout='sections'] > :where(.qd-dialog-actions, .qd-drawer-actions) { border-top: 1px solid var(--qd-border); }
+
+.qd-popover, .qd-tooltip {
+  box-sizing: border-box;
+  max-width: calc(100vw - 32px);
+  padding: var(--qd-space-3);
+  border: 1px solid var(--qd-ctl);
+  border-radius: var(--qd-radius);
+  background: var(--qd-surface);
+  color: var(--qd-text);
+  box-shadow: var(--qd-shadow-overlay);
+  font-size: var(--qd-caption-size);
+  line-height: 1.6;
+  letter-spacing: 0;
+  backdrop-filter: none;
+  overflow-wrap: anywhere;
+}
+.qd-popover { font-size: var(--qd-control-size); }
+.qd-combobox-option {
+  display: flex;
+  align-items: center;
+  min-height: var(--qd-control-height-sm);
+  padding: var(--qd-space-2) var(--qd-space-3);
+  border-radius: var(--qd-radius);
+  color: var(--qd-text);
+  font-size: var(--qd-control-size);
+  cursor: pointer;
+}
+.qd-combobox-option[data-active='true'], .qd-combobox-option[aria-selected='true'] {
+  background: var(--qd-surface2);
+  font-weight: 600;
+}
+
+/* Feedback conveys meaning through text and an icon as well as color. */
+.qd-notice, .qd-toast {
+  --qd-status: var(--qd-info);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--qd-space-3);
+  box-sizing: border-box;
+  padding: var(--qd-space-3) var(--qd-space-4);
+  border: 1px solid color-mix(in srgb, var(--qd-status) 45%, var(--qd-border));
+  border-radius: var(--qd-radius);
+  background: var(--qd-surface);
+  color: var(--qd-text);
+  font-size: var(--qd-control-size);
+  line-height: 1.6;
+}
+:where(.qd-notice, .qd-toast)[data-tone='error'], :where(.qd-notice, .qd-toast)[data-kind='error'], :where(.qd-notice, .qd-toast)[data-type='error'] { --qd-status: var(--qd-danger); }
+:where(.qd-notice, .qd-toast)[data-tone='success'], :where(.qd-notice, .qd-toast)[data-kind='success'], :where(.qd-notice, .qd-toast)[data-type='success'] { --qd-status: var(--qd-ok); }
+:where(.qd-notice, .qd-toast)[data-tone='warning'], :where(.qd-notice, .qd-toast)[data-kind='warning'], :where(.qd-notice, .qd-toast)[data-type='warning'] { --qd-status: var(--qd-warn); }
+:where(.qd-notice, .qd-toast)[data-tone='neutral'] { --qd-status: var(--qd-borderHi); }
+.qd-toast { box-shadow: var(--qd-shadow-overlay); --qd-toast-line: calc(var(--qd-control-size) * 1.6); }
+/* The dismiss control keeps its full target but centres on the first text line,
+   so a one-line toast is not stretched to the control height. */
+.qd-toast > .qd-dialog-close { margin-block: calc((var(--qd-toast-line) - var(--qd-control-height)) / 2); }
+.qd-toast > .qd-text-action { margin-block: calc((var(--qd-toast-line) - var(--qd-control-height-sm)) / 2); }.qd-field-error { margin-top: var(--qd-field-gap) !important; color: var(--qd-danger); font-size: var(--qd-caption-size); line-height: 1.6 !important; letter-spacing: 0 !important; }
+.qd-field-hint { margin-top: var(--qd-space-1); color: var(--qd-muted); font-size: var(--qd-caption-size); line-height: 1.6; }
+/* Equivalent fields use the same label gap and multiline baseline in every product. */
+.qd-field-label { margin-bottom: var(--qd-field-gap); }
+.qd-field-stack { display: grid; gap: var(--qd-field-gap); }
+.qd-field-stack > :is(.qd-field-error, .qd-field-hint) { margin: 0 !important; }
+textarea.qd-input { --qd-control-height: var(--qd-textarea-min-height); min-height: var(--qd-textarea-min-height); }
+select.qd-input { appearance: auto !important; background-image: none !important; padding-right: var(--qd-select-end-padding) !important; }
+.qd-table th { letter-spacing: 0; text-transform: none; }
+.qd-progress { display: block; overflow: hidden; height: var(--qd-progress-height, 6px); border-radius: var(--qd-radius); background: var(--qd-surface2); }
+/* 진행 막대 채움은 transform(scaleX) 으로 움직이는 쪽으로 간다(2026-11-04 · impeccable 감사 40번). 채우는 쪽은 width 100% 에
+   transform: scaleX(비율) 을 인라인으로 준다(아뜰리에 ProgressBar 가 그렇게 한다). 너비 전환은 프레임마다 배치를 다시 재므로 빼야 하지만,
+   width 만 주는 사용처(카르넷 Progress · 메종)가 scaleX 로 바뀔 때까지는 둘 다 둔다. 그 뒤에 width 를 빼는 것이 40번의 끝이다. */
+.qd-progress-fill { display: block; height: 100%; border-radius: inherit; background: var(--qd-status, var(--qd-accent)); transform-origin: left; transition: width var(--qd-motion-normal) var(--qd-ease), transform var(--qd-motion-normal) var(--qd-ease); }
+.qd-step { color: var(--qd-muted); font-size: var(--qd-control-size); line-height: 1.6; }
+.qd-step[aria-current='step'], .qd-step[data-state='active'] { color: var(--qd-text); font-weight: 600; }
+.qd-skeleton { border-radius: var(--qd-radius); background: var(--qd-surface2); animation: qd-skeleton-pulse 1.6s ease-in-out infinite; }
+@keyframes qd-skeleton-pulse { 50% { opacity: 0.5; } }
+
+/* 카드 · 판 · 구역 카드는 장부형: 면 · 옆 선 · 아래 선 · 모서리 없이 **위 괘선 하나**
+   (2026-10-23 오너 결정 «3» · docs/08-paper.md). 카드가 위아래로 붙어도 선이 한 겹이라
+   문서의 장 머리처럼 읽힙니다. 표 상자 · 빈 칸은 q-design.list 의 위아래 괘선 그대로입니다.
+
+   모양은 변수로 읽습니다. 떠 있는 층(창 · 서랍 · 팝업 · 메뉴)과 «상자로 남길» 자리는 아래 묶음이
+   변수를 상자 값으로 바꿔, 그 안의 카드는 예전처럼 면 · 네 변 · 모서리를 가집니다.
+   상태 판(--accent · --ok · --warn · --danger)은 테두리 색이 뜻을 거들므로 상자로 남습니다.
+   변수는 선언한 자리에서 값이 정해져 아래로 물려 내려갑니다(상자 안의 카드도 상자). */
+:where(dialog, [role='dialog'], [role='alertdialog'], [role='menu'], [role='listbox'], [role='tooltip'], [data-radix-popper-content-wrapper],
+  .qd-dialog-content, .qd-drawer-content, .qd-popover, .qd-tooltip,
+  .qd-card--box, .qd-panel--box, .qd-panel--accent, .qd-panel--ok, .qd-panel--warn, .qd-panel--danger) {
+  --qd-card-face: var(--qd-surface);
+  --qd-card-rule: 1px;
+  --qd-card-radius: var(--qd-radius-card, var(--qd-radius));
+  --qd-card-fill: var(--qd-surface);
+}
+/* 고른 칸은 면과 네 변으로 고른 것을 알립니다 */
+:where(.qd-card, .qd-panel):is([aria-current]:not([aria-current='false']), [aria-pressed='true'], [aria-selected='true']) {
+  --qd-card-face: var(--qd-surface);
+  --qd-card-rule: 1px;
+  --qd-card-radius: var(--qd-radius-card, var(--qd-radius));
+  --qd-card-fill: var(--qd-surface);
+}
+/* Repeated rows remain governed by q-design.list. 면이 없으니 표의 따라오는 머리글이 덮을 바탕은 화면 바탕입니다. */
+.qd-card {
+  min-width: 0;
+  border: 1px solid var(--qd-border);
+  border-width: var(--qd-card-rule, 1px 0 0);
+  border-radius: var(--qd-card-radius, 0);
+  background: var(--qd-card-face, transparent);
+  --qd-table-fill: var(--qd-card-fill, var(--qd-bg));
+  color: var(--qd-text);
+  box-shadow: none;
+}
+.qd-card-header, .qd-card-content, .qd-card-footer { padding: var(--qd-space-6); }
+.qd-card-header + .qd-card-content, .qd-card-content + .qd-card-footer { padding-top: 0; }
+.qd-card-title { margin: 0; font-size: var(--qd-section-size); font-weight: 600; line-height: 1.4; letter-spacing: 0; }
+.qd-card-description { margin-top: var(--qd-space-1); color: var(--qd-muted); font-size: var(--qd-caption-size); line-height: 1.6; }
+
+.qd-choice-hit { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: var(--qd-space-2); min-width: var(--qd-control-height); min-height: var(--qd-control-height); cursor: pointer; }
+.qd-radio { width: var(--qd-choice-glyph-size); height: var(--qd-choice-glyph-size); margin: 0; accent-color: var(--qd-accent); color-scheme: inherit; flex-shrink: 0; }
+.qd-radio:focus-visible { outline: 2px solid var(--qd-accent); outline-offset: 2px; }
+.qd-choice-hit:has(> .qd-radio:disabled) { cursor: not-allowed; }
+.qd-choice { min-height: var(--qd-control-height-sm); border: 1px solid var(--qd-ctl); border-radius: var(--qd-radius); background: var(--qd-surface); color: var(--qd-text); font-size: var(--qd-control-size); padding: var(--qd-space-2) var(--qd-space-3); }
+.qd-choice[aria-pressed='true'], .qd-choice[data-state='checked'], .qd-choice--selected { color: var(--qd-text); background: var(--qd-surface2); border-color: var(--qd-accent); font-weight: 600; }
+.qd-checkbox { width: var(--qd-choice-glyph-size); height: var(--qd-choice-glyph-size); border: 1px solid var(--qd-ctl); accent-color: var(--qd-accent); }
+.qd-checkbox-mark { width: var(--qd-choice-glyph-size); height: var(--qd-choice-glyph-size); border: 1px solid var(--qd-ctl); border-radius: 4px; background: var(--qd-surface); color: var(--qd-text); }
+.qd-checkbox:checked + .qd-checkbox-mark, .qd-checkbox-mark[data-state='checked'] { background: var(--qd-accent); border-color: var(--qd-accent); color: var(--qd-bg); }
+.qd-checkbox:indeterminate + .qd-checkbox-mark { background: var(--qd-accent); border-color: var(--qd-accent); color: var(--qd-bg); }
+.qd-checkbox:not(:checked):not(:indeterminate) + .qd-checkbox-mark .qd-checkbox-icon { visibility: hidden; }
+.qd-choice-hit > .qd-checkbox:has(+ .qd-checkbox-mark) { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: inherit; }
+.qd-choice-hit > .qd-checkbox-mark { display: inline-flex; align-items: center; justify-content: center; pointer-events: none; }
+.qd-checkbox:focus-visible + .qd-checkbox-mark { outline: 2px solid var(--qd-accent); outline-offset: 2px; }
+.qd-checkbox:disabled + .qd-checkbox-mark { background: var(--qd-bg); color: var(--qd-muted); }
+.qd-choice-hit > .qd-checkbox:disabled { cursor: not-allowed; }
+.qd-checkbox-icon { width: calc(var(--qd-choice-glyph-size) * .75); height: calc(var(--qd-choice-glyph-size) * .75); }
+.qd-calendar-day {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: var(--qd-control-height); min-height: var(--qd-control-height);
+  border: 1px solid transparent; border-radius: var(--qd-radius);
+  background: transparent; color: var(--qd-text); font-size: var(--qd-control-size);
+  font-variant-numeric: tabular-nums; cursor: pointer;
+}
+.qd-calendar-day:hover:not(:disabled) { background: var(--qd-surface2); }
+.qd-calendar-day[data-outside='true'] { color: var(--qd-muted); }
+.qd-calendar-day[data-weekday='0'] { color: var(--qd-danger); }
+.qd-calendar-day[data-weekday='6'] { color: var(--qd-info); }
+.qd-calendar-day[data-in-range='true'] { background: var(--qd-surface2); }
+.qd-calendar-day[aria-current='date'] { border-color: var(--qd-ctl); }
+.qd-calendar-day[aria-pressed='true'] { background: var(--qd-text); color: var(--qd-bg); font-weight: 600; }
+.qd-calendar-weekday { color: var(--qd-muted); text-align: center; font-size: var(--qd-caption-size); line-height: 1.6; }
+
+.qd-mobile-header { position: sticky; top: 0; display: flex; align-items: center; gap: var(--qd-space-3); min-height: var(--qd-mobile-header-height); padding: var(--qd-space-2) var(--qd-space-4); border-bottom: 1px solid var(--qd-border); background: var(--qd-bg); color: var(--qd-text); }
+.qd-mobile-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--qd-section-size); font-weight: 600; }
+
+/* 머리줄의 «뒤로» 는 폰에서만 보인다(아래 640 분기). 기본값은 분기보다 앞에 둬야 분기가 이긴다 */
+.qd-mobile-back { display: none; }
+@media (max-width: 640px) {
+  :root { --qd-overlay-padding: 20px; }
+  .qd-dialog-actions, .qd-drawer-actions { row-gap: var(--qd-space-3); }
+  /* 탭이 많은 화면(카르넷 설정 14개)은 폰에서 한 줄로 두고 옆으로 민다. 쌓이면 머리만 195px 를 먹었다
+     (2026-10-27 카르넷 정밀 감사 U11). 잘린 쪽은 data-cut 마스크(foundation.css)가 말하고, 켜진 탭은 제품
+     스크립트가 보이는 자리로 민다. 옆으로 넘겨 보는 내용(캐러셀 · F8)이 아니라 차림표다 */
+  .qd-tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .qd-tabs > * { flex: 0 0 auto; }
+  .qd-tabs::-webkit-scrollbar { display: none; }
+  /* 폰에서는 떠 있는 «뒤로» 대신 머리줄의 단추로(2026-10-27 카르넷 정밀 감사 U13). 떠 있는 단추가 표 끝 칸 · 지표를
+     덮었다. 모양은 메뉴 단추(.qd-mobile-menu)와 같고, 넓은 화면에서는 숨는다 */
+  .qd-mobile-back { display: inline-flex; }
+}
+.qd-pager[data-layout="contained"] {
+  margin-top: 0;
+  padding: var(--qd-space-4);
+}
+@media (pointer: coarse) {
+  .qd-btn, .qd-input, .qd-text-action, .qd-choice, .qd-combobox-option { min-height: var(--qd-control-height); }
+  .qd-filter-input, .qd-filter-select, .qd-filter-submit, .qd-filter-clear, .qd-pager-btn, .qd-tab { min-height: var(--qd-control-height); }
+  .qd-filter-clear { display: inline-flex; align-items: center; }
+  .qd-control-icon, .qd-dialog-close, .qd-mobile-menu { min-width: var(--qd-control-height); min-height: var(--qd-control-height); }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root { --qd-motion-fast: 0ms; --qd-motion-normal: 0ms; }
+  .qd-skeleton, .qd-field-error { animation: none !important; }
+  /* Utility animation classes come after this layer. Explicitly stop them so
+     their keyframe transforms cannot displace centered dialogs. */
+  .qd-dialog-content, .qd-drawer-content, .qd-dialog-backdrop, .qd-drawer-backdrop { animation: none !important; transition-duration: 0ms !important; }
+}
+@media print {
+  .qd-dialog-backdrop, .qd-drawer-backdrop, .qd-toast, .qd-mobile-header { display: none; }
+}
+
+/* Visible native file controls share the same outer target as custom triggers.
+   Keep native selection, accept/multiple, validation and keyboard behavior. */
+html input[type='file']:not(.sr-only) {
+  box-sizing: border-box;
+  height: auto !important;
+  min-height: var(--qd-control-height) !important;
+  max-width: 100%;
+  padding: 0 !important;
+  border-radius: var(--qd-radius-control) !important;
+  font-family: var(--qd-font-family-ui) !important;
+  font-size: var(--qd-control-size) !important;
+  color: var(--qd-text);
+}
+html input[type='file']:not(.sr-only)::file-selector-button {
+  min-height: calc(var(--qd-control-height) - var(--qd-border-width) * 2);
+  margin: 0 var(--qd-space-3) 0 0;
+  padding: var(--qd-space-2) var(--qd-control-pad-x);
+  border: 0;
+  border-inline-end: var(--qd-border-width) solid var(--qd-ctl);
+  border-radius: var(--qd-radius-control);
+  background: var(--qd-surface);
+  color: var(--qd-text);
+  font: inherit;
+  cursor: inherit;
+}
+html input[type='file']:not(.sr-only):focus-visible {
+  outline: var(--qd-focus-outline-width) solid var(--qd-accent);
+  outline-offset: var(--qd-border-width-2);
+}
+
+/* Browser-populated text fields share the same palette as ordinary fields.
+   The inset paint covers the browser's private autofill background; it does
+   not disable autofill, alter values or add a delayed background animation. */
+:root {
+  --qd-autofill-surface: var(--qd-surface);
+  --qd-autofill-ink: var(--qd-text);
+  --qd-autofill-cover: 100vmax;
+}
+html :is(input, textarea):is(:autofill, :-webkit-autofill) {
+  -webkit-text-fill-color: var(--qd-autofill-ink) !important;
+  caret-color: var(--qd-accent);
+  box-shadow: inset 0 0 0 var(--qd-autofill-cover) var(--qd-autofill-surface) !important;
+}
+html :is(input, textarea):is(:autofill, :-webkit-autofill):focus-visible {
+  outline: var(--qd-focus-outline-width) solid var(--qd-accent) !important;
+  outline-offset: var(--qd-space-1) !important;
+}
+html :is(input, textarea):is(:autofill, :-webkit-autofill):disabled {
+  --qd-autofill-surface: var(--qd-bg);
+  --qd-autofill-ink: var(--qd-muted);
+}
+@media (forced-colors: active) {
+  html :is(input, textarea):is(:autofill, :-webkit-autofill) {
+    -webkit-text-fill-color: FieldText !important;
+    caret-color: FieldText;
+    box-shadow: none !important;
+    outline-color: Highlight !important;
+  }
+  html :is(input, textarea):is(:autofill, :-webkit-autofill):disabled {
+    -webkit-text-fill-color: GrayText !important;
+  }
+}
+}

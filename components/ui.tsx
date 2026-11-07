@@ -16,9 +16,10 @@ export function Msg({ state, className = '' }: { state: FormState; className?: s
     return (
       <p
         role="alert"
-        className={`rise mt-2.5 flex items-start gap-2 rounded-md border border-danger-line bg-danger-bg px-3 py-2.5 text-sm leading-relaxed text-danger ${className}`}
+        data-tone="error"
+        className={`qd-notice rise mt-2.5 ${className}`}
       >
-        <span aria-hidden className="mt-px shrink-0 font-bold">!</span>
+        <span aria-hidden className="mt-px shrink-0 font-semibold">!</span>
         <span>{state.error}</span>
       </p>
     );
@@ -26,9 +27,11 @@ export function Msg({ state, className = '' }: { state: FormState; className?: s
   if (state.ok && state.message) {
     return (
       <p
-        className={`rise mt-2.5 flex items-start gap-2 rounded-md border border-ok/20 bg-ok-bg px-3 py-2.5 text-sm leading-relaxed text-ink ${className}`}
+        role="status"
+        data-tone="success"
+        className={`qd-notice rise mt-2.5 ${className}`}
       >
-        <span aria-hidden className="mt-px shrink-0 font-bold text-ok">&#10003;</span>
+        <span aria-hidden className="mt-px shrink-0 font-semibold text-ok">&#10003;</span>
         <span>{state.message}</span>
       </p>
     );
@@ -44,35 +47,60 @@ export function Msg({ state, className = '' }: { state: FormState; className?: s
  * 화면의 이름인지 읽는 사람이 판단해야 했다. 낼 곳을 하나로 줄인다.
  */
 
+/*
+ * 판의 이름은 판 «밖» 에 선다 (정본 `.qd-section-title` · Q-Carnet 과 같은 짜임).
+ *
+ * 이름 · 크기 · 앞의 모노 번호 · 아래 여백은 정본이 준다. 이 화면에만 있는 것은
+ * 부제(note)와 머리 줄의 단추다. 머리 줄이 있으면 이름은 --flush 로 여백을 내려놓고
+ * 그 여백은 머리 줄(.panel-head)이 대신 준다.
+ *
+ * 판의 면 · 선 · 모서리는 정본 `.qd-panel` 이 준다. `.card` 는 안의 표를 판 모서리에
+ * 맞춰 자르고 현장 크기를 받는 이 시스템의 이름이라 함께 단다.
+ */
 export function Panel({
-  title, note, action, children, className = '',
+  title, titleAs: Title = 'h2', note, action, children, className = '',
 }: {
-  title?: string; note?: React.ReactNode; action?: React.ReactNode;
-  children: React.ReactNode; className?: string;
+  title?: string;
+  /** 이름의 제목 수준. 화면 이름이 h1 이라 판은 h2 가 기본이다. 판 안의 작은 제목만 h3 */
+  titleAs?: 'h2' | 'h3';
+  note?: React.ReactNode; action?: React.ReactNode;
+  children: React.ReactNode;
+  /** 자리 잡기(격자 칸 · 높이)만. 가장 바깥에 붙는다 */
+  className?: string;
 }) {
+  const frame = 'qd-panel card overflow-hidden';
+  const row = Boolean(note || action);
+  if (!title && !row) {
+    return <section className={`${frame} ${className}`.trim()}>{children}</section>;
+  }
+
+  const name = title && (
+    <Title className={`qd-section-title${row ? ' qd-section-title--flush' : ''}`}
+           data-hangul={tagHangul(title)}>
+      {title}
+    </Title>
+  );
+
   return (
-    <section className={`card overflow-hidden ${className}`}>
-      {(title || action) && (
-        <header className="section-head">
+    /* 격자 안에서 옆 판과 높이를 맞추도록 판이 남는 높이를 채운다 */
+    <section className={`flex min-w-0 flex-col ${className}`.trim()}>
+      {row ? (
+        <header className="panel-head">
           <div className="min-w-0">
-            {/*
-              * 카드 제목은 본문(15)보다 한 단계 위 18 이다 (디자인 점검 2026-11-06).
-              * 전에는 15 로 본문과 같아 구역이 굵기로만 갈렸다.
-              */}
-            {title && <h3 className="text-lg font-semibold tracking-[-0.01em] text-ink">{title}</h3>}
-            {note && <p className="mt-0.5 text-xs leading-relaxed text-muted">{note}</p>}
+            {name}
+            {note && <p className="mt-1.5 text-xs leading-relaxed text-muted">{note}</p>}
           </div>
-          {action && <div className="ml-auto shrink-0">{action}</div>}
+          {action && <div className="ml-auto flex shrink-0 items-center gap-2">{action}</div>}
         </header>
-      )}
-      {children}
+      ) : name}
+      <div className={`${frame} grow`}>{children}</div>
     </section>
   );
 }
 
 /** 표를 감싸 가로 넘침만 처리한다. 표가 화면 밖으로 나가 잘리는 것을 막는다. */
 export function TableWrap({ children }: { children: React.ReactNode }) {
-  return <div className="overflow-x-auto">{children}</div>;
+  return <div className="qd-table-scroll">{children}</div>;
 }
 
 export function Empty({ children, hint }: { children: React.ReactNode; hint?: React.ReactNode }) {
@@ -98,18 +126,15 @@ export function Empty({ children, hint }: { children: React.ReactNode; hint?: Re
      *
      * 거르개가 있는 화면은 두 경우를 갈라 적는다. 거른 결과가 빈 것과 아직
      * 아무것도 없는 것에 같은 문장을 내면, 걸러 놓은 줄 모르고 등록하러 간다.
+     *
+     * ── 짜임은 정본 `.qd-empty` 다 ─────────────────────────────────────────
+     * 판 하나 · 가운데 · 조용한 제목 · 한 줄 설명. 크기 · 여백 · 색은 정본이 준다.
+     * 판(Panel) 안에 놓이면 겉 판이 선 · 면을 이미 그리므로 빈 목록은 제 선을
+     * 내려놓는다 (정본 q-design.list.css).
      */
-    <div className="empty-well">
-      {/*
-        * 본문을 한 칸 키운다 (2026-09-11). 빈 화면에서 유일하게 읽을 것이
-        * 이 줄인데 본문보다 작았다.
-        */}
-      <p className="text-sm font-semibold text-muted">{children}</p>
-      {hint && (
-        <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-faint">
-          {hint}
-        </p>
-      )}
+    <div className="qd-empty qd-empty--compact">
+      <p className="qd-empty-title">{children}</p>
+      {hint && <p className="qd-empty-desc">{hint}</p>}
     </div>
   );
 }
@@ -133,12 +158,10 @@ export function Field({
       * 이름은 장식이 아니라 정보다 - "지시서번호" 를 못 읽으면 그 아래 값이
       * 무엇인지 모른다. 색은 muted 그대로 두고 크기와 자간으로만 눕힌다.
       */
-    <div className={wide ? 'sm:col-span-2' : undefined}>
-      {/* 한글 이름에 자간을 벌리면 낱자가 흩어진다. 크기(11)와 색만으로 눕힌다 */}
-      <div className="text-xs font-medium text-muted">
-        {label}
-      </div>
-      <div className="mt-1 text-sm font-medium leading-snug text-ink">{children}</div>
+    <div className={wide ? 'qd-field qd-field-wide' : 'qd-field'}>
+      {/* 이름은 입력칸 이름표와 같은 정본 이름표다. 한글이면 자간을 푼다 */}
+      <div className="qd-field-label" data-hangul={tagHangul(label)}>{label}</div>
+      <div className="text-sm text-ink">{children}</div>
     </div>
   );
 }
@@ -159,19 +182,18 @@ export function Field({
    빠르다 · 늦다를 말하지 않는다. 끝난 공정 수를 전체로 나눈 값일 뿐이고,
    숫자를 나란히 적어 막대가 무엇을 줄인 것인지 늘 보이게 한다.
 --------------------------------------------------------------------------- */
-export function Progress({ done, total, width = '4.5rem' }: {
+export function Progress({ done, total, width = 'var(--qd-carnet-progress-width)' }: {
   done: number; total: number; width?: string;
 }) {
   if (total <= 0) return null;
   const pct = Math.max(0, Math.min(100, (done / total) * 100));
   return (
     <span className="inline-flex items-center gap-2">
-      <span aria-hidden className="h-1.5 shrink-0 overflow-hidden rounded-full bg-canvas-deep"
+      {/* 막대는 정본 `.qd-progress` 다. 채움은 강조색 한 가지 (업무 화면에 기울기를 두지 않는다) */}
+      <span className="qd-progress shrink-0" role="progressbar" aria-label="공정 진행"
+            aria-valuemin={0} aria-valuemax={total} aria-valuenow={Math.max(0, Math.min(total, done))}
             style={{ width }}>
-        <span className="block h-full rounded-full" style={{
-          width: `${pct}%`,
-          background: 'linear-gradient(90deg, var(--color-brand-mid), var(--color-brand))',
-        }} />
+        <span className="qd-progress-fill" style={{ width: `${pct}%` }} />
       </span>
       <span className="tnum text-xs text-muted">
         <b className={done === total ? 'text-brand' : 'text-ink'}>{done}</b>/{total}
@@ -194,42 +216,49 @@ export function Stat({
 
   const body = (
     <>
-      <div className="text-xs font-medium text-muted">{label}</div>
+      <div className="qd-kpi-label" data-hangul={tagHangul(label)}>{label}</div>
       <div className="mt-1.5 flex items-baseline gap-1">
-        <span className={`text-3xl font-semibold leading-none tracking-[-0.02em] tnum ${color}`}>{value}</span>
-        {unit && <span className="text-xs text-muted">{unit}</span>}
+        <span className={`qd-kpi-value tnum ${color}`}>{value}</span>
+        {unit && <span className="qd-kpi-unit">{unit}</span>}
       </div>
     </>
   );
 
-  if (!href) return <div className="kpi">{body}</div>;
+  if (!href) return <div className="qd-kpi">{body}</div>;
   return (
-    <a href={href} className="kpi">
+    <a href={href} className="qd-kpi qd-kpi--link">
       {body}
     </a>
   );
 }
 
+/*
+ * 배지는 정본 `.qd-tag` 다 (모노 · 헤어라인 테두리 · 모서리 6). 크기 · 글꼴 · 색은
+ * 거기서 온다. 뜻(ok · warn …)은 이 시스템의 말이고 색 이름(green · copper …)은
+ * 정본의 말이다. 둘을 잇는 곳이 여기 하나다. 색 값은 정본 기반 CSS 의
+ * `--qa-state-*` 가 이 시스템의 상태색(팔레트)을 잇는다.
+ */
 const TONE: Record<string, string> = {
-  ok: 'bg-ok-bg text-ok',
-  warn: 'bg-warn-bg text-warn',
-  danger: 'bg-danger-bg text-danger',
-  info: 'bg-info-bg text-info',
-  /*
-   * 글자는 brand 가 아니라 brand-deep 이다. 바탕이 회사 색을 91% 밝힌 값이라,
-   * 회사 색 자체가 밝으면(노랑·연두) 같은 색 글자가 묻힌다. 어느 색을 넣어도
-   * 읽히게 하려면 글자 쪽을 어둡게 잡아야 한다 (§2.0 - 색은 설정에서 온다).
-   */
-  brand: 'bg-brand-tint text-brand-deep',
-  solid: 'bg-brand text-white',
-  quiet: 'bg-canvas-deep text-muted',
-  faint: 'bg-canvas text-faint',
+  ok: 'qd-tag--green',
+  warn: 'qd-tag--copper',
+  danger: 'qd-tag--red',
+  info: 'qd-tag--cobalt',
+  brand: 'qd-tag--gold',
+  /* 한 단계 무거운 층. 정본의 primary 는 채움이 아니라 옅은 면 + 진한 테두리다 */
+  solid: 'qd-tag--gold qd-tag--primary',
+  quiet: 'qd-tag--gray',
+  faint: 'qd-tag--tertiary',
 };
 
-const DOT: Record<string, string> = {
-  ok: 'bg-ok', warn: 'bg-warn', danger: 'bg-danger',
-  info: 'bg-info', brand: 'bg-brand',
-};
+/** 뜻이 있는 상태에만 점을 붙인다 */
+const DOT = new Set(['ok', 'warn', 'danger', 'info', 'brand']);
+
+/**
+ * 정본 배지 · 이름표는 라틴 자간이 기본이라 한글이면 `data-hangul` 로 푼다.
+ * 글이 아닌 것(숫자와 글이 섞인 조각 등)은 한글로 본다.
+ */
+export const tagHangul = (n: React.ReactNode) =>
+  typeof n === 'string' && !/[가-힣ㄱ-ㅎㅏ-ㅣ]/.test(n) ? undefined : '';
 
 /**
  * 상태 조각.
@@ -241,10 +270,10 @@ const DOT: Record<string, string> = {
 export function Tag({
   tone = 'quiet', children,
 }: { tone?: keyof typeof TONE | string; children: React.ReactNode }) {
-  const dot = DOT[tone];
   return (
-    <span className={`chip ${TONE[tone] ?? TONE.quiet}`}>
-      {dot && <span aria-hidden className={`size-1.5 shrink-0 rounded-full ${dot}`} />}
+    <span className={`qd-tag qd-tag--sm ${TONE[tone] ?? TONE.quiet}`}
+          data-hangul={tagHangul(children)}>
+      {DOT.has(tone) && <span aria-hidden className="qd-tag-dot" />}
       {children}
     </span>
   );
@@ -254,21 +283,14 @@ export function Tag({
 export function Warnings({ items }: { items: { kind: string; detail: string }[] }) {
   if (items.length === 0) return null;
   return (
-    /*
-      * 왼쪽에 색 기둥을 세운다 (2026-09-11).
-      *
-      * 옅은 주황 면에 옅은 주황 테두리라, 화면에 여러 상자가 있을 때 이것이
-      * 경고인지 그냥 다른 색 칸인지 한눈에 갈리지 않았다. 왼쪽 모서리 하나를
-      * 진하게 세우면 색이 옅어도 **무게**가 생긴다 - 면을 더 물들이지 않으므로
-      * 글자 대비는 그대로다.
-      */
-    /* 옆 기둥은 걷었다 (Q-Design · 옆 띠 금지). 테두리 전체를 그 색 55% 로 세운다 */
-    <div className="overflow-hidden rounded-md border border-warn/55 bg-warn-bg px-3.5 py-3">
+    /* 정본 안내 상자(.qd-notice)의 경고 결. 옆 띠는 쓰지 않는다 (Q-Design · 옆 띠 금지) */
+    <div className="qd-notice block" data-tone="warning" role="note">
       <p className="text-xs font-semibold text-warn">확인하고 진행하십시오</p>
       <ul className="mt-2 space-y-1.5">
         {items.map((w, i) => (
           <li key={i} className="flex items-start gap-2 text-sm leading-relaxed text-ink">
-            <span className="chip mt-px shrink-0 bg-warn text-white">{w.kind}</span>
+            <span className="qd-tag qd-tag--sm qd-tag--copper qd-tag--primary mt-px shrink-0"
+                  data-hangul={tagHangul(w.kind)}>{w.kind}</span>
             <span>{w.detail}</span>
           </li>
         ))}
@@ -281,14 +303,10 @@ export function Warnings({ items }: { items: { kind: string; detail: string }[] 
 export function Caution({ children }: { children: React.ReactNode }) {
   return (
     /*
-      * 되돌릴 수 없는 조작 앞에 두는 안내.
-      *
-      * 회색 상자라 화면의 다른 설명글과 구별되지 않았다 (2026-09-11). 왼쪽에
-      * 기둥을 세워 "여기서 멈춰 읽으라" 를 형태로 말한다. 색은 쓰지 않는다 -
-      * 경고가 아니라 **안내**이고, 색을 쓰면 진짜 경고와 무게가 같아진다.
+      * 되돌릴 수 없는 조작 앞에 두는 안내. 색은 쓰지 않는다 - 경고가 아니라
+      * **안내**이고, 색을 쓰면 진짜 경고와 무게가 같아진다. 정본 안내 상자의 중립 결.
       */
-    <p className="rounded-md border border-line-strong
-                  bg-surface-sub px-3.5 py-2.5 text-xs leading-relaxed text-muted">
+    <p className="qd-notice" data-tone="neutral" role="note">
       {children}
     </p>
   );
@@ -307,7 +325,7 @@ export function Truncated({ shown, cap, hint }: {
 }) {
   if (shown < cap) return null;
   return (
-    <p className="card px-4 py-2.5 text-xs leading-relaxed text-muted">
+    <p className="qd-panel card px-4 py-2.5 text-xs leading-relaxed text-muted">
       최근 <b className="tnum text-ink">{cap}</b>건만 보이고 있습니다.
       {hint ? <> {hint}</> : ' 찾는 것이 없으면 위에서 걸러 내거나 검색하십시오.'}
     </p>

@@ -44,7 +44,7 @@ export function RowLink({ href, children }: { href: string; children: React.Reac
       className="group cursor-pointer"
     >
       {children}
-      <td aria-hidden className="td sticky right-0 w-0 text-right">
+      <td aria-hidden className="td sticky right-0 w-0 bg-[var(--qd-table-fill,var(--color-surface))] text-right">
         <span className="text-base leading-none text-faint transition-colors group-hover:text-brand">
           &rsaquo;
         </span>

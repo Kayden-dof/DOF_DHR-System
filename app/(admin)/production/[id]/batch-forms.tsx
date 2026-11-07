@@ -165,7 +165,7 @@ export function LotStatusForm({ lot, woId }: { lot: LotRow; woId: string }) {
 
   return (
     <>
-      <button onClick={() => setOpen(true)} className="btn-quiet btn-row">수정</button>
+      <button onClick={() => setOpen(true)} className="qd-text-action">수정</button>
       <Dialog
         open={open}
         onClose={() => setOpen(false)}
@@ -288,7 +288,7 @@ export function DayPrintLink({
     <span className="inline-flex items-center gap-2 whitespace-nowrap">
       <span className="text-xs text-warn">열면 잠깁니다</span>
       <Link href={href} className="btn-primary h-8 px-3 text-xs">발행</Link>
-      <button type="button" onClick={() => setAsk(false)} className="btn-quiet btn-row">
+      <button type="button" onClick={() => setAsk(false)} className="qd-text-action">
         그만
       </button>
     </span>
@@ -444,7 +444,7 @@ export function NonconformityForm({ lot, woId, today, ops }: {
 
   return (
     <>
-      <button onClick={() => setOpen(true)} className="btn-quiet btn-row">
+      <button onClick={() => setOpen(true)} className="qd-text-action">
         부적합
       </button>
       <Dialog open={open} onClose={() => setOpen(false)} wide
@@ -463,7 +463,7 @@ export function NonconformityForm({ lot, woId, today, ops }: {
                 <button key={o.code} type="button" onClick={() => setOutcome(o.code)}
                         data-on={outcome === o.code}
                         className="tile items-center py-2.5 text-center">
-                  <span className="text-sm font-bold">{o.label}</span>
+                  <span className="text-sm font-semibold">{o.label}</span>
                   <span className="text-xs text-muted">{o.note}</span>
                 </button>
               ))}
@@ -601,7 +601,7 @@ export function WipNonconformityForm({ woId, today, ops, sheets }: {
                 <button key={o.code} type="button" onClick={() => setOutcome(o.code)}
                         data-on={outcome === o.code}
                         className="tile items-center py-2.5 text-center">
-                  <span className="text-sm font-bold">{o.label}</span>
+                  <span className="text-sm font-semibold">{o.label}</span>
                   <span className="text-xs text-muted">{o.note}</span>
                 </button>
               ))}

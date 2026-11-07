@@ -90,7 +90,7 @@ export default function FindUnit() {
         >
           <form onSubmit={submit}
                 className="w-full max-w-lg rounded-xl border border-line bg-surface p-4 shadow-[var(--sh-3)]">
-            <h2 className="text-sm font-bold text-ink">개체 번호 찾기</h2>
+            <h2 className="text-sm font-semibold text-ink">개체 번호 찾기</h2>
             <p className="mt-1 text-xs leading-relaxed text-muted">
               라벨의 번호를 그대로 적으십시오. 제조번호만 적어도 됩니다.
             </p>

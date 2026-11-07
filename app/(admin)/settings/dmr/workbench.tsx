@@ -297,7 +297,7 @@ export async function DmrWorkbench({
               </div>
 
               <section className="card p-4">
-                <h3 className="text-xs font-bold text-ink">소요량 기준</h3>
+                <h3 className="text-xs font-semibold text-ink">소요량 기준</h3>
                 <dl className="mt-2 space-y-1.5 text-xs leading-relaxed">
                   <div className="flex gap-2">
                     <dt className="w-32 shrink-0 font-semibold text-ink">장입 구간 기준</dt>

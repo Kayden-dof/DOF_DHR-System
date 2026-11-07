@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import './fonts.css';   // 글꼴 조각. scripts/subset-font.py 가 만든다
 import { getBrand, brandVars, brandMarkVar, darkTone } from '@/lib/brand';
+import { TopProgressBar } from '@/components/top-progress';
+import { StickyFocusGuard } from '@/components/sticky-focus-guard';
 
 /* ---------------------------------------------------------------------------
    최상위 틀
@@ -61,8 +63,14 @@ export async function generateViewport(): Promise<Viewport> {
    전에는 globals.css 에 #562C8D 로 박혀 있었다. 다른 제조소가 받으면 그 파일을
    고쳐 다시 빌드해야 한다.
 
-   :root 에 이미 있는 값 위에 덮어쓴다. 설정을 못 읽어도 globals.css 의 값이
-   그대로 남아 화면이 무채색이 되지 않는다.
+   정본 팔레트가 읽는 자리(--qd-company-brand*)에 심는다 (app/dof.palette.css).
+   설정을 못 읽으면 팔레트의 바닥값이 남아 화면이 비지 않는다.
+
+   data-theme="light" 는 이 시스템이 밝은 화면 하나라는 표시다. 정본 부품 가운데
+   테마를 묻는 것(색 스킴 · 로고 판)이 이것을 읽는다.
+
+   진행선(누른 순간 위에 가는 선)과 초점 여백(따라오는 띠가 초점을 가리지 않게)은
+   Q-Design 이 원본인 부품을 받은 것이다. 손으로 고치지 않는다.
 
    파생은 lib/brand.ts 한 곳에서만 한다 (§10).
 --------------------------------------------------------------------------- */
@@ -71,13 +79,17 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const { brandColor } = brand;
   const mark = brandMarkVar(brand);
   return (
-    <html lang="ko">
+    <html lang="ko" data-theme="light">
       <head>
         <style dangerouslySetInnerHTML={{
           __html: `:root{${brandVars(brandColor)}${mark ? `;${mark}` : ''}}`,
         }} />
       </head>
-      <body>{children}</body>
+      <body>
+        <TopProgressBar className="top-progress" />
+        <StickyFocusGuard />
+        {children}
+      </body>
     </html>
   );
 }

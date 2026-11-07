@@ -35,7 +35,7 @@ export default async function PasswordPage() {
       <div className="w-full max-w-sm">
         <BrandMark className="h-7 w-auto text-xl" />
 
-        <h1 className="mt-6 text-xl font-bold text-ink">
+        <h1 className="mt-6 text-xl font-semibold text-ink">
           {first ? '비밀번호를 정해 주십시오' : '비밀번호 바꾸기'}
         </h1>
         <p className="mt-2 text-sm leading-relaxed text-muted">

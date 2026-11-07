@@ -25,7 +25,7 @@ export default function ErrorScreen({
       <div className="w-full max-w-lg">
         <BrandMarkClient className="text-xl" />
 
-        <h1 className="mt-7 text-xl font-bold text-ink">
+        <h1 className="mt-7 text-xl font-semibold text-ink">
           화면을 그리지 못했습니다
         </h1>
         <p className="mt-2.5 text-sm leading-relaxed text-muted">

@@ -1,0 +1,721 @@
+/* =============================================================================
+   Q-Design 에서 온 사본입니다. **이 파일을 손으로 고치지 마세요.**
+
+   출처   D:/Claude/Q-Design/dist/q-design.screen.css
+   갱신   cd D:/Claude/Q-Design
+          node tools/extract-all.mjs && node tools/sync.mjs --write
+
+   고칠 일이 생기면 Q-Design 의 원본을 고치고 추출기를 다시 돌립니다.
+   여기서 고치면 제품들의 화면·문서가 갈립니다.
+   아래 지문은 본문의 sha256 이고, 이 저장소의 검사가 대조합니다.
+
+   q-design-nav-sha256: 907a199fee1c06ba0ca0e4013095fd50fe9f69327f59c2a06526f24b0a9aeaa9
+   ============================================================================= */
+@layer components {
+/* =============================================================================
+   q-design.screen.css · 화면 뼈대 정본
+   생성물입니다. 손대지 마세요.  node tools/extract-screen.mjs
+   원본: Q-Atelier lib/design/components.tsx (KPI · Stat · Grid · PageHd · Btn · In · SectionTitle · Lbl)
+         + components/PageTabs.tsx
+         + tokens.ts (LAYOUT · TOUCH · BP) + app/globals.css (.qa-btn · .qa-input)
+   =============================================================================
+
+   목록 «위와 아래» 를 맡습니다.
+
+     .qd-kpi        요약 지표 카드. 목록 위에서 「지금 상태」를 숫자로 말합니다
+     .qd-grid-kpi   그 카드를 담는 반응형 격자
+     .qd-stat       조밀한 짝. 카드 안에 여럿 늘어놓을 때
+     .qd-label      구역 이름표. 모노 · 작게 · muted
+     .qd-page-head  화면 머리. 막대 · 부제 · 제목 · 하단선
+     .qd-btn        단추. 주(글자색 면) · 보조(테두리) · 위험 · 작은 것
+     .qd-input      입력칸. 글 · 고르개 · 여러 줄
+     .qd-section-title  판 밖의 구역 이름(본문색 16/700 · 금색 모노 번호)
+     .qd-field-label    입력칸 위 이름표(모노 · subtle)
+     .qd-tabs · .qd-tab 화면 안을 가르는 탭 줄(금색 밑줄)
+     .qd-shell-field 현장 520 (상세 · 폼의 공용 틀 · 칸 격자는 q-design.workspace.css)
+
+   색은 `q-design.nav.css` 와 같은 `--qd-*` 를 읽습니다.
+   ============================================================================= */
+
+:root {
+  --qd-bg: var(--qd-bg-src, var(--qa-bg, #0c0c0c));
+  --qd-surface: var(--qd-surface-src, var(--qa-surface, #141414));
+  --qd-surface2: var(--qd-surface2-src, var(--qa-surface2, #1b1b1b));
+  --qd-border: var(--qd-border-src, var(--qa-border, #242424));
+  --qd-borderHi: var(--qd-borderHi-src, var(--qa-borderHi, #333333));
+  --qd-ctl: var(--qd-ctl-src, var(--qa-ctl, #7a7364));
+  --qd-text: var(--qd-text-src, var(--qa-text, #f0ebe0));
+  --qd-subtle: var(--qd-subtle-src, var(--qa-subtle, #b7b0a5));
+  --qd-muted: var(--qd-muted-src, var(--qa-muted, #898271));
+  --qd-accent: var(--qd-accent-src, var(--qa-champagne, #b8935a));
+  --qd-danger: var(--qd-danger-src, var(--qa-red, #c97a7a));
+}
+
+html[data-theme='light'] {
+  --qd-bg: var(--qd-bg-src, var(--qa-bg, #faf9f6));
+  --qd-surface: var(--qd-surface-src, var(--qa-surface, #ffffff));
+  --qd-surface2: var(--qd-surface2-src, var(--qa-surface2, #f3f1ec));
+  --qd-border: var(--qd-border-src, var(--qa-border, #e2dfd8));
+  --qd-borderHi: var(--qd-borderHi-src, var(--qa-borderHi, #c8c4ba));
+  --qd-ctl: var(--qd-ctl-src, var(--qa-ctl, #8c8575));
+  --qd-text: var(--qd-text-src, var(--qa-text, #1c1a16));
+  --qd-subtle: var(--qd-subtle-src, var(--qa-subtle, #4a4540));
+  --qd-muted: var(--qd-muted-src, var(--qa-muted, #726b5e));
+  --qd-accent: var(--qd-accent-src, var(--qa-champagne, #805f32));
+  --qd-danger: var(--qd-danger-src, var(--qa-red, #a83838));
+}
+
+/* ── 요약 지표 ─────────────────────────────────────────────────────────────
+   목록 위에서 「지금 상태」를 숫자로 말합니다. 라벨은 작고 조용하며 숫자가
+   크게 섭니다 - 훑는 사람이 찾는 것은 라벨이 아니라 숫자입니다.
+
+   🔑 부제 자리는 값이 없어도 **높이를 잡아 둡니다**. 안 그러면 부제가 있는
+   카드와 없는 카드의 높이가 달라 격자의 아랫줄이 들쭉날쭉해집니다. */
+.qd-grid-kpi {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.qd-kpi {
+  box-sizing: border-box;
+  /* 가리키면 뜨는 내역이 카드 전체를 덮을 수 있게. 안 주면 겹칠 자리가 화면 전체가 됩니다 */
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 124px;
+  padding: 18px 20px;
+  /* 값 글자가 칸 폭을 재도록 크기 컨테이너로 둡니다 (.qd-kpi-value 의 컨테이너 질의와 한 벌) */
+  container-type: inline-size;
+  /* 지표 띠는 장부형입니다(2026-10-23 오너 결정 «B»). 면 · 모서리 없이 칸마다 아래 괘선 하나.
+     원본 KPI 가 Bx ledger 에 아래 선만 남긴 것과 같은 모양입니다(위에서 원본을 읽어 확인합니다) */
+  background: transparent;
+  border: 1px solid var(--qd-border);
+  border-width: 0 0 1px;
+  border-radius: 0;
+  color: inherit;
+  text-decoration: none;
+}
+/* 눌러서 갈 곳이 있는 카드만 반응합니다 */
+.qd-kpi--link { transition: background 200ms cubic-bezier(0.16, 1, 0.3, 1); }
+.qd-kpi--link:hover { background: var(--qd-surface2); }
+.qd-kpi-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 10px;
+  font-family: var(--qd-font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--qd-subtle);
+}
+.qd-kpi-label[data-hangul] {
+  letter-spacing: 0;
+  text-transform: none;
+  word-spacing: var(--qd-hangul-word-space);
+}
+.qd-kpi-value {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  /* 좁은 칸에서 긴 금액이 넘치지 않게 칸 폭에 따라 줄어듭니다. 넓으면 40px 그대로.
+     단계는 사다리 네 단(40 · 32 · 28 · 24)뿐입니다. 원본의 clamp(칸 폭 단위) 는 칸 폭을 따라 사다리 밖 크기를
+     냈습니다(2026-10-27 카르넷 정밀 감사 D1). 단계 문턱은 patterns/components.css 의 @container 와 같습니다 */
+  font-size: var(--qd-kpi-size, 40px);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--qd-kpi-color, var(--qd-text));
+}
+/* 값 뒤의 단위. 숫자보다 작고 조용하게, 밑줄을 맞춘다 */
+.qd-kpi-unit {
+  margin-left: 4px;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--qd-muted);
+}
+.qd-kpi-sub {
+  margin-top: 10px;
+  min-height: 16px;
+  font-size: 12px;
+  /* 자간 0. 한글 보조글에 0.2px 가 걸려 있었다(2026-10-27 카르넷 정밀 감사 D4 · docs/03 한글 자간 0) */
+  letter-spacing: 0;
+  line-height: var(--qd-leading-snug);
+  color: var(--qd-muted);
+}
+/* 0 은 눌러 둡니다. 0 을 강조하면 아무 일도 없는 것이 일처럼 보입니다. */
+.qd-kpi--zero .qd-kpi-value { color: var(--qd-muted); }
+/* 🔴 0 과 「못 읽음」 이 같은 얼굴이면 안 됩니다. 0 은 사실이고 못 읽음은 모름입니다.
+   숫자 자리에 0 을 그려 놓으면 사람은 그것을 «잰 값» 으로 읽습니다. */
+.qd-kpi--unread .qd-kpi-value,
+.qd-kpi--unread .qd-kpi-sub { color: var(--qd-danger); }
+
+/* ── 조밀한 지표 ───────────────────────────────────────────────────────────
+   카드 «안» 에 여럿 늘어놓을 때. 위와 같은 문법이고 크기만 작습니다. */
+.qd-grid-stat {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--qd-kpi-min-width)), 1fr));
+  gap: 12px;
+}
+.qd-stat-label {
+  margin-bottom: 4px;
+  font-family: var(--qd-font-mono);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--qd-muted);
+}
+.qd-stat-label[data-hangul] {
+  letter-spacing: 0;
+  text-transform: none;
+  word-spacing: var(--qd-hangul-word-space);
+}
+.qd-stat-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--qd-stat-color, var(--qd-text));
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 구역 이름표 ───────────────────────────────────────────────────────────
+   「인허가 모듈」 · 「활동 로그」 처럼 덩어리 위에 붙는 한 줄.
+   누를 수 없는 글이므로 아주 조용하게 둡니다. */
+.qd-label {
+  font-family: var(--qd-font-mono);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--qd-muted);
+}
+.qd-label[data-hangul] {
+  letter-spacing: 0;
+  text-transform: none;
+  word-spacing: var(--qd-hangul-word-space);
+}
+
+/* ── 구역 이름 ─────────────────────────────────────────────────────────────
+   판 «밖» 에서 덩어리의 이름을 말하는 한 줄입니다(원본 SectionTitle). 본문색 16/700 · 앞에 금색 모노 번호(2026-10-10 C안).
+   .qd-label 과 다릅니다. 그쪽은 카드 «안» 의 조용한 이름표(muted)이고, 이쪽은 화면을
+   구역으로 나누는 표지(강조색)입니다.
+   🔴 네 제품 대조에서 판 안 제목 + 구분선 · 14px 굵은 제목 · 금색 모노(원본)로 갈렸습니다.
+
+     <h2 class="qd-section-title" data-hangul>오늘 처리할 것</h2>
+     <div class="qd-panel">…</div>
+
+   제목 옆에 배지 · 단추가 함께 서는 머리 줄에서는 --flush 로 아래 여백을 뺍니다. */
+.qd-section-title {
+  margin: 0 0 14px;
+  font-family: var(--qd-font-ui);
+  font-size: var(--qd-section-size, 16px);
+  font-weight: 600;
+  line-height: var(--qd-leading-snug);
+  color: var(--qd-text);
+}
+/* 번호: 화면(main) 안에서 구역 제목이 나오는 차례대로 01 · 02 … (원본 globals.css .qa-sec-t::before) */
+main, [role='dialog'] { counter-reset: qd-sec; }
+.qd-section-title::before {
+  counter-increment: qd-sec;
+  content: counter(qd-sec, decimal-leading-zero);
+  font-family: var(--qd-font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--qd-accent);
+  margin-right: 10px;
+  vertical-align: 1px;
+}
+.qd-section-title--flush { margin-bottom: 0; }
+
+/* ── 칸 이름표 ─────────────────────────────────────────────────────────────
+   입력칸 바로 위의 이름입니다(원본 Lbl). 모노 · 작게 · subtle, 칸과 4px 띄웁니다.
+   🔴 대조에서 산세리프 12 굵게 · 14 굵게 · 모노 10(원본)으로 갈렸습니다.
+
+     <label class="qd-field-label" for="due" data-hangul>기한</label>
+     <input class="qd-input" id="due"> */
+.qd-field-label {
+  display: block;
+  margin-bottom: 4px;
+  font-family: var(--qd-font-mono);
+  font-size: var(--qd-caption-size, 12px);
+  font-weight: 500;
+  line-height: 1.6;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--qd-subtle);
+}
+.qd-field-label[data-hangul] {
+  letter-spacing: 0;
+  text-transform: none;
+  word-spacing: var(--qd-hangul-word-space);
+}
+/* 이름표가 단추 · 배지와 한 줄에 서는 머리 줄에서는 아래 여백을 뺍니다 */
+.qd-field-label--flush { margin-bottom: 0; }
+
+/* ── 2차 탭 ────────────────────────────────────────────────────────────────
+   화면 «안» 을 가르는 탭 줄입니다(원본 PageTabs). 밑선 하나 위에 글자만 놓고, 고른 탭은
+   금색 밑줄 2px 와 굵기로 말합니다. 상자 · 알약 · 폴더 모양을 쓰지 않습니다.
+   🔴 대조에서 알약 묶음 · 폴더 탭 · 밑줄(원본)로 갈렸고, 한 제품 안에서 두 모양이 섞인
+      곳도 있었습니다(오너 결정 2026-09-24 「금색 밑줄 탭으로 통일」).
+
+     <div class="qd-tabs" role="tablist" aria-label="기록 관리">
+       <a class="qd-tab" role="tab" aria-selected="true" href="?tab=a">개요</a>
+       <a class="qd-tab" role="tab" aria-selected="false" href="?tab=b">기록</a>
+     </div>
+
+   고른 탭은 aria-selected="true" 로 말합니다(클래스 .qd-tab--active 도 받습니다).
+   탭 글자에는 자간을 두지 않습니다(원본도 두지 않습니다). 좁은 화면에서는 줄을 바꿉니다. */
+.qd-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--qd-border);
+}
+.qd-tab {
+  padding: 12px 18px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--qd-muted);
+  font-family: var(--qd-font-ui);
+  min-height: var(--qd-control-height, 44px);
+  font-size: var(--qd-control-size, 14px);
+  font-weight: 400;
+  line-height: 1.6;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+/* 원본 전역 초점 규칙([role='tab'])과 같은 고리. 제품의 전역 규칙에 기대지 않습니다 */
+.qd-tab:focus-visible {
+  outline: 2px solid var(--qd-accent);
+  outline-offset: 4px;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--qd-accent) 22%, transparent);
+}
+.qd-tab[aria-selected='true'],
+.qd-tab--active {
+  border-bottom-color: var(--qd-accent);
+  color: var(--qd-text);
+  font-weight: 600;
+}
+
+/* ── 화면 머리 ─────────────────────────────────────────────────────────────
+   모든 화면 맨 위에 같은 모양으로 섭니다: 금색 막대 · 부제 · 제목 · 하단선.
+   나란히 놓았을 때 「같은 집안」 을 가장 먼저 말하는 자리입니다 (docs/07-screens.md «화면 구조»).
+
+     <header class="qd-page-head">
+       <div class="qd-page-head-row">
+         <div class="qd-page-head-text">
+           <p class="qd-page-head-sub">NON-CONFORMANCE</p>     한글이면 data-hangul
+           <h1 class="qd-page-head-title">부적합</h1>
+         </div>
+         <div class="qd-page-head-actions">…</div>
+       </div>
+     </header>
+
+   막대와 하단선은 가상 요소라 따로 적지 않습니다. 막대를 빼려면 --plain.
+   🔴 제목 크기를 제품에서 다시 적지 마십시오. 26 · 22.5 로 갈렸던 자리입니다. */
+.qd-page-head { margin-bottom: 30px; }
+.qd-page-head::after {
+  content: '';
+  display: block;
+  margin-top: 18px;
+  border-bottom: 1px solid var(--qd-border);
+}
+.qd-page-head-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.qd-page-head-text { min-width: 0; flex: 1 1 auto; }
+.qd-page-head-text::before {
+  content: '';
+  display: block;
+  width: 32px;
+  height: 1.5px;
+  margin-bottom: 14px;
+  background: var(--qd-accent);
+}
+.qd-page-head--plain .qd-page-head-text::before { display: none; }
+.qd-page-head-sub {
+  margin: 0 0 8px;
+  font-family: var(--qd-font-mono);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 2.2px;
+  text-transform: uppercase;
+  color: var(--qd-subtle);
+}
+.qd-page-head-sub[data-hangul] {
+  letter-spacing: 0;
+  text-transform: none;
+  word-spacing: var(--qd-hangul-word-space);
+}
+.qd-page-head-title {
+  margin: 0;
+  font-family: var(--qd-font-ui);
+  font-size: var(--qd-title-size, 24px);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  color: var(--qd-text);
+}
+.qd-page-head-actions { display: flex; gap: 8px; align-items: center; }
+@media (max-width: 767px) {
+  .qd-page-head-row { align-items: flex-start; }
+  .qd-page-head-actions { width: 100%; flex-wrap: wrap; }
+}
+
+/* ── 단추 ──────────────────────────────────────────────────────────────────
+   주 단추는 «글자색 면» 입니다. 다크에서는 상아색, 라이트에서는 먹색이 됩니다
+   (오너 결정 2026-09-24 「주 단추는 상아색 면」). 금색 면이 아닙니다 - 금색은
+   강조 막대 · 초점 · 활성 표시의 몫이고, 면으로 깔면 화면에서 가장 큰 금덩이가 됩니다.
+
+     <button class="qd-btn qd-btn--primary">등록</button>
+     <a class="qd-btn qd-btn--secondary qd-btn--sm">취소</a>
+     <button class="qd-btn qd-btn--primary" data-latin>STEP INSIDE</button>
+
+   🔑 기본은 한글입니다(자간 0). 단추 글은 거의 다 한글이라 많은 쪽을 기본으로
+      두어야 빠뜨려도 조용히 틀리지 않습니다. 영문 단추에만 data-latin. */
+.qd-btn {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: var(--qd-control-height, 44px);
+  padding: var(--qd-control-pad-y, 11px) var(--qd-control-pad-x, 22px);
+  border: 1px solid transparent;
+  border-radius: var(--qd-radius-control, 10px);
+  font-family: var(--qd-font-ui);
+  font-size: var(--qd-control-size, 14px);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  transition: opacity 200ms cubic-bezier(0.16, 1, 0.3, 1), border-color 200ms cubic-bezier(0.16, 1, 0.3, 1), color 200ms cubic-bezier(0.16, 1, 0.3, 1), transform 0.05s ease;
+}
+.qd-btn[data-latin] { letter-spacing: 1.2px; text-transform: uppercase; }
+.qd-btn--sm { min-height: var(--qd-control-height-sm, 36px); padding: var(--qd-control-pad-sm-y, 7px) var(--qd-control-pad-sm-x, 14px); font-size: var(--qd-control-size, 14px); }
+.qd-btn--primary { background: var(--qd-text); color: var(--qd-bg); }
+.qd-btn--primary:hover:not(:disabled) { opacity: 0.88; }
+.qd-btn--primary:active:not(:disabled) { transform: translateY(1px); }
+.qd-btn--secondary { background: transparent; border-color: var(--qd-ctl); color: var(--qd-subtle); }
+.qd-btn--secondary:hover:not(:disabled) { border-color: var(--qd-muted); color: var(--qd-text); }
+.qd-btn--danger { background: var(--qd-danger); border-color: var(--qd-danger); color: var(--qd-bg); }
+.qd-btn--secondary.qd-btn--danger { background: transparent; color: var(--qd-danger); }
+.qd-btn:disabled,
+.qd-btn[aria-disabled='true'] { opacity: 0.4; cursor: not-allowed; }
+.qd-btn:focus-visible:not(:disabled) {
+  outline: 2px solid var(--qd-accent);
+  outline-offset: 4px;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--qd-accent) 22%, transparent);
+}
+/* 손가락 기기에서는 작은 단추도 44px (WCAG 2.2) */
+@media (hover: none) and (pointer: coarse) {
+  .qd-btn--sm { min-height: max(44px, var(--qd-control-height, 44px)); }
+}
+
+/* ── 입력칸 ────────────────────────────────────────────────────────────────
+   글 · 고르개 · 여러 줄 모두 같은 상자입니다. 검색칸 · 정렬 고르개처럼 «작은»
+   자리도 모서리는 10px 입니다 (오너 결정 2026-09-24 「전부 10」). */
+.qd-input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: var(--qd-space-2, 8px) var(--qd-space-3, 12px);
+  min-height: var(--qd-control-height, 44px);
+  background: var(--qd-surface);
+  border: 1px solid var(--qd-ctl);
+  border-radius: var(--qd-radius-control, 10px);
+  color: var(--qd-text);
+  font-family: var(--qd-font-ui);
+  font-size: var(--qd-control-size, 14px);
+  /* 원본 입력칸은 줄간격을 적지 않아 브라우저 기본값(normal)으로 그려집니다(높이 36~37).
+     Tailwind preflight 를 쓰는 제품은 본문 줄간격(1.5~1.7)을 물려받아 42 · 44 로 커졌습니다 (2026-09-24) */
+  line-height: normal;
+  transition: border-color 200ms cubic-bezier(0.16, 1, 0.3, 1), background-color 200ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.qd-input:hover:not(:focus):not(:disabled):not([readonly]) { border-color: var(--qd-muted); }
+.qd-input:focus {
+  border-color: var(--qd-accent);
+  background-color: var(--qd-surface2);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--qd-accent) 18%, transparent);
+}
+/* 원본은 전역 :focus-visible 규칙이 입력칸에도 외곽선을 겁니다. 제품마다 그 규칙이 있다고 믿지 않고 여기 둡니다 */
+.qd-input:focus-visible {
+  outline: 2px solid var(--qd-accent);
+  outline-offset: 4px;
+}
+.qd-input[readonly] { color: var(--qd-muted); cursor: default; }
+.qd-input[aria-invalid='true'] { border-color: var(--qd-danger); }
+@media (max-width: 1023px) {
+  .qd-input { font-size: var(--qd-control-size, 14px); }
+}
+
+/* ── 셸 폭 ─────────────────────────────────────────────────────────────────
+   2026-10-27 오너 결정 «3»: 상세 · 폼 화면은 꽉 채웁니다. 좁히는 것은 현장 모드뿐입니다.
+   상세 · 폼의 공용 틀(.qd-shell-page)과 칸 격자(.qd-fields)는 세 제품이 모두 받는
+   q-design.workspace.css 에 있습니다(tools/page-shell-css.mjs). 아뜰리에는 이 파일을 받지 않습니다.
+
+     현장  520   장갑 낀 손으로 한 번에 한 가지 */
+.qd-shell-field  { max-width: 520px; margin-left: auto; margin-right: auto; }
+
+/* 본문 여백. sticky 밴드가 이 값을 실측해 inset 을 잡는 제품이 있어 변수로도 냅니다. */
+:root {
+  --qd-main-pad-y: 32px;
+  --qd-main-pad-x: 40px;
+}
+.qd-main { padding: var(--qd-main-pad-y) var(--qd-main-pad-x); }
+
+@media print {
+  .qd-kpi { break-inside: avoid; }
+}
+
+/* Q-Design owns this opt-in composition layer. Source mirrors remain untouched.
+   Generated into q-design.screen.css by extract-screen.mjs.
+   See docs/07-screens.md («업무 화면 정돈») for markup and adoption boundaries. */
+.qd-workspace {
+  --qd-product: #b9b9b9;
+  font-family: var(--qd-font-ui);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--qd-text);
+}
+.qd-workspace[data-product='maison'] { --qd-product: #c9a66b; }
+.qd-workspace[data-product='carnet'] { --qd-product: #c7784f; }
+html[data-theme='light'] .qd-workspace { --qd-product: #595959; }
+html[data-theme='light'] .qd-workspace[data-product='maison'] { --qd-product: #84632f; }
+html[data-theme='light'] .qd-workspace[data-product='carnet'] { --qd-product: #97522f; }
+/* Maison uses next-themes' class strategy and starts in light mode. */
+html:not(.dark):not([data-theme='dark']) .qd-workspace[data-product='maison'] { --qd-product: #84632f; }
+.qd-workspace[data-product='atelier'] {
+  --qd-bg: var(--qa-bg);
+  --qd-surface: var(--qa-surface);
+  --qd-surface2: var(--qa-surface2);
+  --qd-text: var(--qa-text);
+  --qd-subtle: var(--qa-subtle);
+  --qd-muted: var(--qa-muted);
+  --qd-border: var(--qa-border);
+  --qd-borderHi: var(--qa-borderHi);
+  --qd-accent: var(--qa-champagne);
+  --qd-danger: var(--qa-red);
+  --qd-font-ui: var(--qa-font-pretendard), Pretendard, sans-serif;
+  --qd-font-mono: 'JetBrains Mono', monospace;
+}
+.qd-workspace, .qd-workspace * { box-sizing: border-box; }
+.qd-workspace [hidden] { display: none !important; }
+.qd-workspace :where(h1,h2,h3,p,dl,dd) { margin: 0; }
+.qd-workspace :where(button,input,select) { font-family: inherit; }
+.qd-workspace :where(button,a,input,select):focus-visible {
+  outline: 2px solid var(--qd-accent);
+  outline-offset: 4px;
+}
+.qd-workspace .qd-btn { min-height: 44px; font-size: 14px; letter-spacing: 0; text-transform: none; }
+.qd-workspace .qd-btn--secondary { color: var(--qd-text); border-color: var(--qd-borderHi); }
+.qd-workspace .qd-input { min-height: 44px; width: 100%; font-size: 14px; }
+.qd-workspace .qd-input::placeholder { color: var(--qd-muted); opacity: 1; }
+.qd-workspace .qd-field-label { font: 500 13px/1.5 var(--qd-font-ui); letter-spacing: 0; text-transform: none; }
+.qd-workspace .qd-product-name { color: var(--qd-product); font-size: 16px; font-weight: 500; }
+.qd-workspace .qd-work-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; padding-bottom: 28px; }
+.qd-workspace .qd-work-title { font-size: clamp(24px, 3vw, 32px); font-weight: 600; line-height: 1.2; letter-spacing: -0.02em; }
+.qd-workspace .qd-work-intro { color: var(--qd-subtle); margin-top: 10px; max-width: 65ch; }
+.qd-workspace .qd-work-meta { color: var(--qd-subtle); font-size: 14px; }
+.qd-workspace .qd-work-summary { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); margin-bottom: 36px; border-block: 1px solid var(--qd-borderHi); }
+.qd-workspace .qd-work-metric { padding: 22px 24px; }
+.qd-workspace .qd-work-metric + .qd-work-metric { border-left: 1px solid var(--qd-border); }
+.qd-workspace .qd-work-metric dt { font-size: 14px; color: var(--qd-subtle); }
+.qd-workspace .qd-work-metric dd { margin-top: 10px; font-size: 32px; line-height: 1.2; font-weight: 600; font-variant-numeric: tabular-nums; }
+.qd-workspace .qd-work-metric dd span { margin-left: 6px; font-size: 14px; font-weight: 400; color: var(--qd-subtle); }
+.qd-workspace .qd-work-metric p { margin-top: 8px; font-size: 14px; color: var(--qd-subtle); }
+/* 요약 지표 칸 수는 data-cols 로 고른다(없으면 세 칸). 부제는 dl 안에서 바른 dd.qd-work-metric-sub 로도 둔다 */
+.qd-workspace .qd-work-summary[data-cols='1'] { grid-template-columns: minmax(0,1fr); }
+.qd-workspace .qd-work-summary[data-cols='2'] { grid-template-columns: repeat(2,minmax(0,1fr)); }
+.qd-workspace .qd-work-summary[data-cols='4'] { grid-template-columns: repeat(4,minmax(0,1fr)); }
+.qd-workspace .qd-work-summary[data-cols] .qd-work-metric:first-child { padding-left: 0; }
+.qd-workspace .qd-work-metric .qd-work-metric-sub { margin-top: 8px; font-size: 14px; line-height: 1.6; font-weight: 400; color: var(--qd-subtle); }
+/* 지표 칸 막대 · 범례(2026-10-21 오너 결정 «시안 A»): 큰 숫자 아래 얇은 막대 하나와 같은 색 점의 범례 한 줄.
+   막대 조각 · 점의 색은 화면이 아래 구역과 같은 표에서 넣는다(style). 여기는 길이 · 굵기 · 간격만 쥔다.
+   dd 기본 규칙(큰 숫자 30 · 굵게)과 dd span 규칙(단위 13 · 흐림)을 이겨야 해서 .qd-work-metric 을 한 번 더 적는다 */
+.qd-workspace .qd-work-metric .qd-work-meter { position: relative; margin-top: 14px; height: 6px; font-size: 0; line-height: 0; }
+.qd-workspace .qd-work-metric .qd-work-meter-track { display: flex; gap: 2px; height: 6px; margin-left: 0; border-radius: 3px; overflow: hidden; background: var(--qd-border); }
+.qd-workspace .qd-work-metric .qd-work-meter-track > i { display: block; flex: 1 1 0; min-width: 0; height: 100%; }
+.qd-workspace .qd-work-metric .qd-work-meter-mark { position: absolute; top: -3px; width: 2px; height: 12px; margin-left: -1px; border-radius: 1px; background: var(--qd-text); }
+.qd-workspace .qd-work-metric .qd-work-legend { display: flex; flex-wrap: wrap; gap: 2px 12px; margin-top: 10px; font-size: 14px; line-height: 1.6; font-weight: 400; color: var(--qd-subtle); }
+.qd-workspace .qd-work-metric .qd-work-legend > span { margin-left: 0; font-size: inherit; font-weight: inherit; color: inherit; white-space: nowrap; }
+.qd-workspace .qd-work-metric .qd-work-legend b { font-weight: 600; color: var(--qd-text); font-variant-numeric: tabular-nums; }
+.qd-workspace .qd-work-metric .qd-work-legend-dot { display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; vertical-align: 1px; }
+/* 누르면 아래 구역으로 가는 칸: 칸 이름 링크를 칸 전체로 늘린다. 이름 앞 번호는 그 구역 머리 번호와 같은 값 */
+.qd-workspace .qd-work-metric[data-go] { position: relative; }
+.qd-workspace .qd-work-metric .qd-work-metric-head { display: flex; align-items: baseline; gap: 8px; }
+.qd-workspace .qd-work-metric .qd-work-metric-no { font-family: var(--qd-font-mono); font-size: 12px; font-weight: 500; color: var(--qd-accent); font-variant-numeric: tabular-nums; }
+.qd-workspace .qd-work-metric .qd-work-metric-link { color: inherit; text-decoration: none; transition: color .15s; }
+.qd-workspace .qd-work-metric .qd-work-metric-link::after { content: ''; position: absolute; inset: 0; }
+/* 초점 윤곽은 칸 둘레 하나만. 제품의 전역 초점 규칙(겹 밖 :focus-visible · a:focus-visible)은 겹 안 규칙을
+   구체성과 상관없이 이기므로 글자 둘레 윤곽 · 그림자를 끄는 데만 !important 를 쓴다(2026-10-21 실측: 윤곽이 두 겹) */
+.qd-workspace .qd-work-metric .qd-work-metric-link:focus-visible { outline: none !important; box-shadow: none !important; }
+.qd-workspace .qd-work-metric .qd-work-metric-link:focus-visible::after { outline: var(--qd-focus-outline-width) solid var(--qd-accent); outline-offset: 4px; border-radius: var(--qd-radius); }
+.qd-workspace .qd-work-metric .qd-work-metric-go { margin-left: auto; font-size: 12px; color: var(--qd-muted); white-space: nowrap; transition: color .15s; }
+.qd-workspace .qd-work-metric[data-go]:hover :is(.qd-work-metric-link, .qd-work-metric-go),
+.qd-workspace .qd-work-metric[data-go]:has(.qd-work-metric-link:focus-visible) :is(.qd-work-metric-link, .qd-work-metric-go) { color: var(--qd-text); }
+/* 번호 붙은 괘선 구역: 상자 없이 쌓는 현황 구역. 번호는 보이는 차례대로 CSS 가 센다(숨기거나 빈 구역은 건너뛴다).
+   괘선은 구역 «위» 에 하나(2026-10-27 오너 결정 «A»). 제목 아래에만 있던 선은 앞 구역 끝이 다음 구역 머리로 흘러 들어가
+   보였다. 일반 카드의 위 괘선(--qd-card-rule)과 같은 결이다 */
+.qd-workspace .qd-work-sections { counter-reset: qd-work-section; }
+.qd-workspace .qd-work-sections-list { display: flex; flex-direction: column; gap: 40px; }
+.qd-workspace .qd-work-section { counter-increment: qd-work-section; min-width: 0; padding-top: 24px; border-top: 1px solid var(--qd-borderHi); }
+.qd-workspace .qd-work-section-title { display: inline-flex; align-items: baseline; gap: 10px; min-width: 0; }
+.qd-workspace .qd-work-section-num { font-family: var(--qd-font-mono); font-size: 12px; font-weight: 500; color: var(--qd-accent); font-variant-numeric: tabular-nums; }
+.qd-workspace .qd-work-section-num::before { content: counter(qd-work-section, decimal-leading-zero); }
+.qd-workspace .qd-work-subhead { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; margin-top: 20px; padding-bottom: 8px; font-size: 14px; font-weight: 600; color: var(--qd-subtle); border-bottom: 1px solid var(--qd-border); }
+.qd-workspace .qd-work-subhead > span { min-width: 0; overflow-wrap: anywhere; }
+.qd-workspace .qd-work-subhead small { font-size: 12px; font-weight: 400; font-variant-numeric: tabular-nums; }
+.qd-workspace .qd-work-subhead .qd-work-line-code { margin-right: 8px; font-weight: 400; }
+/* 묶음 소제목(제품 하나 = 한 묶음): 이름은 본문 색으로 조금 크게 */
+.qd-workspace .qd-work-subhead--group { margin-top: 28px; font-size: 14px; color: var(--qd-text); }
+/* 줄 목록: 한 줄에 한 건. 앞 칸(구분 글자) · 본문 · 메타 · 행동을 괘선으로 가른다 */
+.qd-workspace .qd-work-lines { container-type: inline-size; display: flex; flex-direction: column; }
+.qd-workspace .qd-work-line { display: grid; grid-template-columns: 4.5rem minmax(0,1fr) auto auto; gap: 16px; align-items: baseline; padding: 12px 0; border-bottom: 1px solid var(--qd-border); font-size: 14px; line-height: 1.6; }
+.qd-workspace .qd-work-line-tag { font-size: 14px; font-weight: 600; color: var(--qd-subtle); }
+.qd-workspace .qd-work-line-main { min-width: 0; display: flex; flex-direction: column; gap: 2px; overflow-wrap: anywhere; }
+.qd-workspace .qd-work-line-detail { font-size: 14px; color: var(--qd-muted); }
+.qd-workspace .qd-work-line-meta { font-size: 12px; color: var(--qd-subtle); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.qd-workspace .qd-work-line-act { justify-self: end; font-size: 14px; }
+.qd-workspace .qd-work-line--project { grid-template-columns: 7.5rem minmax(0,1fr) 11rem auto; }
+.qd-workspace .qd-work-line-code { font-family: var(--qd-font-mono); font-size: 12px; color: var(--qd-subtle); }
+.qd-workspace .qd-work-line-empty { padding: 14px 0; font-size: 14px; color: var(--qd-subtle); border-bottom: 1px solid var(--qd-border); }
+.qd-workspace .qd-work-more { padding-top: 8px; font-size: 14px; }
+/* 구역 머리 바로 아래 «오늘 먼저 할 일» 한 줄: 가장 급한 일을 크게 + 주 단추 하나.
+   대시보드 A 로 바꾸며 종전 카드의 능동 처방(화면 검토 A14)이 작은 글귀 줄로 묻혔다(2026-10-20 오너 «홈 내용이 많이 축소») */
+.qd-workspace .qd-work-lead { display: grid; grid-template-columns: 4.5rem minmax(0,1fr) auto; gap: 16px; align-items: center; padding: 18px 0; border-bottom: 1px solid var(--qd-border); }
+.qd-workspace .qd-work-lead-main { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.qd-workspace .qd-work-lead-main > small { font-size: 12px; color: var(--qd-subtle); }
+.qd-workspace .qd-work-lead-title { font-size: 18px; font-weight: 600; line-height: 1.4; color: var(--qd-text); overflow-wrap: anywhere; }
+.qd-workspace .qd-work-lead-title em { margin-left: 8px; font-style: normal; white-space: nowrap; }
+/* 구역의 큰 요약 줄(«제품 1 · 진행 중 변경 0»)과 그 아래 예외 줄. 값은 본문색 굵게, 이름은 흐리게 */
+.qd-workspace .qd-work-headline { margin-top: 18px; font-size: clamp(22px, 2.4vw, 28px); font-weight: 600; line-height: 1.4; letter-spacing: -0.01em; color: var(--qd-text); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.qd-workspace .qd-work-headline span { font-weight: 400; color: var(--qd-subtle); }
+.qd-workspace .qd-work-headline-sub { margin-top: 6px; font-size: 14px; color: var(--qd-subtle); }
+/* 여섯 단계 흐름(기획 · 개발 · 검증 · 유효성 · 신청 · 허가) 한 줄. 지난 단계 · 지금 단계(굵게) · 남은 단계(흐리게) */
+.qd-workspace .qd-work-steps { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-wrap: wrap; align-items: center; row-gap: 2px; font-size: 12px; line-height: 1.6; color: var(--qd-muted); }
+.qd-workspace .qd-work-steps > li { display: inline-flex; align-items: center; white-space: nowrap; }
+.qd-workspace .qd-work-steps > li + li::before { content: ''; display: inline-block; width: 12px; height: 1px; margin: 0 6px; background: var(--qd-border); }
+.qd-workspace .qd-work-steps > li[data-state='done'] { color: var(--qd-subtle); }
+.qd-workspace .qd-work-steps > li[data-state='done'] + li::before { background: var(--qd-subtle); }
+.qd-workspace .qd-work-steps > li[data-state='now'] { color: var(--qd-text); font-weight: 600; }
+.qd-workspace .qd-work-bar { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.qd-workspace .qd-work-bar-track { flex: 1; height: 4px; border-radius: 2px; background: var(--qd-surface2); overflow: hidden; }
+.qd-workspace .qd-work-bar-fill { display: block; height: 100%; background: var(--qd-text); opacity: .55; }
+.qd-workspace .qd-work-bar-n { font-family: var(--qd-font-mono); font-size: 12px; color: var(--qd-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* 단계 줄: 한글 단계 이름에는 자간 · 대문자를 걸지 않는다 */
+.qd-workspace .qd-work-stages { list-style: none; margin: 14px 0 6px; padding: 0; display: flex; flex-wrap: wrap; row-gap: 6px; }
+.qd-workspace .qd-work-stage { display: flex; align-items: baseline; gap: 6px; padding: 4px 14px 4px 0; margin-right: 14px; border-right: 1px solid var(--qd-border); font-size: 14px; color: var(--qd-muted); }
+.qd-workspace .qd-work-stage:last-child { border-right: 0; margin-right: 0; }
+.qd-workspace .qd-work-stage[data-on] { color: var(--qd-text); }
+.qd-workspace .qd-work-stage-n { font-family: var(--qd-font-mono); font-variant-numeric: tabular-nums; }
+.qd-workspace .qd-work-stage[data-on] .qd-work-stage-n { font-weight: 600; }
+@container (max-width: 640px) {
+  .qd-workspace .qd-work-line { grid-template-columns: minmax(0,1fr) auto; grid-template-areas: 'tag meta' 'main act'; row-gap: 4px; }
+  .qd-workspace .qd-work-line-tag { grid-area: tag; }
+  .qd-workspace .qd-work-line-meta { grid-area: meta; justify-self: end; }
+  .qd-workspace .qd-work-line-main { grid-area: main; }
+  .qd-workspace .qd-work-line-act { grid-area: act; }
+  .qd-workspace .qd-work-line--project { grid-template-areas: 'code act' 'main main' 'bar bar'; }
+  .qd-workspace .qd-work-line--project > .qd-work-line-code { grid-area: code; }
+  .qd-workspace .qd-work-line--project > .qd-work-bar { grid-area: bar; }
+}
+/* «오늘 먼저 할 일» 은 줄 목록 밖(구역 바로 아래)이라 화면 폭으로 접는다: 폰은 구분 · 본문 · 단추가 위아래로, 단추는 가득 */
+@media (max-width: 640px) {
+  .qd-workspace .qd-work-lead { grid-template-columns: minmax(0,1fr); gap: 8px; }
+  .qd-workspace .qd-work-lead > .qd-btn { width: 100%; }
+}
+.qd-workspace .qd-work-columns { display: grid; grid-template-columns: minmax(0,1fr) 280px; gap: 36px; }
+.qd-workspace .qd-work-columns > * { min-width: 0; }
+.qd-workspace .qd-work-section-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 12px; padding-bottom: 16px; }
+.qd-workspace .qd-work-section-head h2 { font-size: 18px; line-height: 1.4; font-weight: 600; }
+.qd-workspace .qd-work-section-head small { font-size: 14px; color: var(--qd-subtle); }
+.qd-workspace .qd-work-row { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding: 20px 0; border-bottom: 1px solid var(--qd-border); }
+.qd-workspace .qd-work-row > div:first-child { min-width: 0; }
+.qd-workspace .qd-work-row h3 { font-size: 16px; line-height: 1.6; font-weight: 600; overflow-wrap: anywhere; }
+.qd-workspace .qd-work-row p { margin-top: 5px; color: var(--qd-subtle); font-size: 14px; overflow-wrap: anywhere; }
+.qd-workspace .qd-work-code { font-family: var(--qd-font-mono); font-size: 12px; }
+.qd-workspace .qd-work-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; flex-shrink: 0; }
+.qd-workspace .qd-work-action { display: inline-flex; justify-content: center; align-items: center; gap: 6px; min-height: 44px; padding: 8px 12px; border: 1px solid var(--qd-borderHi); border-radius: 10px; background: transparent; color: var(--qd-text); font-size: 14px; font-weight: 500; line-height: 1.6; text-decoration: none; cursor: pointer; transition: background 150ms ease; }
+.qd-workspace .qd-work-action:hover { background: var(--qd-surface2); }
+.qd-workspace .qd-work-action:active { transform: translateY(1px); }
+.qd-workspace .qd-work-action:disabled { opacity: .55; cursor: wait; }
+.qd-workspace .qd-work-action--text { border-color: transparent; padding-inline: 8px; }
+.qd-workspace .qd-work-status { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 500; white-space: nowrap; color: var(--qd-subtle); }
+.qd-workspace .qd-work-status[data-state='review'] { color: var(--qa-state-cobalt, var(--qd-text)); }
+.qd-workspace .qd-work-status[data-state='approved'] { color: var(--qa-state-green, var(--qd-text)); }
+.qd-workspace .qd-work-status[data-state='overdue'] { color: var(--qd-danger); }
+.qd-workspace .qd-work-note { padding: 18px 0; border-block: 1px solid var(--qd-border); margin-top: 24px; }
+.qd-workspace .qd-work-note h3 { font-size: 14px; margin-bottom: 8px; font-weight: 600; }
+.qd-workspace .qd-work-note p { color: var(--qd-subtle); font-size: 14px; }
+.qd-workspace .qd-work-tools { display: grid; grid-template-columns: minmax(180px,1fr) 150px 160px; gap: 16px; margin: 24px 0 16px; align-items: end; }
+.qd-workspace .qd-work-tools label { display: block; margin-bottom: 8px; }
+.qd-workspace .qd-work-empty { padding: 48px 20px; text-align: center; border-block: 1px solid var(--qd-border); }
+.qd-workspace .qd-work-empty h3 { font-size: 18px; }
+.qd-workspace .qd-work-empty p { margin: 10px 0 20px; color: var(--qd-subtle); }
+.qd-workspace .qd-work-results { padding-bottom: 12px; color: var(--qd-subtle); font-size: 14px; }
+/* Existing production components keep their data, links and semantic state colors. */
+/* 면 · 괘선 · 모서리는 2026-10-23 부터 모든 화면의 기본값(.qd-kpi · 원본 KPI 의 Bx ledger)이라 여기서는 개요의 여백 · 글자만 덮는다 */
+.qd-workspace--overview .qd-page-head { margin-bottom: 8px; }
+.qd-workspace--overview .qd-page-head-title { font-size: clamp(24px,3vw,32px); line-height: 1.2; }
+.qd-workspace--overview .qd-kpi { padding: 18px 16px; min-height: 116px; }
+/* 14/1.4 로 (2026-10-27 카르넷 정밀 감사 D2). 13px/1.5 는 사다리 · 줄 간격 세 값 밖이었다 */
+.qd-workspace--overview .qd-kpi-label { font: 500 14px/1.4 var(--qd-font-ui); letter-spacing: 0; text-transform: none; margin-bottom: 8px; }
+.qd-workspace--overview .qd-kpi-label[data-hangul] { word-spacing: normal; }
+.qd-workspace--overview .qd-kpi-sub { font-size: 14px; line-height: 1.6; }
+/* Atelier's legacy component uses inline styles. These narrow overrides are intentional. */
+.qd-workspace--overview .qa-kpi-card { padding: 18px 16px !important; min-height: 116px !important; }
+.qd-workspace--overview .qa-kpi-card > div:first-child { font-family: var(--qd-font-ui) !important; font-size: 14px !important; letter-spacing: 0 !important; word-spacing: normal !important; margin-bottom: 8px !important; }
+.qd-workspace--overview .qa-kpi-card > div:last-child { font-size: 14px !important; }
+.qd-workspace .qd-work-library-tools { margin: 24px 0; max-width: 640px; }
+.qd-workspace .qd-work-library-tools label { display: block; margin-bottom: 8px; color: var(--qd-subtle); font-size: 14px; }
+.qd-workspace .qd-work-library-tools input { min-height: 44px; width: 100%; border: 1px solid var(--qd-borderHi); border-radius: 10px; background: var(--qd-surface); color: var(--qd-text); padding: 10px 12px; font: inherit; }
+.qd-workspace .qd-work-library-tools input::placeholder { color: var(--qd-muted); }
+@media (max-width: 1000px) {
+  .qd-workspace .qd-work-columns { grid-template-columns: 1fr; gap: 32px; }
+}
+@media (max-width: 640px) {
+  .qd-workspace .qd-work-head { flex-direction: column; gap: 18px; padding-bottom: 24px; }
+  .qd-workspace .qd-work-head > .qd-btn { width: 100%; }
+  .qd-workspace .qd-work-summary { margin-bottom: 28px; }
+  .qd-workspace .qd-work-metric { padding: 18px 10px; }
+  .qd-workspace .qd-work-metric dd { font-size: 28px; }
+  .qd-workspace .qd-work-metric p { display: none; }
+  .qd-workspace .qd-work-summary:not([data-cols]) .qd-work-metric-sub,
+  .qd-workspace .qd-work-summary[data-cols='3'] .qd-work-metric-sub,
+  .qd-workspace .qd-work-summary:not([data-cols]) .qd-work-legend,
+  .qd-workspace .qd-work-summary[data-cols='3'] .qd-work-legend { display: none; }
+  /* 폰에서는 칸 전체가 누르는 자리라 «보기 →» 글귀를 걷고 범례를 한 단 줄인다 */
+  .qd-workspace .qd-work-metric .qd-work-metric-go { display: none; }
+  .qd-workspace .qd-work-metric .qd-work-legend { gap: 2px 8px; font-size: 12px; }
+  /* 네 칸은 두 줄 두 칸이 된다. 칸이 넓어지므로 부제를 남긴다 */
+  .qd-workspace .qd-work-summary[data-cols='4'] { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .qd-workspace .qd-work-summary[data-cols='4'] .qd-work-metric { padding: 14px 14px 16px; }
+  .qd-workspace .qd-work-summary[data-cols='4'] .qd-work-metric:nth-child(odd) { border-left: 0; padding-left: 0; }
+  .qd-workspace .qd-work-summary[data-cols='4'] .qd-work-metric:nth-child(n+3) { border-top: 1px solid var(--qd-border); }
+  /* 단계 띠는 폰에서 두 칸 줄이 된다. 흘려 두면 줄 끝마다 세로 괘선이 남는다(2026-10-20 운영 375 실측) */
+  .qd-workspace .qd-work-stages { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); column-gap: 18px; row-gap: 2px; }
+  .qd-workspace .qd-work-stage { margin-right: 0; padding: 4px 0; border-right: 0; }
+  .qd-workspace .qd-work-row { align-items: flex-start; flex-direction: column; gap: 14px; }
+  .qd-workspace .qd-work-actions { width: 100%; }
+  .qd-workspace .qd-work-actions .qd-work-status { margin-right: auto; }
+  .qd-workspace .qd-work-tools { grid-template-columns: 1fr 1fr; gap: 12px; }
+  .qd-workspace .qd-work-search { grid-column: 1 / -1; }
+  .qd-workspace .qd-input { font-size: 16px; }
+  .qd-workspace .qd-work-library-tools input { font-size: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .qd-workspace *, .qd-workspace *::before, .qd-workspace *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+}

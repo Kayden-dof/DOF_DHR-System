@@ -43,7 +43,7 @@ export function SetupSteps({ steps, title = '첫 설정 차례' }: {
   return (
     <section className="card p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h3 className="text-xs font-bold text-ink">{title}</h3>
+        <h3 className="text-xs font-semibold text-ink">{title}</h3>
         {left.length > 0 && (
           <span className="text-xs text-muted">
             아직 비어 있는 것 <b className="tnum text-ink">{left.length}</b>

@@ -86,8 +86,8 @@ export default async function ReleasePage() {
             승인을 기다리는 제품 로트가 없습니다.
           </Empty>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="qd-table-scroll">
+            <table className="qd-table qd-table--hangul" data-grow="2">
               <thead>
                 <tr>
                   <th className="th">제조번호</th>
@@ -134,8 +134,8 @@ export default async function ReleasePage() {
             승인된 제품 로트가 없습니다.
           </Empty>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="qd-table-scroll">
+            <table className="qd-table qd-table--hangul" data-grow="2">
               <thead>
                 <tr>
                   <th className="th">제조번호</th>

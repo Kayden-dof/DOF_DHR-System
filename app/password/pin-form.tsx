@@ -131,7 +131,7 @@ export default function PinForm({ first }: { first: boolean }) {
       <input type="hidden" name="next" value={v.next} />
       <input type="hidden" name="again" value={v.again} />
 
-      <div className="box relative overflow-hidden">
+      <div className="qd-panel qd-panel--box relative overflow-hidden">
         <div aria-hidden className="absolute inset-x-0 top-0 h-[3px] bg-brand" />
 
         <div className="divide-y divide-line-soft pt-[3px]">
@@ -153,7 +153,7 @@ export default function PinForm({ first }: { first: boolean }) {
               <span aria-hidden
                     className={`absolute inset-y-0 left-0 w-[3px] transition-colors ${
                       at === s ? 'bg-brand' : 'bg-transparent'}`} />
-              <span className={`w-[5.5rem] shrink-0 text-xs font-bold tracking-[0.06em] transition-colors ${
+              <span className={`w-[5.5rem] shrink-0 text-xs font-semibold tracking-[0.06em] transition-colors ${
                       at === s ? 'text-brand' : 'text-muted'}`}>
                 {LABEL[s]}
               </span>
@@ -179,7 +179,7 @@ export default function PinForm({ first }: { first: boolean }) {
               aria-label={k === 'clear' ? '전체 지움' : k === 'back' ? '한 자 지움' : k}
               className="no-select h-14 rounded-lg border border-line bg-surface text-xl font-semibold text-ink transition-colors hover:bg-surface-sub active:bg-brand-soft"
             >
-              {k === 'clear' ? <span className="text-xs font-bold">전체지움</span>
+              {k === 'clear' ? <span className="text-xs font-semibold">전체지움</span>
                : k === 'back' ? '⌫' : k}
             </button>
           ))}

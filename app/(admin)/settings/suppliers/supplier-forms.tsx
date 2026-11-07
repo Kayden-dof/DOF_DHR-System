@@ -107,7 +107,7 @@ export function NewSupplierForm() {
       <button onClick={() => setOpen(true)} className="btn-primary">공급자 등록</button>
       <Dialog open={open} onClose={() => setOpen(false)} wide title="공급자 등록">
         <form action={action}>
-      <h3 className="mb-3 text-sm font-bold text-ink">새 공급자</h3>
+      <h3 className="mb-3 text-sm font-semibold text-ink">새 공급자</h3>
       <Fields />
       <p className="mt-3 rounded-md bg-canvas px-3 py-2 text-xs leading-relaxed text-muted">
         미승인 공급자의 자재도 등록과 사용을 막지 않습니다. 작업 지시 발행 화면에서
@@ -152,7 +152,7 @@ export function SupplierRowView({ s, writable = true }: {
         <td className="td tnum text-right text-muted">{s.lot_count || ''}</td>
         {writable && (
           <td className="td text-right">
-            <button onClick={() => setOpen(true)} className="btn-quiet btn-row">
+            <button onClick={() => setOpen(true)} className="qd-text-action">
               수정
             </button>
           </td>

@@ -63,7 +63,7 @@ function BuyFields({ e }: { e?: EquipBuy }) {
   return (
     <>
       <div className="mt-4 border-t border-line-soft pt-3">
-        <h4 className="text-xs font-bold text-ink">구입과 감가상각</h4>
+        <h4 className="text-xs font-semibold text-ink">구입과 감가상각</h4>
         <p className="mt-1 text-xs leading-relaxed text-muted">
           생산 단가에 설비 몫을 얹는 데 씁니다. 기록에는 나가지 않습니다.
           <b className="text-ink"> 취득원가 · 내용연수 · 기준 월 가동시간</b> 이 다
@@ -111,7 +111,7 @@ function BuyFields({ e }: { e?: EquipBuy }) {
       </div>
 
       <div className="mt-4 border-t border-line-soft pt-3">
-        <h4 className="text-xs font-bold text-ink">판 곳</h4>
+        <h4 className="text-xs font-semibold text-ink">판 곳</h4>
         <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <div>
             <label className="label" htmlFor={`${uid}-vendor_name`}>업체명</label>
@@ -176,7 +176,7 @@ export function NewEquipment() {
       <button onClick={() => setOpen(true)} className="btn-primary">설비 등록</button>
       <Dialog open={open} onClose={() => setOpen(false)} wide title="설비 등록">
         <form action={action}>
-      <h3 className="text-sm font-bold text-ink">설비 등록</h3>
+      <h3 className="text-sm font-semibold text-ink">설비 등록</h3>
       <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <label className="label">설비 코드</label>
@@ -246,7 +246,7 @@ export function EquipCard({ e, ops, warnDays, writable = true }: {
     <section className="card">
       <header className="section-head">
         <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
-          <span className="font-mono text-sm font-bold text-ink">{e.code}</span>
+          <span className="font-mono text-sm font-semibold text-ink">{e.code}</span>
           <span className="text-sm text-body">{e.name}</span>
           {!e.is_active && <Tag tone="quiet">내림</Tag>}
           {e.note && <span className="text-xs text-faint">{e.note}</span>}
@@ -270,7 +270,7 @@ export function EquipCard({ e, ops, warnDays, writable = true }: {
             사용 기록
           </Link>
           {writable && !edit && (
-            <button onClick={() => setEdit(true)} className="btn-quiet btn-row">고치기</button>
+            <button onClick={() => setEdit(true)} className="qd-text-action">고치기</button>
           )}
         </div>
       </header>
@@ -375,9 +375,9 @@ export function EquipCard({ e, ops, warnDays, writable = true }: {
                         className="text-xs text-faint transition-transform group-open:rotate-90">
                     &rsaquo;
                   </span>
-                  <span className="font-mono text-sm font-bold text-ink">{g.label}</span>
+                  <span className="font-mono text-sm font-semibold text-ink">{g.label}</span>
                   <span className="min-w-0 flex-1 truncate text-xs text-muted">{g.sub}</span>
-                  <span className={`tnum text-xs ${cnt ? 'font-bold text-brand' : 'text-faint'}`}>
+                  <span className={`tnum text-xs ${cnt ? 'font-semibold text-brand' : 'text-faint'}`}>
                     {cnt ? `공정 ${cnt}곳에 걸림` : '걸린 공정 없음'}
                   </span>
                 </summary>

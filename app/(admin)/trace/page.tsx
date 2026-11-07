@@ -117,7 +117,7 @@ export default async function TracePage({ searchParams }: { searchParams: Search
 
       {!q && (
         <section className="card p-4">
-          <h3 className="text-xs font-bold text-ink">계보가 성립하는 방식</h3>
+          <h3 className="text-xs font-semibold text-ink">계보가 성립하는 방식</h3>
           <ul className="mt-2 space-y-1.5 text-xs leading-relaxed text-muted">
             <li>
               · <b className="text-ink">원재료</b>는 작업 지시에 직접 붙습니다. 배치당 하나이므로

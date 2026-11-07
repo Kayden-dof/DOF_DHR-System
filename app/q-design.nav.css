@@ -1,0 +1,559 @@
+/* =============================================================================
+   Q-Design 에서 온 사본입니다. **이 파일을 손으로 고치지 마세요.**
+
+   출처   D:/Claude/Q-Design/dist/q-design.nav.css
+   갱신   cd D:/Claude/Q-Design
+          node tools/extract-all.mjs && node tools/sync.mjs --write
+
+   고칠 일이 생기면 Q-Design 의 원본을 고치고 추출기를 다시 돌립니다.
+   여기서 고치면 제품들의 화면·문서가 갈립니다.
+   아래 지문은 본문의 sha256 이고, 이 저장소의 검사가 대조합니다.
+
+   q-design-nav-sha256: 90afb1088ff662b674708b6de62995a198819a7032594140a6f9255c6cec2fee
+   ============================================================================= */
+@layer components {
+/* =============================================================================
+   q-design.nav.css · 차림표 정본
+   생성물입니다. 손대지 마세요.  node tools/extract-nav.mjs
+   원본: Q-Atelier components/Sidebar.tsx
+   =============================================================================
+
+   ── 쓰는 법 ────────────────────────────────────────────────────────────────
+   1) 이 파일을 프로젝트에 넣고 전역 CSS 에서 링크하거나 @import 합니다.
+   2) 색 이름이 다르면 «잇는 줄» 아홉 개만 적습니다:
+
+        :root {
+          --qd-surface-src:  var(--color-panel);
+          --qd-surface2-src: var(--color-panel2);
+          --qd-border-src:   var(--color-line);
+          --qd-text-src:     var(--color-ivory);
+          --qd-subtle-src:   var(--color-dim);
+          --qd-muted-src:    var(--color-faint);
+          --qd-accent-src:   var(--color-gold);
+          --qd-on-accent-src:var(--color-onaccent);
+          --qd-danger-src:   #c97a7a;
+        }
+
+   3) 마크업은 아래 뼈대를 그대로 씁니다. 클래스 이름이 곧 계약입니다.
+
+        <aside class="qd-rail">
+          <a class="qd-rail-brand"> …로고… <span class="qd-rail-org">회사</span> </a>
+          <nav class="qd-rail-nav">
+            <div class="qd-nav-group">묶음</div>
+            <a class="qd-nav-item is-active">
+              <span class="qd-nav-icon">svg</span>
+              <span class="qd-nav-label">이름</span>
+            </a>
+          </nav>
+          <div class="qd-rail-version"><span>Q-SONAR</span><b>v1.0.0</b></div>
+          <button class="qd-rail-theme"><span>Theme</span><b>● Dark</b></button>
+          <div class="qd-rail-foot">
+            <div class="qd-rail-user">
+              <span class="qd-avatar">R</span>
+              <span class="qd-rail-user-text">
+                <span class="qd-rail-user-name">이름</span>
+                <span class="qd-rail-user-meta">역할 · 등급</span>
+              </span>
+            </div>
+            <button class="qd-rail-logout">로그아웃</button>
+          </div>
+        </aside>
+
+   ── 한글 자간 ──────────────────────────────────────────────────────────────
+   `.qd-nav-group` 은 모노 · 대문자 · 넓은 자간입니다(`.qd-rail-user-meta` 는 2026-09-28 부터 한글 본문체).
+   그 장치는 «라틴 글자 사이» 를 벌리라고 만든 값이라 한글에 걸면 「묶 음」 처럼
+   벌어집니다. 한글이 섞인 글에는 `data-hangul` 을 붙이세요. 자간과 대문자가
+   함께 풀립니다. (Q-Atelier lib/design/tokens.ts 의 labelTracking 과 같은 규칙)
+   ============================================================================= */
+
+:root {
+  --qd-surface: var(--qd-surface-src, var(--qa-surface, #141414));
+  --qd-surface2: var(--qd-surface2-src, var(--qa-surface2, #1b1b1b));
+  --qd-border: var(--qd-border-src, var(--qa-border, #242424));
+  --qd-text: var(--qd-text-src, var(--qa-text, #f0ebe0));
+  --qd-subtle: var(--qd-subtle-src, var(--qa-subtle, #b7b0a5));
+  --qd-muted: var(--qd-muted-src, var(--qa-muted, #898271));
+  --qd-accent: var(--qd-accent-src, var(--qa-champagne, #b8935a));
+  --qd-on-accent: var(--qd-on-accent-src, var(--qa-on-accent, #0a0908));
+  --qd-danger: var(--qd-danger-src, var(--qa-red, #c97a7a));
+  --qd-font-ui: var(--qd-font-ui-src, var(--qd-font-family-ui, inherit));
+  /* 모노 사슬도 손으로 안 적습니다. tokens.json 의 값을 그대로 씁니다 ·
+     세 제품이 «같은 얼굴» 을 쓰는 것이 이 파일의 목적 중 하나이고, 그 얼굴
+     이름을 여기 따로 적으면 그것부터 갈립니다. */
+  --qd-font-mono: var(--qd-font-mono-src, var(--qd-font-family-mono, 'JetBrains Mono', 'Consolas', 'Menlo', ui-monospace, var(--qa-font-pretendard), 'Pretendard Variable', monospace));
+  /* 한글 이름표의 어절 공백을 본문 폭으로 되돌리는 값입니다.
+     JetBrains Mono 의 공백은 0.6em, Pretendard 는 0.251em 입니다(실측 · 10px 에서
+     6px 대 2.51px). 0.6 - 0.35 = 0.25em 이라 본문과 맞습니다.
+     🔴 글꼴을 바꾸지 않고 공백만 되돌립니다. 글꼴을 바꾸면 「생산 로트
+     LOT-2026-004」 처럼 한글과 코드가 섞인 이름표에서 코드가 모노를 잃습니다.
+     제품이 모노를 바꾸면 그 제품에서 --qd-hangul-word-space-src 로 다시 잽니다. */
+  --qd-hangul-word-space: var(--qd-hangul-word-space-src, -0.35em);
+
+  /* 겹침 사다리. 위로 갈수록 «가려지면 안 되는 정도» 입니다.
+     제품이 자기 층을 이 칸으로 부르면 세 제품의 겹침 순서가 같아집니다.
+     한 칸만 다르게 쓰고 싶으면 --qd-z-<칸>-src 로 덮으세요. */
+  --qd-z-base: var(--qd-z-base-src, var(--qa-z-base, 1));
+  --qd-z-dropdown: var(--qd-z-dropdown-src, var(--qa-z-dropdown, 50));
+  --qd-z-sticky: var(--qd-z-sticky-src, var(--qa-z-sticky, 100));
+  --qd-z-header: var(--qd-z-header-src, var(--qa-z-header, 200));
+  --qd-z-fab: var(--qd-z-fab-src, var(--qa-z-fab, 300));
+  --qd-z-bottom-nav: var(--qd-z-bottom-nav-src, var(--qa-z-bottom-nav, 400));
+  --qd-z-drawer-fab: var(--qd-z-drawer-fab-src, var(--qa-z-drawer-fab, 500));
+  --qd-z-drawer-backdrop: var(--qd-z-drawer-backdrop-src, var(--qa-z-drawer-backdrop, 600));
+  --qd-z-drawer: var(--qd-z-drawer-src, var(--qa-z-drawer, 700));
+  --qd-z-overlay: var(--qd-z-overlay-src, var(--qa-z-overlay, 1000));
+  --qd-z-modal: var(--qd-z-modal-src, var(--qa-z-modal, 1100));
+  --qd-z-popover: var(--qd-z-popover-src, var(--qa-z-popover, 1200));
+  --qd-z-tooltip: var(--qd-z-tooltip-src, var(--qa-z-tooltip, 9999));
+  --qd-z-toast: var(--qd-z-toast-src, var(--qa-z-toast, 10000));
+  --qd-z-blocking: var(--qd-z-blocking-src, var(--qa-z-blocking, 10001));
+  --qd-z-session-gate: var(--qd-z-session-gate-src, var(--qa-z-session-gate, 10002));
+}
+
+html[data-theme='light'] {
+  --qd-surface: var(--qd-surface-src, var(--qa-surface, #ffffff));
+  --qd-surface2: var(--qd-surface2-src, var(--qa-surface2, #f3f1ec));
+  --qd-border: var(--qd-border-src, var(--qa-border, #e2dfd8));
+  --qd-text: var(--qd-text-src, var(--qa-text, #1c1a16));
+  --qd-subtle: var(--qd-subtle-src, var(--qa-subtle, #4a4540));
+  --qd-muted: var(--qd-muted-src, var(--qa-muted, #726b5e));
+  --qd-accent: var(--qd-accent-src, var(--qa-champagne, #805f32));
+  --qd-on-accent: var(--qd-on-accent-src, var(--qa-on-accent, #ffffff));
+  --qd-danger: var(--qd-danger-src, var(--qa-red, #a83838));
+}
+
+/* ── 레일 ──────────────────────────────────────────────────────────────────
+   스크롤하는 것은 .qd-rail-nav 이지 레일 전체가 아닙니다. 레일을 통째로
+   스크롤로 두면 화면이 낮을 때 로고와 바닥 계정 블록이 같이 밀려 올라가
+   «푸터가 없는» 것처럼 보입니다 (Q-Atelier 가 M-16 으로 고친 자리입니다). */
+.qd-rail {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  width: 240px;
+  /* 레일 위에 무언가 놓인 제품이 있습니다(경고 띠 등). 그만큼 빼지 않으면
+     레일 아래 끝이 화면 밖으로 밀려 로그아웃이 잘립니다. 아무것도 없으면 0 입니다.
+     쓰는 쪽이 그 높이를 재어 --qd-rail-offset 으로 알려 줍니다. */
+  height: calc(100dvh - var(--qd-rail-offset, 0px));
+  position: sticky;
+  top: 0;
+  padding: 22px 16px;
+  background: var(--qd-surface);
+  border-right: 1px solid var(--qd-border);
+  overflow-x: hidden;
+  overflow-y: hidden;
+  font-family: var(--qd-font-ui);
+}
+
+/* 좁은 화면의 서랍. 여기서는 레일 자체가 스크롤합니다(안쪽에 또 스크롤을 두면
+   바깥을 만질 때 안쪽이 잡힙니다). */
+.qd-rail--drawer {
+  width: 264px;
+  max-width: 85vw;
+  position: relative;
+  /* 칸을 명시합니다. Q-Sonar·Q-Forge 는 서랍을 백드롭의 «자식» 으로 두지만
+     Q-Atelier 는 형제라, 적지 않으면 세 제품의 뜻이 달라집니다. */
+  z-index: var(--qd-z-drawer);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.qd-rail--drawer .qd-rail-nav {
+  overflow-y: visible;
+  flex: 1 0 auto;
+}
+
+/* ── 로고 블록 ─────────────────────────────────────────────────────────────── */
+.qd-rail-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  text-decoration: none;
+  flex-shrink: 0;
+  margin-bottom: 22px;
+}
+.qd-rail-brand img,
+.qd-rail-brand svg {
+  display: block;
+  height: auto;
+  max-width: 100%;
+  object-fit: contain;
+  user-select: none;
+}
+/* Q 표식. 폭은 여기서만 정합니다.
+   표식을 감싸는 부품(테마별로 두 장을 싣는 등)이 있는 제품도 있어, 폭을
+   `.qd-rail-brand img` 로 못 박으면 그 안쪽 규칙과 싸웁니다. 감싸개에 이
+   클래스를 걸면 안쪽 그림은 100% 로 채우면 됩니다. */
+.qd-rail-mark {
+  display: block;
+  width: 108px;
+  flex-shrink: 0;
+}
+.qd-rail-mark img { width: 100%; }
+.qd-rail-org {
+  margin-top: 6px;
+  font-family: var(--qd-font-mono);
+  font-size: 12px;
+  letter-spacing: 0.4px;
+  /* 등록한 표기 그대로(오너 결정 2026-09-28). «Demo co.» 가 «DEMO CO.» 로 바뀌어 보였다 */
+  text-transform: none;
+  color: var(--qd-muted);
+  word-break: break-all;
+}
+.qd-rail-org[data-hangul] {
+  letter-spacing: 0;
+  text-transform: none;
+  word-spacing: var(--qd-hangul-word-space);
+}
+.qd-rail-org--accent { color: var(--qd-accent); }
+
+/* ── 스크롤 구역 ───────────────────────────────────────────────────────────── */
+.qd-rail-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+}
+
+/* ── 묶음 이름표 ───────────────────────────────────────────────────────────── */
+.qd-nav-group {
+  padding: 12px 14px 4px;
+  font-family: var(--qd-font-mono);
+  font-size: 12px;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: var(--qd-muted);
+  user-select: none;
+}
+.qd-nav-group[data-hangul] {
+  letter-spacing: 0;
+  text-transform: none;
+  word-spacing: var(--qd-hangul-word-space);
+}
+
+/* ── 항목 ──────────────────────────────────────────────────────────────────
+   2026-09-27 «문서 결»(오너 결정 · docs/08-paper.md): 선택 표시는 굵은 글자와 글자 밑 짧은 금색 선입니다.
+   종전의 왼쪽 금막대와 오른쪽 금점은 걷었습니다. 막대가 차지하던 자리는 왼쪽 여백으로 돌려
+   (padding-left) 글자 자리가 그대로입니다. 모서리는 굴리지 않습니다. */
+.qd-nav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  padding-left: 17px;
+  font-family: var(--qd-font-ui);
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0px;
+  color: var(--qd-subtle);
+  background: transparent;
+  text-decoration: none;
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+.qd-nav-item:hover:not(.is-active) {
+  background-color: var(--qd-surface2);
+  color: var(--qd-text);
+}
+.qd-nav-item.is-active {
+  color: var(--qd-text);
+  font-weight: 600;
+  background: var(--qd-surface2);
+}
+.qd-nav-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: var(--qd-muted);
+}
+.qd-nav-icon > svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 1.75;
+}
+.qd-nav-item.is-active .qd-nav-icon { color: var(--qd-accent); }
+.qd-nav-label {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 선택 밑줄. 들어설 때 한 번 왼쪽부터 펼쳐지고 그 뒤로는 가만히 있습니다.
+   이름표는 말줄임 때문에 넘친 것을 자릅니다(overflow: hidden). 그래서 선이 들어갈 자리를 아래 안쪽
+   여백으로 만들고 같은 만큼 바깥 여백을 줄여, 줄 높이와 글자 자리가 그대로입니다.
+   원본은 글자 아래 5px 에 놓인 별도 요소(qa-nav-active-underline)입니다. */
+.qd-nav-item.is-active .qd-nav-label {
+  padding-bottom: 5px;
+  margin-bottom: -5px;
+}
+.qd-nav-item.is-active .qd-nav-label::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 16px;
+  height: 1.5px;
+  border-radius: 1px;
+  background: var(--qd-accent);
+  transform-origin: left center;
+  animation: qd-nav-mark-in 320ms cubic-bezier(0.16, 1, 0.3, 1) 1;
+}
+@keyframes qd-nav-mark-in { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@media (prefers-reduced-motion: reduce) {
+  .qd-nav-item.is-active .qd-nav-label::after { animation: none; }
+}
+/* 2026-09-27 걷은 금점의 다리(.qd-nav-dot { display: none })는 2026-09-28 에 지웠습니다.
+   받는 세 제품 마크업에서 금점을 모두 걷었습니다(docs/08-paper.md). */
+
+.qd-nav-badge {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  font-family: var(--qd-font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  border-radius: 9999px;
+  min-width: 22px;
+  text-align: center;
+  color: var(--qd-on-accent);
+  background: var(--qd-danger);
+}
+
+/* 조용한 배지. 「3」 같은 숫자가 아니라 「26일」 처럼 읽는 말이 들어가는 자리입니다.
+   빨간 알약으로 만들면 급하지 않은 것이 급해 보이고, 열 칸에 열 개가 켜집니다. */
+.qd-nav-badge--quiet {
+  background: transparent;
+  border: 1px solid var(--qd-border);
+  border-radius: 6px; /* 배지 = 6 (2026-09-14, 각진 것은 포털뿐) */
+  color: var(--qd-subtle);
+  font-weight: 400;
+  min-width: 0;
+}
+
+/* ── 판 번호 줄 ────────────────────────────────────────────────────────────
+   왼쪽에 이름 · 오른쪽에 판. 금은 판 쪽에만 씁니다. */
+.qd-rail-version {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 4px 4px 8px;
+  font-family: var(--qd-font-mono);
+  font-size: 12px;
+  letter-spacing: 0.6px;
+  color: var(--qd-muted);
+}
+/* 대문자는 «이름» 에만 겁니다. 줄 전체에 걸면 v1.3.0 이 V1.3.0 이 됩니다 -
+   판 번호는 사람이 적은 그대로 나와야 합니다 (띄워 찍어 보고 잡은 자리). */
+.qd-rail-version > :first-child { text-transform: uppercase; }
+/* 자간은 줄 전체(부모)에서 물려받으므로 한글 이름에서는 여기서 함께 풉니다(2026-10-16 · 한글 자간 검사가 잡음) */
+.qd-rail-version > :first-child[data-hangul] {
+  letter-spacing: 0;
+  text-transform: none;
+  word-spacing: var(--qd-hangul-word-space);
+}
+.qd-rail-version b {
+  font-weight: inherit;
+  color: var(--qd-accent);
+}
+
+/* ── 테마 줄 ──────────────────────────────────────────────────────────────── */
+.qd-rail-row {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+  flex-shrink: 0;
+  margin: 12px 0;
+}
+.qd-rail-theme {
+  flex: 1;
+  box-sizing: border-box;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: transparent;
+  border: 1px solid var(--qd-border);
+  border-radius: 10px;
+  color: var(--qd-subtle);
+  font-family: var(--qd-font-mono);
+  font-size: 12px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.qd-rail-theme:hover { border-color: var(--qd-accent); color: var(--qd-text); }
+.qd-rail-theme b { font-weight: 500; color: var(--qd-accent); }
+
+/* 이 자리는 기준 제품에서 테마 토글이지만, 제품에 따라 «막힘» 같은 상태를
+   넣기도 합니다(Q-Sonar 는 발송 막힘). 정본이 톤을 안 열어 주면 제품이
+   인라인으로 덮게 되고, 그러면 정본을 안 쓰는 것과 같습니다. */
+/* 🔑 --qd-warn 은 q-design.state.css 가 내는데 그 파일을 «모든» 제품이 받지는
+      않습니다. 값을 못 찾으면 이 두 줄이 통째로 무효가 되어 톤이 조용히 사라집니다.
+      그래서 여기서도 값을 들고 있습니다(Z 사다리와 같은 이유). */
+.qd-rail-theme[data-tone='warning'] { border-color: color-mix(in srgb, var(--qd-warn, var(--qa-warning, #c9a87a)) 45%, transparent); }
+.qd-rail-theme[data-tone='warning'] b { color: var(--qd-warn, var(--qa-warning, #c9a87a)); }
+.qd-rail-theme[data-tone='danger'] { border-color: color-mix(in srgb, var(--qd-danger) 45%, transparent); }
+.qd-rail-theme[data-tone='danger'] b { color: var(--qd-danger); }
+/* 왼쪽 이름표는 라틴(Theme)이라 자간이 살지만, 오른쪽 값은 한글일 수 있습니다
+   (「어둡게」·「밝게」·「기기따름」). 값 쪽만 자간을 풀 수 있게 열어 둡니다 -
+   실측에서 Q-Forge 의 그 한 줄이 「어 둡 게」로 벌어져 있었습니다. */
+.qd-rail-theme [data-hangul],
+.qd-rail-theme b[data-hangul] {
+  letter-spacing: 0;
+  text-transform: none;
+  word-spacing: var(--qd-hangul-word-space);
+}
+
+.qd-rail-iconbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  background: transparent;
+  border: 1px solid var(--qd-border);
+  border-radius: 10px;
+  color: var(--qd-muted);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.qd-rail-iconbtn:hover { border-color: var(--qd-accent); color: var(--qd-accent); }
+
+/* ── 바닥 계정 블록 ────────────────────────────────────────────────────────── */
+.qd-rail-foot {
+  flex-shrink: 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--qd-border);
+}
+.qd-rail-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  text-decoration: none;
+}
+.qd-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--qd-accent) 22%, var(--qd-surface2));
+  color: var(--qd-text);
+  font-weight: 600;
+  /* 원본(components/Avatar.tsx)과 같은 식입니다: 지름 × 비율을 글자 사다리에서 올려 잡습니다
+     (2026-10-26). 전에는 32 x 0.45 = 14.4px 를 그대로 썼고, 그보다 앞서 Math.round 로 14 로
+     깎았다가 사본 두 벌만 원본과 갈린 적이 있습니다(tools/diff-rails.mjs 가 찾음).
+     식을 여기서 따로 적지 말고 avatarInitialSize 를 쓰세요. */
+  font-size: 16px;
+  line-height: 1;
+  letter-spacing: 0;
+  user-select: none;
+}
+.qd-rail-user-text { min-width: 0; flex: 1; }
+.qd-rail-user-name {
+  display: block;
+  font-size: 14px;
+  color: var(--qd-text);
+  font-weight: 500;
+  line-height: var(--qd-leading-snug);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.qd-rail-user-meta {
+  display: block;
+  margin-top: 3px;
+  /* «소유자 · 엔터프라이즈» 처럼 한글이고 적힌 그대로다(오너 결정 2026-09-28 · 전에는 모노 대문자) */
+  font-family: var(--qd-font-ui);
+  font-size: 12px;
+  letter-spacing: 0.4px;
+  text-transform: none;
+  color: var(--qd-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.qd-rail-user-meta[data-hangul] {
+  /* 본문 글꼴이라 한글 좁은 띄어쓰기(-0.35em)는 걸지 않는다. 걸면 «소유자 · 엔터프라이즈» 가 겹친다(2026-09-28) */
+  letter-spacing: 0;
+}
+
+/* 로그아웃은 «글귀» 입니다(오너 결정 2026-09-28 · 원본 TextAction 과 같은 모양).
+   흐린 글자 → 올리면 진한 글자. 테두리 · 바탕이 없어 주 동작과 무게가 갈립니다.
+   터치 기기에서는 높이만 44 로 올립니다(원본 qa-touch-44). */
+.qd-rail-logout {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--qd-control-height-sm, 36px);
+  padding: 0 4px;
+  background: transparent;
+  border: 0;
+  color: var(--qd-muted);
+  font-family: var(--qd-font-ui);
+  font-size: var(--qd-control-size, 14px);
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+.qd-rail-logout:hover { color: var(--qd-text); }
+@media (pointer: coarse) {
+  .qd-rail-logout { min-height: 44px; }
+}
+
+/* ── 낮은 화면 ─────────────────────────────────────────────────────────────
+   높이가 낮으면(작은 노트북 · 패드 가로) 위 로고와 아래 고정 영역이 차림표를 가립니다
+   (1366x657 에서 Q-Carnet 차림표가 9개 중 2개만 보였습니다 · 2026-10-23 실측).
+   원본 Q-Atelier 의 «낮은 화면만 줄이기»(오너 결정 2026-09-27 · 2026-10-23 A안)와 같은 값을
+   patterns/foundation/atelier.css 한 곳에서 읽어 옵니다. 계정 · 잠금은 바닥에 그대로 고정입니다(M-16). */
+@media (max-height: 820px) {
+  .qd-rail { padding-top: 12px; padding-bottom: 12px; }
+  .qd-rail-brand { margin-bottom: 8px; }
+  .qd-rail-mark { width: 52px; }
+  .qd-rail-version { display: none; }
+  .qd-rail-row { margin-top: 6px; margin-bottom: 6px; }
+  .qd-rail-theme { padding: 6px 12px; }
+  .qd-rail-foot { padding-top: 8px; }
+  .qd-rail-user { margin-bottom: 6px; }
+}
+
+/* ── 좁은 화면 ─────────────────────────────────────────────────────────────
+   1024px 미만은 레일을 감추고 서랍으로 바꿉니다. 그 폭을 프로젝트가 정하지
+   않게 여기서 못 박습니다. 각자 정하면 세 제품의 «접히는 순간» 이 달라집니다. */
+@media (max-width: 1023px) {
+  .qd-rail:not(.qd-rail--drawer) { display: none; }
+}
+
+.qd-rail-backdrop {
+  position: fixed;
+  inset: 0;
+  /* 사다리 칸을 부릅니다. 50 은 이 파일이 지어낸 숫자였고, 받는 제품의
+     대화상자(60·70·80)보다 아래라 서랍이 열려도 그것들이 위에 남았습니다. */
+  z-index: var(--qd-z-drawer-backdrop);
+  background: rgba(0, 0, 0, 0.65);
+}
+
+@media print {
+  .qd-rail, .qd-rail-backdrop { display: none !important; }
+}
+}

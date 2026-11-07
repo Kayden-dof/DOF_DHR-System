@@ -40,7 +40,7 @@ export function NewItemForm({ materialOnly = false }: { materialOnly?: boolean }
       <button onClick={() => setOpen(true)} className="btn-primary">품목 등록</button>
       <Dialog open={open} onClose={() => setOpen(false)} wide title="품목 등록">
         <form action={action}>
-      <h3 className="mb-3 text-sm font-bold text-ink">새 품목</h3>
+      <h3 className="mb-3 text-sm font-semibold text-ink">새 품목</h3>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div>
@@ -205,7 +205,7 @@ export function ItemRowView({ it, suppliers }: {
         <td className="td tnum text-right">{it.min_stock ? Number(it.min_stock) : ''}</td>
         <td className="td tnum text-right text-muted">{it.lot_count || ''}</td>
         <td className="td text-right">
-          <button onClick={() => setOpen(true)} className="btn-quiet btn-row">
+          <button onClick={() => setOpen(true)} className="qd-text-action">
             수정
           </button>
         </td>
@@ -384,7 +384,7 @@ export function GenerateFinished({ schemes }: { schemes: SchemeOpt[] }) {
       <button onClick={() => setOpen(true)} className="btn-ghost">완제품 형명 생성</button>
       <Dialog open={open} onClose={() => setOpen(false)} wide title="완제품 형명 생성">
         <form action={action}>
-      <h3 className="text-sm font-bold text-ink">완제품 형명 생성</h3>
+      <h3 className="text-sm font-semibold text-ink">완제품 형명 생성</h3>
       <p className="mt-1 text-xs leading-relaxed text-muted">
         형명 규칙은 <b className="text-ink">형명 체계</b>가 정합니다. 크기와 구간을 입력하고
         미리보기를 누르면 만들어질 형명이 격자로 펼쳐집니다. 만들지 않을 칸은 체크를
@@ -482,7 +482,7 @@ export function GenerateFinished({ schemes }: { schemes: SchemeOpt[] }) {
             </b>
           </p>
           <div className="mt-2 max-h-72 overflow-auto rounded-md border border-line">
-            <table className="w-full">
+            <table className="qd-table qd-table--hangul">
               <thead>
                 <tr>
                   <th className="th sticky left-0 bg-surface">크기</th>
@@ -527,7 +527,7 @@ export function GenerateFinished({ schemes }: { schemes: SchemeOpt[] }) {
 
       {state.rows && state.rows.length > 0 && (
         <div className="mt-3 max-h-64 overflow-auto rounded-md border border-line">
-          <table className="w-full">
+          <table className="qd-table qd-table--hangul" data-grow="2">
             <thead><tr><th className="th">코드</th><th className="th">이름</th><th className="th">결과</th></tr></thead>
             <tbody>
               {state.rows.map((r) => (

@@ -275,7 +275,7 @@ export default function WorkPanel({
       {/* 일차 --------------------------------------------------------------- */}
       <section className="card p-5">
         <div className="flex items-baseline justify-between">
-          <h2 className="text-base font-bold text-ink">일차</h2>
+          <h2 className="text-base font-semibold text-ink">일차</h2>
           <span className="text-sm text-muted">지시서별 실작업일 순번</span>
         </div>
         <div className="mt-3.5 flex flex-wrap gap-2">
@@ -285,7 +285,7 @@ export default function WorkPanel({
               <button key={n} onClick={() => { setDay(n); setOpId(null); }}
                       data-on={day === n}
                       className="tile no-select w-[6.5rem] items-center gap-0.5 text-center">
-                <span className="text-xl font-bold tnum">{n}일차</span>
+                <span className="text-xl font-semibold tnum">{n}일차</span>
                 {/*
                   * 그 일차가 언제였는지 붙인다 (4차 감사 E1).
                   *
@@ -311,7 +311,7 @@ export default function WorkPanel({
             <button onClick={() => { setDay(nextDay); setOpId(null); }}
                     data-on={day === nextDay}
                     className="tile no-select w-[6.5rem] items-center gap-0.5 border-dashed text-center">
-              <span className="text-xl font-bold tnum">{nextDay}일차</span>
+              <span className="text-xl font-semibold tnum">{nextDay}일차</span>
               <span className="text-xs text-muted">새로 시작</span>
             </button>
           )}
@@ -348,11 +348,11 @@ export default function WorkPanel({
       {/* 공정 --------------------------------------------------------------- */}
       <section className="card p-5">
         <div className="flex items-baseline justify-between">
-          <h2 className="text-base font-bold text-ink">{day}일차 공정</h2>
+          <h2 className="text-base font-semibold text-ink">{day}일차 공정</h2>
           <span className="text-sm text-muted">
             마감 <b className="tnum text-ink">{mine}</b> / {ops.length}
             {dayRecords.some((r) => !r.ended_at) && (
-              <span className="ml-2 font-bold text-warn">진행 중 {
+              <span className="ml-2 font-semibold text-warn">진행 중 {
                 dayRecords.filter((r) => !r.ended_at).length
               }</span>
             )}
@@ -478,7 +478,7 @@ function OpTile({
       <span aria-hidden className={`absolute inset-y-2 left-2 w-1 rounded-full ${bar}`} />
 
       <div className="flex items-center gap-2">
-        <span className="w-5 text-center text-sm font-bold tnum text-faint">{o.seq}</span>
+        <span className="w-5 text-center text-sm font-semibold tnum text-faint">{o.seq}</span>
         <span className="flex-1 text-base font-semibold text-ink">{o.name}</span>
         {state === 'open' && <Tag tone="warn">진행 중</Tag>}
         {state === 'done' && <Tag tone="ok">마감</Tag>}
@@ -554,7 +554,7 @@ function OperationCard({
     <section className="card overflow-hidden">
       <header className="section-head bg-brand-soft">
         <div>
-          <h2 className="text-base font-bold text-ink">{op.name}</h2>
+          <h2 className="text-base font-semibold text-ink">{op.name}</h2>
           <p className="text-xs text-muted">{op.code}</p>
         </div>
         {rec && (
@@ -668,7 +668,7 @@ function StartCard({ woId, day, op, people, productLots, attempt, done, splitOp 
               {productLots.map((p) => (
                 <button key={p.id} type="button" onClick={() => setLot(p.id)}
                         data-on={lot === p.id} className="tile">
-                  <span className="font-mono text-base font-bold">{p.lot_no}</span>
+                  <span className="font-mono text-base font-semibold">{p.lot_no}</span>
                   <span className="text-xs text-muted">{p.item_name}</span>
                 </button>
               ))}
@@ -700,7 +700,7 @@ function StartCard({ woId, day, op, people, productLots, attempt, done, splitOp 
                 <button key={q.code} type="button"
                         onClick={() => setEquip((v) => (v === q.id ? '' : q.id))}
                         data-on={equip === q.id} className="tile">
-                  <span className="flex items-center gap-2 font-mono text-base font-bold">
+                  <span className="flex items-center gap-2 font-mono text-base font-semibold">
                     {q.code}
                     {gone && (
                       <span className="chip bg-danger-bg text-danger">
@@ -806,7 +806,7 @@ function RunningCard({ woId, op, rec, lots, sheets, loadUnit, expiryWarnDays }: 
         {(['material', 'end'] as const).map((t) => (
           <button key={t} type="button" onClick={() => setTab(t)}
                   aria-pressed={tab === t}
-                  className={`no-select flex h-[var(--tap)] items-center justify-center gap-2 rounded-md text-base font-bold transition-colors ${
+                  className={`no-select flex h-[var(--tap)] items-center justify-center gap-2 rounded-md text-base font-semibold transition-colors ${
                     tab === t
                       ? 'bg-brand-tint text-brand'
                       : 'text-muted hover:bg-surface-sub'
@@ -867,7 +867,7 @@ function MaterialForm({ woId, rec, op, lots, sheets, loadUnit, expiryWarnDays }:
     </p>
   ) : (
     <div className="rounded-lg border border-line bg-surface-sub p-3">
-      <p className="text-xs font-bold tracking-wide text-muted">이 공정에 들어가는 자재</p>
+      <p className="text-xs font-semibold tracking-wide text-muted">이 공정에 들어가는 자재</p>
       <ul className="mt-2 space-y-1.5">
         {op.bom.map((b) => {
           const done = recordedItems.has(b.item_id);
@@ -939,7 +939,7 @@ function MaterialForm({ woId, rec, op, lots, sheets, loadUnit, expiryWarnDays }:
             return (
               <button key={l.id} type="button" onClick={() => setLotId(l.id)}
                       data-on={lotId === l.id} className="tile">
-                <span className="font-mono text-base font-bold">{l.lot_no}</span>
+                <span className="font-mono text-base font-semibold">{l.lot_no}</span>
                 <span className="text-xs text-muted">
                   {l.item_name} · 잔여 <span className="tnum">{Number(l.qty_available)}</span> {l.usage_uom}
                 </span>
@@ -1012,7 +1012,7 @@ function EndForm({ woId, rec, op, missing }: {
 
       {missing.length > 0 && (
         <div className="rounded-md border border-warn/30 bg-warn-bg p-3">
-          <p className="text-sm font-bold text-ink">아직 기록하지 않은 자재가 있습니다</p>
+          <p className="text-sm font-semibold text-ink">아직 기록하지 않은 자재가 있습니다</p>
           <ul className="mt-1.5 space-y-0.5 text-sm text-ink">
             {missing.map((m) => (
               <li key={m.item_code}>· {m.item_name} ({m.item_code})</li>
@@ -1082,7 +1082,7 @@ function CloseDayCard({ woId, day, batchNo, openOps }: {
 
   return (
     <section className="card border-brand-line p-4">
-      <h2 className="text-base font-bold text-ink">{day}일차 마감</h2>
+      <h2 className="text-base font-semibold text-ink">{day}일차 마감</h2>
       <p className="mt-1 text-sm leading-relaxed text-muted">
         마감하면 제조기록서가 발행되고 <b className="text-ink">이 묶음은 더 이상 수정할 수 없습니다.</b>
         {' '}잠금을 푸는 방법은 없습니다. 누락된 것은 다음 일차에 정정 기록으로 남겨야 합니다.
@@ -1202,7 +1202,7 @@ function CutPanel({
   return (
     <div className="border-t border-line bg-canvas p-4">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h3 className="text-base font-bold text-ink">{splitOp ?? '제조번호 부여'} 결과</h3>
+        <h3 className="text-base font-semibold text-ink">{splitOp ?? '제조번호 부여'} 결과</h3>
         <p className="text-xs leading-relaxed text-muted">
           형명별로 몇 장이 나왔는지 적으면 제조번호가 붙습니다.
           {band && <> 이 배치의 두께 구간은 <b className="text-ink">{band}</b> 입니다.</>}
@@ -1215,7 +1215,7 @@ function CutPanel({
           {lots.map((l) => (
             <li key={l.id}
                 className="flex flex-wrap items-baseline gap-x-3 rounded-md border border-line bg-surface px-3 py-2">
-              <span className="font-mono text-base font-bold text-ink">{l.lot_no}</span>
+              <span className="font-mono text-base font-semibold text-ink">{l.lot_no}</span>
               <span className="text-sm text-body">{l.item_code}</span>
               <span className="ml-auto text-sm text-muted">
                 생산 <b className="tnum text-ink">{l.qty_produced ?? 0}</b>
@@ -1247,7 +1247,7 @@ function CutPanel({
                 return (
                   <button key={f.id} type="button" onClick={() => setItem(f.id)}
                           data-on={item === f.id} className="tile">
-                    <span className="font-mono text-base font-bold">{f.code}</span>
+                    <span className="font-mono text-base font-semibold">{f.code}</span>
                     <span className="text-xs text-muted">
                       {f.name}{already && ' · 이미 부여함'}
                     </span>
@@ -1376,7 +1376,7 @@ function IssueRow({ woId, x, locked }: {
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3">
         <span className="min-w-0 flex-1 text-sm font-semibold text-ink">{x.item_name}</span>
         <span className="font-mono text-sm text-muted">{x.lot_no}</span>
-        <span className="tnum text-base font-bold text-ink">
+        <span className="tnum text-base font-semibold text-ink">
           {Number(x.qty)} {x.usage_uom}
         </span>
         {!locked && (
@@ -1405,12 +1405,12 @@ function IssueRow({ woId, x, locked }: {
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={() => setMode('amend')} data-on={mode === 'amend'}
                   className="tile w-auto flex-1 items-center py-3 text-center">
-            <span className="text-base font-bold">수량을 잘못 적음</span>
+            <span className="text-base font-semibold">수량을 잘못 적음</span>
             <span className="text-xs text-muted">수량을 고칩니다</span>
           </button>
           <button type="button" onClick={() => setMode('return')} data-on={mode === 'return'}
                   className="tile w-auto flex-1 items-center py-3 text-center">
-            <span className="text-base font-bold">넣지 말았어야 함</span>
+            <span className="text-base font-semibold">넣지 말았어야 함</span>
             <span className="text-xs text-muted">원 로트로 반납합니다</span>
           </button>
         </div>
@@ -1517,7 +1517,7 @@ function PrepCard(
   return (
     <section className="card p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-base font-bold text-ink">
+        <h2 className="text-base font-semibold text-ink">
           오늘 할 것{todayDay !== 99 ? ` · 보통 ${todayDay}일차` : ''}
         </h2>
         <span className="text-sm text-muted">남은 공정 {left.length}개</span>
@@ -1556,7 +1556,7 @@ function PrepCard(
               return (
                 <li key={id} className="flex flex-wrap items-baseline gap-x-4 py-2">
                   <span className="min-w-0 flex-1 text-base text-ink">{n.name}</span>
-                  <span className="tnum text-lg font-bold text-ink">
+                  <span className="tnum text-lg font-semibold text-ink">
                     {n.known ? n.qty : '—'} {n.uom}
                   </span>
                   <span className={`tnum text-sm ${short ? 'font-semibold text-warn' : 'text-muted'}`}>

@@ -1,0 +1,282 @@
+/* =============================================================================
+   Q-Design 에서 온 사본입니다. **이 파일을 손으로 고치지 마세요.**
+
+   출처   D:/Claude/Q-Design/dist/q-design.workspace.css
+   갱신   cd D:/Claude/Q-Design
+          node tools/extract-all.mjs && node tools/sync.mjs --write
+
+   고칠 일이 생기면 Q-Design 의 원본을 고치고 추출기를 다시 돌립니다.
+   여기서 고치면 제품들의 화면·문서가 갈립니다.
+   아래 지문은 본문의 sha256 이고, 이 저장소의 검사가 대조합니다.
+
+   q-design-nav-sha256: 6127248fa592578ad085ab46305a154cf342b6672399a987f85796b123f50875
+   ============================================================================= */
+@layer components {
+/* Q-Design owns this opt-in composition layer. Source mirrors remain untouched.
+   Generated into q-design.screen.css by extract-screen.mjs.
+   See docs/07-screens.md («업무 화면 정돈») for markup and adoption boundaries. */
+.qd-workspace {
+  --qd-product: #b9b9b9;
+  font-family: var(--qd-font-ui);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--qd-text);
+}
+.qd-workspace[data-product='maison'] { --qd-product: #c9a66b; }
+.qd-workspace[data-product='carnet'] { --qd-product: #c7784f; }
+html[data-theme='light'] .qd-workspace { --qd-product: #595959; }
+html[data-theme='light'] .qd-workspace[data-product='maison'] { --qd-product: #84632f; }
+html[data-theme='light'] .qd-workspace[data-product='carnet'] { --qd-product: #97522f; }
+/* Maison uses next-themes' class strategy and starts in light mode. */
+html:not(.dark):not([data-theme='dark']) .qd-workspace[data-product='maison'] { --qd-product: #84632f; }
+.qd-workspace[data-product='atelier'] {
+  --qd-bg: var(--qa-bg);
+  --qd-surface: var(--qa-surface);
+  --qd-surface2: var(--qa-surface2);
+  --qd-text: var(--qa-text);
+  --qd-subtle: var(--qa-subtle);
+  --qd-muted: var(--qa-muted);
+  --qd-border: var(--qa-border);
+  --qd-borderHi: var(--qa-borderHi);
+  --qd-accent: var(--qa-champagne);
+  --qd-danger: var(--qa-red);
+  --qd-font-ui: var(--qa-font-pretendard), Pretendard, sans-serif;
+  --qd-font-mono: 'JetBrains Mono', monospace;
+}
+.qd-workspace, .qd-workspace * { box-sizing: border-box; }
+.qd-workspace [hidden] { display: none !important; }
+.qd-workspace :where(h1,h2,h3,p,dl,dd) { margin: 0; }
+.qd-workspace :where(button,input,select) { font-family: inherit; }
+.qd-workspace :where(button,a,input,select):focus-visible {
+  outline: 2px solid var(--qd-accent);
+  outline-offset: 4px;
+}
+.qd-workspace .qd-btn { min-height: 44px; font-size: 14px; letter-spacing: 0; text-transform: none; }
+.qd-workspace .qd-btn--secondary { color: var(--qd-text); border-color: var(--qd-borderHi); }
+.qd-workspace .qd-input { min-height: 44px; width: 100%; font-size: 14px; }
+.qd-workspace .qd-input::placeholder { color: var(--qd-muted); opacity: 1; }
+.qd-workspace .qd-field-label { font: 500 13px/1.5 var(--qd-font-ui); letter-spacing: 0; text-transform: none; }
+.qd-workspace .qd-product-name { color: var(--qd-product); font-size: 16px; font-weight: 500; }
+.qd-workspace .qd-work-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; padding-bottom: 28px; }
+.qd-workspace .qd-work-title { font-size: clamp(24px, 3vw, 32px); font-weight: 600; line-height: 1.2; letter-spacing: -0.02em; }
+.qd-workspace .qd-work-intro { color: var(--qd-subtle); margin-top: 10px; max-width: 65ch; }
+.qd-workspace .qd-work-meta { color: var(--qd-subtle); font-size: 14px; }
+.qd-workspace .qd-work-summary { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); margin-bottom: 36px; border-block: 1px solid var(--qd-borderHi); }
+.qd-workspace .qd-work-metric { padding: 22px 24px; }
+.qd-workspace .qd-work-metric + .qd-work-metric { border-left: 1px solid var(--qd-border); }
+.qd-workspace .qd-work-metric dt { font-size: 14px; color: var(--qd-subtle); }
+.qd-workspace .qd-work-metric dd { margin-top: 10px; font-size: 32px; line-height: 1.2; font-weight: 600; font-variant-numeric: tabular-nums; }
+.qd-workspace .qd-work-metric dd span { margin-left: 6px; font-size: 14px; font-weight: 400; color: var(--qd-subtle); }
+.qd-workspace .qd-work-metric p { margin-top: 8px; font-size: 14px; color: var(--qd-subtle); }
+/* 요약 지표 칸 수는 data-cols 로 고른다(없으면 세 칸). 부제는 dl 안에서 바른 dd.qd-work-metric-sub 로도 둔다 */
+.qd-workspace .qd-work-summary[data-cols='1'] { grid-template-columns: minmax(0,1fr); }
+.qd-workspace .qd-work-summary[data-cols='2'] { grid-template-columns: repeat(2,minmax(0,1fr)); }
+.qd-workspace .qd-work-summary[data-cols='4'] { grid-template-columns: repeat(4,minmax(0,1fr)); }
+.qd-workspace .qd-work-summary[data-cols] .qd-work-metric:first-child { padding-left: 0; }
+.qd-workspace .qd-work-metric .qd-work-metric-sub { margin-top: 8px; font-size: 14px; line-height: 1.6; font-weight: 400; color: var(--qd-subtle); }
+/* 지표 칸 막대 · 범례(2026-10-21 오너 결정 «시안 A»): 큰 숫자 아래 얇은 막대 하나와 같은 색 점의 범례 한 줄.
+   막대 조각 · 점의 색은 화면이 아래 구역과 같은 표에서 넣는다(style). 여기는 길이 · 굵기 · 간격만 쥔다.
+   dd 기본 규칙(큰 숫자 30 · 굵게)과 dd span 규칙(단위 13 · 흐림)을 이겨야 해서 .qd-work-metric 을 한 번 더 적는다 */
+.qd-workspace .qd-work-metric .qd-work-meter { position: relative; margin-top: 14px; height: 6px; font-size: 0; line-height: 0; }
+.qd-workspace .qd-work-metric .qd-work-meter-track { display: flex; gap: 2px; height: 6px; margin-left: 0; border-radius: 3px; overflow: hidden; background: var(--qd-border); }
+.qd-workspace .qd-work-metric .qd-work-meter-track > i { display: block; flex: 1 1 0; min-width: 0; height: 100%; }
+.qd-workspace .qd-work-metric .qd-work-meter-mark { position: absolute; top: -3px; width: 2px; height: 12px; margin-left: -1px; border-radius: 1px; background: var(--qd-text); }
+.qd-workspace .qd-work-metric .qd-work-legend { display: flex; flex-wrap: wrap; gap: 2px 12px; margin-top: 10px; font-size: 14px; line-height: 1.6; font-weight: 400; color: var(--qd-subtle); }
+.qd-workspace .qd-work-metric .qd-work-legend > span { margin-left: 0; font-size: inherit; font-weight: inherit; color: inherit; white-space: nowrap; }
+.qd-workspace .qd-work-metric .qd-work-legend b { font-weight: 600; color: var(--qd-text); font-variant-numeric: tabular-nums; }
+.qd-workspace .qd-work-metric .qd-work-legend-dot { display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; vertical-align: 1px; }
+/* 누르면 아래 구역으로 가는 칸: 칸 이름 링크를 칸 전체로 늘린다. 이름 앞 번호는 그 구역 머리 번호와 같은 값 */
+.qd-workspace .qd-work-metric[data-go] { position: relative; }
+.qd-workspace .qd-work-metric .qd-work-metric-head { display: flex; align-items: baseline; gap: 8px; }
+.qd-workspace .qd-work-metric .qd-work-metric-no { font-family: var(--qd-font-mono); font-size: 12px; font-weight: 500; color: var(--qd-accent); font-variant-numeric: tabular-nums; }
+.qd-workspace .qd-work-metric .qd-work-metric-link { color: inherit; text-decoration: none; transition: color .15s; }
+.qd-workspace .qd-work-metric .qd-work-metric-link::after { content: ''; position: absolute; inset: 0; }
+/* 초점 윤곽은 칸 둘레 하나만. 제품의 전역 초점 규칙(겹 밖 :focus-visible · a:focus-visible)은 겹 안 규칙을
+   구체성과 상관없이 이기므로 글자 둘레 윤곽 · 그림자를 끄는 데만 !important 를 쓴다(2026-10-21 실측: 윤곽이 두 겹) */
+.qd-workspace .qd-work-metric .qd-work-metric-link:focus-visible { outline: none !important; box-shadow: none !important; }
+.qd-workspace .qd-work-metric .qd-work-metric-link:focus-visible::after { outline: var(--qd-focus-outline-width) solid var(--qd-accent); outline-offset: 4px; border-radius: var(--qd-radius); }
+.qd-workspace .qd-work-metric .qd-work-metric-go { margin-left: auto; font-size: 12px; color: var(--qd-muted); white-space: nowrap; transition: color .15s; }
+.qd-workspace .qd-work-metric[data-go]:hover :is(.qd-work-metric-link, .qd-work-metric-go),
+.qd-workspace .qd-work-metric[data-go]:has(.qd-work-metric-link:focus-visible) :is(.qd-work-metric-link, .qd-work-metric-go) { color: var(--qd-text); }
+/* 번호 붙은 괘선 구역: 상자 없이 쌓는 현황 구역. 번호는 보이는 차례대로 CSS 가 센다(숨기거나 빈 구역은 건너뛴다).
+   괘선은 구역 «위» 에 하나(2026-10-27 오너 결정 «A»). 제목 아래에만 있던 선은 앞 구역 끝이 다음 구역 머리로 흘러 들어가
+   보였다. 일반 카드의 위 괘선(--qd-card-rule)과 같은 결이다 */
+.qd-workspace .qd-work-sections { counter-reset: qd-work-section; }
+.qd-workspace .qd-work-sections-list { display: flex; flex-direction: column; gap: 40px; }
+.qd-workspace .qd-work-section { counter-increment: qd-work-section; min-width: 0; padding-top: 24px; border-top: 1px solid var(--qd-borderHi); }
+.qd-workspace .qd-work-section-title { display: inline-flex; align-items: baseline; gap: 10px; min-width: 0; }
+.qd-workspace .qd-work-section-num { font-family: var(--qd-font-mono); font-size: 12px; font-weight: 500; color: var(--qd-accent); font-variant-numeric: tabular-nums; }
+.qd-workspace .qd-work-section-num::before { content: counter(qd-work-section, decimal-leading-zero); }
+.qd-workspace .qd-work-subhead { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; margin-top: 20px; padding-bottom: 8px; font-size: 14px; font-weight: 600; color: var(--qd-subtle); border-bottom: 1px solid var(--qd-border); }
+.qd-workspace .qd-work-subhead > span { min-width: 0; overflow-wrap: anywhere; }
+.qd-workspace .qd-work-subhead small { font-size: 12px; font-weight: 400; font-variant-numeric: tabular-nums; }
+.qd-workspace .qd-work-subhead .qd-work-line-code { margin-right: 8px; font-weight: 400; }
+/* 묶음 소제목(제품 하나 = 한 묶음): 이름은 본문 색으로 조금 크게 */
+.qd-workspace .qd-work-subhead--group { margin-top: 28px; font-size: 14px; color: var(--qd-text); }
+/* 줄 목록: 한 줄에 한 건. 앞 칸(구분 글자) · 본문 · 메타 · 행동을 괘선으로 가른다 */
+.qd-workspace .qd-work-lines { container-type: inline-size; display: flex; flex-direction: column; }
+.qd-workspace .qd-work-line { display: grid; grid-template-columns: 4.5rem minmax(0,1fr) auto auto; gap: 16px; align-items: baseline; padding: 12px 0; border-bottom: 1px solid var(--qd-border); font-size: 14px; line-height: 1.6; }
+.qd-workspace .qd-work-line-tag { font-size: 14px; font-weight: 600; color: var(--qd-subtle); }
+.qd-workspace .qd-work-line-main { min-width: 0; display: flex; flex-direction: column; gap: 2px; overflow-wrap: anywhere; }
+.qd-workspace .qd-work-line-detail { font-size: 14px; color: var(--qd-muted); }
+.qd-workspace .qd-work-line-meta { font-size: 12px; color: var(--qd-subtle); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.qd-workspace .qd-work-line-act { justify-self: end; font-size: 14px; }
+.qd-workspace .qd-work-line--project { grid-template-columns: 7.5rem minmax(0,1fr) 11rem auto; }
+.qd-workspace .qd-work-line-code { font-family: var(--qd-font-mono); font-size: 12px; color: var(--qd-subtle); }
+.qd-workspace .qd-work-line-empty { padding: 14px 0; font-size: 14px; color: var(--qd-subtle); border-bottom: 1px solid var(--qd-border); }
+.qd-workspace .qd-work-more { padding-top: 8px; font-size: 14px; }
+/* 구역 머리 바로 아래 «오늘 먼저 할 일» 한 줄: 가장 급한 일을 크게 + 주 단추 하나.
+   대시보드 A 로 바꾸며 종전 카드의 능동 처방(화면 검토 A14)이 작은 글귀 줄로 묻혔다(2026-10-20 오너 «홈 내용이 많이 축소») */
+.qd-workspace .qd-work-lead { display: grid; grid-template-columns: 4.5rem minmax(0,1fr) auto; gap: 16px; align-items: center; padding: 18px 0; border-bottom: 1px solid var(--qd-border); }
+.qd-workspace .qd-work-lead-main { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.qd-workspace .qd-work-lead-main > small { font-size: 12px; color: var(--qd-subtle); }
+.qd-workspace .qd-work-lead-title { font-size: 18px; font-weight: 600; line-height: 1.4; color: var(--qd-text); overflow-wrap: anywhere; }
+.qd-workspace .qd-work-lead-title em { margin-left: 8px; font-style: normal; white-space: nowrap; }
+/* 구역의 큰 요약 줄(«제품 1 · 진행 중 변경 0»)과 그 아래 예외 줄. 값은 본문색 굵게, 이름은 흐리게 */
+.qd-workspace .qd-work-headline { margin-top: 18px; font-size: clamp(22px, 2.4vw, 28px); font-weight: 600; line-height: 1.4; letter-spacing: -0.01em; color: var(--qd-text); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.qd-workspace .qd-work-headline span { font-weight: 400; color: var(--qd-subtle); }
+.qd-workspace .qd-work-headline-sub { margin-top: 6px; font-size: 14px; color: var(--qd-subtle); }
+/* 여섯 단계 흐름(기획 · 개발 · 검증 · 유효성 · 신청 · 허가) 한 줄. 지난 단계 · 지금 단계(굵게) · 남은 단계(흐리게) */
+.qd-workspace .qd-work-steps { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-wrap: wrap; align-items: center; row-gap: 2px; font-size: 12px; line-height: 1.6; color: var(--qd-muted); }
+.qd-workspace .qd-work-steps > li { display: inline-flex; align-items: center; white-space: nowrap; }
+.qd-workspace .qd-work-steps > li + li::before { content: ''; display: inline-block; width: 12px; height: 1px; margin: 0 6px; background: var(--qd-border); }
+.qd-workspace .qd-work-steps > li[data-state='done'] { color: var(--qd-subtle); }
+.qd-workspace .qd-work-steps > li[data-state='done'] + li::before { background: var(--qd-subtle); }
+.qd-workspace .qd-work-steps > li[data-state='now'] { color: var(--qd-text); font-weight: 600; }
+.qd-workspace .qd-work-bar { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.qd-workspace .qd-work-bar-track { flex: 1; height: 4px; border-radius: 2px; background: var(--qd-surface2); overflow: hidden; }
+.qd-workspace .qd-work-bar-fill { display: block; height: 100%; background: var(--qd-text); opacity: .55; }
+.qd-workspace .qd-work-bar-n { font-family: var(--qd-font-mono); font-size: 12px; color: var(--qd-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* 단계 줄: 한글 단계 이름에는 자간 · 대문자를 걸지 않는다 */
+.qd-workspace .qd-work-stages { list-style: none; margin: 14px 0 6px; padding: 0; display: flex; flex-wrap: wrap; row-gap: 6px; }
+.qd-workspace .qd-work-stage { display: flex; align-items: baseline; gap: 6px; padding: 4px 14px 4px 0; margin-right: 14px; border-right: 1px solid var(--qd-border); font-size: 14px; color: var(--qd-muted); }
+.qd-workspace .qd-work-stage:last-child { border-right: 0; margin-right: 0; }
+.qd-workspace .qd-work-stage[data-on] { color: var(--qd-text); }
+.qd-workspace .qd-work-stage-n { font-family: var(--qd-font-mono); font-variant-numeric: tabular-nums; }
+.qd-workspace .qd-work-stage[data-on] .qd-work-stage-n { font-weight: 600; }
+@container (max-width: 640px) {
+  .qd-workspace .qd-work-line { grid-template-columns: minmax(0,1fr) auto; grid-template-areas: 'tag meta' 'main act'; row-gap: 4px; }
+  .qd-workspace .qd-work-line-tag { grid-area: tag; }
+  .qd-workspace .qd-work-line-meta { grid-area: meta; justify-self: end; }
+  .qd-workspace .qd-work-line-main { grid-area: main; }
+  .qd-workspace .qd-work-line-act { grid-area: act; }
+  .qd-workspace .qd-work-line--project { grid-template-areas: 'code act' 'main main' 'bar bar'; }
+  .qd-workspace .qd-work-line--project > .qd-work-line-code { grid-area: code; }
+  .qd-workspace .qd-work-line--project > .qd-work-bar { grid-area: bar; }
+}
+/* «오늘 먼저 할 일» 은 줄 목록 밖(구역 바로 아래)이라 화면 폭으로 접는다: 폰은 구분 · 본문 · 단추가 위아래로, 단추는 가득 */
+@media (max-width: 640px) {
+  .qd-workspace .qd-work-lead { grid-template-columns: minmax(0,1fr); gap: 8px; }
+  .qd-workspace .qd-work-lead > .qd-btn { width: 100%; }
+}
+.qd-workspace .qd-work-columns { display: grid; grid-template-columns: minmax(0,1fr) 280px; gap: 36px; }
+.qd-workspace .qd-work-columns > * { min-width: 0; }
+.qd-workspace .qd-work-section-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 12px; padding-bottom: 16px; }
+.qd-workspace .qd-work-section-head h2 { font-size: 18px; line-height: 1.4; font-weight: 600; }
+.qd-workspace .qd-work-section-head small { font-size: 14px; color: var(--qd-subtle); }
+.qd-workspace .qd-work-row { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding: 20px 0; border-bottom: 1px solid var(--qd-border); }
+.qd-workspace .qd-work-row > div:first-child { min-width: 0; }
+.qd-workspace .qd-work-row h3 { font-size: 16px; line-height: 1.6; font-weight: 600; overflow-wrap: anywhere; }
+.qd-workspace .qd-work-row p { margin-top: 5px; color: var(--qd-subtle); font-size: 14px; overflow-wrap: anywhere; }
+.qd-workspace .qd-work-code { font-family: var(--qd-font-mono); font-size: 12px; }
+.qd-workspace .qd-work-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; flex-shrink: 0; }
+.qd-workspace .qd-work-action { display: inline-flex; justify-content: center; align-items: center; gap: 6px; min-height: 44px; padding: 8px 12px; border: 1px solid var(--qd-borderHi); border-radius: 10px; background: transparent; color: var(--qd-text); font-size: 14px; font-weight: 500; line-height: 1.6; text-decoration: none; cursor: pointer; transition: background 150ms ease; }
+.qd-workspace .qd-work-action:hover { background: var(--qd-surface2); }
+.qd-workspace .qd-work-action:active { transform: translateY(1px); }
+.qd-workspace .qd-work-action:disabled { opacity: .55; cursor: wait; }
+.qd-workspace .qd-work-action--text { border-color: transparent; padding-inline: 8px; }
+.qd-workspace .qd-work-status { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 500; white-space: nowrap; color: var(--qd-subtle); }
+.qd-workspace .qd-work-status[data-state='review'] { color: var(--qa-state-cobalt, var(--qd-text)); }
+.qd-workspace .qd-work-status[data-state='approved'] { color: var(--qa-state-green, var(--qd-text)); }
+.qd-workspace .qd-work-status[data-state='overdue'] { color: var(--qd-danger); }
+.qd-workspace .qd-work-note { padding: 18px 0; border-block: 1px solid var(--qd-border); margin-top: 24px; }
+.qd-workspace .qd-work-note h3 { font-size: 14px; margin-bottom: 8px; font-weight: 600; }
+.qd-workspace .qd-work-note p { color: var(--qd-subtle); font-size: 14px; }
+.qd-workspace .qd-work-tools { display: grid; grid-template-columns: minmax(180px,1fr) 150px 160px; gap: 16px; margin: 24px 0 16px; align-items: end; }
+.qd-workspace .qd-work-tools label { display: block; margin-bottom: 8px; }
+.qd-workspace .qd-work-empty { padding: 48px 20px; text-align: center; border-block: 1px solid var(--qd-border); }
+.qd-workspace .qd-work-empty h3 { font-size: 18px; }
+.qd-workspace .qd-work-empty p { margin: 10px 0 20px; color: var(--qd-subtle); }
+.qd-workspace .qd-work-results { padding-bottom: 12px; color: var(--qd-subtle); font-size: 14px; }
+/* Existing production components keep their data, links and semantic state colors. */
+/* 면 · 괘선 · 모서리는 2026-10-23 부터 모든 화면의 기본값(.qd-kpi · 원본 KPI 의 Bx ledger)이라 여기서는 개요의 여백 · 글자만 덮는다 */
+.qd-workspace--overview .qd-page-head { margin-bottom: 8px; }
+.qd-workspace--overview .qd-page-head-title { font-size: clamp(24px,3vw,32px); line-height: 1.2; }
+.qd-workspace--overview .qd-kpi { padding: 18px 16px; min-height: 116px; }
+/* 14/1.4 로 (2026-10-27 카르넷 정밀 감사 D2). 13px/1.5 는 사다리 · 줄 간격 세 값 밖이었다 */
+.qd-workspace--overview .qd-kpi-label { font: 500 14px/1.4 var(--qd-font-ui); letter-spacing: 0; text-transform: none; margin-bottom: 8px; }
+.qd-workspace--overview .qd-kpi-label[data-hangul] { word-spacing: normal; }
+.qd-workspace--overview .qd-kpi-sub { font-size: 14px; line-height: 1.6; }
+/* Atelier's legacy component uses inline styles. These narrow overrides are intentional. */
+.qd-workspace--overview .qa-kpi-card { padding: 18px 16px !important; min-height: 116px !important; }
+.qd-workspace--overview .qa-kpi-card > div:first-child { font-family: var(--qd-font-ui) !important; font-size: 14px !important; letter-spacing: 0 !important; word-spacing: normal !important; margin-bottom: 8px !important; }
+.qd-workspace--overview .qa-kpi-card > div:last-child { font-size: 14px !important; }
+.qd-workspace .qd-work-library-tools { margin: 24px 0; max-width: 640px; }
+.qd-workspace .qd-work-library-tools label { display: block; margin-bottom: 8px; color: var(--qd-subtle); font-size: 14px; }
+.qd-workspace .qd-work-library-tools input { min-height: 44px; width: 100%; border: 1px solid var(--qd-borderHi); border-radius: 10px; background: var(--qd-surface); color: var(--qd-text); padding: 10px 12px; font: inherit; }
+.qd-workspace .qd-work-library-tools input::placeholder { color: var(--qd-muted); }
+@media (max-width: 1000px) {
+  .qd-workspace .qd-work-columns { grid-template-columns: 1fr; gap: 32px; }
+}
+@media (max-width: 640px) {
+  .qd-workspace .qd-work-head { flex-direction: column; gap: 18px; padding-bottom: 24px; }
+  .qd-workspace .qd-work-head > .qd-btn { width: 100%; }
+  .qd-workspace .qd-work-summary { margin-bottom: 28px; }
+  .qd-workspace .qd-work-metric { padding: 18px 10px; }
+  .qd-workspace .qd-work-metric dd { font-size: 28px; }
+  .qd-workspace .qd-work-metric p { display: none; }
+  .qd-workspace .qd-work-summary:not([data-cols]) .qd-work-metric-sub,
+  .qd-workspace .qd-work-summary[data-cols='3'] .qd-work-metric-sub,
+  .qd-workspace .qd-work-summary:not([data-cols]) .qd-work-legend,
+  .qd-workspace .qd-work-summary[data-cols='3'] .qd-work-legend { display: none; }
+  /* 폰에서는 칸 전체가 누르는 자리라 «보기 →» 글귀를 걷고 범례를 한 단 줄인다 */
+  .qd-workspace .qd-work-metric .qd-work-metric-go { display: none; }
+  .qd-workspace .qd-work-metric .qd-work-legend { gap: 2px 8px; font-size: 12px; }
+  /* 네 칸은 두 줄 두 칸이 된다. 칸이 넓어지므로 부제를 남긴다 */
+  .qd-workspace .qd-work-summary[data-cols='4'] { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .qd-workspace .qd-work-summary[data-cols='4'] .qd-work-metric { padding: 14px 14px 16px; }
+  .qd-workspace .qd-work-summary[data-cols='4'] .qd-work-metric:nth-child(odd) { border-left: 0; padding-left: 0; }
+  .qd-workspace .qd-work-summary[data-cols='4'] .qd-work-metric:nth-child(n+3) { border-top: 1px solid var(--qd-border); }
+  /* 단계 띠는 폰에서 두 칸 줄이 된다. 흘려 두면 줄 끝마다 세로 괘선이 남는다(2026-10-20 운영 375 실측) */
+  .qd-workspace .qd-work-stages { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); column-gap: 18px; row-gap: 2px; }
+  .qd-workspace .qd-work-stage { margin-right: 0; padding: 4px 0; border-right: 0; }
+  .qd-workspace .qd-work-row { align-items: flex-start; flex-direction: column; gap: 14px; }
+  .qd-workspace .qd-work-actions { width: 100%; }
+  .qd-workspace .qd-work-actions .qd-work-status { margin-right: auto; }
+  .qd-workspace .qd-work-tools { grid-template-columns: 1fr 1fr; gap: 12px; }
+  .qd-workspace .qd-work-search { grid-column: 1 / -1; }
+  .qd-workspace .qd-input { font-size: 16px; }
+  .qd-workspace .qd-work-library-tools input { font-size: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .qd-workspace *, .qd-workspace *::before, .qd-workspace *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+
+/* Short text actions keep the shared control target, including cancel links. */
+.qd-text-action { min-width: var(--qd-control-height); }
+/* A legacy focus reset must not change the shared control shape. */
+.qd-text-action:focus-visible { border-radius: var(--qd-radius) !important; }
+
+/* ── 상세 · 폼 화면의 공용 틀과 칸 격자 (2026-10-27 오너 결정 «3») ─────────────
+   만든 곳: tools/page-shell-css.mjs · 값: source/design/atelier-runtime.ts QDRuntime.fields
+
+   상세 · 폼 화면은 폭을 좁히지 않고 .qd-shell-page 한 틀에 둡니다. 좁히는 것은 현장 모드(520)뿐입니다.
+   칸은 .qd-fields 에 놓습니다. 칸 하나의 폭(300px)을 지키며 들어가는 만큼 한 줄에 놓으므로,
+   틀이 넓어져도 칸이 늘어나지 않고 한 줄의 칸 수가 늘어납니다(1920 다섯 칸 · 1366 세 칸 · 폰 한 칸).
+   주소 · 비고처럼 긴 칸은 .qd-field-wide 로 줄 끝까지 씁니다. 처음에는 두 칸 폭이었으나, 한 줄에
+   세 칸이 드는 폭에서 긴 칸 옆에 빈 칸이 남아 오너가 «끝까지» 로 고쳤습니다(같은 날).
+
+   한 구역 안에서 칸을 뜻으로 묶을 때(연락처 / 계약 기간처럼)는 .qd-fields 를 .qd-field-groups 로 감싸
+   잇달아 놓습니다. 묶음 사이는 24px 로, 줄 사이(16px)보다 넓어야 묶음이 보입니다.
+   맨몸으로 잇달아 두면 묶음 사이가 놓인 상자의 간격(12 · 16 · 24)을 따라 화면마다 갈렸습니다. 이 상자가
+   간격을 혼자 쥐므로 어느 상자 안에 놓여도 같습니다. */
+.qd-shell-page { min-width: 0; }
+.qd-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 16px 12px;
+  min-width: 0;
+}
+.qd-fields > .qd-field-wide { grid-column: 1 / -1; }
+.qd-field-groups { display: flex; flex-direction: column; gap: 24px; min-width: 0; }
+}

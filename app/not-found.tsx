@@ -14,7 +14,7 @@ export default async function NotFound() {
         <span className="inline-flex justify-center">
           <BrandMark className="h-6 w-auto text-xl" />
         </span>
-        <h1 className="mt-7 text-xl font-bold text-ink">
+        <h1 className="mt-7 text-xl font-semibold text-ink">
           찾는 화면이나 기록이 없습니다
         </h1>
         <p className="mt-2.5 text-sm leading-relaxed text-muted">

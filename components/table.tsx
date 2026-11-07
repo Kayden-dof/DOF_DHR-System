@@ -14,10 +14,22 @@
    보여야 하고, 마지막 칸의 작은 단추를 겨냥하게 만들면 안 된다.
 --------------------------------------------------------------------------- */
 
-export function Table({ children }: { children: React.ReactNode }) {
+/*
+ * 치수는 정본이 정한다 (`app/q-design.list.css` · `.qd-table`). 진짜 <table> 에
+ * 정본 값을 건다. 머리글이 한글이라 `--hangul` 로 라틴 자간 · 대문자를 푼다.
+ *
+ * grow 는 남는 폭을 받을 열 하나 (1부터 · 적지 않으면 첫 열 · 0 이면 모든 열이
+ * 똑같이 나눈다). 정본 `.qd-table` 이 `data-grow` 를 읽는다 (Q-Design 7장 «표»).
+ */
+export function Table({ children, grow, className = '' }: {
+  children: React.ReactNode; grow?: number; className?: string;
+}) {
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full">{children}</table>
+    <div className="qd-table-scroll">
+      <table className={`qd-table qd-table--hangul ${className}`.trim()}
+             data-grow={grow !== undefined && grow !== 1 ? grow : undefined}>
+        {children}
+      </table>
     </div>
   );
 }
@@ -73,7 +85,7 @@ export function IdCell({
         * B260810-01 과 B260811-01 을 가르는 것은 한 자리다. 자간이 그 일을
         * 돕는다. 인상과 실용이 같은 방향이다.
         * ------------------------------------------------------------------ */}
-      <div className="font-mono text-sm font-semibold tracking-[0.04em] text-ink">{id}</div>
+      <div className="font-mono text-sm font-semibold text-ink">{id}</div>
       {/*
         * 아랫줄은 고정폭으로 두지 않는다. 여기에 "1일차" 같은 한글이 들어가는
         * 자리가 있고(현황의 마감 대기), 고정폭 글꼴에 한글 글리프가 없어
@@ -99,7 +111,7 @@ export function TwoLine({
 /** 맨 오른쪽 동작 칸. 표가 가로로 넘쳐도 붙어 있는다. */
 export function ActionTd({ children }: { children: React.ReactNode }) {
   return (
-    <td className="td sticky right-0 text-right">
+    <td className="td sticky right-0 bg-[var(--qd-table-fill,var(--color-surface))] text-right">
       {/* 손이 얹히거나 초점이 오면 나온다. 자리는 늘 차지한다 (globals.css) */}
       <span className="row-action inline-flex items-center justify-end gap-1.5">
         {children}
@@ -109,7 +121,7 @@ export function ActionTd({ children }: { children: React.ReactNode }) {
 }
 
 export function ActionTh() {
-  return <th className="th sticky right-0 w-0" />;
+  return <th className="th sticky right-0" scope="col" aria-label="동작" />;
 }
 
 /*

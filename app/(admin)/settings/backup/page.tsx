@@ -118,10 +118,10 @@ export default async function BackupPage() {
           <DownloadPanel stale={stale}>
             <div className="mt-4 flex flex-wrap items-baseline gap-x-8 gap-y-3">
               <div>
-                <p className="text-xs font-bold tracking-wide text-muted">마지막 백업</p>
+                <p className="text-xs font-semibold tracking-wide text-muted">마지막 백업</p>
                 {last ? (
                   <>
-                    <p className="mt-1 text-xl font-bold tnum text-ink">
+                    <p className="mt-1 text-xl font-semibold tnum text-ink">
                       {last.days_ago === 0 ? '오늘'
                         : last.days_ago === 1 ? '어제'
                         : `${last.days_ago}일 전`}
@@ -131,12 +131,12 @@ export default async function BackupPage() {
                     </p>
                   </>
                 ) : (
-                  <p className="mt-1 text-xl font-bold text-ink">없음</p>
+                  <p className="mt-1 text-xl font-semibold text-ink">없음</p>
                 )}
               </div>
               <div>
-                <p className="text-xs font-bold tracking-wide text-muted">지금 담긴 것</p>
-                <p className="mt-1 text-xl font-bold tnum text-ink">{d.now?.tables ?? 0}개 표</p>
+                <p className="text-xs font-semibold tracking-wide text-muted">지금 담긴 것</p>
+                <p className="mt-1 text-xl font-semibold tnum text-ink">{d.now?.tables ?? 0}개 표</p>
                 <p className="mt-0.5 text-xs tnum text-muted">
                   기록·계보·감사추적 {(d.now?.rows ?? 0).toLocaleString('ko-KR')}행
                 </p>
@@ -167,7 +167,7 @@ export default async function BackupPage() {
           </Empty>
         ) : (
           <TableWrap>
-            <table className="w-full min-w-[44rem]">
+            <table className="qd-table qd-table--hangul min-w-[44rem]" data-grow="3">
               <thead>
                 <tr>
                   <th className="th">뜬 시각</th>
@@ -212,7 +212,7 @@ export default async function BackupPage() {
           </Empty>
         ) : (
           <TableWrap>
-            <table className="w-full min-w-[44rem]">
+            <table className="qd-table qd-table--hangul min-w-[44rem]" data-grow="3">
               <thead>
                 <tr>
                   <th className="th">되돌린 시각</th>

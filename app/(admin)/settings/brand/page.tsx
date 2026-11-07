@@ -91,7 +91,7 @@ export default async function BrandPage() {
       </Panel>
 
       <section className="card p-4">
-        <h3 className="text-xs font-bold text-ink">이 화면이 하는 일과 하지 않는 일</h3>
+        <h3 className="text-xs font-semibold text-ink">이 화면이 하는 일과 하지 않는 일</h3>
         <ul className="mt-2 space-y-1.5 text-xs leading-relaxed text-muted">
           <li>· 회사 이름 · 강조색 · 로고를 정합니다. 화면과 인쇄물이 같은 것을 씁니다.</li>
           <li>

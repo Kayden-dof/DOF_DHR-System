@@ -62,7 +62,7 @@ export default function FlowDiagram({
             <li key={op.id} className={after ? 'ml-6' : undefined}>
               {/* 재단 뒤에서 단위가 바뀐다. 그 사실을 한 줄로 알린다 */}
               {isCut && (
-                <p className="mb-1.5 mt-1 text-xs font-bold tracking-wide text-brand">
+                <p className="mb-1.5 mt-1 text-xs font-semibold tracking-wide text-brand">
                   여기서 형명별로 갈립니다 · 이후 기록은 제품 로트에 붙습니다
                 </p>
               )}
@@ -89,7 +89,7 @@ export default function FlowDiagram({
                 }`}>
                   <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                     <span className="tnum text-xs text-faint">{op.seq}</span>
-                    <span className={`text-sm ${isCut ? 'font-bold text-brand-deep' : 'font-semibold text-ink'}`}>
+                    <span className={`text-sm ${isCut ? 'font-semibold text-brand-deep' : 'font-semibold text-ink'}`}>
                       {op.name}
                     </span>
                     <code className="font-mono text-xs text-faint">{op.code}</code>

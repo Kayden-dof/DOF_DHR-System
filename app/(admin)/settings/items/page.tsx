@@ -129,8 +129,8 @@ export default async function ItemsPage({ searchParams }: { searchParams: Search
             해당하는 품목이 없습니다.
           </Empty>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="qd-table-scroll">
+            <table className="qd-table qd-table--hangul" data-grow="2">
               <thead>
                 <tr>
                   <th className="th">코드</th>
@@ -153,7 +153,7 @@ export default async function ItemsPage({ searchParams }: { searchParams: Search
       </Panel>
 
       <section className="card p-4">
-        <h3 className="text-xs font-bold text-ink">유형</h3>
+        <h3 className="text-xs font-semibold text-ink">유형</h3>
         <dl className="mt-2 grid gap-x-6 gap-y-1.5 text-xs sm:grid-cols-2 lg:grid-cols-3">
           {ITEM_TYPES.map((x) => (
             <div key={x.code} className="flex gap-2">

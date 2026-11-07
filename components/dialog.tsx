@@ -79,11 +79,8 @@ export function Dialog({
 
   return createPortal(
     <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={title}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      className="fixed inset-0 z-[60] overflow-y-auto bg-ink/55 backdrop-blur-sm"
+      className="qd-dialog-backdrop fixed inset-0 z-[60] overflow-y-auto"
     >
       {/*
         * 짧으면 화면 가운데, 길면 위에서부터 흐른다. items-center 만 주면 긴
@@ -91,17 +88,21 @@ export function Dialog({
         */}
       <div className="flex min-h-full items-center justify-center p-4"
            onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-        <div className={`dialog-panel w-full overflow-hidden ${wide ? 'max-w-2xl' : 'max-w-lg'}`}>
-          <header className="section-head">
+        {/* 면 · 머리 · 몸은 정본 대화상자(.qd-dialog-*)다. 층(z)은 이 시스템 사다리를 지킨다 -
+            자리 비움 잠금(100)이 대화상자 위에 서야 한다 */}
+        <div role="dialog" aria-modal="true" aria-label={title}
+             className={`qd-dialog-content w-full${wide ? ' qd-dialog-content--wide' : ''}`}>
+          <header className="qd-dialog-header">
             <div className="min-w-0">
-              <h3 className="text-base font-bold text-ink">{title}</h3>
-              {note && <p className="mt-0.5 text-sm leading-relaxed text-muted">{note}</p>}
+              <h2 className="qd-dialog-title">{title}</h2>
+              {note && <p className="qd-dialog-description mt-1">{note}</p>}
             </div>
-            <button type="button" onClick={onClose} className="btn-ghost ml-auto shrink-0">
+            {/* 머리의 닫기는 보조 동작이라 상자가 아니라 글귀다. 주 단추만 상자로 선다 */}
+            <button type="button" onClick={onClose} className="qd-dialog-close ml-auto">
               닫기
             </button>
           </header>
-          <div className="p-4">{children}</div>
+          <div className="qd-dialog-body">{children}</div>
         </div>
       </div>
     </div>,

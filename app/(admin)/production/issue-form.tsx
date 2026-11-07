@@ -108,7 +108,7 @@ export default function IssueForm({ masters, rawLots, finished, users, today }: 
 
   return (
     <form action={action} className="card w-full p-4">
-      <h3 className="text-sm font-bold text-ink">작업 지시 발행</h3>
+      <h3 className="text-sm font-semibold text-ink">작업 지시 발행</h3>
       <p className="mt-1 text-xs leading-relaxed text-muted">
         지시서번호와 배치번호는 채번 규칙이 만듭니다. 원재료 로트는 배치당 하나입니다.
       </p>
@@ -236,11 +236,11 @@ export default function IssueForm({ masters, rawLots, finished, users, today }: 
 
       {pv.requirements && pv.requirements.length > 0 && (
         <div className="mt-3 rounded-md border border-line bg-canvas p-3">
-          <p className="text-xs font-bold text-ink">
+          <p className="text-xs font-semibold text-ink">
             장입 {sheets}{dmSel?.load_unit ?? ''} 기준 소요량 (작업 지시서에 인쇄됩니다)
           </p>
           <div className="mt-2 overflow-x-auto">
-            <table className="w-full">
+            <table className="qd-table qd-table--hangul" data-grow="2">
               <thead>
                 <tr>
                   <th className="th">공정</th>

@@ -60,7 +60,7 @@ export default function StatDetail({ title, children }: {
           }}
           className="pointer-events-none fixed z-[70] w-80 rounded-lg border border-line bg-surface p-3 shadow-[var(--sh-3)]"
         >
-          <p className="text-xs font-bold tracking-wide text-muted">{title}</p>
+          <p className="text-xs font-semibold tracking-wide text-muted">{title}</p>
           <div className="mt-1.5 text-sm leading-relaxed text-ink">{children}</div>
         </div>,
         document.body,

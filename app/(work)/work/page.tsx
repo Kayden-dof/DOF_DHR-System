@@ -208,7 +208,7 @@ export default async function WorkHome(
             gridTemplateColumns: 'repeat(auto-fit, minmax(18rem, 1fr))' }}>
             {picked.map((c) => (
               <Link key={c.id} href={`/work/${c.id}`} className="tile no-select gap-0.5">
-                <span className="font-mono text-lg font-bold text-ink">{c.batch_no}</span>
+                <span className="font-mono text-lg font-semibold text-ink">{c.batch_no}</span>
                 <span className="text-sm text-muted">
                   {c.item_name} · {WO_STATUS_LABEL[c.status] ?? c.status}
                 </span>
@@ -274,7 +274,7 @@ export default async function WorkHome(
                 */}
               <div className="flex items-stretch gap-4 px-5 pb-3 pt-4">
                 <div className="min-w-0 flex-1">
-                  <div className="font-mono text-xl font-bold tracking-tight text-ink">
+                  <div className="font-mono text-xl font-semibold tracking-tight text-ink">
                     {b.batch_no}
                   </div>
                   <div className="mt-0.5 text-base text-body">{b.item_name}</div>
@@ -288,7 +288,7 @@ export default async function WorkHome(
                 <div className="flex shrink-0 flex-col items-center justify-center rounded-lg bg-brand-tint px-4 py-2">
                   <span className="text-3xl font-semibold leading-none tnum text-brand-deep">
                     {b.last_day === null ? 1 : b.last_day_open ? b.last_day : b.last_day + 1}
-                    <span className="ml-0.5 text-base font-bold">일차</span>
+                    <span className="ml-0.5 text-base font-semibold">일차</span>
                   </span>
                   <span className="mt-1 text-xs font-semibold text-brand">
                     {b.last_day !== null && b.last_day_open ? '이어서 기록' : '새로 시작'}
@@ -306,7 +306,7 @@ export default async function WorkHome(
                 ].map(([k, v]) => (
                   <div key={k} className="bg-surface px-5 py-2.5">
                     <dt className="text-xs text-muted">{k}</dt>
-                    <dd className="mt-0.5 text-base font-bold tnum text-ink">{v}</dd>
+                    <dd className="mt-0.5 text-base font-semibold tnum text-ink">{v}</dd>
                   </div>
                 ))}
               </dl>

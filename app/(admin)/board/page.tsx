@@ -269,7 +269,7 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
                   </Field>
                   <Field label="형명"><span className="font-mono">{u.item_code}</span></Field>
                   <Field label="제조번호">
-                    <span className="font-mono font-bold">{u.lot_no}</span>
+                    <span className="font-mono font-semibold">{u.lot_no}</span>
                     {u.seq !== null && (
                       <span className="font-mono"> · {String(u.seq).padStart(3, '0')}</span>
                     )}
@@ -316,8 +316,8 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
             오늘 제조번호가 붙은 제품이 없습니다.
           </Empty>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="qd-table-scroll">
+            <table className="qd-table qd-table--hangul">
               <thead>
                 <tr>
                   <th className="th">제품</th>
@@ -334,7 +334,7 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
                     <td className="td">{r.product_code ?? r.item_code}</td>
                     <td className="td font-mono text-xs">{r.item_code}</td>
                     <td className="td tnum text-right text-muted">{r.lots}</td>
-                    <td className="td tnum text-right font-bold">{r.produced}</td>
+                    <td className="td tnum text-right font-semibold">{r.produced}</td>
                     <td className="td tnum text-right text-muted">{r.sampled || ''}</td>
                     <td className="td tnum text-right">{r.available}</td>
                   </tr>
@@ -403,8 +403,8 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
             원가를 낼 자료가 없습니다.
           </Empty>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="qd-table-scroll">
+            <table className="qd-table qd-table--hangul">
               <thead>
                 <tr>
                   <th className="th">형명</th>
@@ -420,12 +420,12 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
                   const per = (Number(r.shared_cost) + Number(r.own_cost)) / (r.qty || 1);
                   return (
                     <tr key={r.item_code}>
-                      <td className="td font-mono font-bold">{r.item_code}</td>
+                      <td className="td font-mono font-semibold">{r.item_code}</td>
                       <td className="td text-xs text-muted">{r.spec}</td>
                       <td className="td text-right tnum">{r.qty}</td>
                       <td className="td text-right tnum">{won(r.shared_cost)}</td>
                       <td className="td text-right tnum">{won(r.own_cost)}</td>
-                      <td className="td text-right tnum font-bold">{won(String(per))}</td>
+                      <td className="td text-right tnum font-semibold">{won(String(per))}</td>
                     </tr>
                   );
                 })}
@@ -458,8 +458,8 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
       {d.wipNc.length > 0 && (
         <Panel title="반제품 부적합"
                note="단위가 장입니다. 제품 개수와 더하지 않습니다">
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="qd-table-scroll">
+            <table className="qd-table qd-table--hangul" data-grow="3">
               <thead>
                 <tr>
                   <th className="th">배치</th>
@@ -482,7 +482,7 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
                           : w.outcome === 'CONCESSION' ? '특채' : '재작업'}
                       </Tag>
                     </td>
-                    <td className="td tnum text-right font-bold">{w.sheets}</td>
+                    <td className="td tnum text-right font-semibold">{w.sheets}</td>
                   </tr>
                 ))}
               </tbody>
@@ -515,8 +515,8 @@ function PeriodTable({ rows, label, total, won, pct, empty, hint }: {
   if (rows.length === 0) return <Empty hint={hint}>{empty}</Empty>;
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full">
+    <div className="qd-table-scroll">
+      <table className="qd-table qd-table--hangul" data-grow="0">
         <thead>
           <tr>
             <th className="th">기간</th>
@@ -534,13 +534,13 @@ function PeriodTable({ rows, label, total, won, pct, empty, hint }: {
           {rows.map((b) => (
             <tr key={`${b.period}-${b.bucket}`}>
               <td className="td tnum">{label(b)}</td>
-              <td className="td tnum text-right font-bold">{b.produced || ''}</td>
+              <td className="td tnum text-right font-semibold">{b.produced || ''}</td>
               <td className="td tnum text-right">{b.shipped || ''}</td>
               <td className="td tnum text-right">{b.rework || ''}</td>
               <td className="td tnum text-right">{b.concession || ''}</td>
               <td className="td tnum text-right">{b.scrap || ''}</td>
               <td className={`td tnum text-right ${
-                Number(b.scrap_pct ?? 0) > 0 ? 'font-bold text-danger' : 'text-faint'}`}>
+                Number(b.scrap_pct ?? 0) > 0 ? 'font-semibold text-danger' : 'text-faint'}`}>
                 {b.produced > 0 ? pct(b.scrap_pct) : ''}
               </td>
               <td className="td tnum text-right text-muted">
@@ -551,14 +551,14 @@ function PeriodTable({ rows, label, total, won, pct, empty, hint }: {
           ))}
           {total && (
             <tr className="bg-canvas">
-              <th className="td text-left text-xs font-bold text-ink">합계</th>
-              <td className="td tnum text-right font-bold">{total.produced}</td>
-              <td className="td tnum text-right font-bold">{total.shipped}</td>
+              <th className="td text-left text-xs font-semibold text-ink">합계</th>
+              <td className="td tnum text-right font-semibold">{total.produced}</td>
+              <td className="td tnum text-right font-semibold">{total.shipped}</td>
               <td className="td tnum text-right">{total.rework || ''}</td>
               <td className="td tnum text-right">{total.concession || ''}</td>
               <td className="td tnum text-right">{total.scrap || ''}</td>
               <td className={`td tnum text-right ${
-                Number(total.scrap_pct ?? 0) > 0 ? 'font-bold text-danger' : 'text-faint'}`}>
+                Number(total.scrap_pct ?? 0) > 0 ? 'font-semibold text-danger' : 'text-faint'}`}>
                 {total.produced > 0 ? pct(total.scrap_pct) : ''}
               </td>
               <td className="td tnum text-right text-muted">

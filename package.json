@@ -10,7 +10,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "node scripts/check-sql-params.mjs && node test/run.mjs",
+    "test": "node scripts/check-sql-params.mjs && node scripts/check-qd-copies.mjs && node test/run.mjs",
     "check:sql": "node scripts/check-sql-params.mjs",
     "test:print": "node --env-file=.env.local test/print.mjs",
     "test:mutation": "node test/mutation.mjs",

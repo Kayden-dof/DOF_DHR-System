@@ -106,7 +106,7 @@ export default async function ModelSchemePage() {
                 <Empty hint="아래에서 1번 자리부터 정하십시오.">아직 정해진 자리가 없습니다.</Empty>
               ) : (
                 <TableWrap>
-                  <table className="w-full min-w-[40rem]">
+                  <table className="qd-table qd-table--hangul min-w-[40rem]" data-grow="6">
                     <thead>
                       <tr>
                         <th className="th text-right">자리</th>
@@ -120,7 +120,7 @@ export default async function ModelSchemePage() {
                     <tbody>
                       {segs.map((sg) => (
                         <tr key={sg.seq}>
-                          <td className="td tnum text-right font-bold">{sg.seq}</td>
+                          <td className="td tnum text-right font-semibold">{sg.seq}</td>
                           <td className="td">{sg.label}</td>
                           <td className="td tnum text-right">{sg.digits}</td>
                           <td className="td tnum text-right">{sg.divisor}</td>

@@ -180,17 +180,17 @@ function LockScreen({
         <div className="text-center">
           <span
             aria-hidden
-            className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-white/15 text-xl font-bold text-white"
+            className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-white/15 text-xl font-semibold text-white"
           >
             {initial}
           </span>
-          <h2 className="mt-4 text-xl font-bold text-white">{name} 님</h2>
+          <h2 className="mt-4 text-xl font-semibold text-white">{name} 님</h2>
           <p className="mt-1.5 text-sm text-on-dark-mute">
             자리를 비운 사이 화면을 잠갔습니다. 비밀번호를 누르면 하던 자리로 돌아갑니다.
           </p>
         </div>
 
-        <div className="box mt-6 p-4">
+        <div className="qd-panel qd-panel--box mt-6 p-4">
           <div className="flex h-[3.25rem] items-center justify-center rounded-md border border-line-strong bg-surface">
             <span className="text-2xl font-semibold tnum tracking-[0.3em] text-ink">
               {'•'.repeat(pin.current.length) || (

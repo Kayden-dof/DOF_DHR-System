@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { requireUser, hasRole, ROLE_LABEL } from '@/lib/session';
 import { isAdmin, isWorker, isViewerOnly, isQpOnly } from '@/lib/roles';
 import { canOpen } from '@/lib/access';
-import { headers } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { PATH_HEADER } from '@/lib/auth-const';
 import Watermark, { stamp } from '@/components/watermark';
 import BackFab from '@/components/back-fab';
@@ -16,6 +16,8 @@ import IdleLock from '@/components/idle-lock';
 import { logout } from './actions';
 import Nav, { type NavItem } from './nav';
 import Clock from '@/components/clock';
+import Rail from './rail';
+import { APP_VERSION } from '@/lib/version';
 
 /* ---------------------------------------------------------------------------
    관리 화면
@@ -162,43 +164,120 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const menu = items.filter((n) => canOpen(n.href, user.roles, user.screens));
 
   const initial = user.full_name.slice(0, 1);
+  const roleLine = user.roles.length
+    ? user.roles.map((r) => ROLE_LABEL[r]).join(' · ')
+    : '역할 없음';
 
   /*
-   * 바탕은 평평한 한 판이다 (Q-Design · 2026-11-06). 업무 화면에 기울기를 깔지
-   * 않는다. 판은 상자가 아니라 괘선으로 가르므로 면이 떠 보일 필요가 없다.
+   * 지정 자리 밖에서 두드렸다 (사용자 지시 2026-09-11).
+   *
+   * 이름 동그라미에 붙이지 않고 **따로** 둔다. 계정 상태가 아니라 시스템에 지금
+   * 일어난 일이다. 붉은색이 뜻을 지고 있으므로 회사 색을 따르지 않는다. 숫자를
+   * 함께 적는다 - 색만으로 말하지 않는다.
    */
+  const alert = outside > 0 && (
+    <Link
+      href="/settings"
+      className="qd-tag qd-tag--sm qd-tag--red qd-tag--primary shrink-0"
+      data-hangul=""
+      title="로그인된 기기가 지정 자리 밖에서 열었습니다. 눌러서 확인하십시오"
+    >
+      <span aria-hidden className="qd-tag-dot" />
+      밖에서 접속 <span className="tnum">{outside}</span>
+    </Link>
+  );
+
+  /*
+   * 시안 비교용 갈래 (2026-11-07). 기본은 정본 레일이고, `qd-shell=bar` 쿠키가
+   * 있으면 옛 머리줄로 그린다. 오너가 고르면 고르지 않은 쪽을 지운다.
+   */
+  const shell = (await cookies()).get('qd-shell')?.value === 'bar' ? 'bar' : 'rail';
+
+  if (shell === 'rail') {
+    return (
+      <div className="flex min-h-screen flex-col bg-canvas lg:flex-row">
+        <Rail
+          items={menu}
+          version={APP_VERSION}
+          brand={
+            <>
+              <span className="qd-rail-mark"><BrandMark className="h-auto w-full text-2xl" /></span>
+              <SystemName className="qd-rail-org" />
+            </>
+          }
+          foot={
+            <>
+              <div className="qd-rail-user">
+                {/* 개발 계정은 동그라미 자체를 물들인다. 꼬리표보다 덜 시끄럽고 더 눈에 띈다 */}
+                <span aria-hidden className={`qd-avatar${user.is_developer ? ' !bg-warn-bg !text-warn' : ''}`}>
+                  {initial}
+                </span>
+                <span className="qd-rail-user-text">
+                  <span className="qd-rail-user-name">{user.full_name}</span>
+                  <span className="qd-rail-user-meta" data-hangul="">
+                    {user.is_developer && <span className="text-warn">개발 · </span>}
+                    {roleLine}
+                  </span>
+                </span>
+              </div>
+              <form action={logout}>
+                <button type="submit" className="qd-rail-logout">로그아웃</button>
+              </form>
+            </>
+          }
+          bar={<><FindUnit />{alert}</>}
+        />
+
+        <div className="flex min-w-0 flex-1 flex-col">
+          <DemoBanner seededAt={demo.seededAt ?? null}
+                      canPurge={hasRole(user, 'SYS_ADMIN') && demo.gateOpen === true} />
+
+          {/*
+            * 본문 우상단 띠 (Q-Design 7장). 시각 · 개체 번호 찾기 · 현장 화면 ·
+            * 알림. 좁은 화면에서는 레일 자리의 머리 줄이 찾기와 알림을 대신 든다.
+            */}
+          <div className="hidden items-center justify-end gap-3 px-10 pt-5 lg:flex">
+            <Clock withDate className="text-xs text-faint" />
+            <FindUnit />
+            {isWorker(user.roles) && (
+              <Link href="/work" className="qd-text-action">현장 화면</Link>
+            )}
+            {alert}
+          </div>
+
+          <main className="qd-main mx-auto w-full max-w-[1320px] flex-1">{children}</main>
+
+          <footer className="mx-auto w-full max-w-[1320px] px-10 pb-10 pt-2">
+            <div className="flex items-center justify-between gap-4 border-t border-line pt-4">
+              <span className="opacity-35"><BrandMark className="h-3.5 w-auto text-sm" /></span>
+              <p className="text-xs text-faint"><BrandCopyright year={yearKST()} /></p>
+            </div>
+          </footer>
+        </div>
+
+        {/*
+          * 자리 비움 잠금 (감사 지적 12). 여기서는 한 화면을 오래 읽는 일이 흔해
+          * 현장보다 길게 준다. 워터마크(감사 04)는 캡처를 막지 못하지만 찍히면
+          * 누가 언제 봤는지가 함께 남는다. 뒤로가기는 홈 화면 앱에서 브라우저
+          * 뒤로가기가 없는 자리를 메운다.
+          */}
+        <IdleLock minutes={30} name={user.full_name} initial={initial} />
+        <Watermark text={stamp(user.full_name, user.login_code)} />
+        <BackFab />
+      </div>
+    );
+  }
+
+  /* 옛 머리줄 (시안 B) */
   return (
     <div className="flex min-h-screen flex-col bg-canvas">
       <div className="brand-rule" />
-
-      {/*
-        * 자리를 넉넉히 준다. 44px 에 다 밀어 넣으니 로고도 메뉴도 이름도 전부
-        * 작아져서 무엇 하나 서지 못했다. 크기를 키우는 대신 높이를 준다.
-        *
-        * 띠는 회사 양식의 웜그레이 띠에 강조색 2px 선이다 (globals.css 의 .topbar).
-        */}
       <DemoBanner seededAt={demo.seededAt ?? null}
                   canPurge={hasRole(user, 'SYS_ADMIN') && demo.gateOpen === true} />
 
-      <header className="topbar sticky top-0 z-30 border-b">
-        {/*
-          * 좁은 화면에서는 차림표가 둘째 줄로 내려간다 (디자인 점검 2026-11-06).
-          * 한 줄에 다 두었더니 휴대폰 폭에서 차림표 여덟 칸 중 한 칸 반만 보이고
-          * 나머지는 단서 없는 가로 스크롤 뒤에 있었다.
-          */}
+      <header className="band-solid sticky top-0 z-30">
         <div className="mx-auto flex min-h-14 max-w-[1240px] flex-wrap items-center gap-x-6 px-5 md:h-14 md:flex-nowrap lg:gap-x-9">
           <Link href="/" className="flex shrink-0 items-center gap-3" aria-label="현황으로">
-            {/*
-              * 로고 상자를 글자보다 크게 잡는다.
-              *
-              * 올라온 PNG 는 둘레에 투명 여백을 두른다. 지금 것은 그림이 상자
-              * 높이의 절반뿐이라, 상자를 글자와 같은 20px 로 두면 실제 그림은
-              * 10px 로 그려져 옆의 DHR 보다 한참 작아 보였다 (사용자 지적).
-              *
-              * 여백은 올린 파일의 성질이라 프로그램이 알 수 없다. 여백을 잘라
-              * 올리면 상자와 그림이 같아져 이 보정이 필요 없다 - 설정 화면이
-              * 그렇게 안내한다.
-              */}
             <BrandMark className="h-7 w-auto text-lg" />
             <span className="h-5 w-px bg-line-strong" aria-hidden />
             <SystemName className="display text-lg leading-none text-ink" />
@@ -210,133 +289,43 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </div>
 
           <div className="ml-auto flex h-14 shrink-0 items-center gap-3 md:ml-0">
-            {/*
-              * 오늘 며칠 몇 시인가. 시각만 덩그러니 두면 무엇의 시각인지
-              * 짚이지 않는다 (사용자 지적 2026-09-01). 한국 시각으로 못 박는다
-              * (components/clock.tsx).
-              *
-              * 자리를 많이 먹으므로 넓은 화면에서만 낸다. 좁아지면 차림표가
-              * 먼저다 - 시계는 알아 두면 좋은 것이고 차림표는 일하는 길이다.
-              */}
             <Clock withDate className="hidden text-xs text-faint xl:inline" />
-
-            {/* 어느 화면에서 전화를 받든 바로 부를 수 있어야 한다 */}
             <FindUnit />
-
             {isWorker(user.roles) && (
               <Link href="/work" className="btn-ghost h-9">현장 화면</Link>
             )}
-
-            {/* ----------------------------------------------------------------
-              * 지정 자리 밖에서 두드렸다 (사용자 지시 2026-09-11)
-              *
-              * 이름 동그라미에 붙이지 않고 **따로** 둔다. 붙이면 "그 사람의
-              * 무엇" 으로 읽히는데, 이건 계정 상태가 아니라 시스템에 지금
-              * 일어난 일이다.
-              *
-              * 붉은색은 여기서 뜻을 지고 있다. 회사 색을 따르지 않는 이유가
-              * 그것이다 - 회사 색이 초록인 제조소에서 이 표시가 초록으로 뜨면
-              * 위험을 알리는 자리가 안심을 주는 자리가 된다. 첫 설정 차례의
-              * `아직 없음` 을 회사 색으로 내린 것과 정반대의 까닭이다.
-              *
-              * 숫자를 함께 적는다. 색만으로 말하면 색을 가리지 못하는 사람에게
-              * 아무 표시도 없는 것과 같다 (components/ui.tsx 의 Tag 와 같은 이유).
-              * ---------------------------------------------------------------- */}
-            {outside > 0 && (
-              <Link
-                href="/settings"
-                className="flex h-9 shrink-0 items-center gap-2 rounded-md bg-danger px-3
-                           text-sm font-bold text-white"
-                title="로그인된 기기가 지정 자리 밖에서 열었습니다. 눌러서 확인하십시오"
-              >
-                <span aria-hidden className="size-2 rounded-full bg-white" />
-                <span>밖에서 접속</span>
-                <span className="tnum">{outside}</span>
-              </Link>
-            )}
-
+            {alert}
             <div className="hidden items-center gap-2.5 md:flex">
-              {/*
-                * 개발 계정 표시를 이름 옆 꼬리표에서 동그라미 자체로 옮긴다.
-                * 꼬리표로 두면 이름 줄에 세 번째 색이 끼어들어 머리글이 시끄럽고,
-                * 정작 봐야 할 이름보다 꼬리표가 먼저 읽힌다.
-                *
-                * 동그라미를 물들이면 색은 하나로 줄면서 오히려 더 눈에 띈다.
-                * 이 표시는 장식이 아니라 "지금 개발 계정이다"라는 경고다.
-                */}
-              <span
-                aria-hidden
-                className={`grid size-9 place-items-center rounded-full text-sm font-bold ${
-                  user.is_developer
-                    ? 'bg-warn-bg text-warn ring-1 ring-warn/25'
-                    : 'bg-brand-tint text-brand'
-                }`}
-              >
+              <span aria-hidden className={`qd-avatar${user.is_developer ? ' !bg-warn-bg !text-warn' : ''}`}>
                 {initial}
               </span>
               <div className="leading-tight">
-                <div className="text-sm font-bold text-ink">
-                  {user.full_name}
-                </div>
+                <div className="text-sm font-semibold text-ink">{user.full_name}</div>
                 <div className="text-xs text-muted">
                   {user.is_developer && <span className="font-semibold text-warn">개발 · </span>}
-                  {user.roles.length
-                    ? user.roles.map((r) => ROLE_LABEL[r]).join(' · ')
-                    : '역할 없음'}
+                  {roleLine}
                 </div>
               </div>
             </div>
-
             <span className="hidden h-5 w-px bg-line md:block" aria-hidden />
-
             <form action={logout}>
-              <button type="submit" className="btn-quiet h-9">로그아웃</button>
+              <button type="submit" className="qd-text-action">로그아웃</button>
             </form>
           </div>
         </div>
       </header>
 
-      {/*
-        * 본문 폭을 1400 에서 1240 으로 좁혔다 (사용자 지적 2026-09-11
-        * "내부 화면이 너무 덩그러니 있다").
-        *
-        * 이 화면들의 내용은 900px 어치인데 1400px 을 채우려 늘어나 있었다.
-        * 한 줄짜리 표가 1400px 을 가로지르면 값들 사이가 다 비고, 화면은
-        * 꽉 찬 것이 아니라 흩어진 것으로 읽힌다.
-        *
-        * 표는 감싼 상자가 가로 스크롤을 받으므로 (overflow-x-auto) 열이
-        * 많은 화면도 잘리지 않는다.
-        */}
       <main className="mx-auto w-full max-w-[1240px] flex-1 px-5 py-10">{children}</main>
 
       <footer className="mx-auto w-full max-w-[1240px] px-5 pb-10 pt-6">
         <div className="flex items-center justify-between gap-4 border-t border-line pt-4">
-          {/* 바닥글은 눈을 끌 자리가 아니다. 흐리게 얹는다 */}
-          <span className="opacity-35">
-            <BrandMark className="h-3.5 w-auto text-sm" />
-          </span>
-          <p className="text-xs tracking-wide text-faint">
-            <BrandCopyright year={yearKST()} />
-          </p>
+          <span className="opacity-35"><BrandMark className="h-3.5 w-auto text-sm" /></span>
+          <p className="text-xs text-faint"><BrandCopyright year={yearKST()} /></p>
         </div>
       </footer>
 
-      {/*
-        * 자리 비움 잠금 (감사 지적 12).
-        *
-        * 현장보다 길게 준다. 여기서는 한 화면을 오래 읽는 일이 흔해서, 읽는
-        * 중에 덮이면 잠금이 아니라 방해가 된다. 대신 여기서 하는 일이 더
-        * 되돌리기 어렵다 - 작업 지시 발행, 기준정보 변경, 인쇄.
-        */}
-      <IdleLock minutes={30} name={user.full_name} initial={user.full_name.slice(0, 1)} />
-
-      {/* 감사 04. 캡처를 막지는 못하고, 찍히면 누가 언제 봤는지가 함께 남는다 */}
+      <IdleLock minutes={30} name={user.full_name} initial={initial} />
       <Watermark text={stamp(user.full_name, user.login_code)} />
-
-      {/*
-        * 홈 화면에서 전체 화면으로 띄우면 브라우저 뒤로가기가 없다.
-        * 첫 화면에서는 스스로 숨는다 (components/back-fab.tsx).
-        */}
       <BackFab />
     </div>
   );

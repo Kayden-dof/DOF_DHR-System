@@ -86,8 +86,8 @@ export default async function SuppliersPage() {
             등록된 공급자가 없습니다.
           </Empty>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="qd-table-scroll">
+            <table className="qd-table qd-table--hangul" data-grow="2">
               <thead>
                 <tr>
                   <th className="th">코드</th>
@@ -112,7 +112,7 @@ export default async function SuppliersPage() {
           {writable && <PriceForm items={d.items} suppliers={d.suppliers} today={d.today ?? ''} />}
           {d.prices.length > 0 && (
             <div className="overflow-x-auto border-t border-line">
-              <table className="w-full">
+              <table className="qd-table qd-table--hangul">
                 <thead>
                   <tr>
                     <th className="th">품목</th><th className="th">공급자</th>
@@ -138,7 +138,7 @@ export default async function SuppliersPage() {
           {writable && <ShelfLifeForm items={d.items} today={d.today ?? ''} />}
           {d.shelf.length > 0 && (
             <div className="overflow-x-auto border-t border-line">
-              <table className="w-full">
+              <table className="qd-table qd-table--hangul">
                 <thead>
                   <tr>
                     <th className="th">형명</th><th className="th text-right">개월</th>

@@ -80,7 +80,7 @@ export default function RestorePanel({ canRestore, left }: {
   if (done) {
     return (
       <section className="card border-ok/40 bg-ok-bg p-5">
-        <h3 className="text-sm font-bold text-ink">되돌렸습니다</h3>
+        <h3 className="text-sm font-semibold text-ink">되돌렸습니다</h3>
         <p className="mt-2 text-sm leading-relaxed text-ink">
           {done.rowsBefore.toLocaleString('ko-KR')}행이 있던 자리에{' '}
           {done.rowsAfter.toLocaleString('ko-KR')}행이 들어갔습니다.
@@ -108,7 +108,7 @@ export default function RestorePanel({ canRestore, left }: {
       <section className="card flex flex-col overflow-hidden">
         <header className="section-head">
           <div className="min-w-0">
-            <h3 className="text-lg font-bold tracking-tight text-ink">백업 파일 넣기</h3>
+            <h3 className="text-lg font-semibold tracking-tight text-ink">백업 파일 넣기</h3>
             <p className="mt-0.5 text-xs leading-relaxed text-muted">
               넣으면 무엇이 들었는지 먼저 보여 줍니다. 넣는 것만으로는 아무것도 바뀌지 않습니다.
             </p>
@@ -203,7 +203,7 @@ export default function RestorePanel({ canRestore, left }: {
           )}
 
           <div className="max-h-80 overflow-y-auto">
-            <table className="w-full">
+            <table className="qd-table qd-table--hangul">
               <thead className="sticky top-0 bg-surface">
                 <tr>
                   <th className="th text-left">표</th>
@@ -237,7 +237,7 @@ export default function RestorePanel({ canRestore, left }: {
 
           {!bad && (
             <div className="border-t border-line bg-danger-bg p-4">
-              <p className="text-sm font-bold text-ink">
+              <p className="text-sm font-semibold text-ink">
                 되돌리면 지금 있는 기록은 사라집니다. 되돌릴 수 없습니다.
               </p>
               <p className="mt-1 text-xs leading-relaxed text-body">
@@ -327,7 +327,7 @@ export default function RestorePanel({ canRestore, left }: {
 function Field({ label, v, mono = false }: { label: string; v: string; mono?: boolean }) {
   return (
     <div>
-      <div className="text-xs font-bold tracking-wide text-muted">{label}</div>
+      <div className="text-xs font-semibold tracking-wide text-muted">{label}</div>
       <div className={`mt-0.5 text-sm text-ink ${mono ? 'font-mono text-xs' : 'tnum'}`}>{v}</div>
     </div>
   );

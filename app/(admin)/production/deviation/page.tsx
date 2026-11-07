@@ -101,8 +101,8 @@ export default async function DeviationPage() {
             대장에 오른 일탈이 없습니다.
           </Empty>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="qd-table-scroll">
+            <table className="qd-table qd-table--hangul" data-grow="3">
               <thead>
                 <tr>
                   <th className="th">일탈 번호</th>
@@ -121,7 +121,7 @@ export default async function DeviationPage() {
       </Panel>
 
       <section className="card p-4">
-        <h3 className="text-xs font-bold text-ink">이 화면이 하는 일과 하지 않는 일</h3>
+        <h3 className="text-xs font-semibold text-ink">이 화면이 하는 일과 하지 않는 일</h3>
         <ul className="mt-2 space-y-1.5 text-xs leading-relaxed text-muted">
           <li>· 일탈 번호를 채번 규칙으로 만들고 대장에 남깁니다.</li>
           <li>· 어느 배치·로트·설비에 걸린 일탈인지를 연결해 둡니다.</li>

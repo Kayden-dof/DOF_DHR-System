@@ -78,8 +78,8 @@ export default async function MovementPage() {
             기록이 없습니다.
           </Empty>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="qd-table-scroll">
+            <table className="qd-table qd-table--hangul" data-grow="5">
               <thead>
                 <tr>
                   <th className="th">일시</th>
