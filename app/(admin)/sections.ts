@@ -61,6 +61,7 @@ export const SETTINGS_NAV: NavItem[] = [
   { href: '/settings/suppliers', label: '공급자' },
   { href: '/settings/product', label: '제품 세우기' },
   { href: '/settings/dmr', label: '제품표준서' },
+  { href: '/settings/docs', label: '문서 대조' },
   { href: '/settings/users', label: '사용자' },
   { href: '/settings/backup', label: '백업' },
   { href: '/settings/access', label: '권한' },

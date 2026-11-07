@@ -1203,6 +1203,21 @@ input, textarea, [contenteditable] { caret-color: var(--color-brand); }
   letter-spacing: -0.01em;
 }
 
+/*
+ * 어긋난 줄 (작업표준서 · 제조기록서 대조표 · 0123).
+ *
+ * 글자와 바탕을 함께 빨갛게 찍는다. 브라우저는 인쇄할 때 바탕색을 빼는 것이
+ * 기본이라 print-color-adjust 로 붙잡는다. 흑백으로 뽑으면 바탕이 옅은 회색이
+ * 되고, 판정 칸의 글자와 굵기가 그 줄을 따로 말한다.
+ */
+.print-red, .print-red td { color: var(--color-danger); }
+.print-red td, .print-red.border {
+  background: var(--color-danger-bg);
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.print-red-text { color: var(--color-danger); }
+
 /* ---------------------------------------------------------------------------
    표 안 좌우 정렬
 
