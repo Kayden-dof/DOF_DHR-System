@@ -1,4 +1,6 @@
 import { requireUser, hasRole, canWrite, blocksScreen } from '@/lib/session';
+import { fixAt } from '@/lib/unblock';
+import { Unblock } from '@/components/unblock';
 import { withUser } from '@/lib/db';
 import { getBrand } from '@/lib/brand';
 import Denied from '@/components/denied';
@@ -151,10 +153,9 @@ export default async function EquipmentPage() {
     >
       {d.ops.length === 0 && (
         <div className="card border-warn/30 bg-warn-bg px-4 py-3">
-          <p className="text-sm leading-relaxed text-ink">
-            서면 대조가 확인된 제품표준서가 없습니다. 공정 목록이 비어 있어 설비를
-            공정에 걸 수 없습니다.
-          </p>
+          <Unblock fix={fixAt(user, '/settings/dmr')} align="start"
+                   why="서면 대조가 확인된 제품표준서가 없습니다. 공정 목록이 비어 있어 설비를 공정에 걸 수 없습니다."
+                   todo="제품표준서 서면 확인하기" />
         </div>
       )}
 

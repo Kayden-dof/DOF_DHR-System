@@ -71,9 +71,8 @@ export function SubNav({ items }: { items: NavItem[] }) {
     return hit && it.href.length > (best?.length ?? 0) ? it.href : best;
   }, null);
 
-  /* 모양은 globals.css 의 .segment 하나에서 나온다 - 거르개 줄과 같은 것이다 */
+  /* 모양은 거르개 줄(components/shell.tsx FilterBar)과 같은 정본 2차 탭이다 */
   return (
-    /* 하위 차림표는 정본 2차 탭(.qd-tabs · 금색 밑줄)이다 */
     <nav className="qd-tabs !mb-0" aria-label="하위 차림표">
       {items.map((it) => {
         const active = it.href === current;

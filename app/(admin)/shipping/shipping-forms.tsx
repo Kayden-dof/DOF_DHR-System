@@ -8,6 +8,8 @@ import { daysUntilKST } from '@/lib/kst';
 import type { FormState } from '@/lib/forms';
 import { Msg, Tag, Caution } from '@/components/ui';
 import Toasts from '@/components/toast';
+import { Unblock } from '@/components/unblock';
+import type { Fix } from '@/lib/unblock';
 import { createSterilBatch, updateSterilBatch, approveRelease, ship } from './actions';
 
 export interface PlOpt {
@@ -57,8 +59,10 @@ function bySpec(rows: { item_code: string; item_name: string; qty: number }[]) {
   return [...m.values()].sort((a, b) => a.code.localeCompare(b.code));
 }
 
-export function SterilForm({ lots, today, boxQty }: {
+export function SterilForm({ lots, today, boxQty, fix }: {
   lots: PlOpt[]; today: string; boxQty: number | null;
+  /** 보낼 로트가 없을 때 가는 자리 (lib/unblock.ts) */
+  fix?: Fix;
 }) {
   /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
   const uid = useId();
@@ -83,6 +87,10 @@ export function SterilForm({ lots, today, boxQty }: {
         <button onClick={() => setOpen(true)} className="btn-primary" disabled={lots.length === 0}>
           멸균 배치 만들기
         </button>
+        {lots.length === 0 && (
+          <Unblock fix={fix} why="포장을 마친 제품 로트가 없습니다. 포장까지 기록된 로트만 고를 수 있습니다."
+                   todo="작업 지시 보기" />
+        )}
       {/*
         * 결과는 화면 오른쪽 위에 띄운다. 여기 아래에 붙이면 뒤 내용이 밀린다
         * (사용자 지시 2026-09-08).
@@ -416,7 +424,11 @@ export function ApproveForm({ lot, today }: { lot: PlOpt; today: string }) {
    출하 승인서 번호는 필수다. DB 트리거가 같은 것을 막고 있고 (0026), 여기의
    required 는 그 규칙을 먼저 안내하는 것뿐이다.
 --------------------------------------------------------------------------- */
-export function ShipList({ lots, today }: { lots: PlOpt[]; today: string }) {
+export function ShipList({ lots, today, fix }: {
+  lots: PlOpt[]; today: string;
+  /** 출하 승인 요청서가 없을 때 발행하러 가는 자리 */
+  fix?: Fix;
+}) {
   const [openId, setOpenId] = useState<string | null>(null);
 
   return (
@@ -474,7 +486,7 @@ export function ShipList({ lots, today }: { lots: PlOpt[]; today: string }) {
                 {open && (
                   <tr>
                     <td colSpan={8} className="border-b border-line bg-canvas p-0">
-                      <ShipRowForm lot={l} today={today} />
+                      <ShipRowForm lot={l} today={today} fix={fix} />
                     </td>
                   </tr>
                 )}
@@ -487,7 +499,7 @@ export function ShipList({ lots, today }: { lots: PlOpt[]; today: string }) {
   );
 }
 
-function ShipRowForm({ lot, today }: { lot: PlOpt; today: string }) {
+function ShipRowForm({ lot, today, fix }: { lot: PlOpt; today: string; fix?: Fix }) {
   /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
   const uid = useId();
 
@@ -523,10 +535,9 @@ function ShipRowForm({ lot, today }: { lot: PlOpt; today: string }) {
             <>
               <input id={`${uid}-release_request_no`} name="release_request_no" required
                      disabled className="input font-mono" />
-              <p className="mt-1 text-xs leading-relaxed text-muted">
-                이 배치로 나간 출하 승인 요청서가 없습니다. 출하 승인 화면에서 요청서를
-                먼저 발행하십시오.
-              </p>
+              <Unblock fix={fix} align="start" className="mt-1.5"
+                       why="이 배치로 나간 출하 승인 요청서가 없습니다."
+                       todo="출하 승인 요청서 발행하기" />
             </>
           ) : (
             <select id={`${uid}-release_request_no`} name="release_request_no" required

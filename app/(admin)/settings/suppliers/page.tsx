@@ -1,4 +1,5 @@
 import { requireUser, canWrite, blocksScreen } from '@/lib/session';
+import { fixAt } from '@/lib/unblock';
 import Denied from '@/components/denied';
 import { withActor } from '@/lib/db';
 import { PageShell } from '@/components/shell';
@@ -135,7 +136,8 @@ export default async function SuppliersPage() {
         </Panel>
 
         <Panel title="사용기간 등록" note="완제품 유효기한의 근거입니다. 안정성 시험 보고서 번호가 필요합니다.">
-          {writable && <ShelfLifeForm items={d.items} today={d.today ?? ''} />}
+          {writable && <ShelfLifeForm items={d.items} today={d.today ?? ''}
+                                       fix={fixAt(user, '/settings/items', '?type=FIN')} />}
           {d.shelf.length > 0 && (
             <div className="overflow-x-auto border-t border-line">
               <table className="qd-table qd-table--hangul">

@@ -103,7 +103,11 @@ export function TableWrap({ children }: { children: React.ReactNode }) {
   return <div className="qd-table-scroll">{children}</div>;
 }
 
-export function Empty({ children, hint }: { children: React.ReactNode; hint?: React.ReactNode }) {
+export function Empty({ children, hint, action }: {
+  children: React.ReactNode; hint?: React.ReactNode;
+  /** 채우러 가는 단추 (components/unblock.tsx). 안내 줄은 <p> 라 그 안에 두지 않는다 */
+  action?: React.ReactNode;
+}) {
   return (
     /*
      * 빈 상태의 글자를 한 단계씩 올렸다 (2026-09-08).
@@ -135,6 +139,7 @@ export function Empty({ children, hint }: { children: React.ReactNode; hint?: Re
     <div className="qd-empty qd-empty--compact">
       <p className="qd-empty-title">{children}</p>
       {hint && <p className="qd-empty-desc">{hint}</p>}
+      {action && <div className="qd-empty-actions">{action}</div>}
     </div>
   );
 }

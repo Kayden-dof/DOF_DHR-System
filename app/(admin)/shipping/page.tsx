@@ -1,4 +1,6 @@
 import { requireUser, blocksScreen } from '@/lib/session';
+import { fixAt } from '@/lib/unblock';
+import { Unblock } from '@/components/unblock';
 import Denied from '@/components/denied';
 import { withUser } from '@/lib/db';
 import { PageShell } from '@/components/shell';
@@ -72,7 +74,8 @@ export default async function ReleasePage() {
         note="배치에서 생산된 규격 중 미출고 잔여를 선택해 발행합니다. 요청서 번호는 발행되는 순간 종이에 찍힙니다."
       >
         {groups.length === 0 ? (
-          <Empty hint="재단에서 제조번호가 붙고 아직 출고되지 않은 로트만 나옵니다.">
+          <Empty hint="재단에서 제조번호가 붙고 아직 출고되지 않은 로트만 나옵니다."
+                 action={<Unblock fix={fixAt(user, '/production')} todo="작업 지시 보기" />}>
             요청할 잔여가 있는 제품 로트가 없습니다.
           </Empty>
         ) : (

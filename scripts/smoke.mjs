@@ -35,6 +35,8 @@ const ids = {
   day: (await rows(
     `select work_order_id, day_no, worker_id from process_record order by day_no limit 1`))[0],
   eq: (await rows(`select id from equipment order by code limit 1`))[0]?.id,
+  /* 문서 대조 (0123). 대조 자료가 든 제품이 있으면 그 대조표와 제안서도 훑는다 */
+  docs: (await rows(`select product_code from mfg_check where is_current order by product_code limit 1`))[0]?.product_code,
 };
 const userIds = Object.fromEntries(
   (await rows(`select login_code, id from app_user`)).map((u) => [u.login_code, u.id]));
@@ -100,6 +102,10 @@ const ADMIN = [
   '/trace', '/trace/verify', '/board', '/board/cost',
   '/settings', '/settings/brand', '/settings/numbering', '/settings/items', '/settings/model', '/settings/suppliers',
   '/settings/product', '/settings/dmr', '/equipment', '/settings/users', '/settings/backup', '/settings/access', '/settings/audit',
+  '/settings/docs',
+  ids.docs && `/settings/docs?p=${ids.docs}`,
+  ids.docs && `/print/docs-check/${ids.docs}`,
+  ids.docs && `/print/revision-requests/${ids.docs}`,
   ids.wo && `/production/${ids.wo}`,
   ids.wo && `/print/work-order/${ids.wo}`,
   ids.wo && `/print/day-record/${ids.wo}/all`,

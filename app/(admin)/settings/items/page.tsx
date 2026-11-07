@@ -1,4 +1,5 @@
 import { requireUser, hasRole, blocksScreen } from '@/lib/session';
+import { fixAt } from '@/lib/unblock';
 import Denied from '@/components/denied';
 import { withActor } from '@/lib/db';
 import { PageShell } from '@/components/shell';
@@ -93,7 +94,7 @@ export default async function ItemsPage({ searchParams }: { searchParams: Search
       }
       action={
         <div className="flex gap-2">
-          <GenerateFinished schemes={schemes} />
+          <GenerateFinished schemes={schemes} fix={fixAt(user, '/settings/model')} />
           <BulkItemForm />
           <NewItemForm />
         </div>

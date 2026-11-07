@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { fixAt } from '@/lib/unblock';
 import { notFound } from 'next/navigation';
 import { requireUser, hasRole, canWrite } from '@/lib/session';
 import { withUser } from '@/lib/db';
@@ -487,7 +488,8 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
           */}
         {active && !readOnly && (
           <CutForm woId={wo.id} options={d.finished} today={d.today ?? ''} used={usedIds}
-                   band={wo.thickness_band} cutDate={cutDate} />
+                   band={wo.thickness_band} cutDate={cutDate}
+                   fix={fixAt(user, '/settings/items', '?type=FIN')} />
         )}
       </Panel>
 

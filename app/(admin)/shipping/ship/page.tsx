@@ -1,4 +1,6 @@
 import { requireUser, blocksScreen } from '@/lib/session';
+import { fixAt } from '@/lib/unblock';
+import { Unblock } from '@/components/unblock';
 import Denied from '@/components/denied';
 import { withActor } from '@/lib/db';
 import { PageShell } from '@/components/shell';
@@ -80,11 +82,12 @@ export default async function ShipPage() {
 
       <Panel title="출고 가능" note="유효기한이 이른 것부터">
         {d.lots.length === 0 ? (
-          <Empty hint="출하 승인 화면에서 서면 승인 내용을 먼저 옮겨 적습니다.">
+          <Empty hint="출하 승인 화면에서 서면 승인 내용을 먼저 옮겨 적습니다."
+                 action={<Unblock fix={fixAt(user, '/shipping')} todo="출하 승인 기록하기" />}>
             출고할 수 있는 제품 로트가 없습니다.
           </Empty>
         ) : (
-          <ShipList lots={d.lots} today={d.today ?? ''} />
+          <ShipList lots={d.lots} today={d.today ?? ''} fix={fixAt(user, '/shipping')} />
         )}
       </Panel>
 

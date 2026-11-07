@@ -4,6 +4,8 @@ import { useActionState, useEffect, useState, useId } from 'react';
 import type { FormState } from '@/lib/forms';
 import { Msg, Warnings } from '@/components/ui';
 import Toasts from '@/components/toast';
+import { Unblock } from '@/components/unblock';
+import type { Fix } from '@/lib/unblock';
 import { issueWorkOrder } from './actions';
 import { previewIssue, type IssuePreview } from './preview';
 
@@ -32,9 +34,11 @@ export interface FinOpt { id: string; code: string; name: string }
    장입 장수를 넣으면 자재 구성표로 소요량을 미리 계산해 보여 준다. 이 값이
    작업 지시서에 인쇄된다. 경고는 표시만 하고 발행을 막지 않는다 (§2).
 --------------------------------------------------------------------------- */
-export default function IssueForm({ masters, rawLots, finished, users, today }: {
+export default function IssueForm({ masters, rawLots, finished, users, today, fixes }: {
   masters: DmOpt[]; rawLots: RawLotOpt[]; finished: FinOpt[];
   users: UserOpt[]; today: string;
+  /** 발행이 막혔을 때 푸는 자리. 서버가 권한을 보고 정한다 (lib/unblock.ts) */
+  fixes?: { dmr: Fix; material: Fix };
 }) {
   /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
   const uid = useId();
@@ -96,11 +100,20 @@ export default function IssueForm({ masters, rawLots, finished, users, today }: 
         * (사용자 지시 2026-09-08).
         */}
       <Toasts states={[state]} />
+        {/*
+          * 막혔으면 까닭마다 푸는 자리로 가는 단추를 붙인다 (사용자 요청 2026-11-07).
+          * 둘 다 비었으면 둘 다 적는다 - 하나를 풀고 와서 또 막히지 않게.
+          */}
         {ready.length === 0 && (
-          <p className="text-xs text-faint">서면 대조가 확인된 제품표준서가 필요합니다.</p>
+          <Unblock fix={fixes?.dmr}
+                   why={masters.length === 0
+                     ? '등록된 제품표준서가 없습니다.'
+                     : '서면 대조가 확인된 제품표준서가 없습니다.'}
+                   todo={masters.length === 0 ? '제품표준서 등록하기' : '제품표준서 서면 확인하기'} />
         )}
-        {ready.length > 0 && rawLots.length === 0 && (
-          <p className="text-xs text-faint">사용 가능한 원재료 로트가 없습니다.</p>
+        {rawLots.length === 0 && (
+          <Unblock fix={fixes?.material} why="사용할 수 있는 원재료 로트가 없습니다."
+                   todo="원재료 입고 등록하기" />
         )}
       </div>
     );

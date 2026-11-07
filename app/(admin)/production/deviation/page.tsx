@@ -1,4 +1,6 @@
 import { requireUser, blocksScreen } from '@/lib/session';
+import { fixAt } from '@/lib/unblock';
+import { Unblock } from '@/components/unblock';
 import Denied from '@/components/denied';
 import { withActor } from '@/lib/db';
 import { PageShell, StatStrip, type StatItem } from '@/components/shell';
@@ -89,9 +91,9 @@ export default async function DeviationPage() {
     >
       {(d.rule ?? 0) === 0 && (
         <div className="card border-warn/40 bg-warn-bg px-4 py-3">
-          <p className="text-sm leading-relaxed text-ink">
-            일탈 번호의 채번 규칙이 없습니다. 규칙을 먼저 등록해야 번호를 만들 수 있습니다.
-          </p>
+          <Unblock fix={fixAt(user, '/settings/numbering')} align="start"
+                   why="일탈 번호의 채번 규칙이 없습니다. 규칙을 먼저 등록해야 번호를 만들 수 있습니다."
+                   todo="채번 규칙 등록하기" />
         </div>
       )}
 
