@@ -174,6 +174,7 @@ function LockScreen({
       role="dialog"
       aria-modal="true"
       aria-label="자리 비움 잠금"
+      data-face="dark"
       className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-indigo-deep/95 p-5 backdrop-blur-sm"
     >
       <div className="w-full max-w-[22rem] py-6">

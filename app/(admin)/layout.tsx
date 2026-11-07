@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { requireUser, hasRole, ROLE_LABEL } from '@/lib/session';
 import { isAdmin, isWorker, isViewerOnly, isQpOnly } from '@/lib/roles';
 import { canOpen } from '@/lib/access';
-import { cookies, headers } from 'next/headers';
+import { headers } from 'next/headers';
 import { PATH_HEADER } from '@/lib/auth-const';
 import Watermark, { stamp } from '@/components/watermark';
 import BackFab from '@/components/back-fab';
@@ -14,7 +14,7 @@ import { BrandMark, BrandCopyright, SystemName } from '@/components/brand-mark';
 import { yearKST } from '@/lib/kst';
 import IdleLock from '@/components/idle-lock';
 import { logout } from './actions';
-import Nav, { type NavItem } from './nav';
+import { type NavItem } from './nav';
 import Clock from '@/components/clock';
 import Rail from './rail';
 import { APP_VERSION } from '@/lib/version';
@@ -25,8 +25,9 @@ import { APP_VERSION } from '@/lib/version';
    키보드와 마우스를 쓰는 사무 환경을 전제한다. 밀도를 높이고 표를 많이 쓴다.
    현장 패드용 화면은 /work 쪽이며 조작 크기가 다르다.
 
-   상단은 한 줄로 끝낸다. 두 줄이 되면 표가 밀려 내려가 화면당 보이는 행이
-   줄어든다. 이 시스템은 목록을 훑는 시간이 대부분이다.
+   셸은 Q-Design 정본이다 (오너 결정 2026-11-07 «A · 정본 레일»). 왼쪽 레일이
+   척추이고 본문 위에는 띠를 두지 않는다 - 머리줄이 없으니 표가 밀려 내려가지
+   않는다. 1024px 미만은 레일이 서랍이 된다 (./rail.tsx).
 --------------------------------------------------------------------------- */
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -187,143 +188,77 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     </Link>
   );
 
-  /*
-   * 시안 비교용 갈래 (2026-11-07). 기본은 정본 레일이고, `qd-shell=bar` 쿠키가
-   * 있으면 옛 머리줄로 그린다. 오너가 고르면 고르지 않은 쪽을 지운다.
-   */
-  const shell = (await cookies()).get('qd-shell')?.value === 'bar' ? 'bar' : 'rail';
-
-  if (shell === 'rail') {
-    return (
-      <div className="flex min-h-screen flex-col bg-canvas lg:flex-row">
-        <Rail
-          items={menu}
-          version={APP_VERSION}
-          brand={
-            <>
-              <span className="qd-rail-mark"><BrandMark className="h-auto w-full text-2xl" /></span>
-              <SystemName className="qd-rail-org" />
-            </>
-          }
-          foot={
-            <>
-              <div className="qd-rail-user">
-                {/* 개발 계정은 동그라미 자체를 물들인다. 꼬리표보다 덜 시끄럽고 더 눈에 띈다 */}
-                <span aria-hidden className={`qd-avatar${user.is_developer ? ' !bg-warn-bg !text-warn' : ''}`}>
-                  {initial}
-                </span>
-                <span className="qd-rail-user-text">
-                  <span className="qd-rail-user-name">{user.full_name}</span>
-                  <span className="qd-rail-user-meta" data-hangul="">
-                    {user.is_developer && <span className="text-warn">개발 · </span>}
-                    {roleLine}
-                  </span>
-                </span>
-              </div>
-              <form action={logout}>
-                <button type="submit" className="qd-rail-logout">로그아웃</button>
-              </form>
-            </>
-          }
-          bar={<><FindUnit />{alert}</>}
-        />
-
-        <div className="flex min-w-0 flex-1 flex-col">
-          <DemoBanner seededAt={demo.seededAt ?? null}
-                      canPurge={hasRole(user, 'SYS_ADMIN') && demo.gateOpen === true} />
-
-          {/*
-            * 본문 우상단 띠 (Q-Design 7장). 시각 · 개체 번호 찾기 · 현장 화면 ·
-            * 알림. 좁은 화면에서는 레일 자리의 머리 줄이 찾기와 알림을 대신 든다.
-            */}
-          <div className="hidden items-center justify-end gap-3 px-10 pt-5 lg:flex">
-            <Clock withDate className="text-xs text-faint" />
-            <FindUnit />
-            {isWorker(user.roles) && (
-              <Link href="/work" className="qd-text-action">현장 화면</Link>
-            )}
-            {alert}
-          </div>
-
-          <main className="qd-main mx-auto w-full max-w-[1320px] flex-1">{children}</main>
-
-          <footer className="mx-auto w-full max-w-[1320px] px-10 pb-10 pt-2">
-            <div className="flex items-center justify-between gap-4 border-t border-line pt-4">
-              <span className="opacity-35"><BrandMark className="h-3.5 w-auto text-sm" /></span>
-              <p className="text-xs text-faint"><BrandCopyright year={yearKST()} /></p>
-            </div>
-          </footer>
-        </div>
-
-        {/*
-          * 자리 비움 잠금 (감사 지적 12). 여기서는 한 화면을 오래 읽는 일이 흔해
-          * 현장보다 길게 준다. 워터마크(감사 04)는 캡처를 막지 못하지만 찍히면
-          * 누가 언제 봤는지가 함께 남는다. 뒤로가기는 홈 화면 앱에서 브라우저
-          * 뒤로가기가 없는 자리를 메운다.
-          */}
-        <IdleLock minutes={30} name={user.full_name} initial={initial} />
-        <Watermark text={stamp(user.full_name, user.login_code)} />
-        <BackFab />
-      </div>
-    );
-  }
-
-  /* 옛 머리줄 (시안 B) */
   return (
-    <div className="flex min-h-screen flex-col bg-canvas">
-      <div className="brand-rule" />
-      <DemoBanner seededAt={demo.seededAt ?? null}
-                  canPurge={hasRole(user, 'SYS_ADMIN') && demo.gateOpen === true} />
-
-      <header className="band-solid sticky top-0 z-30">
-        <div className="mx-auto flex min-h-14 max-w-[1240px] flex-wrap items-center gap-x-6 px-5 md:h-14 md:flex-nowrap lg:gap-x-9">
-          <Link href="/" className="flex shrink-0 items-center gap-3" aria-label="현황으로">
-            <BrandMark className="h-7 w-auto text-lg" />
-            <span className="h-5 w-px bg-line-strong" aria-hidden />
-            <SystemName className="display text-lg leading-none text-ink" />
-          </Link>
-
-          <div className="order-last -mx-5 flex h-11 w-[calc(100%+2.5rem)] min-w-0 items-stretch border-t border-line-soft px-4
-                          md:order-none md:mx-0 md:h-full md:w-auto md:flex-1 md:border-t-0 md:px-0">
-            <Nav items={menu} />
-          </div>
-
-          <div className="ml-auto flex h-14 shrink-0 items-center gap-3 md:ml-0">
-            <Clock withDate className="hidden text-xs text-faint xl:inline" />
-            <FindUnit />
-            {isWorker(user.roles) && (
-              <Link href="/work" className="btn-ghost h-9">현장 화면</Link>
-            )}
-            {alert}
-            <div className="hidden items-center gap-2.5 md:flex">
+    <div className="flex min-h-screen flex-col bg-canvas lg:flex-row">
+      <Rail
+        items={menu}
+        version={APP_VERSION}
+        brand={
+          <>
+            <span className="qd-rail-mark"><BrandMark className="h-auto w-full text-2xl" /></span>
+            <SystemName className="qd-rail-org" />
+          </>
+        }
+        foot={
+          <>
+            <div className="qd-rail-user">
+              {/* 개발 계정은 동그라미 자체를 물들인다. 꼬리표보다 덜 시끄럽고 더 눈에 띈다 */}
               <span aria-hidden className={`qd-avatar${user.is_developer ? ' !bg-warn-bg !text-warn' : ''}`}>
                 {initial}
               </span>
-              <div className="leading-tight">
-                <div className="text-sm font-semibold text-ink">{user.full_name}</div>
-                <div className="text-xs text-muted">
-                  {user.is_developer && <span className="font-semibold text-warn">개발 · </span>}
+              <span className="qd-rail-user-text">
+                <span className="qd-rail-user-name">{user.full_name}</span>
+                <span className="qd-rail-user-meta" data-hangul="">
+                  {user.is_developer && <span className="text-warn">개발 · </span>}
                   {roleLine}
-                </div>
-              </div>
+                </span>
+              </span>
             </div>
-            <span className="hidden h-5 w-px bg-line md:block" aria-hidden />
             <form action={logout}>
-              <button type="submit" className="qd-text-action">로그아웃</button>
+              <button type="submit" className="qd-rail-logout">로그아웃</button>
             </form>
+          </>
+        }
+        bar={<><FindUnit />{alert}</>}
+      />
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <DemoBanner seededAt={demo.seededAt ?? null}
+                    canPurge={hasRole(user, 'SYS_ADMIN') && demo.gateOpen === true} />
+
+        {/*
+          * 본문 우상단 띠 (Q-Design 7장). 시각 · 개체 번호 찾기 · 현장 화면 ·
+          * 알림. 좁은 화면에서는 레일 자리의 머리 줄이 찾기와 알림을 대신 든다.
+          */}
+        <div className="hidden items-center justify-end gap-3 px-10 pt-5 lg:flex">
+          <Clock withDate className="text-xs text-faint" />
+          <FindUnit />
+          {isWorker(user.roles) && (
+            <Link href="/work" className="qd-text-action">현장 화면</Link>
+          )}
+          {alert}
+        </div>
+
+        {/* 본문 여백은 정본 3단 반응 구간 (Q-Design 4장): 데스크톱 40 · 태블릿 28 · 폰 16 */}
+        <main className="qd-main mx-auto w-full max-w-[1320px] flex-1
+                         max-lg:[--qd-main-pad-x:28px] max-md:[--qd-main-pad-x:16px]">{children}</main>
+
+        {/* 바닥 여백은 떠 있는 뒤로가기(44px)가 바닥글을 덮지 않을 만큼. 정본 .qd-main 이 본문에 주는
+            «여백 + 4.5rem» 과 같은 셈이다. 폰에서는 그 단추가 숨으므로(정본) 보통 여백 */}
+        <footer className="mx-auto w-full max-w-[1320px] px-4 pb-10 pt-2 sm:pb-[calc(var(--qd-main-pad-y)+4.5rem)] md:px-7 lg:px-10">
+          <div className="flex items-center justify-between gap-4 border-t border-line pt-4">
+            <span className="opacity-35"><BrandMark className="h-3.5 w-auto text-sm" /></span>
+            <p className="text-xs text-faint"><BrandCopyright year={yearKST()} /></p>
           </div>
-        </div>
-      </header>
+        </footer>
+      </div>
 
-      <main className="mx-auto w-full max-w-[1240px] flex-1 px-5 py-10">{children}</main>
-
-      <footer className="mx-auto w-full max-w-[1240px] px-5 pb-10 pt-6">
-        <div className="flex items-center justify-between gap-4 border-t border-line pt-4">
-          <span className="opacity-35"><BrandMark className="h-3.5 w-auto text-sm" /></span>
-          <p className="text-xs text-faint"><BrandCopyright year={yearKST()} /></p>
-        </div>
-      </footer>
-
+      {/*
+        * 자리 비움 잠금 (감사 지적 12). 여기서는 한 화면을 오래 읽는 일이 흔해
+        * 현장보다 길게 준다. 워터마크(감사 04)는 캡처를 막지 못하지만 찍히면
+        * 누가 언제 봤는지가 함께 남는다. 뒤로가기는 홈 화면 앱에서 브라우저
+        * 뒤로가기가 없는 자리를 메운다.
+        */}
       <IdleLock minutes={30} name={user.full_name} initial={initial} />
       <Watermark text={stamp(user.full_name, user.login_code)} />
       <BackFab />

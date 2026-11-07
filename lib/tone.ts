@@ -88,13 +88,16 @@ export function brandSteps(color: string): Step[] {
 export function brandVars(color: string): string {
   const rgb = toRgb(color);
   /*
-   * 정본 팔레트가 읽는 이름으로 낸다 (app/dof.palette.css 의 --qd-company-brand*).
+   * 정본 팔레트가 읽는 이름으로 낸다 (app/dof.palette.css 의 --qd-company-*).
    * 정본 테마는 유틸리티가 `var(--dhr-brand)` 를 그대로 읽으므로 --color-* 를
-   * 덮어도 아무 일이 없다. 어두운 면(indigo)은 강조색에서 만들지 않는다 -
-   * 머리 띠는 팔레트의 웜그레이 띠다.
+   * 덮어도 아무 일이 없다.
+   *
+   * 어두운 면(indigo)은 머리 띠에 쓰지 않는다 - 머리 띠는 팔레트의 웜그레이 띠다.
+   * 회사를 보여 주는 어두운 얼굴(data-face="dark" · 로그인 왼쪽 면 · 잠금 화면)만
+   * 이 값을 읽는다.
    */
   const from = brandSteps(color)
-    .filter((s) => s.name.startsWith('brand') && s.name !== 'brand-lift')
+    .filter((s) => s.name !== 'brand-lift')
     .map((s) => `--qd-company-${s.name}:${s.value}`);
   return [...from, `--qd-company-brand-pale:${lighten(rgb, 0.45)}`].join(';');
 }

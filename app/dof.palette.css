@@ -107,3 +107,26 @@ html:root .sheet {
   --qd-warn-src: #805A00;
   --qd-info-src: #1D4ED8;
 }
+
+/* ---------------------------------------------------------------------------
+   회사를 보여 주는 어두운 얼굴 (data-face="dark")
+
+   로그인 왼쪽 면 · 자리 비움 잠금 · 회사 표시 미리보기. 일하는 화면이 아니라
+   회사의 얼굴이라 여기만 강조색에서 만든 짙은 면 위에 밝은 글자를 둔다.
+   면은 layout.tsx 가 회사 강조색에서 심는다 (lib/tone.ts). 괄호 안은 바닥값.
+--------------------------------------------------------------------------- */
+html:root [data-face='dark'] {
+  color-scheme: dark;
+  --dhr-indigo:       var(--qd-company-indigo, #2C3541);
+  --dhr-indigo-deep:  var(--qd-company-indigo-deep, #1E242C);
+  --dhr-indigo-soft:  var(--qd-company-indigo-soft, #3A4656);
+  --dhr-on-dark:      #FAFAF9;
+  --dhr-on-dark-mute: #C9BBDB;
+  /* 정본 기반 CSS 의 면 규칙(.band-dark 등)은 테마 이름(--color-*)을 읽는데, 그 이름은 :root 에서
+     이미 밝은 값으로 굳어 내려온다. 이 얼굴 안에서 이름도 다시 잇는다 */
+  --color-indigo:       var(--dhr-indigo);
+  --color-indigo-deep:  var(--dhr-indigo-deep);
+  --color-indigo-soft:  var(--dhr-indigo-soft);
+  --color-on-dark:      var(--dhr-on-dark);
+  --color-on-dark-mute: var(--dhr-on-dark-mute);
+}

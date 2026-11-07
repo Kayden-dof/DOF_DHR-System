@@ -204,7 +204,7 @@ export default function RestorePanel({ canRestore, left }: {
 
           <div className="max-h-80 overflow-y-auto">
             <table className="qd-table qd-table--hangul">
-              <thead className="sticky top-0 bg-surface">
+              <thead className="sticky top-0 bg-[var(--qd-table-fill,var(--color-surface))]">
                 <tr>
                   <th className="th text-left">표</th>
                   <th className="th text-right">지금</th>

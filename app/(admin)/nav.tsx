@@ -5,54 +5,10 @@ import { usePathname } from 'next/navigation';
 
 export interface NavItem { href: string; label: string }
 
-/* ---------------------------------------------------------------------------
-   상단 메뉴
-
-   현재 위치를 밑줄 하나로만 말한다. 배경까지 칠하면 상단이 얼룩덜룩해지고
-   글자 무게가 흔들려 어디가 지금인지 오히려 흐려진다.
-
-   지금 자리는 가장 짙은 글자색으로 둔다. 자주로 칠했더니 회색 글자들보다
-   오히려 옅어서, 색은 붙었는데 눈은 다른 데를 봤다. 강조는 밑줄이 맡고
-   글자는 대비만 맡는다.
---------------------------------------------------------------------------- */
-export default function Nav({ items }: { items: NavItem[] }) {
-  const path = usePathname();
-  return (
-    /*
-     * 메뉴 칸이 상단 머리 높이를 그대로 받는다. 밑줄을 글자 아래 몇 px 로
-     * 잡아 두었더니 머리 높이가 바뀔 때마다 어긋났고, 지금은 아예 머리
-     * 바깥으로 나가 보이지 않았다. 칸이 머리만큼 높으면 bottom-0 이 곧
-     * 머리의 아랫선이다.
-     */
-    <nav className="-mx-1 flex h-full min-w-0 items-stretch gap-1 overflow-x-auto px-1">
-      {items.map((it) => {
-        const active = it.href === '/' ? path === '/' : path.startsWith(it.href);
-        return (
-          <Link
-            key={it.href}
-            href={it.href}
-            aria-current={active ? 'page' : undefined}
-            className={`relative flex shrink-0 items-center px-3 text-sm transition-colors ${
-              active ? 'font-semibold text-ink' : 'font-normal text-muted hover:text-ink'
-            }`}
-          >
-            {/*
-              * 지금 자리는 굵기와 글자 밑 짧은 강조선 하나 (Q-Design 차림표 · 16×1.5px).
-              * 띠 아래 2px 강조선이 이미 있으므로 칸 전체 밑줄은 그 선에 묻힌다.
-              */}
-            <span className="relative">
-              {it.label}
-              {active && (
-                <span aria-hidden
-                      className="absolute left-1/2 top-full mt-[5px] h-[1.5px] w-4 -translate-x-1/2 rounded-full bg-brand" />
-              )}
-            </span>
-          </Link>
-        );
-      })}
-    </nav>
-  );
-}
+/*
+ * 맨 위 차림표는 레일이다 (./rail.tsx · Q-Design 차림표 정본 · 오너 결정 2026-11-07 «A»).
+ * 여기는 구역 안의 하위 차림표만 둔다.
+ */
 
 /** 설정 · 자재처럼 하위 화면이 여럿인 구역의 두 번째 줄. */
 export function SubNav({ items }: { items: NavItem[] }) {

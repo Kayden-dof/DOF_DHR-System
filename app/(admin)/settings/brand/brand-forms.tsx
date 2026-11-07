@@ -288,7 +288,8 @@ function LogoSlot({ title, hint, has, name, version, upload, clear, empty, onDar
           * 미리보기 바탕을 쓰일 자리와 같게 둔다. 흰 로고를 흰 바탕에 놓고
           * 보면 아무것도 안 보여서 잘못 올린 줄 안다.
           */}
-        <div className={`mt-1 flex h-16 items-center rounded-md border border-line px-3 ${
+        <div data-face={onDark ? 'dark' : undefined}
+             className={`mt-1 flex h-16 items-center rounded-md border border-line px-3 ${
           onDark ? 'band-dark' : 'bg-surface'}`}>
           {has ? (
             // eslint-disable-next-line @next/next/no-img-element

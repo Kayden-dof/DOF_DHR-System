@@ -59,13 +59,10 @@
    정본 변수(--qd-*)를 덮는다. 굵기 700 은 정본 테마가 지운 이름이라 여기서만 산다.
 --------------------------------------------------------------------------- */
 .print-scale {
-  /* 종이의 바탕 글자는 정본 본문(16 · 1.6 · tnum)이 아니라 옛 기본(16 · 1.5 · ss01 cv01)이다.
-     기록서 판(.sheet)은 정본이 제 변수로 다시 거므로 그 변수도 덮는다 */
+  /* 종이의 바탕 글자는 정본 본문(16 · 1.6 · tnum)이 아니라 옛 기본(16 · 1.5 · ss01 cv01)이다 */
   font-size: 1rem;
   line-height: 1.5;
   font-feature-settings: "ss01", "cv01";
-  --qd-carnet-paper-root-font-size: 1rem;
-  --qd-carnet-paper-root-line-height: 1.5;
   --qd-font-size-32: 1.875rem;
   --qd-font-size-40: 2.25rem;
   --qd-leading-xs: calc(1 / 0.75);
@@ -88,6 +85,9 @@
   /* 번호(로트 · 제조번호)의 글꼴도 종이에서는 옛 사슬 그대로. 글자 폭이 칸 폭을 정한다 */
   --qd-font-family-mono: 'Cascadia Mono', 'IBM Plex Mono', Consolas, 'D2Coding', ui-monospace, monospace;
 }
+/* 기록서 판(.sheet)에 정본이 거는 글자 크기 · 줄 간격을 비킨다. 층 밖 규칙이라 종이마다 붙인
+   text-[12px] · leading-relaxed 를 이기던 것을, 층 안(유틸리티 · 물려받기)으로 돌려보낸다 */
+.print-scale .sheet { font-size: revert-layer; line-height: revert-layer; }
 /* 종이의 제목 · 굵은 글은 700, 표 칸은 옛 줄 간격 (정본은 600 · 1.4) */
 .print-scale :is(h1, h2, h3) { font-weight: 700; letter-spacing: -0.025em; }
 .print-scale h1 { line-height: 1.22; }

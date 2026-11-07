@@ -51,7 +51,7 @@ export default async function LoginPage() {
         * (사용자 지적 2026-09-01). 로고는 남는 자리 한가운데 두고, 슬로건 줄은
         * 글이 없어도 자리를 지킨다.
         */}
-      <section className="band-dark relative hidden flex-col overflow-hidden p-14 lg:flex">
+      <section data-face="dark" className="band-dark relative hidden flex-col overflow-hidden p-14 lg:flex">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0"

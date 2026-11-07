@@ -686,7 +686,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                         <Tag tone="quiet">최신</Tag>
                       )}
                     </td>
-                    <td className="td sticky right-0 bg-surface text-right">
+                    <td className="td sticky right-0 bg-[var(--qd-table-fill,var(--color-surface))] text-right">
                       {/*
                         * 이미 나간 회차를 다시 보는 자리 (2026-09-08).
                         *

@@ -492,14 +492,14 @@ export function GenerateFinished({ schemes, fix }: {
             <table className="qd-table qd-table--hangul">
               <thead>
                 <tr>
-                  <th className="th sticky left-0 bg-surface">크기</th>
+                  <th className="th sticky left-0 bg-[var(--qd-table-fill,var(--color-surface))]">크기</th>
                   {bands.map((b) => <th key={b} className="th font-mono text-xs">{b}</th>)}
                 </tr>
               </thead>
               <tbody>
                 {sizes.map((sz) => (
                   <tr key={sz}>
-                    <td className="td sticky left-0 bg-surface font-mono text-xs">{sz}</td>
+                    <td className="td sticky left-0 bg-[var(--qd-table-fill,var(--color-surface))] font-mono text-xs">{sz}</td>
                     {bands.map((b) => {
                       const r = cell.get(`${sz}|${b}`);
                       if (!r) return <td key={b} className="td" />;
