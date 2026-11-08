@@ -1,17 +1,10 @@
 // =============================================================================
-// Q-Design 에서 온 사본입니다. **이 파일을 손으로 고치지 마세요.**
+// DOF Design 시스템 · 반응형 칸 셈
 //
-// 출처   D:/Claude/Q-Design/patterns/responsive.ts
-// 갱신   cd D:/Claude/Q-Design
-//        node tools/extract-all.mjs && node tools/sync.mjs --write
-//
-// 고칠 일이 생기면 Q-Design 의 원본을 고치고 추출기를 다시 돌립니다.
-// 여기서 고치면 제품들의 화면·문서가 갈립니다.
-// 아래 지문은 본문의 sha256 이고, 이 저장소의 검사가 대조합니다.
-//
-// q-design-nav-sha256: 8c546be994f4285663d26b8a6460f470666c27b3720abc72f6a361be05fb64fc
+// 2026-11-09 부터 DHR 화면은 Q-Design 과 별개인 DOF Design 시스템이다 (사용자 지시).
+// 이 파일은 그날 Q-Design 사본(patterns/responsive.ts)에서 갈라져 나왔고, 이제 이 저장소가
+// 원본이다. 고칠 일이 있으면 여기서 고친다. Q-Design 에서 다시 받지 않는다.
 // =============================================================================
-// q-design-header-end
 /** Shared intrinsic sizing. Column counts are upper bounds, not viewport promises. */
 export function responsiveColumns(
   columns?: number,

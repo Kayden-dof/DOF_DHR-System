@@ -5,37 +5,36 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import type { NavItem } from './nav';
 import { RAIL_COOKIE_PREFIX } from '@/lib/rail';
-import { LayoutDashboard } from '@/components/q-design-icons/LayoutDashboard';
-import { BarChart3 } from '@/components/q-design-icons/BarChart3';
-import { Factory } from '@/components/q-design-icons/Factory';
-import { BookText } from '@/components/q-design-icons/BookText';
-import { Wrench } from '@/components/q-design-icons/Wrench';
-import { Boxes } from '@/components/q-design-icons/Boxes';
-import { Truck } from '@/components/q-design-icons/Truck';
-import { ScanSearch } from '@/components/q-design-icons/ScanSearch';
-import { Settings } from '@/components/q-design-icons/Settings';
-import { ScrollText } from '@/components/q-design-icons/ScrollText';
-import { FileText } from '@/components/q-design-icons/FileText';
-import { ChevronLeft } from '@/components/q-design-icons/ChevronLeft';
-import { ChevronRight } from '@/components/q-design-icons/ChevronRight';
+import { LayoutDashboard } from '@/components/icons/LayoutDashboard';
+import { BarChart3 } from '@/components/icons/BarChart3';
+import { Factory } from '@/components/icons/Factory';
+import { BookText } from '@/components/icons/BookText';
+import { Wrench } from '@/components/icons/Wrench';
+import { Boxes } from '@/components/icons/Boxes';
+import { Truck } from '@/components/icons/Truck';
+import { ScanSearch } from '@/components/icons/ScanSearch';
+import { Settings } from '@/components/icons/Settings';
+import { ScrollText } from '@/components/icons/ScrollText';
+import { FileText } from '@/components/icons/FileText';
+import { ChevronLeft } from '@/components/icons/ChevronLeft';
+import { ChevronRight } from '@/components/icons/ChevronRight';
 
 /* ---------------------------------------------------------------------------
-   차림표 레일 (Q-Design 7장 «셸: 사이드바가 척추» · «차림표 정본»)
+   차림표 레일 (DOF Design 시스템 · 오너 결정 2026-11-07 «A · 레일»)
 
-   클래스 이름이 곧 계약이다 (app/q-design.nav.css). 치수 · 활성 표시(굵은 글자 +
-   면 + 글자 밑 짧은 강조선) · 접히는 폭(1024px)은 정본이 정한다. 여기서는 순서만
-   짠다.
+   클래스 이름이 곧 계약이다 (app/dof-design.nav.css). 치수 · 활성 표시(굵은 글자 +
+   면 + 글자 밑 짧은 강조선) · 접히는 폭(1024px)은 그 파일이 정한다. 여기서는
+   순서만 짠다.
 
      로고 블록 · 차림표 · 판 번호 · 접기 단추 · 계정 · 로그아웃
 
-   아이콘은 정본 아이콘(Phosphor Regular)을 정본 내보내기로 받은 모듈이다
-   (components/q-design-icons · Q-Design tools/sync-react-icons.mjs). 뜻으로 고른다.
+   아이콘은 components/icons 의 Phosphor Regular 모듈이다. 뜻으로 고른다.
 
-   접힌 레일은 원본 Q-Atelier 차림표의 접힘과 같다. 폭 60 · 아이콘만 · 이름은
-   올리면 뜬다 · 계정별로 기억한다. 치수는 app/dof.rail.css. 기억은 쿠키라 서버가
-   첫 그림부터 접힌 채로 그린다 (펼쳤다 접히는 깜빡임이 없다).
+   접힌 레일: 폭 60 · 아이콘만 · 이름은 올리면 뜬다 · 계정별로 기억한다
+   (사용자 지시 2026-11-09). 치수는 app/dof-design.nav.css 끝의 «접힌 레일».
+   기억은 쿠키라 서버가 첫 그림부터 접힌 채로 그린다 (펼쳤다 접히는 깜빡임이 없다).
 
-   1024px 미만은 레일을 감추고(정본) 머리 줄의 «차림표» 단추가 같은 내용을
+   1024px 미만은 레일을 감추고 머리 줄의 «차림표» 단추가 같은 내용을
    서랍으로 연다. 서랍은 늘 펼친 모양이다. 떠 있는 단추는 두지 않는다.
 
    로고 · 이름 · 계정 줄은 서버에서 그린 조각을 받는다 (설정에서 오는 값이라

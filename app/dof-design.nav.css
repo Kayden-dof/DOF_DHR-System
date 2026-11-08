@@ -1,20 +1,15 @@
 /* =============================================================================
-   Q-Design 에서 온 사본입니다. **이 파일을 손으로 고치지 마세요.**
+   DOF Design 시스템 · nav
 
-   출처   D:/Claude/Q-Design/dist/q-design.nav.css
-   갱신   cd D:/Claude/Q-Design
-          node tools/extract-all.mjs && node tools/sync.mjs --write
-
-   고칠 일이 생기면 Q-Design 의 원본을 고치고 추출기를 다시 돌립니다.
-   여기서 고치면 제품들의 화면·문서가 갈립니다.
-   아래 지문은 본문의 sha256 이고, 이 저장소의 검사가 대조합니다.
-
-   q-design-nav-sha256: 90afb1088ff662b674708b6de62995a198819a7032594140a6f9255c6cec2fee
+   2026-11-09 부터 DHR 화면은 Q-Design 과 별개인 DOF Design 시스템이다 (사용자 지시).
+   이 파일은 그날 Q-Design 사본(dist/q-design.nav.css)에서 갈라져 나왔고, 이제 이 저장소가
+   원본이다. 고칠 일이 있으면 여기서 고친다. Q-Design 에서 다시 받지 않는다.
+   본문의 «정본» 이라는 말은 갈라지기 전의 기록이다.
    ============================================================================= */
 @layer components {
 /* =============================================================================
-   q-design.nav.css · 차림표 정본
-   생성물입니다. 손대지 마세요.  node tools/extract-nav.mjs
+   dof-design.nav.css · 차림표 정본
+   (갈라지기 전에는 Q-Design 추출기 tools/extract-nav.mjs 의 생성물이었다. 이제 여기서 고친다)
    원본: Q-Atelier components/Sidebar.tsx
    =============================================================================
 
@@ -556,4 +551,67 @@ html[data-theme='light'] {
 @media print {
   .qd-rail, .qd-rail-backdrop { display: none !important; }
 }
+}
+
+/* ── 접힌 레일 (2026-11-09 · 사용자 지시 «작게 접을 수 있도록») ─────────────────
+   값은 Q-Atelier 차림표 원본의 접힘에서 왔다: 폭 60 · 좌우 안쪽 6 · 항목 높이 42
+   (위아래 1) · 항목 사이 0 · 아이콘 칸 24 · 아이콘 18 · 선택은 강조색 옅은 면 +
+   강조색 아이콘 · 폭이 바뀔 때 0.22s. 펼친 레일 규칙은 건드리지 않는다 -
+   아래는 전부 .qd-rail--collapsed 안이다. 상태는 app/(admin)/rail.tsx 가 쥔다. */
+@layer components {
+  @media (min-width: 1024px) {
+    .qd-rail:not(.qd-rail--drawer) {
+      transition: width 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+                  padding 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .qd-rail { transition: none; }
+  }
+
+  .qd-rail--collapsed {
+    width: 60px;
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+
+  /* 로고 자리: 표식 하나 */
+  .qd-rail--collapsed .qd-rail-brand { margin-bottom: 14px; }
+  .dof-rail-monogram {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    min-height: 36px;
+  }
+
+  /* 항목: 아이콘만. 이름은 올리면 뜬다(title) */
+  .qd-rail--collapsed .qd-rail-nav { gap: 0; }
+  .qd-rail--collapsed .qd-nav-item {
+    justify-content: center;
+    height: 42px;
+    margin: 1px 0;
+    padding: 0;
+  }
+  .qd-rail--collapsed .qd-nav-item.is-active {
+    background: color-mix(in srgb, var(--qd-accent) 10%, transparent);
+  }
+  .qd-rail--collapsed .qd-nav-icon { width: 24px; height: 24px; }
+  .qd-rail--collapsed .qd-nav-icon > svg { width: 18px; height: 18px; }
+
+  /* 접기 단추 줄: 위아래로 세운다 */
+  .qd-rail--collapsed .qd-rail-row { flex-direction: column; align-items: center; }
+
+  /* 바닥: 이름 동그라미와 로그아웃 표식만 가운데에 */
+  .qd-rail--collapsed .qd-rail-user {
+    justify-content: center;
+    margin-bottom: 10px;
+  }
+  .qd-rail--collapsed .qd-rail-user-text { display: none; }
+  .qd-rail--collapsed .qd-rail-foot form { display: flex; justify-content: center; }
+  .qd-rail--collapsed .qd-rail-logout { padding: 0 8px; font-size: 16px; }
+
+  .dof-rail-mini { display: none; }
+  .qd-rail--collapsed .dof-rail-full { display: none; }
+  .qd-rail--collapsed .dof-rail-mini { display: inline; }
 }

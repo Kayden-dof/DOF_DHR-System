@@ -1,44 +1,39 @@
 @import "tailwindcss";
 
 /* ===========================================================================
-   DOF DHR 화면 = Q-Design 정본 + 도프 색 (2026-11-07)
+   DOF Design 시스템 (2026-11-09 부터)
 
-   Q-Design(github.com/lierline/Q-Design)은 MedQraft 제품군의 디자인 정본이다.
-   그 제품군의 Q-Carnet 은 이 저장소에서 갈라져 나간 제품이라 부품 이름(.card ·
-   .td · .touch · .sheet …)과 색 이름(--dhr-*)이 같다. 그래서 Q-Carnet 이 받는
-   정본 사본을 **그대로** 받는다 (Q-Design tools/sync-parts.mjs 의 Q-Forge 줄).
+   DHR 화면은 Q-Design 과 별개인 DOF Design 시스템이다 (사용자 지시 2026-11-09).
+   2026-11-07 에 Q-Design 사본을 그대로 받아 입혔고(클래스 접두사 .qd-* 는 그때의
+   이름이다), 11-09 에 갈라졌다. 이제 아래 파일들이 원본이고 여기서 고친다.
+   Q-Design 에서 다시 받지 않고, Q-Design 을 고치지도 않는다.
 
-     app/q-design.*.css        정본 사본. 손으로 고치지 않는다 - 머리의 지문을
-                               scripts/check-qd-copies.mjs (npm test) 가 대조한다
+     app/dof-design.*.css      짜임 · 글자 · 간격 · 부품 · 차림표 · 목록 · 뼈대
      app/dof.palette.css       도프 색. 색 값은 여기 한 곳에만 있다
-     이 파일                   불러오는 차례와, 정본에 없는 DHR 만의 자리
+     components/icons/         아이콘 (Phosphor Regular, MIT)
+     이 파일                   불러오는 차례와 종이 크기
 
-   2026-11-06 의 첫 시도(3c2ea29)는 정본 파일 대신 규칙을 손으로 옮겨 수치가
-   정본과 갈렸다 (제목 32~40px 등). 이번에는 옮겨 적지 않는다.
-
-   지키는 것 (Q-Design 10장)
-   · 글자는 정본 사다리 밖으로 나가지 않는다. 굵기는 400 · 500 · 600.
+   지키는 것
+   · 글자는 글자 사다리(dof-design.theme) 밖으로 나가지 않는다. 굵기는 400 · 500 · 600.
    · 한글에 자간을 벌리지 않는다 (data-hangul).
    · 쉬는 면에 그림자 없음. 옆 띠(왼쪽 색 막대) 없음.
    · 강조색은 한 화면에 한 자리. 주 동작 단추는 먹색이다.
    =========================================================================== */
 
-/* 정본 사본 — 차례가 곧 계약이다. 테마 · 글꼴 · 기반 · 부품 · 업무 화면 · 차림표 · 목록 · 뼈대 · 팔레트 */
-@import './q-design.theme.css';
-@import './q-design.mono-fonts.css';
-@import './q-design.foundation.css';
-@import './q-design.components.css';
-@import './q-design.workspace.css';
-@import './q-design.nav.css';
-@import './q-design.list.css';
-@import './q-design.screen.css';
-@import './q-design.palette.css';
+/* DOF Design - 차례가 곧 계약이다. 테마 · 글꼴 · 기반 · 부품 · 업무 화면 · 차림표 · 목록 · 뼈대 · 팔레트 */
+@import './dof-design.theme.css';
+@import './dof-design.mono-fonts.css';
+@import './dof-design.foundation.css';
+@import './dof-design.components.css';
+@import './dof-design.workspace.css';
+@import './dof-design.nav.css';
+@import './dof-design.list.css';
+@import './dof-design.screen.css';
+@import './dof-design.palette.css';
 
-/* 도프 색 — 정본 팔레트 바로 뒤. 같은 이름을 같은 세기로 덮는다 */
+/* 도프 색 - 팔레트 바로 뒤. 같은 이름을 같은 세기로 덮는다 */
 @import './dof.palette.css';
 
-/* 접힌 레일 - 정본 차림표에 아직 없는 접힘 (원본 Q-Atelier 값). 정본에 들어오면 지운다 */
-@import './dof.rail.css';
 
 /* ---------------------------------------------------------------------------
    테마 이름 하나 더하기

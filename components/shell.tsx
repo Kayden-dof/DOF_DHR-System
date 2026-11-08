@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import StatDetail from './stat-detail';
-import { responsiveColumns } from '@/lib/design/q-design-responsive';
+import { responsiveColumns } from '@/lib/design/responsive';
 
 /* ---------------------------------------------------------------------------
    화면 골격
