@@ -281,7 +281,7 @@ export default async function SettingsHome() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {mine(cards).map((x) => (
           <Link key={x.href} href={x.href}
-                className="card-raised group p-4 transition-colors hover:border-brand-line">
+                className="qd-panel qd-panel--box card-raised group p-4 transition-colors hover:border-brand-line">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-ink">{x.title}</h3>
               <span className="text-xs text-faint transition-colors group-hover:text-brand">열기</span>

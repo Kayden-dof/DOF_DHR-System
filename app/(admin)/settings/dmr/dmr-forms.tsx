@@ -177,7 +177,9 @@ export function VerifyForm({
       {open && (
         <div role="dialog" aria-modal="true" aria-label="서면 대조 확인"
              className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-ink/45 p-4 backdrop-blur-sm">
-          <div className="card-raised my-6 w-full max-w-3xl">
+          {/* 떠 있는 상자라 면(흰 바탕) · 테두리 · 그림자를 함께 준다. card-raised 만으로는
+              면이 없어 뒤 화면이 비쳐 읽기 어려웠다 (사용자 2026-11-09 «팝업에 배경이 있어야») */}
+          <div className="qd-panel qd-panel--box card-raised my-6 w-full max-w-3xl overflow-hidden shadow-[var(--sh-3)]">
             <header className="section-head">
               <div>
                 <h3 className="text-lg font-semibold text-ink">서면 제품표준서와 대조</h3>
