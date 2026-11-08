@@ -77,6 +77,32 @@ export async function BrandMark({
   );
 }
 
+/**
+ * 접힌 레일(60px)의 로고 자리. 그림 로고는 그 폭 안에 줄여 담고, 글자 로고는
+ * 회사 이름의 첫 글자 하나만 낸다 (원본 Q-Atelier 접힘의 Q 표식 자리).
+ */
+export async function BrandMonogram({ className }: { className?: string }) {
+  const b = await getBrand();
+  if (b.hasLogo) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return (
+      <img
+        src={`/logo?v=${b.logoUpdatedAt ?? '0'}`}
+        alt={b.companyName || '회사 로고'}
+        className={className}
+        style={{ objectFit: 'contain' }}
+      />
+    );
+  }
+  const first = b.companyName.trim().slice(0, 1);
+  if (!first) return null;
+  return (
+    <span className={`display leading-none ${className ?? ''}`} style={{ color: 'var(--color-brand)' }}>
+      {first}
+    </span>
+  );
+}
+
 /** 바닥글의 `© 2026 회사이름`. 이름이 없으면 연도만 낸다 */
 export async function BrandCopyright({ year }: { year: number | string }) {
   const b = await getBrand();

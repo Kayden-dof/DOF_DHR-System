@@ -4,19 +4,20 @@ import { redirect } from 'next/navigation';
 import { requireUser, hasRole, ROLE_LABEL } from '@/lib/session';
 import { isAdmin, isWorker, isViewerOnly, isQpOnly } from '@/lib/roles';
 import { canOpen } from '@/lib/access';
-import { headers } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { PATH_HEADER } from '@/lib/auth-const';
 import Watermark, { stamp } from '@/components/watermark';
 import BackFab from '@/components/back-fab';
 import DemoBanner from '@/components/demo-banner';
 import FindUnit from '@/components/find-unit';
-import { BrandMark, BrandCopyright, SystemName } from '@/components/brand-mark';
+import { BrandMark, BrandMonogram, BrandCopyright, SystemName } from '@/components/brand-mark';
 import { yearKST } from '@/lib/kst';
 import IdleLock from '@/components/idle-lock';
 import { logout } from './actions';
 import { type NavItem } from './nav';
 import Clock from '@/components/clock';
 import Rail from './rail';
+import { RAIL_COOKIE_PREFIX } from '@/lib/rail';
 import { APP_VERSION } from '@/lib/version';
 
 /* ---------------------------------------------------------------------------
@@ -165,6 +166,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const menu = items.filter((n) => canOpen(n.href, user.roles, user.screens));
 
   const initial = user.full_name.slice(0, 1);
+
+  /* 레일을 접어 두었는가. 계정별로 기억한다 (./rail.tsx) */
+  const railCollapsed = (await cookies()).get(RAIL_COOKIE_PREFIX + user.id)?.value === '1';
   const roleLine = user.roles.length
     ? user.roles.map((r) => ROLE_LABEL[r]).join(' · ')
     : '역할 없음';
@@ -199,6 +203,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <SystemName className="qd-rail-org" />
           </>
         }
+        brandMini={<span className="dof-rail-monogram"><BrandMonogram className="h-auto w-full text-2xl" /></span>}
+        collapsed={railCollapsed}
+        who={user.id}
         foot={
           <>
             <div className="qd-rail-user">
@@ -215,7 +222,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               </span>
             </div>
             <form action={logout}>
-              <button type="submit" className="qd-rail-logout">로그아웃</button>
+              {/* 접힌 레일에서는 글귀 대신 표식 하나 (원본 접힘의 로그아웃과 같다) */}
+              <button type="submit" className="qd-rail-logout" aria-label="로그아웃" title="로그아웃">
+                <span className="dof-rail-full">로그아웃</span>
+                <span className="dof-rail-mini" aria-hidden>⎋</span>
+              </button>
             </form>
           </>
         }
