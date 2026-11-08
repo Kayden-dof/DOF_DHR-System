@@ -10,7 +10,7 @@ import {
   createDeviceMaster, verifyDeviceMaster, addOperation, addBom, addTier, setExpectedUnits, setProductCode,
   addOperationsBulk, copyDmr, createProduct, addSampleTier, setSampleBasis,
   setTypicalDay, setDmrNote, setDmrLimits,
-  updateOperation, updateBom, updateTier, bulkBom,
+  updateOperation, updateBom, updateTier, bulkBom, deleteOperation,
 } from './actions';
 import { linkOperation } from '../../equipment/actions';
 
@@ -418,6 +418,48 @@ export function AddBomForm({ dm, op, items, fix }: {
    발행 뒤에는 이 폼들이 아예 나오지 않는다 (editable). DB 도 같은 것을
    막는다 (0089) - 응용에서만 막은 건 검증이 아니다 (§1-2).
 --------------------------------------------------------------------------- */
+/*
+ * 공정 지우기 (0124). 되돌릴 수 없으므로 한 번 더 묻는다. 함께 지워지는 것을
+ * 그 자리에서 말한다 - 자재 구성표와 설비 연결이 따라간다.
+ */
+function DeleteOperationForm({ dm, op }: { dm: string; op: OperationRow }) {
+  const [state, action, pending] = useActionState<FormState, FormData>(deleteOperation, {});
+  const { open, setOpen } = useDialog(state);
+
+  return (
+    <div className="border-b border-line-soft px-4 py-2.5">
+      <button type="button" onClick={() => setOpen(true)}
+              className="qd-text-action qd-text-action--danger text-xs">
+        공정 지우기
+      </button>
+      <Dialog open={open} onClose={() => setOpen(false)} title="공정 지우기"
+              note={<><code className="font-mono">{op.code}</code> {op.name}</>}>
+        <form action={action}>
+          <input type="hidden" name="id" value={op.id} />
+          <input type="hidden" name="device_master_id" value={dm} />
+          <p className="text-sm leading-relaxed text-ink">
+            이 공정과 함께 자재 구성표 {op.bom.length}종과 설비 연결이 지워집니다.
+            되돌릴 수 없고, 지운 내용은 감사추적에 남습니다.
+          </p>
+          <p className="mt-2 text-xs leading-relaxed text-muted">
+            서면 대조를 마친 표준서라면 대조 확인이 풀립니다. 다시 대조해야 작업 지시에서 고를 수 있습니다.
+          </p>
+          <Msg state={state} />
+          <div className="mt-4 flex justify-end gap-2">
+            <button type="button" onClick={() => setOpen(false)} className="btn-ghost h-9 px-3 text-xs">
+              그만두기
+            </button>
+            <button type="submit" disabled={pending} className="btn-danger h-9 px-4 text-xs">
+              {pending ? '지우는 중' : '지우기'}
+            </button>
+          </div>
+        </form>
+      </Dialog>
+      {state.ok && <Msg state={state} />}
+    </div>
+  );
+}
+
 export function EditOperationForm({ dm, op }: { dm: string; op: OperationRow }) {
   const uid = useId();
   const [show, setShow] = useState(false);
@@ -649,6 +691,7 @@ export function OperationCard({ dm, op, items, editable, equipment = [], bomFix 
       {open && (
         <div className="bg-canvas/50">
           {editable && <EditOperationForm dm={dm} op={op} />}
+          {editable && <DeleteOperationForm dm={dm} op={op} />}
 
           {/*
             * 보통 몇 일차. 실제 일차는 현장이 정하므로 여기 값은 계획을 돕는

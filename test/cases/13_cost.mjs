@@ -108,7 +108,7 @@ export default [
 
 {
   id: 'LC-04', expect: '권한 거부',
-  name: '공수 단가는 고쳐 쓰거나 지울 수 없다',
+  name: '공수 단가는 고쳐 쓸 수 없다 (지우기는 0124 로 열렸다)',
   async run(t) {
     const m = await master(t);
     await t.rows(
@@ -122,8 +122,9 @@ export default [
     await t.asRole('app_role', async () => {
       await t.rejects(() => t.rows(`update labour_rate set hourly_rate = 1`),
                       { code: '42501' });
-      await t.rejects(() => t.rows(`delete from labour_rate`), { code: '42501' });
     });
+    t.eq(await t.val(`select has_table_privilege('app_role', 'labour_rate', 'DELETE')`),
+      true, '지우기는 열렸다 (사용자 지시 2026-11-09)');
   },
 },
 

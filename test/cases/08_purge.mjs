@@ -44,11 +44,11 @@ export default [
 
 {
   id: 'PRG-02', expect: '거부',
-  name: '표시가 없으면 삭제가 그대로 막힌다 (S03 평시)',
+  name: '표시가 없으면 표를 통째로 비우는 TRUNCATE 가 막힌다 (행 지우기는 0124 로 열렸다)',
   async run(t) {
-    await t.rejects(() => t.rows(`delete from item`),
+    await t.rejects(() => t.exec(`truncate item cascade`),
       { code: 'P0001', message: 'S03: 기록은 삭제할 수 없습니다' });
-    await t.rejects(() => t.rows(`delete from work_order`),
+    await t.rejects(() => t.exec(`truncate work_order cascade`),
       { code: 'P0001', message: 'S03: 기록은 삭제할 수 없습니다' });
   },
 },
@@ -67,7 +67,7 @@ export default [
     await t.setActor(t.fx.admin);
     await t.rejects(() => t.val(`select purge_demo_data()`),
       { code: 'P0001', message: '갈라낼 수 없으므로 비우지 않습니다' });
-    await t.rejects(() => t.rows(`delete from item`),
+    await t.rejects(() => t.exec(`truncate item cascade`),
       { code: 'P0001', message: 'S03: 기록은 삭제할 수 없습니다' });
   },
 },
@@ -155,7 +155,8 @@ export default [
     await t.rejects(() => t.val(`select purge_demo_data()`),
       { code: 'P0001', message: '시연 자료 표시가 없습니다' });
 
-    await t.rejects(() => t.rows(`delete from item`),
+    /* 0124 뒤에도 표를 통째로 비우는 길과 감사추적을 지우는 길은 닫혀 있다 */
+    await t.rejects(() => t.exec(`truncate item cascade`),
       { code: 'P0001', message: 'S03: 기록은 삭제할 수 없습니다' });
     await t.rejects(() => t.rows(`delete from audit_log`),
       { code: 'P0001', message: 'S03: 기록은 삭제할 수 없습니다' });
@@ -229,18 +230,14 @@ export default [
 },
 
 {
-  id: 'PRG-10', expect: '권한 거부',
-  name: '부적합 기록도 §5 의 보호를 받는다 (0051)',
+  id: 'PRG-10', expect: '확인',
+  name: '부적합 기록은 지울 수 있게 열렸고 감사 트리거는 하나다 (0051 · 0124)',
   async run(t) {
-    /*
-     * 권한 검사는 행이 없어도 걸린다. 트리거는 행 단위라 빈 표에서는 돌지
-     * 않으므로, 비운 뒤에 서는 이 자리에서는 권한 쪽만 본다.
-     * 트리거 쪽은 행이 있는 동안 도는 NC-04 · WN-04 가 본다.
-     */
-    await t.asRole('app_role', async () => {
-      await t.rejects(() => t.rows(`delete from product_nonconformity`), { code: '42501' });
-      await t.rejects(() => t.rows(`delete from wip_nonconformity`),     { code: '42501' });
-    });
+    /* 0124: 지우기는 열렸다. 지운 행은 감사추적에 남는다 (AU-02 가 전 표를 본다) */
+    t.eq(await t.val(`select has_table_privilege('app_role', 'product_nonconformity', 'DELETE')`),
+      true, 'product_nonconformity DELETE');
+    t.eq(await t.val(`select has_table_privilege('app_role', 'wip_nonconformity', 'DELETE')`),
+      true, 'wip_nonconformity DELETE');
 
     /* 감사 트리거가 하나뿐인지. 둘이면 한 번 쓸 때 감사기록이 두 줄 남는다 */
     t.eq(await t.val(

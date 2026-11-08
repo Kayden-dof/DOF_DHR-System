@@ -34,20 +34,34 @@ export default [
 },
 
 {
-  id: 'S03-02', expect: '권한 거부',
-  name: 'app_role의 app_user DELETE',
+  id: 'S03-02', expect: '통과',
+  name: 'app_role 이 계정을 지운다 → 지운 행이 감사추적에 남는다 (0124)',
   async run(t) {
-    await t.asRole('app_role', () =>
-      t.rejects(() => t.rows(`delete from app_user`), { code: '42501' }));
+    const id = await t.newUser({ full_name: '지울계정' });
+    await t.asRole('app_role', async () => {
+      await t.rows(`delete from user_role where user_id = $1`, [id]);
+      await t.rows(`delete from app_user where id = $1`, [id]);
+    });
+    t.eq(await t.val(`select count(*)::int from app_user where id = $1`, [id]), 0, '계정이 지워졌다');
+    const rows = await t.rows(
+      `select old_value->>'full_name' as name from audit_log
+        where table_name = 'app_user' and record_id = $1 and action = 'DELETE'`, [id]);
+    t.eq(rows.length, 1, '지운 줄');
+    t.eq(rows[0].name, '지울계정', '지우기 전 값이 남는다');
   },
 },
 
 {
-  id: 'S03-03', expect: '권한 거부',
-  name: 'app_role의 numbering_rule DELETE',
+  id: 'S03-03', expect: '통과',
+  name: 'app_role 이 채번 규칙을 지운다 → 감사추적에 남는다 (0124)',
   async run(t) {
+    const id = await throwawayRule(t, 'DEVIATION');
     await t.asRole('app_role', () =>
-      t.rejects(() => t.rows(`delete from numbering_rule`), { code: '42501' }));
+      t.rows(`delete from numbering_rule where id = $1`, [id]));
+    t.eq(await t.val(
+      `select count(*)::int from audit_log
+        where table_name = 'numbering_rule' and record_id = $1 and action = 'DELETE'`, [id]),
+      1, '지운 줄');
   },
 },
 
@@ -114,11 +128,9 @@ export default [
 
 {
   id: 'S03-10', expect: '거부',
-  name: '소유자 권한의 numbering_rule DELETE / TRUNCATE',
+  name: '소유자 권한의 numbering_rule TRUNCATE (DELETE 는 0124 로 열렸다)',
   async run(t) {
     await throwawayRule(t, 'DEVIATION');
-    await t.rejects(() => t.rows(`delete from numbering_rule`),
-      { code: 'P0001', message: 'S03: 기록은 삭제할 수 없습니다' });
 
     // 단독 TRUNCATE는 numbering_counter의 FK가 먼저 막는다 (0A000).
     await t.rejects(() => t.exec(`truncate numbering_rule`), { code: ['0A000', 'P0001'] });

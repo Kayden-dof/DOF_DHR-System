@@ -231,15 +231,15 @@ export default [
 
 {
   id: 'IMM-08', expect: '거부',
-  name: '시료 채취 기준표는 표 소유자도 지우지 못한다',
+  name: '시료 채취 기준표를 통째로 비우는 TRUNCATE 는 막힌다 (행 지우기는 0124 로 열렸다)',
   async run(t) {
     const m = await master(t);
     t.ok(await t.val(`select count(*)::int from sample_plan`) > 0, '기준표가 있어야 한다');
 
-    await t.asRole('app_role', () =>
-      t.rejects(() => t.rows(`delete from sample_plan`), { code: '42501' }));
-    await t.rejects(() => t.rows(`delete from sample_plan`),
+    /* TRUNCATE 는 행 트리거를 건너뛰어 감사추적에 아무것도 남지 않는다 - 그래서 그대로 막는다 */
+    await t.rejects(() => t.exec(`truncate sample_plan cascade`),
       { ...BLOCKED, message: 'S03: 기록은 삭제할 수 없습니다' });
+    t.ok(await t.val(`select count(*)::int from sample_plan`) > 0, '기준표가 그대로다');
     t.ok(m, '');
   },
 },
@@ -415,6 +415,30 @@ export default [
 
     t.eq(await t.val(`select license_no from device_master where id = $1`, [x.dm]),
          '제허 00-0001호', '적힌 번호가 그대로다');
+  },
+},
+
+{
+  id: 'IMM-30', expect: '통과',
+  name: '제품표준서 공정 하나를 자재 구성표 · 구간과 함께 지운다 → 지운 행이 모두 감사추적에 남는다 (0124)',
+  async run(t) {
+    const m = await master(t);
+    const f = await freshDmr(t, m, 'Rev.DEL');
+
+    const code = await t.asRole('app_role', () =>
+      t.val(`select delete_dmr_operation($1)`, [f.op]));
+    t.eq(code, 'Rev.DEL-OP1', '지운 공정 코드');
+
+    t.eq(await t.val(`select count(*)::int from dmr_operation where id = $1`, [f.op]), 0, '공정');
+    t.eq(await t.val(`select count(*)::int from dmr_bom where id = $1`, [f.bom]), 0, '자재 구성표');
+    t.eq(await t.val(`select count(*)::int from dmr_bom_tier where id = $1`, [f.tier]), 0, '장입 구간');
+
+    const logged = await t.rows(
+      `select table_name from audit_log
+        where action = 'DELETE' and record_id = any($1::uuid[]) order by table_name`,
+      [[f.op, f.bom, f.tier]]);
+    t.eq(logged.map((r) => r.table_name).join(','), 'dmr_bom,dmr_bom_tier,dmr_operation',
+      '지운 세 행이 감사추적에');
   },
 },
 

@@ -172,17 +172,20 @@ export default [
 },
 
 {
-  id: 'DV-08', expect: '권한 거부',
-  name: '일탈 기록도 지울 수 없다 (S03)',
+  id: 'DV-08', expect: '통과',
+  name: '일탈 기록을 지운다 → 지운 행이 감사추적에 남는다 (0124)',
   async run(t) {
     const m = await master(t);
     await withRule(t, m);
     const [a] = await openOne(t, m);
 
-    await t.asRole('app_role', async () => {
-      await t.rejects(() => t.rows(`delete from deviation where id = $1`, [a.id]),
-        { code: '42501' });
-    });
+    await t.asRole('app_role', () =>
+      t.rows(`delete from deviation where id = $1`, [a.id]));
+    t.eq(await t.val(`select count(*)::int from deviation where id = $1`, [a.id]), 0, '지워졌다');
+    t.eq(await t.val(
+      `select count(*)::int from audit_log
+        where table_name = 'deviation' and record_id = $1 and action = 'DELETE'
+          and old_value is not null`, [a.id]), 1, '지운 줄과 지우기 전 값');
   },
 },
 

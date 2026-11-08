@@ -549,13 +549,28 @@ export default [
 },
 
 {
-  id: 'AU-02', expect: '권한 거부',
-  name: 'app_role은 M1~M4 어느 표도 삭제할 수 없다',
+  id: 'AU-02', expect: '확인',
+  name: '지울 수 있는 표는 모두 지운 행을 감사추적에 남기고, 로그 표는 지울 수 없다 (0124)',
   async run(t) {
-    const tables = ['item', 'material_lot', 'material_issue', 'work_order',
-      'product_lot', 'process_record', 'stock_movement', 'shipment', 'record_print', 'day_lock'];
+    /* 사용자 지시 2026-11-09: 삭제는 열되 Log 는 계속 남긴다 */
+    const silent = await t.rows(
+      `select c.relname as tbl
+         from pg_class c join pg_namespace n on n.oid = c.relnamespace
+        where n.nspname = 'public' and c.relkind = 'r'
+          and has_table_privilege('app_role', c.oid, 'DELETE')
+          and c.relname not in ('login_attempt', 'access_block', 'demo_marker')
+          and not exists (
+            select 1 from pg_trigger tg
+             where tg.tgrelid = c.oid and not tg.tgisinternal
+               and tg.tgfoid = 'public.trg_audit()'::regprocedure
+               and (tg.tgtype & 8) <> 0)
+        order by 1`);
+    t.eq(silent.map((r) => r.tbl).join(', '), '', '지워도 감사추적에 남지 않는 표');
+
+    const logs = ['audit_log', 'record_print', 'record_print_lot',
+                  'backup_log', 'restore_log', 'numbering_counter'];
     await t.asRole('app_role', async () => {
-      for (const tb of tables) {
+      for (const tb of logs) {
         await t.rejects(() => t.rows(`delete from ${tb}`), { code: '42501' });
       }
     });

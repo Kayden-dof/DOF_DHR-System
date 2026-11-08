@@ -275,6 +275,35 @@ export async function verifyDeviceMaster(_p: FormState, form: FormData): Promise
   }
 }
 
+/**
+ * 공정 하나를 지운다 (0124 · 사용자 지시 2026-11-09 «넣고 나면 삭제가 안 된다»).
+ *
+ * 자재 구성표 · 장입 구간 · 설비 연결이 함께 지워지고, 지운 행은 모두 지우기 전
+ * 값 그대로 감사추적에 남는다 (delete_dmr_operation). 화면은 작업 지시가 아직
+ * 안 나간 개정에서만 단추를 낸다(editable).
+ *
+ * 서면 대조를 마친 개정이면 대조 확인을 거둔다. 공정이 바뀌었으니 서면과 다시
+ * 견주어야 작업 지시에서 고를 수 있다.
+ */
+export async function deleteOperation(_p: FormState, form: FormData): Promise<FormState> {
+  try {
+    const me = await admin();
+    const id = String(form.get('id') ?? '');
+    const dm = String(form.get('device_master_id') ?? '');
+    const code = await withActor(me.id, async (db) => {
+      const c = await db.val<string>(`select delete_dmr_operation($1)`, [id]);
+      await db.rows(
+        `update device_master set verified_by = null, verified_at = null
+          where id = $1 and verified_at is not null`, [dm]);
+      return c;
+    }, { reason: '제품표준서 공정 지우기' });
+    path(dm);
+    return { ok: true, message: `${code} 공정을 지웠습니다. 지운 내용은 감사추적에 남았습니다.` };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
 export async function addOperation(_p: FormState, form: FormData): Promise<FormState> {
   try {
     const me = await admin();

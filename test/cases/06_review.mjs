@@ -6,6 +6,12 @@
 // 곧 무시된다.
 // =============================================================================
 
+/* 이 표의 감사 트리거가 지우기(DELETE)에도 도는가 (0124) */
+const AUDITS_DELETE = `select exists (
+  select 1 from pg_trigger tg join pg_class c on c.oid = tg.tgrelid
+   where c.relname = $1 and not tg.tgisinternal
+     and tg.tgfoid = 'public.trg_audit()'::regprocedure and (tg.tgtype & 8) <> 0)`;
+
 import { masterData as master, newMaterialLot, newWorkOrder, releaseRequestNo }
   from '../fixtures.mjs';
 
@@ -435,11 +441,12 @@ export default [
 },
 
 {
-  id: 'SP-03', expect: '권한 거부',
-  name: 'app_role의 sample_plan DELETE',
+  id: 'SP-03', expect: '확인',
+  name: 'sample_plan 은 지울 수 있고 지운 행은 감사추적에 남는다 (0124)',
   async run(t) {
-    await t.asRole('app_role', () =>
-      t.rejects(() => t.rows(`delete from sample_plan`), { code: '42501' }));
+    t.eq(await t.val(`select has_table_privilege('app_role', 'sample_plan', 'DELETE')`),
+      true, 'app_role 의 DELETE 권한');
+    t.eq(await t.val(AUDITS_DELETE, ['sample_plan']), true, '지우면 감사추적에 남는다');
   },
 },
 
@@ -898,11 +905,12 @@ export default [
 },
 
 {
-  id: 'NC-04', expect: '권한 거부',
-  name: '부적합 기록도 지워지지 않는다',
+  id: 'NC-04', expect: '확인',
+  name: '부적합 기록은 지울 수 있고 지운 행은 감사추적에 남는다 (0124)',
   async run(t) {
-    await t.asRole('app_role', () =>
-      t.rejects(() => t.rows(`delete from product_nonconformity`), { code: '42501' }));
+    t.eq(await t.val(`select has_table_privilege('app_role', 'product_nonconformity', 'DELETE')`),
+      true, 'app_role 의 DELETE 권한');
+    t.eq(await t.val(AUDITS_DELETE, ['product_nonconformity']), true, '지우면 감사추적에 남는다');
   },
 },
 
@@ -977,11 +985,12 @@ export default [
 },
 
 {
-  id: 'WN-04', expect: '권한 거부',
-  name: '재단 전 부적합도 지워지지 않는다',
+  id: 'WN-04', expect: '확인',
+  name: '재단 전 부적합은 지울 수 있고 지운 행은 감사추적에 남는다 (0124)',
   async run(t) {
-    await t.asRole('app_role', () =>
-      t.rejects(() => t.rows(`delete from wip_nonconformity`), { code: '42501' }));
+    t.eq(await t.val(`select has_table_privilege('app_role', 'wip_nonconformity', 'DELETE')`),
+      true, 'app_role 의 DELETE 권한');
+    t.eq(await t.val(AUDITS_DELETE, ['wip_nonconformity']), true, '지우면 감사추적에 남는다');
   },
 },
 

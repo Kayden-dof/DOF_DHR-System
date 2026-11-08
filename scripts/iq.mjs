@@ -181,21 +181,36 @@ check('IQ-08', 'S02 material_lot.coa_no NOT NULL', 'NOT NULL',
  * 거두는 자리라 지울 수 있어야 하고, 그것은 기록이 아니다. 넓게 잡은 검사는
  * 정상 상태를 계속 짚어 대고, 그러면 보는 사람이 보고서를 안 믿게 된다.
  */
-const S03_TABLES = [
-  'item', 'supplier', 'item_supplier', 'price_history', 'shelf_life_history',
-  'device_master', 'dmr_operation', 'dmr_bom', 'dmr_bom_tier',
-  'purchase_order', 'material_lot', 'material_issue', 'stock_movement',
-  'work_order', 'product_lot', 'process_record',
-  'steril_batch', 'steril_batch_lot', 'shipment',
-  'record_print', 'day_lock', 'audit_log',
+/*
+ * 0124 (사용자 지시 2026-11-09): 규정 때문에 막아 둔 삭제를 열었다. 남은 것은 둘이다.
+ *   ① 로그 표(감사추적 · 백업 · 복원 · 인쇄 대장)와 채번 계수기는 여전히 지울 수 없다.
+ *   ② 지울 수 있는 표는 모두 지운 행을 감사추적에 남긴다 (감사 트리거가 DELETE 에도 돈다).
+ */
+const LOG_TABLES = [
+  'audit_log', 'backup_log', 'restore_log', 'record_print', 'record_print_lot', 'numbering_counter',
 ];
 const delGrants = await q(
   `select table_name from information_schema.role_table_grants
     where table_schema='public' and privilege_type='DELETE' and grantee='app_role'
-      and table_name = any($1) order by table_name`, [S03_TABLES]);
-check('IQ-09', `S03 기록 ${S03_TABLES.length}개 표의 DELETE 권한`, '0개',
+      and table_name = any($1) order by table_name`, [LOG_TABLES]);
+check('IQ-09', `로그 · 계수기 ${LOG_TABLES.length}개 표의 DELETE 권한`, '0개',
   `${delGrants.length}개`, delGrants.length === 0);
 if (delGrants.length) say(`          └─ ${delGrants.map((r) => r.table_name).join(', ')}`);
+
+const silentDeletes = await q(
+  `select c.relname as table_name
+     from pg_class c join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public' and c.relkind = 'r'
+      and has_table_privilege('app_role', c.oid, 'DELETE')
+      and c.relname not in ('login_attempt', 'access_block', 'demo_marker')
+      and not exists (
+        select 1 from pg_trigger tg
+         where tg.tgrelid = c.oid and not tg.tgisinternal
+           and tg.tgfoid = 'public.trg_audit()'::regprocedure and (tg.tgtype & 8) <> 0)
+    order by 1`);
+check('IQ-09b', '지울 수 있는데 지운 행이 감사추적에 남지 않는 표', '0개',
+  `${silentDeletes.length}개`, silentDeletes.length === 0);
+if (silentDeletes.length) say(`          └─ ${silentDeletes.map((r) => r.table_name).join(', ')}`);
 
 const s04 = await q(
   `select tgname from pg_trigger where tgname in ('process_record_s04','material_issue_s04')`);
