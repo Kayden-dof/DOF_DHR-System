@@ -92,6 +92,9 @@ export default async function EquipmentPage() {
      * 공정을 제품(표준서)별로 보여 준다. 전 제품의 공정을 한 줄에 쏟으면
      * 제품이 둘만 되어도 어느 공정이 누구 것인지 읽을 수 없다 (사용자 지적).
      * 제품을 먼저 고르고 그 공정에서 걸며, 제품마다 따로 걸 수 있다.
+     *
+     * 서면 확인 전 개정도 보여 준다. 설비 연결은 서면 대조 항목(«설비가 서면과
+     * 같습니까?»)이라 확인보다 먼저 걸려 있어야 한다 (2026-11-09).
      */
     ops: await db.rows<OpOption>(
       `select o.id, o.code, o.name, o.seq,
@@ -101,7 +104,6 @@ export default async function EquipmentPage() {
          from dmr_operation o
          join device_master dm on dm.id = o.device_master_id
          join item i on i.id = dm.item_id
-        where dm.verified_at is not null
         order by i.code, dm.revision desc, o.seq`),
   }));
 
@@ -154,8 +156,8 @@ export default async function EquipmentPage() {
       {d.ops.length === 0 && (
         <div className="card border-warn/30 bg-warn-bg px-4 py-3">
           <Unblock fix={fixAt(user, '/settings/dmr')} align="start"
-                   why="서면 대조가 확인된 제품표준서가 없습니다. 공정 목록이 비어 있어 설비를 공정에 걸 수 없습니다."
-                   todo="제품표준서 서면 확인하기" />
+                   why="제품표준서에 공정이 없어 설비를 공정에 걸 수 없습니다."
+                   todo="제품표준서에 공정 넣기" />
         </div>
       )}
 

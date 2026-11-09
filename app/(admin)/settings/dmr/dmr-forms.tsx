@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState, useState, useId, useEffect } from 'react';
+import Link from 'next/link';
 import type { FormState } from '@/lib/forms';
 import { Msg, Tag } from '@/components/ui';
 import { Dialog, useDialog } from '@/components/dialog';
@@ -662,15 +663,82 @@ export function AddTierForm({ dm, bom }: { dm: string; bom: BomRow }) {
 
 /* -------------------------------------------------------------------------- */
 
+type EquipOption = { id: string; code: string; name: string; linked: boolean };
+
+/*
+ * 이 공정에서 쓰는 설비 (사용자 2026-11-09 «공정 순서에서 설비를 리스트로 골라 연동»).
+ *
+ * 걸린 설비는 목록으로 보이고, 목록에서 골라 «걸기» 를 누르면 붙는다. 전에는 칩만
+ * 있었고 설비가 하나도 없으면 칸 자체가 숨어서 어디서 거는지 보이지 않았다.
+ *
+ * 떼도 지워지지 않는다 (§10) - 현장 타일에서 빠질 뿐이다. 발행 여부와 무관하게
+ * 고칠 수 있다. 화면이 무엇을 보여 줄지에 대한 설정이지 기록이 아니다.
+ */
+function OperationEquipment({ op, equipment }: { op: OperationRow; equipment: EquipOption[] }) {
+  const uid = useId();
+  const [state, action, pending] = useActionState<FormState, FormData>(linkOperation, {});
+  const linked = equipment.filter((e) => e.linked);
+  const free = equipment.filter((e) => !e.linked);
+
+  return (
+    <div className="border-b border-line-soft px-4 py-3">
+      <p className="label mb-2">이 공정에서 쓰는 설비</p>
+      {equipment.length === 0 ? (
+        <p className="text-xs leading-relaxed text-faint">
+          등록된 설비가 없습니다. <Link href="/equipment" className="qd-text-action">설비</Link> 화면에서
+          등록하면 여기서 골라 걸 수 있습니다.
+        </p>
+      ) : (
+        <>
+          {linked.length === 0 ? (
+            <p className="mb-2 text-xs text-faint">걸린 설비가 없습니다.</p>
+          ) : (
+            <ul className="mb-2 divide-y divide-line-soft rounded-md border border-line bg-surface">
+              {linked.map((e) => (
+                <li key={e.id} className="flex items-center gap-3 px-3 py-2">
+                  <code className="font-mono text-sm">{e.code}</code>
+                  <span className="text-sm text-ink">{e.name}</span>
+                  <form action={action} className="ml-auto">
+                    <input type="hidden" name="equipment_id" value={e.id} />
+                    <input type="hidden" name="operation_id" value={op.id} />
+                    <input type="hidden" name="on" value="0" />
+                    <button type="submit" disabled={pending} className="qd-text-action">떼기</button>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          )}
+          {free.length > 0 && (
+            <form action={action} className="flex flex-wrap items-center gap-2">
+              <input type="hidden" name="operation_id" value={op.id} />
+              <input type="hidden" name="on" value="1" />
+              <label htmlFor={`${uid}-equipment_id`} className="sr-only">걸 설비</label>
+              <select id={`${uid}-equipment_id`} name="equipment_id" required defaultValue=""
+                      className="input h-9 w-auto min-w-64">
+                <option value="" disabled>설비 고르기</option>
+                {free.map((e) => (
+                  <option key={e.id} value={e.id}>{e.code} {e.name}</option>
+                ))}
+              </select>
+              <button type="submit" disabled={pending} className="btn-ghost h-9">걸기</button>
+            </form>
+          )}
+          {state.error && <p role="alert" className="mt-2 text-xs text-danger">{state.error}</p>}
+        </>
+      )}
+    </div>
+  );
+}
+
 export function OperationCard({ dm, op, items, editable, equipment = [], bomFix }: {
   dm: string; op: OperationRow; items: ItemOption[]; editable: boolean;
   /** 자재 구성표에 넣을 품목이 없을 때 가는 자리 */
   bomFix?: Fix;
-  /** 걸 수 있는 설비 전체와 이 공정에 걸렸는지. 셋업 화면에서 칩으로 켠다 */
-  equipment?: { id: string; code: string; name: string; linked: boolean }[];
+  /** 걸 수 있는 설비 전체와 이 공정에 걸렸는지. 펼친 공정에서 목록으로 골라 건다 */
+  equipment?: EquipOption[];
 }) {
   const [open, setOpen] = useState(false);
-  const [linkState, linkAction] = useActionState<FormState, FormData>(linkOperation, {});
+  const linkedCodes = equipment.filter((e) => e.linked).map((e) => e.code);
 
   return (
     <div className="border-b border-line last:border-0">
@@ -690,8 +758,8 @@ export function OperationCard({ dm, op, items, editable, equipment = [], bomFix 
         )}
         <span className="ml-auto text-sm text-muted">
           자재 {op.bom.length}종
-          {equipment.some((e) => e.linked) &&
-            ` · 설비 ${equipment.filter((e) => e.linked).length}대`}
+          {linkedCodes.length > 0 &&
+            ` · 설비 ${linkedCodes.length > 3 ? `${linkedCodes.length}대` : linkedCodes.join(' · ')}`}
           {' '}{open ? '접기' : '펼치기'}
         </span>
       </button>
@@ -714,35 +782,7 @@ export function OperationCard({ dm, op, items, editable, equipment = [], bomFix 
             </span>
           </div>
 
-          {/*
-            * 이 공정에서 쓰는 설비. 칩을 누르면 걸리고 다시 누르면 내려간다.
-            * 내려도 지워지지 않는다 (§10) - 현장 타일에서 빠질 뿐이다.
-            * 발행 여부와 무관하게 고칠 수 있다. 화면이 무엇을 보여 줄지에 대한
-            * 설정이지 기록이 아니다.
-            */}
-          {equipment.length > 0 && (
-            <div className="border-b border-line-soft px-4 py-3">
-              <p className="label mb-2">이 공정에서 쓰는 설비</p>
-              <div className="flex flex-wrap gap-1.5">
-                {equipment.map((e) => (
-                  <form key={e.id} action={linkAction}>
-                    <input type="hidden" name="equipment_id" value={e.id} />
-                    <input type="hidden" name="operation_id" value={op.id} />
-                    <input type="hidden" name="on" value={e.linked ? '0' : '1'} />
-                    <button type="submit"
-                            className={`chip transition-colors ${
-                              e.linked ? 'bg-brand text-white'
-                                       : 'bg-canvas text-muted hover:text-ink'}`}>
-                      {e.code} {e.name}
-                    </button>
-                  </form>
-                ))}
-              </div>
-              {linkState.error && (
-                <p role="alert" className="mt-2 text-xs text-danger">{linkState.error}</p>
-              )}
-            </div>
-          )}
+          <OperationEquipment op={op} equipment={equipment} />
           {op.bom.length === 0 ? (
             <p className="px-4 py-3 text-xs text-faint">등록된 자재가 없습니다.</p>
           ) : (

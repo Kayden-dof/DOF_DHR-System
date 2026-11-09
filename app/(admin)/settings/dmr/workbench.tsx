@@ -102,7 +102,7 @@ export async function DmrWorkbench({
 
     return {
       masters, selected, operations,
-      /* 공정마다 어느 설비가 걸렸는지. 셋업 화면에서 칩으로 걸고 뗀다 */
+      /* 공정마다 어느 설비가 걸렸는지. 펼친 공정에서 목록으로 골라 걸고 뗀다 */
       equipment: await db.rows<{ id: string; code: string; name: string }>(
         `select id, code, name from equipment where is_active order by code`),
       opEquip: selected
