@@ -193,7 +193,7 @@ export default async function DocsCheckPage({ searchParams }: { searchParams: Se
                           </Td>
                           <Td className="min-w-[10rem]">
                             <Tag tone={TONE[r.verdict]}>{VERDICT_LABEL[r.verdict]}</Tag>
-                            {r.why && <div className="mt-1 text-xs leading-relaxed text-danger">{r.why}</div>}
+                            {r.why && <div className="mt-1 text-sm leading-relaxed text-danger">{r.why}</div>}
                             {r.basis && <div className="mt-0.5 text-xs text-faint">{r.basis}</div>}
                           </Td>
                           {writable && (

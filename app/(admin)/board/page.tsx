@@ -332,7 +332,7 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
                 {todayRows.map((r, i) => (
                   <tr key={i}>
                     <td className="td">{r.product_code ?? r.item_code}</td>
-                    <td className="td font-mono text-xs">{r.item_code}</td>
+                    <td className="td font-mono ">{r.item_code}</td>
                     <td className="td tnum text-right text-muted">{r.lots}</td>
                     <td className="td tnum text-right font-semibold">{r.produced}</td>
                     <td className="td tnum text-right text-muted">{r.sampled || ''}</td>
@@ -421,7 +421,7 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
                   return (
                     <tr key={r.item_code}>
                       <td className="td font-mono font-semibold">{r.item_code}</td>
-                      <td className="td text-xs text-muted">{r.spec}</td>
+                      <td className="td text-muted">{r.spec}</td>
                       <td className="td text-right tnum">{r.qty}</td>
                       <td className="td text-right tnum">{won(r.shared_cost)}</td>
                       <td className="td text-right tnum">{won(r.own_cost)}</td>
@@ -472,7 +472,7 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
               <tbody>
                 {d.wipNc.map((w, i) => (
                   <tr key={i}>
-                    <td className="td font-mono text-xs">{w.batch_no}</td>
+                    <td className="td font-mono ">{w.batch_no}</td>
                     <td className="td text-sm">{w.op_name}</td>
                     <td className="td text-sm text-muted">{w.reason_code}</td>
                     <td className="td">

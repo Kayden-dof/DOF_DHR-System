@@ -51,7 +51,7 @@ export function Td({
   mono?: boolean; nowrap?: boolean;
 }) {
   return (
-    <td className={`td ${right ? 'tnum text-right' : ''} ${mono ? 'font-mono text-xs' : ''} ${
+    <td className={`td ${right ? 'tnum text-right' : ''} ${mono ? 'font-mono' : ''} ${
       nowrap ? 'whitespace-nowrap' : ''} ${className}`}>
       {children}
     </td>

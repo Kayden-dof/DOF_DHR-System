@@ -201,11 +201,11 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
                     <Td right className="font-semibold text-ink">
                       {Number(l.qty_available)}
                     </Td>
-                    <Td nowrap className={`tnum text-xs ${
+                    <Td nowrap className={`tnum ${
                       soon ? 'font-semibold text-warn' : 'text-muted'}`}>
                       {l.expiry_date ? fmtDate(l.expiry_date) : ''}
                     </Td>
-                    <Td nowrap className={`text-xs ${off ? 'font-semibold text-warn' : 'text-faint'}`}>
+                    <Td nowrap className={` ${off ? 'font-semibold text-warn' : 'text-faint'}`}>
                       {MATERIAL_STATUS_LABEL[l.status] ?? l.status}
                     </Td>
                     <Td right className="text-muted">{l.used_in || ''}</Td>

@@ -146,8 +146,8 @@ export function SterilForm({ lots, today, boxQty, fix }: {
                            ...p, [l.id]: e.target.checked ? (p[l.id] || l.qty_available) : 0,
                          }))} />
                 </td>
-                <td className="td font-mono text-xs font-semibold">{l.lot_no}</td>
-                <td className="td text-xs">{l.item_name}</td>
+                <td className="td font-mono font-semibold">{l.lot_no}</td>
+                <td className="td ">{l.item_name}</td>
                 <td className="td tnum text-right text-muted">{l.qty_available}</td>
                 <td className="td text-right">
                   <input name={`qty_${l.id}`} type="number" min={1} max={l.qty_available}
@@ -210,10 +210,10 @@ export function SterilRow({ sb, today }: { sb: SbRow; today: string }) {
   return (
     <>
       <tr>
-        <td className="td font-mono text-xs font-semibold">{sb.batch_no}</td>
-        <td className="td whitespace-nowrap text-xs">{sb.vendor_name}</td>
-        <td className="td font-mono text-xs text-muted">{sb.request_no ?? ''}</td>
-        <td className="td text-xs">
+        <td className="td font-mono font-semibold">{sb.batch_no}</td>
+        <td className="td whitespace-nowrap ">{sb.vendor_name}</td>
+        <td className="td font-mono text-muted">{sb.request_no ?? ''}</td>
+        <td className="td ">
           {/* 규격별로 묶어 보여 준다. 제조번호는 펼쳐 보면 나온다 */}
           {bySpec(sb.lots).map((x) => (
             <div key={x.code} className="flex items-baseline gap-2">
@@ -223,9 +223,9 @@ export function SterilRow({ sb, today }: { sb: SbRow; today: string }) {
           ))}
         </td>
         <td className="td tnum text-right">{sb.total}</td>
-        <td className="td tnum text-xs">{fmtDate(sb.shipped_at)}</td>
-        <td className="td tnum text-xs">{fmtDate(sb.received_at)}</td>
-        <td className="td font-mono text-xs">{sb.cert_no ?? ''}</td>
+        <td className="td tnum ">{fmtDate(sb.shipped_at)}</td>
+        <td className="td tnum ">{fmtDate(sb.received_at)}</td>
+        <td className="td font-mono ">{sb.cert_no ?? ''}</td>
         <td className="td">
           <Tag tone={sb.received_at ? 'ok' : sb.shipped_at ? 'brand' : 'quiet'}>{stage}</Tag>
         </td>
@@ -457,21 +457,21 @@ export function ShipList({ lots, today, fix }: {
                   aria-expanded={open}
                   className={`cursor-pointer ${open ? 'bg-brand-soft/60' : ''}`}
                 >
-                  <td className="td font-mono text-xs font-semibold">{l.lot_no}</td>
+                  <td className="td font-mono font-semibold">{l.lot_no}</td>
                   <td className="td">
                     <div className="text-sm">{l.item_name}</div>
                     <div className="font-mono text-xs text-faint">{l.item_code}</div>
                   </td>
-                  <td className="td font-mono text-xs text-muted">{l.batch_no}</td>
+                  <td className="td font-mono text-muted">{l.batch_no}</td>
                   <td className="td tnum text-right font-semibold">{l.qty_available}</td>
                   <td className="td tnum text-right text-muted">{l.shipped || ''}</td>
-                  <td className="td tnum text-xs">
+                  <td className="td tnum ">
                     <span className={days <= 60 ? 'font-semibold text-warn' : ''}>
                       {fmtDate(l.expiry_date)}
                     </span>
                     <span className="ml-1 text-faint">{days}일</span>
                   </td>
-                  <td className="td text-xs">
+                  <td className="td ">
                     {l.release_approved_by}
                     <div className="tnum text-faint">{fmtDate(l.release_approved_on)}</div>
                   </td>

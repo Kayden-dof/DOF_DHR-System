@@ -61,7 +61,7 @@ function Mark({ a }: { a: Access }) {
     <span
       title={`${ACCESS_LABEL[a]} · ${ACCESS_NOTE[a]}`}
       className={`inline-flex h-6 w-6 items-center justify-center rounded-md
-                  text-xs font-semibold ${TONE[a]}`}
+                  text-sm font-semibold ${TONE[a]}`}
     >
       <span className="sr-only">{ACCESS_LABEL[a]}</span>
       <span aria-hidden>{a === 'open' ? '●' : a === 'blocked' ? '✕' : '–'}</span>
@@ -164,7 +164,7 @@ export default async function AccessPage({ searchParams }: {
                 <tr>
                   <td colSpan={1 + ACCESS_ROLES.length}
                       className="border-y border-line bg-canvas px-4 py-1.5
-                                 text-xs font-semibold tracking-wide text-faint">
+                                 font-semibold tracking-wide text-faint">
                     {g.group}
                   </td>
                 </tr>
@@ -172,7 +172,7 @@ export default async function AccessPage({ searchParams }: {
                   <tr key={row.path} className="hover:bg-canvas">
                     <td className="td">
                       <span className="font-semibold text-ink">{row.label}</span>
-                      <code className="ml-2 text-xs text-faint">{row.path}</code>
+                      <code className="ml-2 text-sm text-faint">{row.path}</code>
                     </td>
                     {ACCESS_ROLES.map((r, i) => (
                       <td key={r}
@@ -278,7 +278,7 @@ export default async function AccessPage({ searchParams }: {
                     <tr>
                       <td colSpan={3}
                           className="border-y border-line bg-canvas px-4 py-1.5
-                                     text-xs font-semibold tracking-wide text-faint">
+                                     font-semibold tracking-wide text-faint">
                         {g.group}
                       </td>
                     </tr>

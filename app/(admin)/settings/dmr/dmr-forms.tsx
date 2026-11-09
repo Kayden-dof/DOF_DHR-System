@@ -678,17 +678,17 @@ export function OperationCard({ dm, op, items, editable, equipment = [], bomFix 
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-canvas"
       >
-        <span className="w-7 shrink-0 text-center text-xs font-semibold tnum text-faint">{op.seq}</span>
-        <code className="font-mono text-xs text-muted">{op.code}</code>
+        <span className="w-7 shrink-0 text-center text-sm font-semibold tnum text-faint">{op.seq}</span>
+        <code className="font-mono text-sm text-muted">{op.code}</code>
         <span className="text-sm font-semibold text-ink">{op.name}</span>
         <Tag tone={op.after_cutting ? 'brand' : 'quiet'}>
           {op.after_cutting ? '제품 로트 단위' : '배치 단위'}
         </Tag>
         {/* 참고값이라 조용히 둔다. 적히지 않았으면 아무것도 나오지 않는다 */}
         {op.typical_day !== null && (
-          <span className="tnum text-xs text-faint">보통 {op.typical_day}일차</span>
+          <span className="tnum text-sm text-faint">보통 {op.typical_day}일차</span>
         )}
-        <span className="ml-auto text-xs text-muted">
+        <span className="ml-auto text-sm text-muted">
           자재 {op.bom.length}종
           {equipment.some((e) => e.linked) &&
             ` · 설비 ${equipment.filter((e) => e.linked).length}대`}
@@ -773,10 +773,10 @@ export function OperationCard({ dm, op, items, editable, equipment = [], bomFix 
                           <tbody>
                             {b.tiers.map((tr) => (
                               <tr key={tr.id}>
-                                <td className="td tnum text-xs">
+                                <td className="td tnum ">
                                   {tr.min_sheets} ~ {tr.max_sheets ?? '제한 없음'}
                                 </td>
-                                <td className="td tnum text-right text-xs">
+                                <td className="td tnum text-right ">
                                   {Number(tr.qty)} {b.usage_uom}
                                 </td>
                                 {editable && (

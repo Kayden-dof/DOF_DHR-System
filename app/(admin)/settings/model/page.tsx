@@ -125,7 +125,7 @@ export default async function ModelSchemePage() {
                           <td className="td tnum text-right">{sg.digits}</td>
                           <td className="td tnum text-right">{sg.divisor}</td>
                           <td className="td tnum text-right">{sg.decimals}</td>
-                          <td className="td text-xs text-muted">{sg.role}</td>
+                          <td className="td text-muted">{sg.role}</td>
                         </tr>
                       ))}
                     </tbody>

@@ -163,9 +163,9 @@ async function MaterialView({ me, id }: { me: Me; id: string }) {
                 <tbody>
                   {d.batches.map((b) => (
                     <tr key={b.id}>
-                      <td className="td font-mono text-xs font-semibold">{b.batch_no}</td>
+                      <td className="td font-mono font-semibold">{b.batch_no}</td>
                       <td className="td tnum text-right">{b.sheet_count}</td>
-                      <td className="td text-xs">{b.status}</td>
+                      <td className="td ">{b.status}</td>
                       <td className="td text-right">
                         <Link href={`/trace/batch/${b.id}`} className="btn-ghost h-9">
                           계보
@@ -201,9 +201,9 @@ async function MaterialView({ me, id }: { me: Me; id: string }) {
                 <tbody>
                   {d.products.map((p, i) => (
                     <tr key={i}>
-                      <td className="td font-mono text-xs">{p.batch_no}</td>
+                      <td className="td font-mono ">{p.batch_no}</td>
                       <td className="td text-sm">{p.operation_name}</td>
-                      <td className="td font-mono text-xs font-semibold">
+                      <td className="td font-mono font-semibold">
                         {p.lot_no || <span className="font-sans text-muted">배치 전체</span>}
                       </td>
                       <td className="td tnum text-right">{Number(p.qty)}</td>
@@ -361,14 +361,14 @@ async function BatchView({ me, kind, id }: {
                 {lots.map((l) => (
                   <tr key={l.id}
                       className={l.id === focusLot ? 'bg-brand-soft' : undefined}>
-                    <td className="td font-mono text-xs font-semibold">{l.lot_no}</td>
+                    <td className="td font-mono font-semibold">{l.lot_no}</td>
                     <td className="td text-sm">{l.item_name}</td>
                     <td className="td tnum text-right">{l.qty_produced}</td>
                     <td className="td tnum text-right text-muted">{l.qty_sample || ''}</td>
                     <td className="td tnum text-right">{l.qty_available}</td>
                     <td className="td tnum text-right text-muted">{l.shipped || ''}</td>
-                    <td className="td text-xs text-muted">{l.customers ?? ''}</td>
-                    <td className="td tnum text-xs">{fmtDate(l.expiry_date)}</td>
+                    <td className="td text-muted">{l.customers ?? ''}</td>
+                    <td className="td tnum ">{fmtDate(l.expiry_date)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -405,13 +405,13 @@ async function BatchView({ me, kind, id }: {
               <tbody>
                 {d.work.map((w, i) => (
                   <tr key={i}>
-                    <td className="td tnum text-xs text-muted">
+                    <td className="td tnum text-muted">
                       {w.day_no}일차
                       {w.attempt > 1 && (
                         <span className="ml-1 text-warn">{w.attempt}회차</span>
                       )}
                     </td>
-                    <td className="td tnum text-xs text-muted">{w.work_date}</td>
+                    <td className="td tnum text-muted">{w.work_date}</td>
                     <td className="td">
                       <div className="text-sm">{w.operation_name}</div>
                       <div className="font-mono text-xs text-faint">{w.operation_code}</div>
@@ -424,13 +424,13 @@ async function BatchView({ me, kind, id }: {
                         </span>
                       )}
                     </td>
-                    <td className="td font-mono text-xs text-muted">{w.equipment_id}</td>
-                    <td className="td tnum text-xs text-muted whitespace-nowrap">
+                    <td className="td font-mono text-muted">{w.equipment_id}</td>
+                    <td className="td tnum text-muted whitespace-nowrap">
                       {w.started_at && w.ended_at
                         ? `${w.started_at} ~ ${w.ended_at}`
                         : <span className="text-faint">시각 없음</span>}
                     </td>
-                    <td className="td font-mono text-xs text-muted">{w.product_lot_no}</td>
+                    <td className="td font-mono text-muted">{w.product_lot_no}</td>
                   </tr>
                 ))}
               </tbody>
@@ -481,13 +481,13 @@ function GenTable({ rows, lots }: {
                 <div className="text-sm">{g.item_name}</div>
                 <div className="font-mono text-xs text-faint">{g.item_code}</div>
               </td>
-              <td className="td font-mono text-xs font-semibold">{g.material_lot_no}</td>
+              <td className="td font-mono font-semibold">{g.material_lot_no}</td>
               <td className="td tnum text-right">{Number(g.qty)}</td>
-              <td className="td text-xs">{g.operation_name}</td>
+              <td className="td ">{g.operation_name}</td>
               {lots && (
-                <td className="td font-mono text-xs">{lotNo(g.product_lot_id)}</td>
+                <td className="td font-mono ">{lotNo(g.product_lot_id)}</td>
               )}
-              <td className="td tnum text-xs text-muted">{fmtDateTime(g.issued_at)}</td>
+              <td className="td tnum text-muted">{fmtDateTime(g.issued_at)}</td>
             </tr>
           ))}
         </tbody>

@@ -140,14 +140,14 @@ export function SupplierRowView({ s, writable = true }: {
   return (
     <>
       <tr>
-        <td className="td font-mono text-xs font-semibold">{s.code}</td>
+        <td className="td font-mono font-semibold">{s.code}</td>
         <td className="td">{s.name}</td>
         <td className="td">
           <Tag tone={st?.tone ?? 'quiet'}>{st?.label ?? s.status}</Tag>
           {expired && <Tag tone="danger">승인 만료</Tag>}
         </td>
-        <td className="td tnum text-xs text-muted">{fmtDate(s.approved_until)}</td>
-        <td className="td text-xs text-muted">
+        <td className="td tnum text-muted">{fmtDate(s.approved_until)}</td>
+        <td className="td text-muted">
           {s.contact_name}
           {s.contact_phone ? ` · ${s.contact_phone}` : ''}
         </td>

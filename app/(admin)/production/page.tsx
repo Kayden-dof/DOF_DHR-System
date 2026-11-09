@@ -191,7 +191,7 @@ export default async function ProductionPage({ searchParams }: { searchParams: S
                       {WO_STATUS_LABEL[w.status] ?? w.status}
                     </Tag>
                   </Td>
-                  <Td nowrap className="text-xs text-muted">
+                  <Td nowrap className=" text-muted">
                     <div className="tnum">{fmtDate(w.issued_at)}</div>
                     <div className="text-faint">{w.prod_name} · {w.qa_name}</div>
                   </Td>

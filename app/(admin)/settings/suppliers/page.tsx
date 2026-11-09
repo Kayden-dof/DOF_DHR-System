@@ -123,10 +123,10 @@ export default async function SuppliersPage() {
                 <tbody>
                   {d.prices.map((p, i) => (
                     <tr key={i}>
-                      <td className="td font-mono text-xs">{p.item_code}</td>
-                      <td className="td text-xs">{p.supplier_name}</td>
+                      <td className="td font-mono ">{p.item_code}</td>
+                      <td className="td ">{p.supplier_name}</td>
                       <td className="td tnum text-right">{Number(p.price).toLocaleString()}</td>
-                      <td className="td tnum text-xs text-muted">{fmtDate(p.effective_from)}</td>
+                      <td className="td tnum text-muted">{fmtDate(p.effective_from)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -151,12 +151,12 @@ export default async function SuppliersPage() {
                 <tbody>
                   {d.shelf.map((h, i) => (
                     <tr key={i}>
-                      <td className="td font-mono text-xs">{h.item_code}</td>
+                      <td className="td font-mono ">{h.item_code}</td>
                       <td className="td tnum text-right">{h.months}</td>
-                      <td className="td tnum text-xs text-muted">{fmtDate(h.effective_from)}</td>
-                      <td className="td font-mono text-xs">{h.study_report_no}</td>
+                      <td className="td tnum text-muted">{fmtDate(h.effective_from)}</td>
+                      <td className="td font-mono ">{h.study_report_no}</td>
                       {/* 서면에 날짜가 없으면 비어 있는 것이 사실이다 (§1) */}
-                      <td className="td tnum text-xs text-muted">
+                      <td className="td tnum text-muted">
                         {h.study_date ? fmtDate(h.study_date) : ''}
                       </td>
                     </tr>

@@ -97,7 +97,7 @@ export default async function MovementPage() {
                   const q = Number(m.qty);
                   return (
                     <tr key={m.id}>
-                      <td className="td tnum text-xs text-muted">{fmtDateTime(m.registered_at)}</td>
+                      <td className="td tnum text-muted">{fmtDateTime(m.registered_at)}</td>
                       <td className="td">
                         <Tag tone={q > 0 ? 'ok' : m.type === 'SOLUTION' ? 'info' : 'warn'}>
                           {label(m.type)}
@@ -110,14 +110,14 @@ export default async function MovementPage() {
                       <td className={`td tnum text-right font-semibold ${q > 0 ? 'text-ok' : 'text-danger'}`}>
                         {q > 0 ? '+' : ''}{q} {m.usage_uom}
                       </td>
-                      <td className="td text-xs">
+                      <td className="td ">
                         {m.reason_code}
                         {m.reason_detail && (
                           <span className="text-muted"> · {m.reason_detail}</span>
                         )}
                       </td>
-                      <td className="td font-mono text-xs text-muted">{m.batch_no ?? ''}</td>
-                      <td className="td text-xs text-muted">{m.registered_by_name}</td>
+                      <td className="td font-mono text-muted">{m.batch_no ?? ''}</td>
+                      <td className="td text-muted">{m.registered_by_name}</td>
                     </tr>
                   );
                 })}

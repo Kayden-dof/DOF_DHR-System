@@ -110,7 +110,7 @@ export default async function OrdersPage() {
                     <td className="td tnum text-right font-semibold text-warn">
                       {Number(a.min_stock) - Number(a.on_hand) - Number(a.on_order)}
                     </td>
-                    <td className="td tnum text-right text-xs text-muted">
+                    <td className="td tnum text-right text-muted">
                       {a.lead_days ? `${a.lead_days}일` : ''}
                     </td>
                   </tr>
@@ -148,12 +148,12 @@ export default async function OrdersPage() {
                   const st = STATUS[o.status] ?? { label: o.status, tone: 'quiet' };
                   return (
                     <tr key={o.id}>
-                      <td className="td font-mono text-xs font-semibold">{o.po_no}</td>
+                      <td className="td font-mono font-semibold">{o.po_no}</td>
                       <td className="td">
                         <div className="text-sm">{o.item_name}</div>
                         <div className="font-mono text-xs text-faint">{o.item_code}</div>
                       </td>
-                      <td className="td text-xs">{o.supplier_name}</td>
+                      <td className="td ">{o.supplier_name}</td>
                       <td className="td tnum text-right">{Number(o.qty)} {o.usage_uom}</td>
                       {/*
                         * 얼마나 들어왔는지를 줄에서 바로 보인다. 전에는 상태
@@ -175,8 +175,8 @@ export default async function OrdersPage() {
                       <td className="td tnum text-right text-muted">
                         {o.unit_price ? Number(o.unit_price).toLocaleString() : ''}
                       </td>
-                      <td className="td tnum text-xs">{fmtDate(o.ordered_at)}</td>
-                      <td className="td tnum text-xs text-muted">{fmtDate(o.expected_at)}</td>
+                      <td className="td tnum ">{fmtDate(o.ordered_at)}</td>
+                      <td className="td tnum text-muted">{fmtDate(o.expected_at)}</td>
                       <td className="td">
                         <Tag tone={st.tone}>{st.label}</Tag>
                         {o.lot_count > 0 && <Tag tone="quiet">로트 {o.lot_count}</Tag>}

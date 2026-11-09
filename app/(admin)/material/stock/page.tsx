@@ -97,7 +97,7 @@ export default async function StockPage() {
                         <td className="td tnum text-right text-muted">
                           {r.min_stock ? Number(r.min_stock) : ''}
                         </td>
-                        <td className="td tnum text-xs">{fmtDate(r.nearest_expiry)}</td>
+                        <td className="td tnum ">{fmtDate(r.nearest_expiry)}</td>
                       </tr>
                     );
                   })}
@@ -132,17 +132,17 @@ export default async function StockPage() {
               <tbody>
                 {d.finished.map((f) => (
                   <tr key={f.id}>
-                    <td className="td font-mono text-xs font-semibold">{f.lot_no}</td>
+                    <td className="td font-mono font-semibold">{f.lot_no}</td>
                     <td className="td">
                       <div className="text-sm">{f.name}</div>
                       <div className="font-mono text-xs text-faint">{f.code}</div>
                     </td>
-                    <td className="td font-mono text-xs text-muted">{f.batch_no}</td>
+                    <td className="td font-mono text-muted">{f.batch_no}</td>
                     <td className="td tnum text-right font-semibold">{f.qty_available}</td>
                     <td className="td tnum text-right text-muted">{f.qty_produced}</td>
                     <td className="td tnum text-right text-muted">{f.qty_sample || ''}</td>
-                    <td className="td tnum text-xs">{fmtDate(f.manufactured_on)}</td>
-                    <td className="td tnum text-xs">
+                    <td className="td tnum ">{fmtDate(f.manufactured_on)}</td>
+                    <td className="td tnum ">
                       <span className={f.days_left <= 60 ? 'font-semibold text-warn' : ''}>
                         {fmtDate(f.expiry_date)}
                       </span>

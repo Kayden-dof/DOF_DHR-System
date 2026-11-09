@@ -267,14 +267,14 @@ export default function IssueForm({ masters, rawLots, finished, users, today, fi
               <tbody>
                 {pv.requirements.map((r, i) => (
                   <tr key={i}>
-                    <td className="td text-xs text-muted">{r.operation_name}</td>
-                    <td className="td text-xs">
+                    <td className="td text-muted">{r.operation_name}</td>
+                    <td className="td ">
                       <span className="font-mono">{r.item_code}</span> {r.item_name}
                     </td>
-                    <td className="td text-xs text-muted">
+                    <td className="td text-muted">
                       {r.basis === 'PER_UNIT' ? '제품 개수 기준' : '장입 구간 기준'}
                     </td>
-                    <td className="td tnum text-right text-xs font-semibold">
+                    <td className="td tnum text-right font-semibold">
                       {r.required === null
                         ? <span className="text-warn">구간 없음</span>
                         : `${Number(r.required)} ${r.usage_uom}`}
@@ -284,7 +284,7 @@ export default function IssueForm({ masters, rawLots, finished, users, today, fi
                       * 들어올 수도 있고, 무엇이 충분한지는 시스템이 정할 일이
                       * 아니다.
                       */}
-                    <td className="td tnum text-right text-xs">
+                    <td className="td tnum text-right ">
                       {(() => {
                         const have = Number(r.on_hand ?? 0);
                         const need = r.required === null ? null : Number(r.required);
@@ -300,7 +300,7 @@ export default function IssueForm({ masters, rawLots, finished, users, today, fi
                       * "2통 있음" 은 안심을 준다. 그 2통이 이 공정에 닿기 전에
                       * 만료되면 없는 것과 같은데 수량으로는 보이지 않는다.
                       */}
-                    <td className="td text-xs">
+                    <td className="td ">
                       {r.soonest ? (
                         <span className={r.soonest < r.use_by
                           ? 'font-semibold text-danger' : 'text-muted'}>

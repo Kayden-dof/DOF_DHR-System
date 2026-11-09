@@ -440,7 +440,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
               <tbody>
                 {d.lots.map((l) => (
                   <tr key={l.id}>
-                    <td className="td font-mono text-xs font-semibold">{l.lot_no}</td>
+                    <td className="td font-mono font-semibold">{l.lot_no}</td>
                     <td className="td">
                       <div className="text-sm">{l.item_name}</div>
                       <div className="font-mono text-xs text-faint">{l.item_code}</div>
@@ -449,8 +449,8 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                     <td className="td tnum text-right text-muted">{l.qty_sample || ''}</td>
                     <td className="td tnum text-right font-semibold">{l.qty_available}</td>
                     <td className="td tnum text-right text-muted">{l.shipped || ''}</td>
-                    <td className="td tnum text-xs">{fmtDate(l.manufactured_on)}</td>
-                    <td className="td tnum text-xs">
+                    <td className="td tnum ">{fmtDate(l.manufactured_on)}</td>
+                    <td className="td tnum ">
                       {fmtDate(l.expiry_date)}
                       {l.shelf_months && (
                         <span className="ml-1 text-faint">{l.shelf_months}개월</span>
@@ -537,7 +537,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                 {d.days.map((r) => (
                   <tr key={`${r.day_no}-${r.worker_id}`}>
                     <td className="td tnum font-semibold">{r.day_no}일차</td>
-                    <td className="td tnum text-xs">{fmtDate(r.work_date)}</td>
+                    <td className="td tnum ">{fmtDate(r.work_date)}</td>
                     <td className="td">{r.worker_name}</td>
                     <td className="td tnum text-right text-muted">{r.records}</td>
                     <td className="td">
@@ -594,7 +594,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
               <tbody>
                 {d.records.map((r) => (
                   <tr key={r.id}>
-                    <td className="td tnum text-xs">
+                    <td className="td tnum ">
                       {r.day_no}
                       {r.attempt > 1 && <span className="ml-1 text-warn">{r.attempt}회차</span>}
                     </td>
@@ -602,15 +602,15 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                       <div className="text-sm">{r.operation_name}</div>
                       <div className="font-mono text-xs text-faint">{r.operation_code}</div>
                     </td>
-                    <td className="td font-mono text-xs">{r.product_lot_no ?? ''}</td>
-                    <td className="td text-xs">
+                    <td className="td font-mono ">{r.product_lot_no ?? ''}</td>
+                    <td className="td ">
                       {r.worker_name}
                       {r.rotation_name && (
                         <div className="text-faint">순환 {r.rotation_name}</div>
                       )}
                     </td>
-                    <td className="td tnum text-xs">{fmtDateTime(r.started_at)}</td>
-                    <td className="td tnum text-xs">
+                    <td className="td tnum ">{fmtDateTime(r.started_at)}</td>
+                    <td className="td tnum ">
                       {fmtDateTime(r.ended_at)}
                       {/*
                         * 종료가 비어 있으면 이 묶음은 잠기지 않는다 (0085).
@@ -624,7 +624,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                       )}
                     </td>
                     <td className="td tnum text-right text-muted">{r.issues || ''}</td>
-                    <td className="td text-xs text-muted">
+                    <td className="td text-muted">
                       {r.equipment_id && <div>설비 {r.equipment_id}</div>}
                       {r.rework_qty ? <div>재포장 {r.rework_qty}</div> : null}
                       {r.no_material_reason && (
@@ -661,18 +661,18 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
               <tbody>
                 {d.prints.map((p) => (
                   <tr key={p.id}>
-                    <td className="td whitespace-nowrap text-xs">
+                    <td className="td whitespace-nowrap ">
                       {KIND_LABEL[p.kind] ?? p.kind}
                     </td>
-                    <td className="td whitespace-nowrap text-xs text-muted">
+                    <td className="td whitespace-nowrap text-muted">
                       {p.day_no !== null
                         ? <>{p.day_no}일차 {p.worker_name ?? ''}</>
                         : '배치'}
                     </td>
-                    <td className="td font-mono text-xs">{p.short_hash}</td>
-                    <td className="td tnum text-right text-xs">{p.seq}</td>
-                    <td className="td tnum text-right text-xs text-muted">{p.pages}</td>
-                    <td className="td whitespace-nowrap text-xs text-muted">
+                    <td className="td font-mono ">{p.short_hash}</td>
+                    <td className="td tnum text-right ">{p.seq}</td>
+                    <td className="td tnum text-right text-muted">{p.pages}</td>
+                    <td className="td whitespace-nowrap text-muted">
                       <div className="tnum">{fmtDateTime(p.printed_at)}</div>
                       <div className="text-faint">{p.printed_by_name}</div>
                     </td>

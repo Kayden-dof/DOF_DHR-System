@@ -415,7 +415,7 @@ export default async function Dashboard() {
                       tone={b.status === 'IN_PROCESS' ? 'brand' : undefined}
                     />
                     <TwoLine top={b.item_name} bottom={b.item_code} />
-                    <Td nowrap className="text-xs text-muted">{b.last_op ?? '착수 전'}</Td>
+                    <Td nowrap className=" text-muted">{b.last_op ?? '착수 전'}</Td>
                     {/* 목록을 열어 놓고 묻는 것은 늘 "이 배치가 어디쯤인가" 다 */}
                     <Td nowrap><Progress done={b.ops_done} total={b.ops_total} /></Td>
                     <Td right>{b.sheet_count}</Td>

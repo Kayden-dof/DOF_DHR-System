@@ -196,10 +196,10 @@ export function ItemRowView({ it, suppliers }: {
   return (
     <>
       <tr className={it.is_active ? '' : 'opacity-55'}>
-        <td className="td font-mono text-xs font-semibold">{it.code}</td>
+        <td className="td font-mono font-semibold">{it.code}</td>
         <td className="td">{it.name}</td>
         <td className="td"><Tag tone={it.type === 'FIN' ? 'brand' : 'quiet'}>{typeLabel(it.type)}</Tag></td>
-        <td className="td text-xs text-muted">
+        <td className="td text-muted">
           {it.purchase_uom === it.usage_uom
             ? it.usage_uom
             : `${it.purchase_uom} → ${it.usage_uom} (x${Number(it.conversion)})`}
@@ -499,7 +499,7 @@ export function GenerateFinished({ schemes, fix }: {
               <tbody>
                 {sizes.map((sz) => (
                   <tr key={sz}>
-                    <td className="td sticky left-0 bg-[var(--qd-table-fill,var(--color-surface))] font-mono text-xs">{sz}</td>
+                    <td className="td sticky left-0 bg-[var(--qd-table-fill,var(--color-surface))] font-mono ">{sz}</td>
                     {bands.map((b) => {
                       const r = cell.get(`${sz}|${b}`);
                       if (!r) return <td key={b} className="td" />;
@@ -539,8 +539,8 @@ export function GenerateFinished({ schemes, fix }: {
             <tbody>
               {state.rows.map((r) => (
                 <tr key={r.item_code}>
-                  <td className="td font-mono text-xs">{r.item_code}</td>
-                  <td className="td text-xs">{r.item_name}</td>
+                  <td className="td font-mono ">{r.item_code}</td>
+                  <td className="td ">{r.item_name}</td>
                   <td className="td">
                     <Tag tone={r.was_created ? 'ok' : 'faint'}>
                       {r.was_created ? '새로 등록' : '이미 있음'}

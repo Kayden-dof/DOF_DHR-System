@@ -187,8 +187,8 @@ export default async function CostPage() {
                   const eqp = Number(b.pre_cut_equip) + Number(b.post_cut_equip);
                   return (
                     <tr key={b.work_order_id}>
-                      <td className="td font-mono text-xs font-semibold">{b.batch_no}</td>
-                      <td className="td tnum text-xs text-muted">{fmtDate(b.issued_at)}</td>
+                      <td className="td font-mono font-semibold">{b.batch_no}</td>
+                      <td className="td tnum text-muted">{fmtDate(b.issued_at)}</td>
                       <td className="td tnum text-right">{won(b.raw_cost)}</td>
                       <td className="td tnum text-right">{won(b.pre_cut_cost)}</td>
                       <td className="td tnum text-right">{won(b.post_cut_cost)}</td>
@@ -235,12 +235,12 @@ export default async function CostPage() {
                   const sum = Number(l.shared_cost) + Number(l.own_cost) + conv;
                   return (
                     <tr key={l.product_lot_id}>
-                      <td className="td font-mono text-xs font-semibold">{l.lot_no}</td>
+                      <td className="td font-mono font-semibold">{l.lot_no}</td>
                       <td className="td">
                         <div className="text-sm">{l.item_name}</div>
                         <div className="font-mono text-xs text-faint">{l.item_code}</div>
                       </td>
-                      <td className="td font-mono text-xs text-muted">{l.batch_no}</td>
+                      <td className="td font-mono text-muted">{l.batch_no}</td>
                       <td className="td tnum text-right">{l.qty_produced}</td>
                       <td className="td tnum text-right text-muted">{won(l.shared_cost)}</td>
                       <td className="td tnum text-right text-muted">{won(l.own_cost)}</td>

@@ -217,7 +217,7 @@ export default function RestorePanel({ canRestore, left }: {
                   const d = r.keep ? 0 : r.file - r.now;
                   return (
                     <tr key={r.table} className={d !== 0 && !r.keep ? 'bg-warn-bg/40' : ''}>
-                      <td className="td font-mono text-xs">
+                      <td className="td font-mono ">
                         {r.table}
                         {r.keep && <span className="chip ml-2 bg-canvas text-muted">그대로 둠</span>}
                       </td>

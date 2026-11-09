@@ -186,12 +186,12 @@ export default async function BackupPage() {
                       {i === 0 && <Tag tone="ok">최근</Tag>}
                     </td>
                     <td className="td whitespace-nowrap">{b.taken_by_name}</td>
-                    <td className="td font-mono text-xs text-muted">{b.file_name}</td>
+                    <td className="td font-mono text-muted">{b.file_name}</td>
                     <td className="td tnum text-right whitespace-nowrap">{mb(b.byte_size)}</td>
                     <td className="td tnum text-right">
                       {b.total_rows.toLocaleString('ko-KR')}
                     </td>
-                    <td className="td font-mono text-xs text-faint">
+                    <td className="td font-mono text-faint">
                       {b.data_sha256.slice(0, 12)}
                     </td>
                   </tr>
@@ -231,7 +231,7 @@ export default async function BackupPage() {
                       {r.restored_by_name}
                       <span className="ml-1.5 tnum text-xs text-faint">{r.restored_by_code}</span>
                     </td>
-                    <td className="td font-mono text-xs text-muted">{r.file_name}</td>
+                    <td className="td font-mono text-muted">{r.file_name}</td>
                     <td className="td tnum text-right">{r.rows_before.toLocaleString('ko-KR')}</td>
                     <td className="td tnum text-right">{r.rows_after.toLocaleString('ko-KR')}</td>
                     <td className="td tnum text-right whitespace-nowrap">

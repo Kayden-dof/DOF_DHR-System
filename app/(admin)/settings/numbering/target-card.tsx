@@ -289,14 +289,14 @@ export default function TargetCard({
               <tbody>
                 {history.map((r) => (
                   <tr key={r.id}>
-                    <td className="td font-mono text-xs">{r.pattern}</td>
-                    <td className="td text-xs">{cycleLabel(r.reset)}</td>
-                    <td className="td tnum text-xs">{r.seq_width}</td>
-                    <td className="td font-mono text-xs text-faint">
+                    <td className="td font-mono ">{r.pattern}</td>
+                    <td className="td ">{cycleLabel(r.reset)}</td>
+                    <td className="td tnum ">{r.seq_width}</td>
+                    <td className="td font-mono text-faint">
                       {r.item_code ?? (r.item_id ? shortId(r.item_id) : '공통')}
                     </td>
-                    <td className="td tnum text-xs">{fmtDate(r.effective_from)}</td>
-                    <td className="td text-xs text-muted">
+                    <td className="td tnum ">{fmtDate(r.effective_from)}</td>
+                    <td className="td text-muted">
                       {r.registered_by_name} · {fmtDateTime(r.registered_at)}
                     </td>
                     <td className="td">

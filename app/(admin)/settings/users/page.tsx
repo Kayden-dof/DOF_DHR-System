@@ -163,7 +163,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Search
             <tbody>
               {users.length === 0 ? (
                 <tr>
-                  <td colSpan={writable ? 5 : 4} className="td text-center text-xs text-faint">
+                  <td colSpan={writable ? 5 : 4} className="td text-center text-faint">
                     해당하는 계정이 없습니다.
                   </td>
                 </tr>
