@@ -26,6 +26,12 @@ export const MATERIAL_NAV: NavItem[] = [
   { href: '/material/movement', label: '증감 · 용액' },
 ];
 
+/* 설비 목록과 배치도 (0125). 배치도는 방을 그리고 설비를 놓는 자리다 */
+export const EQUIPMENT_NAV: NavItem[] = [
+  { href: '/equipment', label: '설비' },
+  { href: '/equipment/plan', label: '배치도' },
+];
+
 export const SHIPPING_NAV: NavItem[] = [
   { href: '/shipping', label: '출하 승인' },
   { href: '/shipping/steril', label: '멸균 위탁' },
