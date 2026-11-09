@@ -53,7 +53,6 @@ export async function saveRule(_prev: FormState, form: FormData): Promise<FormSt
   const reset = String(form.get('reset') ?? 'YEARLY');
   const seqWidth = Number(form.get('seq_width') ?? 4);
   const effectiveFrom = String(form.get('effective_from') ?? '');
-  const replacing = String(form.get('replacing') ?? '').trim();
   // 빈 문자열은 "공통 규칙"이다. 품목을 고르지 않은 것과 고를 수 없는 것을
   // 같게 다룬다 - null 이 곧 공통이라는 뜻이다 (§4.10)
   const itemId = String(form.get('item_id') ?? '').trim() || null;
@@ -65,13 +64,33 @@ export async function saveRule(_prev: FormState, form: FormData): Promise<FormSt
   const itemType = String(form.get('item_type') ?? '').trim() || null;
 
   try {
-    const issued = await withActor(user.id, async (db) => {
-      // 교체는 한 트랜잭션에서 끝낸다. 내리고 등록하는 사이에 활성 규칙이 없는
-      // 순간이 생기면 그 틈에 들어온 채번이 예외로 죽는다.
-      if (replacing) {
-        await db.rows(`update numbering_rule set is_active = false where id = $1`, [replacing]);
-      }
-      return db.one<{ id: string; pattern: string }>(
+    const done = await withActor(user.id, async (db) => {
+      /*
+       * 무엇을 교체하는지는 서버가 범위로 정한다. 같은 (대상, 품목, 종류)의 활성
+       * 규칙만 내린다 - 그 범위에 활성 규칙이 있으면 교체이고, 없으면 그냥 등록이다.
+       *
+       * 전에는 화면이 내릴 규칙의 식별자(replacing)를 실어 보냈고 서버는 범위를
+       * 묻지 않고 그것을 내렸다. 카드가 보여 주던 것은 품목이 비어 있는 첫 활성
+       * 규칙이라 공통 규칙이거나 원자재 · 포장재 규칙이었고, 원액 유형 규칙을 넣는
+       * 순간 그 규칙이 함께 내려갔다. 내린 규칙은 되살릴 수 없고(DB 가 막는다),
+       * 그 종류의 로트는 번호 접두어가 바뀌거나 규칙이 없어진다. 화면이 보낸 값을
+       * 믿지 않는다 - 그런 칸은 이제 읽지도 않는다.
+       *
+       * `is not distinct from` 인 까닭은 공통 규칙이 품목 · 종류가 둘 다 null 이기
+       * 때문이다. 같은 범위의 활성 규칙은 유일 색인이 하나로 묶는다.
+       *
+       * 내리고 등록하는 것은 한 트랜잭션이다. 사이에 활성 규칙이 없는 순간이 생기면
+       * 그 틈에 들어온 채번이 예외로 죽는다.
+       */
+      const retired = await db.rows<{ id: string }>(
+        `update numbering_rule set is_active = false
+          where target = $1::numbering_target and is_active
+            and item_id is not distinct from $2::uuid
+            and item_type is not distinct from $3::item_type
+          returning id`,
+        [target, itemId, itemType],
+      );
+      const issued = await db.one<{ id: string; pattern: string }>(
         `insert into numbering_rule
            (target, item_id, item_type, pattern, reset, seq_width, effective_from,
             registered_by)
@@ -80,15 +99,17 @@ export async function saveRule(_prev: FormState, form: FormData): Promise<FormSt
          returning id, pattern`,
         [target, pattern, reset, seqWidth, effectiveFrom, user.id, itemId, itemType],
       );
+      return { issued, replaced: retired.length > 0 };
     });
 
     revalidatePath('/settings/numbering');
     revalidatePath('/');
+    /* 문구는 서버가 실제로 내린 것으로 정한다 */
     return {
       ok: true,
-      message: replacing
-        ? `규칙을 교체했습니다. 새 패턴 ${issued?.pattern} - 순번은 이어집니다.`
-        : `규칙을 등록했습니다. 패턴 ${issued?.pattern}`,
+      message: done.replaced
+        ? `규칙을 교체했습니다. 새 패턴 ${done.issued?.pattern} - 순번은 이어집니다.`
+        : `규칙을 등록했습니다. 패턴 ${done.issued?.pattern}`,
     };
   } catch (e) {
     return { error: dbMessage(e) };

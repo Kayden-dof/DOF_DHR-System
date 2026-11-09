@@ -9,6 +9,7 @@ import { Panel, Empty, Tag, Field } from '@/components/ui';
 import { PageShell } from '@/components/shell';
 import { SubNav } from '../../../nav';
 import { TRACE_NAV } from '../../../sections';
+import SolutionCorrectForm, { type RawLotOpt } from '../../../material/solution-correct-form';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,8 +42,21 @@ interface GenRow {
 interface MaterialLot {
   lot_no: string; item_code: string; item_name: string; item_type: string;
   usage_uom: string; qty_received: string; qty_available: string;
-  coa_no: string; coa_date: string; supplier_name: string; supplier_lot_no: string;
+  /* 사내 제조 원액은 이 넷이 비어 있다. 제조일(made_on)이 있으면 원액이다 */
+  coa_no: string | null; coa_date: string | null;
+  supplier_name: string | null; supplier_lot_no: string | null; made_on: string | null;
   received_at: Date; expiry_date: string | null; thickness_band: string | null;
+}
+/** 원액 로트가 어느 원료 로트에서 얼마 만들어졌는가 (v_solution_input) */
+interface SolutionInput {
+  material_lot_id: string; material_lot_no: string; item_code: string; item_name: string;
+  usage_uom: string; qty: string;
+}
+/** 이 로트가 원료로 들어간 원액이 어디에 다시 투입되었는가 */
+interface ViaSolution {
+  solution_id: string; solution_lot_no: string; drawn: string; drawn_uom: string;
+  solution_uom: string; lot_no: string | null; batch_no: string | null;
+  qty: string | null; operation_name: string | null;
 }
 interface BatchHead {
   id: string; batch_no: string; wo_no: string; sheet_count: number; status: string;
@@ -81,19 +95,66 @@ export default async function TraceDetail({ params }: {
 type Me = { id: string; roles: RoleCode[] };
 
 async function MaterialView({ me, id }: { me: Me; id: string }) {
+  /* 원액의 원료 줄을 바로잡는 자리는 자재를 관리하는 사람에게만 낸다 (액션의 mgr 과 같다) */
+  const canCorrect = me.roles.includes('SYS_ADMIN') || me.roles.includes('PROD_MGR');
+
   const d = await withUser(me, async (db) => {
     const lot = await db.one<MaterialLot>(
       `select ml.lot_no, i.code as item_code, i.name as item_name, i.type::text as item_type,
               i.usage_uom, ml.qty_received, ml.qty_available, ml.coa_no, ml.coa_date,
-              s.name as supplier_name, ml.supplier_lot_no, ml.received_at,
+              s.name as supplier_name, ml.supplier_lot_no, ml.made_on, ml.received_at,
               ml.expiry_date, ml.thickness_band
          from material_lot ml join item i on i.id = ml.item_id
-         join supplier s on s.id = ml.supplier_id
+         left join supplier s on s.id = ml.supplier_id
         where ml.id = $1`, [id]);
     if (!lot) return null;
 
     return {
       lot,
+      /*
+       * 원액이면 무엇으로 만들었는가. 원료 줄과 그 반납 줄을 합한 순량이다
+       * (v_solution_input) - 되돌려 순량이 0 이 된 원료는 이 표에서 빠진다.
+       */
+      inputs: lot.made_on
+        ? await db.rows<SolutionInput>(
+            `select material_lot_id, material_lot_no, item_code, item_name, usage_uom, qty
+               from v_solution_input where solution_lot_id = $1
+              order by item_code, material_lot_no`, [id])
+        : [],
+      /*
+       * 원료 줄 더하기에서 고를 로트. 잔여가 있는 것이면 되고, 그 사이 기한이
+       * 지난 로트도 넣는다 - 원액을 만든 날 쓴 로트가 오늘 기한 경과일 수 있다.
+       * 원액 자신은 뺀다.
+       */
+      rawLots: lot.made_on && canCorrect
+        ? await db.rows<RawLotOpt>(
+            `select ml.id, ml.lot_no, i.name as item_name, i.usage_uom, ml.qty_available
+               from material_lot ml join item i on i.id = ml.item_id
+              where ml.qty_available > 0
+                and ml.status in ('AVAILABLE','EXPIRED')
+                and ml.id <> $1
+              order by i.code, ml.lot_no`, [id])
+        : [],
+      /*
+       * 이 로트가 원액의 원료였다면, 그 원액이 간 곳까지 이어 준다. 원액은
+       * 투입 기록이 있는 자재 로트이므로 (material_issue) 지금 표와 같은 길로
+       * 배치 · 제품 로트에 닿는다. 원액이 아직 어디에도 투입되지 않았으면
+       * 원액 로트만 남고 나머지 칸이 빈다.
+       */
+      viaSolution: await db.rows<ViaSolution>(
+        `select vi.solution_lot_id as solution_id, vi.solution_lot_no,
+                vi.qty as drawn, vi.usage_uom as drawn_uom, si.usage_uom as solution_uom,
+                pl.lot_no, wo.batch_no, mi.qty, o.name as operation_name
+           from v_solution_input vi
+           join material_lot sl on sl.id = vi.solution_lot_id
+           join item si on si.id = sl.item_id
+           left join material_issue mi on mi.material_lot_id = vi.solution_lot_id
+           left join process_record pr on pr.id = mi.process_record_id
+           left join work_order wo on wo.id = pr.work_order_id
+           left join dmr_operation o on o.id = pr.operation_id
+           left join product_lot pl on pl.id = pr.product_lot_id
+          where vi.material_lot_id = $1
+          order by vi.solution_lot_no, mi.issued_at`, [id]),
       // 원재료는 작업 지시에 직접 붙는다
       batches: await db.rows<{ id: string; batch_no: string; sheet_count: number; status: string }>(
         `select id, batch_no, sheet_count, status::text as status
@@ -128,25 +189,86 @@ async function MaterialView({ me, id }: { me: Me; id: string }) {
         nav={<SubNav items={TRACE_NAV} />}
       >
 
-        <Panel title="입고 정보">
-          <div className="grid gap-x-6 gap-y-3 px-4 py-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Field label="공급자">{lot.supplier_name}</Field>
-            <Field label="공급자 로트"><span className="font-mono">{lot.supplier_lot_no}</span></Field>
-            <Field label="성적서">
-              <span className="font-mono">{lot.coa_no}</span>
-              <span className="ml-2 tnum text-xs text-muted">{fmtDate(lot.coa_date)}</span>
-            </Field>
-            <Field label="입고일"><span className="tnum">{fmtDate(lot.received_at)}</span></Field>
-            <Field label="입고 수량">
-              <span className="tnum">{Number(lot.qty_received)} {lot.usage_uom}</span>
-            </Field>
-            <Field label="잔여">
-              <span className="tnum font-semibold">{Number(lot.qty_available)}</span>
-            </Field>
-            <Field label="유효기한"><span className="tnum">{fmtDate(lot.expiry_date)}</span></Field>
-            {lot.thickness_band && <Field label="두께 구간">{lot.thickness_band}</Field>}
-          </div>
-        </Panel>
+        {lot.made_on ? (
+          <>
+            {/* 사내에서 만든 원액이다. 입고한 것이 아니므로 공급자 · 성적서 칸이 없다 */}
+            <Panel title="제조 정보">
+              <div className="grid gap-x-6 gap-y-3 px-4 py-3 sm:grid-cols-2 lg:grid-cols-4">
+                <Field label="제조일"><span className="tnum">{fmtDate(lot.made_on)}</span></Field>
+                <Field label="제조량">
+                  <span className="tnum">{Number(lot.qty_received)} {lot.usage_uom}</span>
+                </Field>
+                <Field label="잔여">
+                  <span className="tnum font-semibold">{Number(lot.qty_available)}</span>
+                </Field>
+                <Field label="유효기한"><span className="tnum">{fmtDate(lot.expiry_date)}</span></Field>
+              </div>
+            </Panel>
+
+            <Panel title="원료" note="이 원액을 만드는 데 쓴 로트입니다">
+              {d.inputs.length === 0 ? (
+                <Empty hint="원료 줄을 되돌려 순량이 0 이 되면 이 표에서 빠집니다. 줄 자체는 재고 증감에 남아 있습니다.">
+                  원료로 남은 로트가 없습니다.
+                </Empty>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr>
+                        <th className="th">원료 로트</th>
+                        <th className="th">품목</th>
+                        <th className="th text-right">사용량</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {d.inputs.map((x) => (
+                        <tr key={x.material_lot_id}>
+                          <td className="td font-mono text-xs font-semibold">
+                            <Link href={`/trace/material/${x.material_lot_id}`}
+                                  className="text-brand hover:underline">
+                              {x.material_lot_no}
+                            </Link>
+                          </td>
+                          <td className="td">
+                            <div className="text-sm">{x.item_name}</div>
+                            <div className="font-mono text-xs text-faint">{x.item_code}</div>
+                          </td>
+                          <td className="td tnum text-right">
+                            {`${Number(x.qty)} ${x.usage_uom}`}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {canCorrect && (
+                <SolutionCorrectForm solutionId={id} inputs={d.inputs} lots={d.rawLots}
+                                     used={d.products.length > 0} />
+              )}
+            </Panel>
+          </>
+        ) : (
+          <Panel title="입고 정보">
+            <div className="grid gap-x-6 gap-y-3 px-4 py-3 sm:grid-cols-2 lg:grid-cols-4">
+              <Field label="공급자">{lot.supplier_name}</Field>
+              <Field label="공급자 로트"><span className="font-mono">{lot.supplier_lot_no}</span></Field>
+              <Field label="성적서">
+                <span className="font-mono">{lot.coa_no}</span>
+                <span className="ml-2 tnum text-xs text-muted">{fmtDate(lot.coa_date)}</span>
+              </Field>
+              <Field label="입고일"><span className="tnum">{fmtDate(lot.received_at)}</span></Field>
+              <Field label="입고 수량">
+                <span className="tnum">{Number(lot.qty_received)} {lot.usage_uom}</span>
+              </Field>
+              <Field label="잔여">
+                <span className="tnum font-semibold">{Number(lot.qty_available)}</span>
+              </Field>
+              <Field label="유효기한"><span className="tnum">{fmtDate(lot.expiry_date)}</span></Field>
+              {lot.thickness_band && <Field label="두께 구간">{lot.thickness_band}</Field>}
+            </div>
+          </Panel>
+        )}
 
         {d.batches.length > 0 && (
           <Panel title="이 원재료로 만든 배치">
@@ -184,9 +306,20 @@ async function MaterialView({ me, id }: { me: Me; id: string }) {
           note="공정 기록을 경유한 계보입니다"
         >
           {d.products.length === 0 ? (
-            <Empty hint="현장 화면에서 이 로트를 투입 자재로 적으면 계보가 이어집니다.">
-              아직 공정에 투입되지 않았습니다.
-            </Empty>
+            /*
+             * 직접 투입이 없다는 말이다. 이 로트로 만든 원액이 있으면 그 원액이 간
+             * 곳이 아래에 따로 선다 - 같은 화면에서 "투입되지 않았다" 고 하면서 그
+             * 아래에 배치를 늘어놓으면 영향 범위를 보러 온 사람이 위의 말을 믿는다.
+             */
+            d.viaSolution.length > 0 ? (
+              <Empty hint="이 로트로 만든 원액이 어디에 들어갔는지는 아래 표에 있습니다.">
+                직접 투입된 기록이 없습니다.
+              </Empty>
+            ) : (
+              <Empty hint="현장 화면에서 이 로트를 투입 자재로 적으면 계보가 이어집니다.">
+                아직 공정에 투입되지 않았습니다.
+              </Empty>
+            )
           ) : (
             <div className="qd-table-scroll">
               <table className="qd-table qd-table--hangul" data-grow="0">
@@ -214,6 +347,58 @@ async function MaterialView({ me, id }: { me: Me; id: string }) {
             </div>
           )}
         </Panel>
+
+        {d.viaSolution.length > 0 && (
+          <Panel
+            title="원액을 거쳐 들어간 곳"
+            note="이 로트를 원료로 만든 원액이 투입된 자리입니다"
+          >
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr>
+                    <th className="th">원액 로트</th>
+                    <th className="th">배치</th>
+                    <th className="th">공정</th>
+                    <th className="th">제품 로트</th>
+                    <th className="th text-right">투입량</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {d.viaSolution.map((v, i) => (
+                    <tr key={i}>
+                      <td className="td">
+                        <Link href={`/trace/material/${v.solution_id}`}
+                              className="font-mono text-xs font-semibold text-brand hover:underline">
+                          {v.solution_lot_no}
+                        </Link>
+                        <div className="text-xs text-faint">
+                          {`이 로트 ${Number(v.drawn)} ${v.drawn_uom}`}
+                        </div>
+                      </td>
+                      {v.batch_no ? (
+                        <>
+                          <td className="td font-mono text-xs">{v.batch_no}</td>
+                          <td className="td text-sm">{v.operation_name}</td>
+                          <td className="td font-mono text-xs font-semibold">
+                            {v.lot_no || <span className="font-sans text-muted">배치 전체</span>}
+                          </td>
+                          <td className="td tnum text-right">
+                            {`${Number(v.qty)} ${v.solution_uom}`}
+                          </td>
+                        </>
+                      ) : (
+                        <td className="td text-sm text-muted" colSpan={4}>
+                          아직 공정에 투입되지 않았습니다.
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Panel>
+        )}
       </PageShell>
   );
 }

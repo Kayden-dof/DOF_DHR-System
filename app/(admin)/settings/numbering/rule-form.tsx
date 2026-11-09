@@ -33,6 +33,7 @@ export default function RuleForm({
   target,
   targetLabel,
   existing,
+  activeRules = [],
   items,
   types,
   fixedItemId,
@@ -41,7 +42,10 @@ export default function RuleForm({
 }: {
   target: string;
   targetLabel: string;
+  /** 처음 칸을 채울 규칙. 무엇을 교체하는지는 이것이 아니라 고른 범위가 정한다 */
   existing: ExistingRule | null;
+  /** 이 대상의 활성 규칙 전부. 고른 범위에 활성 규칙이 있는지 보는 데 쓴다 */
+  activeRules?: ExistingRule[];
   /** 품목별 규칙을 만들 수 있는 대상이면 목록이 온다. 빈 배열이면 공통만 */
   items: ItemOption[];
   /** 품목 종류 고르개. 주면 종류별 규칙을 낼 수 있다 (0097) */
@@ -62,6 +66,17 @@ export default function RuleForm({
 
   const itemCode = items.find((i) => i.id === itemId)?.code ?? null;
 
+  /*
+   * 고른 범위(품목 · 종류)에 이미 활성 규칙이 있는가. 있으면 교체이고 없으면 등록이다.
+   *
+   * 서버가 같은 기준으로 정한다 (actions.ts). 여기서는 글과 단추를 그 기준에 맞출
+   * 뿐이다 - 교체라고 적어 놓고 다른 규칙을 내리거나, 등록이라고 적어 놓고 규칙을
+   * 내리면 화면이 거짓말을 하는 것이다.
+   */
+  const current = activeRules.find(
+    (r) => (r.item_id ?? '') === itemId && (r.item_type ?? '') === itemType) ?? null;
+  const typeLabel = types?.find((t) => t.value === itemType)?.label ?? null;
+
   useEffect(() => {
     const id = setTimeout(() => {
       previewPattern(pattern, seqWidth, itemCode).then(setPreview);
@@ -80,8 +95,8 @@ export default function RuleForm({
   const hasBatchToken = pattern.includes('{BATCH}');
   const sameTwice = !!preview.first && preview.first === preview.second;
   const noSeqToken = sameTwice && !hasBatchToken;
-  const cycleChanged = !!existing && existing.reset !== reset;
-  const samePattern = !!existing && existing.pattern === pattern.trim();
+  const cycleChanged = !!current && current.reset !== reset;
+  const samePattern = !!current && current.pattern === pattern.trim();
 
   // 성공하면 폼을 접고 결과만 남긴다. 등록됐다는 확인이 화면에 없으면
   // 같은 규칙을 두 번 넣게 된다. 그러면 활성 규칙 중복으로 거부되거나,
@@ -103,14 +118,19 @@ export default function RuleForm({
   return (
     <form action={formAction} className="border-t border-line bg-canvas px-4 py-4">
       <input type="hidden" name="target" value={target} />
-      {existing && <input type="hidden" name="replacing" value={existing.id} />}
 
       <p className="mb-3 text-xs leading-relaxed text-muted">
-        {existing ? (
+        {current ? (
           <>
-            <b className="text-ink">규칙 교체</b> - 기존 규칙{' '}
-            <code className="font-mono">{existing.pattern}</code>을 내리고 새 규칙을
-            등록합니다. 한 번에 처리되므로 채번이 끊기는 순간은 없습니다.
+            <b className="text-ink">규칙 교체</b> - {typeLabel ? `${typeLabel} 종류의 ` : ''}기존 규칙{' '}
+            <code className="font-mono">{current.pattern}</code>을 내리고 새 규칙을
+            등록합니다. 다른 범위의 규칙은 그대로입니다. 한 번에 처리되므로 채번이 끊기는
+            순간은 없습니다.
+          </>
+        ) : typeLabel ? (
+          <>
+            <b className="text-ink">{typeLabel} 종류 규칙 등록</b> - 이 종류에는 활성 규칙이
+            없어 새로 등록합니다. 다른 규칙은 내리지 않습니다.
           </>
         ) : items.length > 0 ? (
           <>
@@ -190,7 +210,9 @@ export default function RuleForm({
             </select>
             <p className="mt-1 text-xs leading-relaxed text-faint">
               종류를 고르면 그 종류의 품목만 이 형식으로 채번되고, 나머지는 공통 규칙을
-              씁니다. 품목별 규칙이 있으면 그쪽이 먼저입니다.
+              씁니다. 품목별 규칙이 있으면 그쪽이 먼저입니다. 이미 규칙이 있는 종류를
+              고르면 그 규칙만 교체되고, 없는 종류를 고르면 다른 규칙은 그대로 둔 채
+              새로 등록됩니다.
             </p>
           </div>
         )}
@@ -297,7 +319,7 @@ export default function RuleForm({
 
       {cycleChanged && (
         <Alert tone={samePattern ? 'danger' : 'warn'}>
-          <b>순번이 이어지지 않습니다.</b> 초기화 주기를 {cycleLabel(existing!.reset)}에서{' '}
+          <b>순번이 이어지지 않습니다.</b> 초기화 주기를 {cycleLabel(current!.reset)}에서{' '}
           {cycleLabel(reset)}로 바꾸면 카운터의 주기 키가 달라져 승계가 일어나지 않고 1번부터
           시작합니다.
           {samePattern && (
@@ -314,7 +336,7 @@ export default function RuleForm({
 
       <div className="mt-4 flex gap-2">
         <button type="submit" disabled={pending} className="btn-primary">
-          {pending ? '처리 중…' : existing ? '규칙 교체' : '규칙 등록'}
+          {pending ? '처리 중…' : current ? '규칙 교체' : '규칙 등록'}
         </button>
         <button type="button" onClick={onDone} className="btn-ghost">
           취소

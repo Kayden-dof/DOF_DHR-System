@@ -22,6 +22,10 @@
      회사 표시 · 장입 범위 · 멸균 박스 수량 · 형명 체계 · 형명 자리 ·
      공수 단가 · 단가 · 사용기간 · 공정에 걸린 설비 · 제품표준서 기본정보
 
+   설정은 아니지만 화면의 저장 경로를 지나야 하는 길이 하나 더 있다 - 원액 제조와
+   그 원료 줄 바로잡기(원액 추적 화면). 원액 로트와 원료 줄을 세우고 고치는 입구는
+   그 둘뿐이고, 이 사례들은 되돌리지 않는다 (아래).
+
    ── 되돌린다. 다만 이력은 두고 간다 ──────────────────────────────────────
    기준정보는 시험이 바꾼 값을 원래대로 되돌린다. 이력 표(단가 · 사용기간 ·
    공수)는 새 행이 쌓이는 구조이고 기록은 지우지 않으므로(§10) 그대로 둔다 -
@@ -32,7 +36,7 @@
 import pg from 'pg';
 import { pgSsl } from './pgssl.mjs';
 import { sessionCookie } from './session-cookie.mjs';
-import { submitForm } from './form-post.mjs';
+import { submitForm, clientActionId, postClientAction } from './form-post.mjs';
 
 const BASE = process.argv[2] ?? 'http://localhost:3100';
 
@@ -54,6 +58,11 @@ let bad = 0;
 const ok = (cond, what, extra = '') => {
   if (!cond) bad += 1;
   console.log(`  ${cond ? '저장됨' : '★ 안 됨'}  ${what}${extra ? ' · ' + extra : ''}`);
+};
+/* 저장되지 **않아야** 하는 것. 화면이 거부했는지를 DB 로 본다 */
+const refused = (cond, what, extra = '') => {
+  if (!cond) bad += 1;
+  console.log(`  ${cond ? '거부됨' : '★ 저장됨'}  ${what}${extra ? ' · ' + extra : ''}`);
 };
 
 const admin = await v(
@@ -227,6 +236,270 @@ if (!scheme) {
       { equipment_id: link.equipment_id, operation_id: link.operation_id,
         on: before ? '1' : '0' });
     await settle();
+  }
+}
+
+/* ── 원액 제조 (0119) · 이력이라 되돌리지 않는다 ─────────────────────── */
+/*
+ * 원액 로트와 원료 줄은 지울 수 없다 (S03). 되돌릴 길이 없으므로 시험이 만든
+ * 것은 개발 DB 에 남는다 - 마지막에 그렇다고 찍는다.
+ *
+ * 원료는 이 사례가 스스로 세운다. 시연 자료의 재고를 줄이지 않으려는 것이고,
+ * 같은 로트가 남아 있으면 다시 쓴다 (돌릴 때마다 로트가 쌓이지 않게).
+ * 번호는 공통 자재 로트 규칙이 낸다 - 화면이 부르는 길 그대로다.
+ */
+{
+  const today = await v(`select to_char(timezone('Asia/Seoul', now()), 'YYYY-MM-DD')`);
+  /* 시험이 SQL 로 세우는 줄도 감사추적에 "누가" 가 남게 한다 */
+  await c.query(`select set_config('app.user_id', $1, false)`, [admin]);
+
+  const ensureItem = async (code, name, type, uom, months) => {
+    const cur = (await rows(
+      'select id, type::text as type from item where code = $1', [code]))[0];
+    if (cur) return cur;
+    return (await rows(
+      `insert into item (code, name, type, purchase_uom, usage_uom, conversion, shelf_life_months)
+       values ($1, $2, $3::item_type, $4, $4, 1, $5) returning id, type::text as type`,
+      [code, name, type, uom, months]))[0];
+  };
+  const sol = await ensureItem('SL-SAVE', '저장 시험 원액', 'SOLUTION', 'L', 6);
+  const rawA = await ensureItem('SL-SAVE-A', '저장 시험 원료 A', 'REAGENT', 'g', null);
+  const rawB = await ensureItem('SL-SAVE-B', '저장 시험 원료 B', 'REAGENT', 'g', null);
+
+  /* 모자라면 새로 세운다. 단가가 있어야 원액 단가가 계산된다 */
+  const rawLot = async (item, price, need) => {
+    const hit = await v(
+      `select id from material_lot
+        where item_id = $1 and status = 'AVAILABLE' and qty_available >= $2
+        order by lot_no limit 1`, [item.id, need]);
+    if (hit) return hit;
+    const tag = await v(`select to_char(clock_timestamp(), 'YYMMDDHH24MISSMS')`);
+    const sup = await v('select id from supplier order by code limit 1');
+    return v(
+      `insert into material_lot (item_id, lot_no, supplier_id, supplier_lot_no, coa_no,
+         coa_date, received_at, registered_by, qty_received, qty_available, unit_price)
+       values ($1, $2, $3, $4, $5, $6::date, now(), $7, 100, 100, $8) returning id`,
+      [item.id, `SAVE-${tag}`, sup, `SAVE-S-${tag}`, `SAVE-C-${tag}`, today, admin, price]);
+  };
+
+  if (sol.type !== 'SOLUTION') {
+    ok(false, '원액 제조', `SL-SAVE 품목의 유형이 원액이 아닙니다 (${sol.type})`);
+  } else {
+    const lotA = await rawLot(rawA, 10, 2);
+    const lotB = await rawLot(rawB, 20, 1);
+    const stockBefore = (await rows(
+      'select id, qty_available from material_lot where id = any($1::uuid[])', [[lotA, lotB]]))
+      .reduce((m, r) => m.set(r.id, Number(r.qty_available)), new Map());
+    const known = (await rows(
+      'select id from material_lot where item_id = $1', [sol.id])).map((r) => r.id);
+
+    /*
+     * 화면에 원액 품목이 고를 수 있게 나와 있는가.
+     *
+     * 품목 코드를 글자로 찾으면 안 된다 - 원료 로트 목록의 속성 자료에도 코드가
+     * 실려 있어 고르개가 없어도 찾힌다. 고르개의 선택지(value=식별자)를 본다.
+     */
+    const page = await (await fetch(`${BASE}/material/movement`, { headers: { cookie: CK } })).text();
+    ok(page.includes(`<option value="${sol.id}"`), '원액 제조 · 원액 품목이 고르개에 나옴');
+
+    /*
+     * 수량만 적고 원료 로트를 고르지 않은 줄이 섞이면 원액 로트가 서지 않는다.
+     * 전에는 그 줄을 말없이 빼고 섰다 - 적었다고 믿은 원료가 기록에서 빠진다.
+     * 두 번째 줄의 고르개는 화면 그대로 '사용 안 함'(빈 값)이고 수량만 채운다.
+     */
+    const rx = await submitForm(BASE, '/material/movement', CK,
+      ['item_id', 'made_on', 'qty', 'lot_0', 'qty_0'],
+      { item_id: sol.id, made_on: today, qty: 4, lot_0: lotA, qty_0: 2, qty_1: 1,
+        note: '저장 시험 (서지 않아야 함)' });
+    await settle();
+    const stray = await v(
+      `select count(*)::int from material_lot where item_id = $1 and id <> all($2::uuid[])`,
+      [sol.id, known]);
+    refused(rx.ok && stray === 0, '원액 제조 · 수량만 있고 로트가 빈 줄',
+            rx.ok ? `새 원액 로트 ${stray}건` : (rx.reason ?? `HTTP ${rx.status}`));
+
+    /*
+     * 원액은 입고하지도 발주하지도 않는다. 두 화면의 품목 목록에 원액이 없어야
+     * 하고 (고를 수 없는 것은 보이지 않는다), 같은 화면에 시약 품목은 있어야
+     * 이 확인이 아무것도 못 보는 상태가 아니다. 목록은 속성 자료로 실려 오므로
+     * 품목 식별자가 글에 있는지로 본다. 입고 폼이 둘이다 - 자재 로트 화면과 발주 화면.
+     */
+    for (const p of ['/material', '/material/orders']) {
+      const t = await (await fetch(`${BASE}${p}`, { headers: { cookie: CK } })).text();
+      ok(t.includes(rawA.id) && !t.includes(sol.id),
+         `원액 제조 · 입고 · 발주 목록에 원액이 없음 (${p})`);
+    }
+
+    const r = await submitForm(BASE, '/material/movement', CK,
+      ['item_id', 'made_on', 'qty', 'lot_0', 'qty_0'],
+      { item_id: sol.id, made_on: today, qty: 4,
+        lot_0: lotA, qty_0: 2, lot_1: lotB, qty_1: 1, note: '저장 시험' });
+    if (!r.ok) {
+      ok(false, '원액 제조', r.reason ?? `HTTP ${r.status}`);
+    } else {
+      await settle();
+      const made = (await rows(
+        `select ml.id, ml.lot_no, ml.made_on::text as made_on, ml.qty_available,
+                ml.unit_price, ml.expiry_date::text as expiry_date,
+                (ml.made_on + make_interval(months => i.shelf_life_months))::date::text as want_expiry
+           from material_lot ml join item i on i.id = ml.item_id
+          where ml.item_id = $1 and ml.id <> all($2::uuid[])`, [sol.id, known]))[0];
+      ok(!!made && made.made_on === today, '원액 제조 · 원액 로트가 섬',
+         made ? `${made.lot_no} · 제조일 ${made.made_on}` : '새 로트 없음');
+
+      if (made) {
+        const lines = await rows(
+          `select material_lot_id, qty from stock_movement
+            where solution_lot_id = $1 and type = 'SOLUTION' order by qty`, [made.id]);
+        ok(lines.length === 2, '원액 제조 · 원료 줄이 원액 로트를 가리킴', `${lines.length}줄`);
+        ok(made.expiry_date === made.want_expiry && made.expiry_date !== null,
+           '원액 제조 · 유효기간 = 제조일 + 사용기간', made.expiry_date);
+        ok(Number(made.unit_price) === 10, '원액 제조 · 단가 = 원료 비용 ÷ 제조량',
+           String(made.unit_price));
+        const after = (await rows(
+          'select id, qty_available from material_lot where id = any($1::uuid[])', [[lotA, lotB]]))
+          .reduce((m, x) => m.set(x.id, Number(x.qty_available)), new Map());
+        ok(stockBefore.get(lotA) - after.get(lotA) === 2 && stockBefore.get(lotB) - after.get(lotB) === 1,
+           '원액 제조 · 원료 재고가 그만큼 빠짐');
+        console.log('  남음    개발 DB 에 원액 로트 1건 · 원료 줄 2건이 남음 (S03 으로 지울 수 없음)');
+
+        /*
+         * 원액 추적 화면의 원료 줄 바로잡기 (0121) · 이것도 되돌리지 않는다.
+         *
+         * 되돌리기 · 더하기는 줄을 고치지 않고 더하는 정정이라, 시험이 더한 줄도
+         * 지울 수 없다 (S03). 방금 세운 원액에 대고 한다 - 시연 원액의 구성은
+         * 건드리지 않는다. 폼은 접힌 칸 안에 있어도 첫 HTML 에 실린다.
+         */
+        const trace = `/trace/material/${made.id}`;
+        const net = async (raw) => Number(await v(
+          `select coalesce(sum(qty), 0) from v_solution_input
+            where solution_lot_id = $1 and material_lot_id = $2`, [made.id, raw]));
+        const stock = async (lot) => Number(await v(
+          'select qty_available from material_lot where id = $1', [lot]));
+        const line = async (raw, type) => (await rows(
+          `select qty, reason_code, reason_detail from stock_movement
+            where solution_lot_id = $1 and material_lot_id = $2 and type = $3::movement_type
+              and reason_code = '원액정정'`, [made.id, raw, type]))[0];
+
+        const aBefore = await stock(lotA);
+        const rb = await submitForm(BASE, trace, CK,
+          ['solution_lot_id', 'return_lot_id', 'qty', 'reason'],
+          { return_lot_id: lotA, qty: 0.5, reason: '저장 시험 되돌리기' });
+        if (!rb.ok) {
+          ok(false, '원액 정정 · 원료 줄 되돌리기', rb.reason ?? `HTTP ${rb.status}`);
+        } else {
+          await settle();
+          const back = await line(lotA, 'RETURN');
+          const n = await net(lotA);
+          ok(!!back && Number(back.qty) === 0.5
+               && String(back.reason_detail).includes('저장 시험 되돌리기')
+               && n === 1.5 && (await stock(lotA)) - aBefore === 0.5,
+             '원액 정정 · 원료 줄 되돌리기',
+             back ? `원료 A 순량 2 → ${n} · ${back.reason_detail}` : '되돌림 줄 없음');
+        }
+
+        const bBefore = await stock(lotB);
+        const ra = await submitForm(BASE, trace, CK,
+          ['solution_lot_id', 'add_lot_id', 'qty', 'reason'],
+          { add_lot_id: lotB, qty: 0.5, reason: '저장 시험 더하기' });
+        if (!ra.ok) {
+          ok(false, '원액 정정 · 원료 줄 더하기', ra.reason ?? `HTTP ${ra.status}`);
+        } else {
+          await settle();
+          const added = await line(lotB, 'SOLUTION');
+          const n = await net(lotB);
+          ok(!!added && Number(added.qty) === -0.5
+               && String(added.reason_detail).includes('저장 시험 더하기')
+               && n === 1.5 && bBefore - (await stock(lotB)) === 0.5,
+             '원액 정정 · 원료 줄 더하기',
+             added ? `원료 B 순량 1 → ${n} · ${added.reason_detail}` : '더한 줄 없음');
+        }
+        console.log('  남음    개발 DB 에 원액 정정 줄 2건(되돌림 · 더함)이 남음 (S03 으로 지울 수 없음)');
+      }
+    }
+  }
+}
+
+/* ── 채번 규칙 · 같은 범위의 규칙만 교체한다 ───────────────────────────── */
+/*
+ * 등록 폼은 `규칙 교체` 를 눌러야 그려지므로 첫 HTML 에 없다. 화면이 싣고 오는
+ * 조각에서 액션 식별자를 읽어 폼이 내는 모양 그대로 보낸다 (form-post.mjs).
+ *
+ * 전에는 폼이 카드가 보여 주던 규칙의 식별자를 `replacing` 으로 실어 보냈고
+ * 서버는 그것을 범위와 상관없이 내렸다. 카드가 보여 주던 것은 `item_id` 가 빈
+ * 첫 활성 규칙이라 공통 규칙이거나 원자재 · 포장재 규칙이었고, 원액 유형 규칙을
+ * 넣는 순간 그 규칙이 함께 내려갔다. 내린 규칙은 되살릴 수 없다 (DB 가 막는다).
+ *
+ * 그래서 이 사례는 진짜 규칙을 위험에 올리지 않는다. 쓰지 않는 종류에 버려도 되는
+ * 규칙을 하나 세우고, 낡은 화면이 보냈을 모양(다른 범위 규칙의 식별자를
+ * `replacing` 으로)을 그 규칙으로 보낸다. 진짜 규칙은 아래에서 같이 지켜본다.
+ * 시험이 세운 규칙은 마지막에 전부 내린다 - 규칙은 지우지 않으므로 이력이 남는다.
+ */
+{
+  const today = await v(`select to_char(timezone('Asia/Seoul', now()), 'YYYY-MM-DD')`);
+  const P1 = 'LS{YY}{MM}{DD}-{SEQ:2}';
+  const P2 = 'LT{YY}{MM}{DD}-{SEQ:2}';
+  const mine = async () => rows(
+    `select id, item_type::text as item_type, pattern, is_active
+       from numbering_rule where target = 'MATERIAL_LOT'`);
+
+  const act = await clientActionId(BASE, '/settings/numbering', CK, 'saveRule', 'settings/numbering');
+  const known = new Set((await mine()).map((r) => r.id));
+  const before = (await mine()).filter((r) => r.is_active);
+  if (!act.id) {
+    ok(false, '채번 규칙 · 등록 폼', act.reason);
+  } else if (before.some((r) => r.item_type === 'SOLUTION')) {
+    /* 진짜 원액 규칙이 이미 있으면 교체 사례가 그것을 내린다. 건드리지 않는다 */
+    console.log('  건너뜀  원액 유형 규칙이 이미 활성입니다 (채번 규칙 교체)');
+  } else {
+    const taken = new Set(before.map((r) => r.item_type));
+    const decoyType = ['PROCESS', 'REAGENT'].find((t) => !taken.has(t)) ?? null;
+    const decoy = decoyType
+      ? await v(
+          `insert into numbering_rule (target, item_type, pattern, reset, seq_width,
+             effective_from, registered_by)
+           values ('MATERIAL_LOT', $1::item_type, 'ZZ{YY}{MM}{DD}-{SEQ:2}', 'DAILY', 2,
+                   $2::date, $3) returning id`, [decoyType, today, admin])
+      : null;
+    const guarded = [...before, ...(decoy ? [{ id: decoy, item_type: decoyType }] : [])];
+    const vals = { target: 'MATERIAL_LOT', item_type: 'SOLUTION', reset: 'DAILY',
+                   seq_width: 2, effective_from: today };
+    const stillActive = async () => {
+      const now = await mine();
+      return guarded.filter((g) => !now.some((n) => n.id === g.id && n.is_active));
+    };
+
+    /* 1. 낡은 화면이 다른 범위 규칙의 식별자를 `replacing` 으로 실어 보내도 그 규칙은 산다 */
+    const r1 = await postClientAction(BASE, '/settings/numbering', CK, act.id,
+      { ...vals, pattern: P1, ...(decoy ? { replacing: decoy } : {}) });
+    await settle();
+    const a = (await mine()).filter((r) => r.item_type === 'SOLUTION' && r.is_active);
+    ok(r1.ok && a.length === 1 && a[0].pattern === P1,
+       '채번 규칙 · 원액 유형 규칙이 활성으로 섬', a[0]?.pattern ?? '규칙 없음');
+    const lost1 = await stillActive();
+    ok(lost1.length === 0, '채번 규칙 · 다른 범위의 규칙이 그대로 활성',
+       lost1.length
+         ? `내려간 규칙: ${lost1.map((l) => l.item_type ?? '공통').join(', ')}`
+         : `${guarded.length}건 (공통 · 종류별 · 시험 규칙)`);
+
+    /* 2. 같은 범위에 이미 규칙이 있으면 그것만 내리고 바꾼다 (화면은 `replacing` 을 보내지 않는다) */
+    const r2 = await postClientAction(BASE, '/settings/numbering', CK, act.id,
+      { ...vals, pattern: P2 });
+    await settle();
+    const sol = (await mine()).filter((r) => r.item_type === 'SOLUTION');
+    const on = sol.filter((r) => r.is_active);
+    ok(r2.ok && on.length === 1 && on[0].pattern === P2
+         && sol.some((r) => r.pattern === P1 && !r.is_active),
+       '채번 규칙 · 같은 범위의 규칙만 교체됨',
+       on[0] ? `${P1} 내림 → ${on[0].pattern}` : '활성 규칙 없음');
+    const lost2 = await stillActive();
+    ok(lost2.length === 0, '채번 규칙 · 교체해도 다른 범위의 규칙이 그대로 활성',
+       lost2.length ? `내려간 규칙: ${lost2.map((l) => l.item_type ?? '공통').join(', ')}` : '');
+
+    /* 되돌린다. 이 사례가 세운 규칙만 내린다. 규칙은 지우지 않으므로 이력이 남는다 */
+    const made = (await mine()).filter((r) => !known.has(r.id)).map((r) => r.id);
+    await c.query('update numbering_rule set is_active = false where id = any($1::uuid[])', [made]);
+    console.log(`  남음    개발 DB 에 이 사례가 세운 채번 규칙 ${made.length}건이 내린 채 이력으로 남음 (지울 수 없음)`);
   }
 }
 

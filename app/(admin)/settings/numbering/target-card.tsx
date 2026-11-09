@@ -10,6 +10,10 @@ import RuleForm, { type ItemOption } from './rule-form';
  * 자재 로트만 종류별 규칙을 낸다 (0097). 사내 번호 체계가 원자재 R · 포장재 P ·
  * 시약과 소모품 M 으로 접두어를 가르기 때문이다.
  *
+ * 원액(SOLUTION)도 자재 로트 한 줄이라 여기서 규칙을 건다. 원액 로트의 번호는
+ * 제조일로 만들어지고(0097), 사내에서 만든 것이라 입고 로트와 접두어를 달리
+ * 두려는 제조소가 있다. 규칙을 안 걸면 공통 규칙이 번호를 낸다.
+ *
  * 완제품(FIN)은 여기 없다. 완제품은 자재 로트가 아니라 제품 로트로 선다.
  * 이 목록은 설정이 아니라 스키마의 열거형이다 - 품목 종류가 무엇무엇인지는
  * 표가 정하지 제조소가 정하지 않는다.
@@ -18,6 +22,7 @@ const MATERIAL_TYPES = [
   { value: 'RAW', label: '원자재' },
   { value: 'REAGENT', label: '시약' },
   { value: 'PROCESS', label: '공정 자재 · 소모품' },
+  { value: 'SOLUTION', label: '원액' },
   { value: 'PACK', label: '포장재' },
 ];
 
@@ -34,6 +39,8 @@ export interface RuleRow {
   effective_from: string;
   registered_at: Date;
   registered_by_name: string;
+  /** 종류별 규칙이면 그 종류. 공통 규칙과 품목별 규칙은 비어 있다 (0097) */
+  item_type: string | null;
   sample: string;
   item_code: string | null;
   item_name: string | null;
@@ -89,6 +96,12 @@ export default function TargetCard({
    */
   const perItem = rules.filter((r) => r.is_active && r.item_id);
   const history = rules.filter((r) => r !== active && !perItem.includes(r) && !perType.includes(r));
+  /* 폼이 고른 범위의 활성 규칙을 찾는 재료 */
+  const activeRules = rules.filter((r) => r.is_active).map((r) => ({
+    id: r.id, pattern: r.pattern, reset: r.reset, seq_width: r.seq_width,
+    item_id: r.item_id, item_type: r.item_type,
+  }));
+  const typed = code === 'MATERIAL_LOT';
 
   return (
     <section className="card overflow-hidden">
@@ -106,7 +119,7 @@ export default function TargetCard({
           )}
           {writable && !open && (
             <button onClick={() => setOpen('replace')} className="btn-ghost h-9">
-              {active ? '규칙 교체' : '규칙 등록'}
+              {typed ? '규칙 등록 · 교체' : active ? '규칙 교체' : '규칙 등록'}
             </button>
           )}
           {writable && active && !open && !confirming && (
@@ -250,6 +263,7 @@ export default function TargetCard({
                   seq_width: active.seq_width, item_id: null }
               : null
           }
+          activeRules={activeRules}
           items={[]}
           types={code === 'MATERIAL_LOT' ? MATERIAL_TYPES : undefined}
           today={today}
@@ -262,6 +276,7 @@ export default function TargetCard({
           target={code}
           targetLabel={label}
           existing={null}
+          activeRules={activeRules}
           items={items.filter((i) => !perItem.some((r) => r.item_id === i.id))}
           today={today}
           onDone={() => setOpen(null)}

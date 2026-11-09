@@ -24,8 +24,9 @@
    없이 하는 것과 같은 일이고, 사람이 못 하는 일은 시험도 못 한다.
 
    ── 무엇을 못 하는가 ─────────────────────────────────────────────────────
-   대화상자 안에서 눌러야 비로소 그려지는 폼은 첫 HTML 에 없다. 그런 자리는
-   여기서 닿지 않는다 - 닿는 것만 시험하고, 닿지 않는 것은 그렇다고 적는다.
+   대화상자 안에서 눌러야 비로소 그려지는 폼은 첫 HTML 에 없다. `submitForm` 은
+   그런 자리에 닿지 않는다 - 그 자리는 아래 `clientActionId` · `postClientAction`
+   이 닿는다. 그것도 못 닿는 곳은 그렇다고 적는다.
 --------------------------------------------------------------------------- */
 
 /** HTML 에서 <form> 안쪽 조각을 뽑는다 */
@@ -112,4 +113,64 @@ export async function submitForm(base, path, cookie, want, values) {
   });
   /* 서버 액션은 리다이렉트나 RSC 를 돌려준다. 성공 여부는 DB 가 답한다 */
   return { ok: r.status < 400, status: r.status, sent: hit.v };
+}
+
+/* ---------------------------------------------------------------------------
+   버튼을 눌러야 그려지는 폼의 액션을 부른다
+
+   위의 `submitForm` 은 첫 HTML 에 있는 폼만 닿는다. 채번 규칙의 등록 폼처럼
+   `규칙 교체` 를 눌러야 비로소 그려지는 폼은 첫 HTML 에 없어, 지금까지 시험이
+   닿지 못했다 (그 자리는 "닿지 않는다" 고 적어 두었다).
+
+   ── 식별자는 지어내지 않는다 ─────────────────────────────────────────────
+   액션 식별자는 빌드마다 바뀐다. 그 폼을 그리는 클라이언트 부품이 이미 화면에
+   실려 오고, 그 조각 안에 "이 파일의 이 이름이 이 식별자" 라는 표시가 있다.
+   화면이 내준 조각에서 읽는다 - 사람의 브라우저가 쓰는 것과 같은 값이다.
+
+   개발 서버가 내주는 조각에만 그 표시가 있다. 이 시험은 개발 서버(localhost)
+   만 가리키므로 걸리지 않지만, 못 찾으면 조용히 건너뛰지 않고 이유를 돌려준다.
+
+   ── 보내는 모양 ──────────────────────────────────────────────────────────
+   `useActionState` 로 묶인 폼이 서버에서 그려질 때 내는 숨은 칸(`$ACTION_REF_n`
+   · `$ACTION_n:0` · `$ACTION_n:1` · `$ACTION_KEY`)을 그대로 만들어 실어 보낸다.
+   첫 인자(이전 상태)는 빈 객체다 - 폼이 처음 열렸을 때와 같다.
+--------------------------------------------------------------------------- */
+
+/**
+ * 화면이 싣고 오는 클라이언트 조각에서 서버 액션의 식별자를 읽는다.
+ *
+ * @param pathHint 액션이 든 파일 경로의 일부 (같은 이름이 여러 파일에 있을 때 가린다)
+ * @returns {Promise<{id?: string, reason?: string}>}
+ */
+export async function clientActionId(base, path, cookie, name, pathHint) {
+  const html = await (await fetch(base + path, { headers: { cookie } })).text();
+  const srcs = [...html.matchAll(/<script[^>]*\ssrc="([^"]+)"/g)].map((m) => m[1]);
+  const re = new RegExp(
+    String.raw`__next_internal_action_entry_do_not_use__ \[\{"([0-9a-f]+)":\{"name":"${name}"\}\},"([^"]*)"`);
+  for (const src of srcs) {
+    const js = await (await fetch(base + src, { headers: { cookie } })).text();
+    const m = js.match(re);
+    if (m && (!pathHint || m[2].includes(pathHint))) return { id: m[1] };
+  }
+  return { reason: `${path} 이 싣고 오는 조각에서 ${name} 의 식별자를 찾지 못했습니다` };
+}
+
+/**
+ * 식별자로 액션을 바로 부른다. 폼이 서버에서 그려질 때 내는 숨은 칸을 만들어 싣는다.
+ *
+ * @param values 폼 칸 값. 사람이 채울 칸과 화면이 숨겨 둔 칸을 모두 넣는다
+ * @returns {Promise<{ok:boolean, status:number, body:string}>}
+ */
+export async function postClientAction(base, path, cookie, id, values) {
+  const body = new FormData();
+  body.append('$ACTION_REF_1', '');
+  body.append('$ACTION_1:0', JSON.stringify({ id, bound: '$@1' }));
+  body.append('$ACTION_1:1', '[{}]');
+  body.append('$ACTION_KEY', 'k0');
+  for (const [k, v] of Object.entries(values)) body.set(k, String(v));
+
+  const r = await fetch(base + path, {
+    method: 'POST', headers: { cookie }, body, redirect: 'manual',
+  });
+  return { ok: r.status < 400, status: r.status, body: await r.text() };
 }

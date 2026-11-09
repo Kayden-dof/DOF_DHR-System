@@ -23,7 +23,7 @@ export const MATERIAL_NAV: NavItem[] = [
   { href: '/material/items', label: '품목' },
   { href: '/material/orders', label: '발주' },
   { href: '/material/stock', label: '재고' },
-  { href: '/material/movement', label: '증감 · 용액' },
+  { href: '/material/movement', label: '증감 · 원액' },
 ];
 
 /* 설비 목록과 배치도 (0125). 배치도는 방을 그리고 설비를 놓는 자리다 */

@@ -1,5 +1,9 @@
 import { ROLE_LABEL } from './roles';
-export type FormState = { ok?: boolean; message?: string; error?: string };
+/**
+ * `href` 는 성공한 뒤 이어서 갈 곳이 있을 때만 쓴다 (원액 제조 뒤의 라벨 인쇄).
+ * 문구에 주소를 섞으면 눌러서 갈 수 없으므로 따로 둔다.
+ */
+export type FormState = { ok?: boolean; message?: string; error?: string; href?: string };
 export const EMPTY_FORM_STATE: FormState = {};
 
 export const NUMBERING_TARGETS = [
@@ -25,6 +29,7 @@ export const ITEM_TYPES = [
   { code: 'RAW',     label: '원재료',   note: '동물유래물질. 배치당 1개 로트' },
   { code: 'REAGENT', label: '시약',     note: '장입 장수 구간별로 소모' },
   { code: 'PROCESS', label: '공정 자재', note: '공정에서 쓰는 소모품' },
+  { code: 'SOLUTION', label: '원액',    note: '사내 제조. 원료 로트로 만든다' },
   { code: 'PACK',    label: '포장재',   note: '제품 개수에 비례' },
   { code: 'FIN',     label: '완제품',   note: '형명. 모델명 규칙으로 생성' },
 ] as const;
@@ -48,7 +53,7 @@ export const MOVEMENT_TYPES = [
  */
 export const MOVEMENT_TYPE_LABEL: Record<string, string> = {
   ...Object.fromEntries(MOVEMENT_TYPES.map((m) => [m.code, m.label])),
-  SOLUTION: '용액 제조',
+  SOLUTION: '원액 제조',
   BATCH_LOAD: '배치 장입',
 };
 
@@ -363,7 +368,7 @@ export const fieldLabel = (name: string) => FIELD_LABEL[name] ?? name;
 const VALUE_LABEL: Record<string, Record<string, string>> = {
   role:        ROLE_LABEL as Record<string, string>,
   type:        { RAW: '원재료', REAGENT: '시약', PROCESS: '공정 자재',
-                 PACK: '포장재', FIN: '완제품' },
+                 SOLUTION: '원액', PACK: '포장재', FIN: '완제품' },
   basis:       { SHEET_TIER: '장입 구간 기준', PER_UNIT: '제품 개수 기준' },
   reset:       { NEVER: '초기화 없음', YEARLY: '연 단위',
                  MONTHLY: '월 단위', DAILY: '일 단위' },

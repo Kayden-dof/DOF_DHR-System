@@ -25,8 +25,12 @@ export const metadata = { title: '자재 로트' };
 
 interface LotRow {
   id: string; lot_no: string; item_code: string; item_name: string; usage_uom: string;
-  supplier_name: string; supplier_status: string; supplier_lot_no: string;
-  coa_no: string; coa_date: string;
+  /*
+   * 사내 제조 원액은 공급자 · 공급자 로트 · 성적서 칸이 비어 있다
+   * (material_lot_source). 제조일(made_on)이 있으면 원액이다.
+   */
+  supplier_name: string | null; supplier_status: string | null; supplier_lot_no: string | null;
+  coa_no: string | null; coa_date: string | null; made_on: string | null;
   qty_received: string; qty_available: string;
   status: string; expiry_date: string | null;
   thickness_band: string | null; qc_passed_on: string | null; used_in: number;
@@ -61,7 +65,7 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
     lots: await db.rows<LotRow>(
       `select ml.id, ml.lot_no, i.code as item_code, i.name as item_name, i.usage_uom,
               s.name as supplier_name, s.status as supplier_status, ml.supplier_lot_no,
-              ml.coa_no, ml.coa_date, ml.qty_received, ml.qty_available,
+              ml.coa_no, ml.coa_date, ml.made_on, ml.qty_received, ml.qty_available,
               ml.status::text as status, ml.expiry_date, ml.thickness_band,
               ml.qc_passed_on,
               ml.unit_price, ml.location,
@@ -70,7 +74,7 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
                 where mi.material_lot_id = ml.id) as used_in
          from material_lot ml
          join item i on i.id = ml.item_id
-         join supplier s on s.id = ml.supplier_id
+         left join supplier s on s.id = ml.supplier_id
         where ($1::text is null or ml.status::text = $1)
           and ($2::text is null
                or ml.lot_no ilike concat('%', $2::text, '%')
@@ -80,10 +84,15 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
                or ml.supplier_lot_no ilike concat('%', $2::text, '%'))
         order by ml.received_at desc, ml.lot_no desc
         limit 200`, [status, q]),
+    /*
+     * 입고 등록에서는 원액을 고를 수 없다. 원액은 입고하지 않고 원료로 만든다
+     * (재고 증감 화면의 원액 제조). 넣으려 해도 DB 가 거부하지만, 고를 수 없는
+     * 것은 보이지 않는다.
+     */
     items: await db.rows<ItemOpt>(
       `select id, code, name, type::text as type, purchase_uom, usage_uom, conversion,
               shelf_life_months
-         from item where is_active order by type, code`),
+         from item where is_active and type <> 'SOLUTION' order by type, code`),
     suppliers: await db.rows<SupplierOpt>(
       `select id, name, status from supplier order by status desc, name`),
     /*
@@ -184,17 +193,29 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
                           : l.status === 'EXPIRED' ? 'warn' : undefined}
                     />
                     <TwoLine top={l.item_name} bottom={l.item_code} />
-                    <Td>
-                      <div className="flex items-center gap-1.5 text-sm">
-                        {l.supplier_name}
-                        {l.supplier_status !== 'APPROVED' && <Tag tone="warn">미승인</Tag>}
-                      </div>
-                      <div className="font-mono text-xs text-faint">{l.supplier_lot_no}</div>
-                    </Td>
-                    <TwoLine
-                      top={<span className="font-mono text-sm">{l.coa_no}</span>}
-                      bottom={<span className="tnum">{fmtDate(l.coa_date)}</span>}
-                    />
+                    {l.made_on ? (
+                      <>
+                        {/* 사내 제조다. 공급자도 성적서도 없다 - 비어 있는 것이 사실이다 */}
+                        <Td className="text-sm">
+                          {`사내 제조 · ${fmtDate(l.made_on)}`}
+                        </Td>
+                        <Td />
+                      </>
+                    ) : (
+                      <>
+                        <Td>
+                          <div className="flex items-center gap-1.5 text-sm">
+                            {l.supplier_name}
+                            {l.supplier_status !== 'APPROVED' && <Tag tone="warn">미승인</Tag>}
+                          </div>
+                          <div className="font-mono text-xs text-faint">{l.supplier_lot_no}</div>
+                        </Td>
+                        <TwoLine
+                          top={<span className="font-mono text-sm">{l.coa_no}</span>}
+                          bottom={<span className="tnum">{fmtDate(l.coa_date)}</span>}
+                        />
+                      </>
+                    )}
                     <Td right className="text-muted">
                       {Number(l.qty_received)} {l.usage_uom}
                     </Td>
@@ -231,10 +252,15 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
                         * 입고에서 한 글자 틀리면 되돌릴 곳이 여기뿐이다
                         * (5차 감사 A1). 읽기 전용 역할에는 내지 않는다.
                         */}
-                      {!readOnly && <AmendLotForm lot={{
+                      {/*
+                        * 원액은 정정 화면이 맞지 않는다. 그 화면은 성적서 번호와 공급자
+                        * 로트를 받는데 원액에는 그 칸이 없고, 채우면 DB 가 거부한다
+                        * (material_lot_source). 열리기만 하고 저장되지 않는 화면은 내지 않는다.
+                        */}
+                      {!readOnly && !l.made_on && <AmendLotForm lot={{
                         id: l.id, lot_no: l.lot_no, item_name: l.item_name,
-                        coa_no: l.coa_no, coa_date: l.coa_date as unknown as string | null,
-                        supplier_lot_no: l.supplier_lot_no,
+                        coa_no: l.coa_no ?? '', coa_date: l.coa_date as unknown as string | null,
+                        supplier_lot_no: l.supplier_lot_no ?? '',
                         expiry_date: l.expiry_date as unknown as string | null,
                         location: l.location ?? null,
                         unit_price: l.unit_price,

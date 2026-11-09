@@ -60,13 +60,20 @@ export default [
   name: 'coa_no null로 material_lot INSERT',
   async run(t) {
     const m = await master(t);
+    /*
+     * 0118 부터 S02 는 NOT NULL 이 아니라 표 안의 검사(material_lot_source)가
+     * 막는다. 원액 로트는 성적서 번호가 비는 것이 정상이라 칸 하나로는 두 갈래를
+     * 가를 수 없기 때문이다. 입고 로트(제조일 없음)에서 성적서 번호가 비면 어느
+     * 갈래도 만족하지 못하므로 그대로 거부된다. 오류 코드만 23502 에서 23514 로
+     * 바뀌었다.
+     */
     await t.rejects(
       () => t.rows(
         `insert into material_lot (item_id, lot_no, supplier_id, supplier_lot_no, coa_no,
            coa_date, received_at, registered_by, qty_received, qty_available)
          values ($1,'X-COA-NULL',$2,'SL',null, current_date, now(), $3, 1, 1)`,
         [m.reagent, m.supplier, m.admin]),
-      { code: '23502' });
+      { code: '23514' });
   },
 },
 
