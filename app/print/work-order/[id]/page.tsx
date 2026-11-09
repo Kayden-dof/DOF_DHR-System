@@ -5,6 +5,7 @@ import { fmtDate } from '@/lib/fmt';
 import { logPrint, printGate, viewParam } from '@/lib/print';
 import Denied from '@/components/denied';
 import { chunkByWeight } from '@/lib/print-pages';
+import { isNoExpiry } from '@/lib/equipment-check';
 import PrintFrame, { Sheet, SignRow } from '@/components/print-frame';
 
 export const dynamic = 'force-dynamic';
@@ -38,7 +39,7 @@ interface OpRow {
   materials: { item_code: string; item_name: string; usage_uom: string;
                basis: string; required: string | null }[];
   /** 공정에 걸린 설비. 소요량 표의 설비 열에 만료일과 함께 찍힌다 */
-  equipment: { code: string; name: string; valid_until: string | null }[];
+  equipment: { code: string; name: string; valid_until: string | null; check_cycle?: string | null }[];
 }
 
 /*
@@ -90,14 +91,19 @@ function OpTable({ rows, title, today, units, splitOp }: {
                     '-'
                   ) : (
                     o.equipment.map((q) => {
-                      const gone = !q.valid_until || (today != null && q.valid_until < today);
+                      const exempt = q.check_cycle === 'NONE';
+                      const gone = !exempt && (!q.valid_until || (today != null && q.valid_until < today));
                       return (
                         <div key={q.code} className={gone ? 'font-bold' : undefined}>
                           <span className="font-mono font-bold">{q.code}</span>{' '}
                           <span className="nb tnum">
-                            {q.valid_until
-                              ? <>~{fmtDate(q.valid_until)}{gone && ' 기한 경과'}</>
-                              : '밸리데이션 기록 없음'}
+                            {exempt
+                              ? '검교정 대상 아님'
+                              : q.valid_until
+                                ? isNoExpiry(q.valid_until)
+                                  ? '최초 1회 · 기한 없음'
+                                  : <>~{fmtDate(q.valid_until)}{gone && ' 기한 경과'}</>
+                                : '밸리데이션 기록 없음'}
                           </span>
                         </div>
                       );
@@ -214,7 +220,7 @@ export default async function WorkOrderSheet({ params, searchParams }: {
                  */
                 coalesce((
                   select json_agg(json_build_object(
-                    'code', e.code, 'name', e.name,
+                    'code', e.code, 'name', e.name, 'check_cycle', e.check_cycle,
                     'valid_until', (select max(valid_until)::text
                                       from equipment_validation ev
                                      where ev.equipment_id = e.id))

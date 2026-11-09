@@ -10,6 +10,7 @@ import { Msg, Tag } from '@/components/ui';
 import NumPad, { PresetPicker } from '@/components/num-pad';
 import { Dialog } from '@/components/dialog';
 import { todayKST } from '@/lib/kst';
+import { isNoExpiry } from '@/lib/equipment-check';
 import {
   startRecord, issueMaterial, endRecord, closeDay, cutAtField,
   amendIssue, returnIssue,
@@ -34,7 +35,9 @@ export interface Op {
   bom: { item_id: string; item_code: string; item_name: string; usage_uom: string;
          basis: string; required: string | null }[];
   /** 이 공정에 걸린 설비. 비어 있으면 화면에 칸이 나오지 않는다 */
-  equipment: { id: string; code: string; name: string; valid_until: string | null }[];
+  equipment: { id: string; code: string; name: string; valid_until: string | null;
+               /** 검교정 주기 (0126). NONE 이면 짚지 않는다 */
+               check_cycle?: string | null }[];
 }
 export interface Rec {
   id: string; operation_id: string; day_no: number; attempt: number;
@@ -695,7 +698,8 @@ function StartCard({ woId, day, op, people, productLots, attempt, done, splitOp 
               * 사실을 보여 준다.
               */}
             {op.equipment.map((q) => {
-              const gone = !q.valid_until || q.valid_until < todayKST();
+              const exempt = q.check_cycle === 'NONE';
+              const gone = !exempt && (!q.valid_until || q.valid_until < todayKST());
               return (
                 <button key={q.code} type="button"
                         onClick={() => setEquip((v) => (v === q.id ? '' : q.id))}
@@ -710,7 +714,10 @@ function StartCard({ woId, day, op, people, productLots, attempt, done, splitOp 
                   </span>
                   <span className="text-xs text-muted">
                     {q.name}
-                    {q.valid_until && !gone && <> · 밸리데이션 만료 {q.valid_until}</>}
+                    {exempt && <> · 검교정 대상 아님</>}
+                    {!exempt && q.valid_until && !gone && (
+                      <> · {isNoExpiry(q.valid_until) ? '최초 1회 검교정' : <>밸리데이션 만료 {q.valid_until}</>}</>
+                    )}
                     {q.valid_until && gone && <> · 만료 {q.valid_until}</>}
                   </span>
                 </button>

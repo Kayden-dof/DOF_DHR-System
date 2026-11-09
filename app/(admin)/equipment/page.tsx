@@ -8,6 +8,7 @@ import { Empty } from '@/components/ui';
 import { PageShell, StatStrip, type StatItem } from '@/components/shell';
 import { statRows, mono } from '@/components/stat-rows';
 import { SubNav } from '../nav';
+import { isNoExpiry } from '@/lib/equipment-check';
 import { EQUIPMENT_NAV } from '../sections';
 import {
   NewEquipment, EquipCard, type EquipRow, type OpOption,
@@ -50,6 +51,7 @@ export default async function EquipmentPage() {
   const d = await withUser(user, async (db) => ({
     equipment: await db.rows<EquipRow>(
       `select e.id, e.code, e.name, e.note, e.is_active,
+              e.check_cycle, e.check_items,
               /* 구입과 감가상각 (0076). 원가에만 쓰이고 기록에는 나가지 않는다 */
               e.purchased_on::text as purchased_on,
               e.purchase_price, e.useful_life_months, e.salvage_value, e.monthly_hours,
@@ -70,7 +72,7 @@ export default async function EquipmentPage() {
                 where ve.equipment_id = e.id) as used,
               coalesce((
                 select json_agg(json_build_object(
-                  'performed_on', ev.performed_on, 'valid_until', ev.valid_until,
+                  'id', ev.id, 'performed_on', ev.performed_on, 'valid_until', ev.valid_until,
                   'report_no', ev.report_no, 'note', ev.note, 'kind', ev.kind::text,
                   'registered_by_name', u.full_name)
                   order by ev.valid_until desc, ev.performed_on desc)
@@ -113,15 +115,17 @@ export default async function EquipmentPage() {
   const { expiryWarnDays: warnDays } = await getBrand();
 
   const active = d.equipment.filter((e) => e.is_active);
-  const expired = active.filter((e) => e.valid_until === null || (e.days_left ?? -1) < 0);
-  const soon = active.filter(
+  /* 검교정 대상이 아닌 설비는 유효 · 임박 · 경과 어느 숫자에도 넣지 않는다 (0126) */
+  const subject = active.filter((e) => e.check_cycle !== 'NONE');
+  const expired = subject.filter((e) => e.valid_until === null || (e.days_left ?? -1) < 0);
+  const soon = subject.filter(
     (e) => e.days_left !== null && e.days_left >= 0 && e.days_left <= warnDays);
 
   /*
    * 숫자에 든 설비를 그대로 적는다. 뜻풀이가 아니라 항목이다 (사용자 지시).
    * 밸리데이션은 서면 보고서가 근거이므로 보고서 번호가 있으면 함께 보인다.
    */
-  const valid = active.filter((e) => !expired.includes(e) && !soon.includes(e));
+  const valid = subject.filter((e) => !expired.includes(e) && !soon.includes(e));
   const eqRow = (e: EquipRow, right: React.ReactNode) =>
     ({ left: mono(e.code), sub: e.name, right });
 
@@ -132,7 +136,7 @@ export default async function EquipmentPage() {
         '등록된 설비가 없습니다') },
     { label: '밸리데이션 유효', value: valid.length, unit: '대',
       detail: statRows(
-        valid.map((e) => eqRow(e, `${e.valid_until} 까지`)),
+        valid.map((e) => eqRow(e, isNoExpiry(e.valid_until) ? '최초 1회 · 기한 없음' : `${e.valid_until} 까지`)),
         '해당 설비가 없습니다') },
     { label: `만료 ${warnDays}일 이내`, value: soon.length, unit: '대',
       tone: soon.length > 0 ? 'warn' : undefined,

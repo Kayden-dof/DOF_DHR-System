@@ -78,7 +78,9 @@ export default async function WorkBatchPage({ params }: { params: Promise<{ id: 
                 coalesce((
                   select json_agg(json_build_object(
                     'id', q.id, 'code', q.code, 'name', q.name,
-                    'valid_until', q.valid_until::text) order by q.code)
+                    'valid_until', q.valid_until::text,
+                    'check_cycle', (select e.check_cycle from equipment e where e.id = q.id))
+                    order by q.code)
                     from operation_equipment_list(o.id) q), '[]'::json) as equipment,
                 /*
                  * 이 사람이 오늘 이 공정 자격이 있는가 (GMP 점검 G3 · 0108).

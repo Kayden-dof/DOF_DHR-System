@@ -7,7 +7,8 @@ import Toasts from '@/components/toast';
 import { Dialog, useDialog } from '@/components/dialog';
 import Link from 'next/link';
 import { fmtDate } from '@/lib/fmt';
-import { saveEquipment, linkOperation, saveValidation } from './actions';
+import { saveEquipment, linkOperation, saveValidation, deleteValidation } from './actions';
+import { CHECK_CYCLES, cycleLabel, isNoExpiry } from '@/lib/equipment-check';
 
 /** 구입 정보와 감가상각. 원가에만 쓰이고 기록에는 나가지 않는다 */
 export interface EquipBuy {
@@ -28,12 +29,14 @@ export interface EquipBuy {
 
 export interface EquipRow extends EquipBuy {
   id: string; code: string; name: string; note: string | null; is_active: boolean;
+  /** 검교정 주기 ANNUAL · ONCE · NONE 와 항목 (0126) */
+  check_cycle: string; check_items: string | null;
   ops: { operation_id: string; code: string; name: string }[];
   used: number;
   /** 최신 밸리데이션. 없으면 전부 null */
   performed_on: string | null; valid_until: string | null; report_no: string | null;
   days_left: number | null;
-  history: { performed_on: string; valid_until: string; report_no: string;
+  history: { id: string; performed_on: string; valid_until: string; report_no: string;
              note: string | null; registered_by_name: string;
              /** VALIDATION 공정 밸리데이션 · CALIBRATION 계측기 교정 (F4) */
              kind: string }[];
@@ -201,6 +204,7 @@ export function NewEquipment() {
         코드는 등록 후 수정할 수 없습니다. 제조기록서에 이 값이 그대로 기재됩니다.
       </p>
 
+      <CheckFields />
       <BuyFields />
       <Msg state={state} />
       <div className="mt-3 flex gap-2">
@@ -250,13 +254,24 @@ export function EquipCard({ e, ops, warnDays, writable = true }: {
           <span className="text-sm text-body">{e.name}</span>
           {!e.is_active && <Tag tone="quiet">내림</Tag>}
           {e.note && <span className="text-xs text-faint">{e.note}</span>}
+          {e.check_cycle !== 'NONE' && e.check_items && (
+            <span className="text-xs text-muted">
+              검교정 {cycleLabel(e.check_cycle)} · {e.check_items}
+            </span>
+          )}
         </div>
         <div className="ml-auto flex shrink-0 items-center gap-2.5">
           {/*
             * 밸리데이션 상태. 이 카드에서 가장 먼저 보여야 하는 값이다.
             * 판정 문구가 아니라 날짜와 남은 일수라는 사실만 적는다.
             */}
-          {e.valid_until === null ? (
+          {e.check_cycle === 'NONE' ? (
+            <Tag tone="quiet">검교정 대상 아님</Tag>
+          ) : isNoExpiry(e.valid_until) ? (
+            <span className="tnum text-xs text-muted">
+              최초 1회 {e.performed_on ? fmtDate(e.performed_on) : ''} · 기한 없음
+            </span>
+          ) : e.valid_until === null ? (
             <Tag tone="danger">밸리데이션 기록 없음</Tag>
           ) : e.days_left !== null && e.days_left < 0 ? (
             <Tag tone="danger">기한 경과 {fmtDate(e.valid_until)}</Tag>
@@ -311,6 +326,8 @@ export function EquipCard({ e, ops, warnDays, writable = true }: {
               </label>
             </div>
           </div>
+
+          <CheckFields cycle={e.check_cycle} items={e.check_items} />
 
           <BuyFields e={e} />
 
@@ -479,8 +496,9 @@ function ValidationPanel({ e, writable = true }: { e: EquipRow; writable?: boole
           </div>
           <Msg state={state} />
           <p className="mt-2 text-xs leading-relaxed text-muted">
-            이력은 지워지지 않습니다. 잘못 입력했으면 바른 값을 다시 등록하고,
-            최신 만료일이 상태가 됩니다.
+            최신 만료일이 상태가 됩니다. 최초 설치시 1회인 설비는 만료일을 9999-12-31 로
+            적으면 기한 없음으로 읽습니다. 잘못 넣은 줄은 이력에서 지울 수 있고, 지운 줄은
+            감사추적에 남습니다.
           </p>
           <button type="submit" disabled={pending} className="btn-primary mt-3 w-full">
             {pending ? '등록하는 중' : '등록'}
@@ -499,15 +517,61 @@ function ValidationPanel({ e, writable = true }: { e: EquipRow; writable?: boole
               </span>
               <span className="tnum text-body">수행 {fmtDate(h.performed_on)}</span>
               <span className={`tnum font-semibold ${i === 0 ? 'text-ink' : 'text-muted'}`}>
-                만료 {fmtDate(h.valid_until)}
+                {isNoExpiry(h.valid_until) ? '기한 없음' : `만료 ${fmtDate(h.valid_until)}`}
               </span>
               <span className="font-mono text-body">{h.report_no}</span>
               {h.note && <span className="text-muted">{h.note}</span>}
               <span className="ml-auto text-faint">{h.registered_by_name}</span>
+              {writable && <DeleteHistory id={h.id} />}
             </li>
           ))}
         </ul>
       )}
     </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+/** 검교정 주기와 항목 (0126). 대상 아님이면 «기록 없음» 으로 짚지 않는다 */
+function CheckFields({ cycle = 'ANNUAL', items = null }: { cycle?: string; items?: string | null }) {
+  const uid = useId();
+  return (
+    <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div>
+        <label className="label" htmlFor={`${uid}-cycle`}>검교정 주기</label>
+        <select id={`${uid}-cycle`} name="check_cycle" defaultValue={cycle} className="input">
+          {CHECK_CYCLES.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
+        </select>
+      </div>
+      <div className="lg:col-span-3">
+        <label className="label" htmlFor={`${uid}-items`}>검교정 항목</label>
+        <input id={`${uid}-items`} name="check_items" defaultValue={items ?? ''}
+               placeholder="압력, 온도" autoComplete="off" className="input" />
+      </div>
+    </div>
+  );
+}
+
+/** 이력 한 줄 지우기. 한 번 더 묻는다. 지운 줄은 감사추적에 남는다 */
+function DeleteHistory({ id }: { id: string }) {
+  const [state, action, pending] = useActionState<FormState, FormData>(deleteValidation, {});
+  const [sure, setSure] = useState(false);
+  if (state.ok) return null;
+  return (
+    <form action={action} className="flex items-center gap-2">
+      <input type="hidden" name="id" value={id} />
+      {sure ? (
+        <>
+          <button type="submit" disabled={pending}
+                  className="qd-text-action qd-text-action--danger">지우기</button>
+          <button type="button" onClick={() => setSure(false)} className="qd-text-action">취소</button>
+        </>
+      ) : (
+        <button type="button" onClick={() => setSure(true)}
+                className="qd-text-action qd-text-action--danger">지우기</button>
+      )}
+      {state.error && <span role="alert" className="text-xs text-danger">{state.error}</span>}
+    </form>
   );
 }

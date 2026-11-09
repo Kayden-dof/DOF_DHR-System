@@ -162,6 +162,8 @@ export const FIELD_LABEL: Record<string, string> = {
   to_room_id:             '벽 건너편 방',
   pos_x_mm:               '자리 x (mm)',
   pos_y_mm:               '자리 y (mm)',
+  check_cycle:            '검교정 주기',
+  check_items:            '검교정 항목',
   reason_code:            '사유 구분',
   reason_detail:          '사유',
   registered_by:          '등록자',

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { withActor, dbMessage } from '@/lib/db';
 import { requireUser, hasRole } from '@/lib/session';
 import type { FormState } from '@/lib/forms';
+import { CHECK_CYCLES, type CheckCycle } from '@/lib/equipment-check';
 
 /* ---------------------------------------------------------------------------
    설비 기준정보
@@ -53,6 +54,12 @@ function buyValues(form: FormData) {
   return BUY.map((k) => (NUMERIC.has(k) ? num(form.get(k)) : txt(form.get(k))));
 }
 
+/* 검교정 주기 (0126). 모르는 값이 오면 매년으로 둔다 - 지금까지의 뜻이 매년이었다 */
+function cycle(form: FormData): CheckCycle {
+  const v = String(form.get('check_cycle') ?? '');
+  return CHECK_CYCLES.some((c) => c.code === v) ? (v as CheckCycle) : 'ANNUAL';
+}
+
 export async function saveEquipment(_p: FormState, form: FormData): Promise<FormState> {
   try {
     const me = await admin();
@@ -75,18 +82,21 @@ export async function saveEquipment(_p: FormState, form: FormData): Promise<Form
                   purchased_on = $6::date, purchase_price = $7,
                   useful_life_months = $8, salvage_value = $9, monthly_hours = $10,
                   vendor_name = $11, vendor_contact_name = $12, vendor_phone = $13,
-                  vendor_email = $14, vendor_site = $15, vendor_address = $16
+                  vendor_email = $14, vendor_site = $15, vendor_address = $16,
+                  check_cycle = $17, check_items = $18
             where id = $1`,
-          [id, name, note, form.get('is_active') === 'on', code, ...buyValues(form)]);
+          [id, name, note, form.get('is_active') === 'on', code, ...buyValues(form),
+           cycle(form), txt(form.get('check_items'))]);
       } else {
         await db.rows(
           `insert into equipment
              (code, name, note,
               purchased_on, purchase_price, useful_life_months, salvage_value,
               monthly_hours, vendor_name, vendor_contact_name, vendor_phone,
-              vendor_email, vendor_site, vendor_address)
-           values ($1, $2, $3, $4::date, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
-          [txt(form.get('code')), name, note, ...buyValues(form)]);
+              vendor_email, vendor_site, vendor_address, check_cycle, check_items)
+           values ($1, $2, $3, $4::date, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
+          [txt(form.get('code')), name, note, ...buyValues(form),
+           cycle(form), txt(form.get('check_items'))]);
       }
     });
 
@@ -132,7 +142,29 @@ export async function saveValidation(_p: FormState, form: FormData): Promise<For
          reportNo, txt(form.get('note')), me.id, kind]));
 
     revalidatePath('/equipment');
+    revalidatePath('/equipment/plan');
     return { ok: true, message: `${what}을 등록했습니다. 만료 ${validUntil}` };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
+/**
+ * 밸리데이션 · 교정 이력 한 줄을 지운다 (0124 뒤 · 사용자 2026-11-09 검교정 목록 갱신).
+ *
+ * 잘못 넣은 줄을 바른 값으로 다시 넣는 것만으로는 틀린 줄이 이력에 남아
+ * «그날 했다» 는 거짓이 계속 보인다. 지운 줄은 감사추적에 이전 값 그대로 남는다.
+ */
+export async function deleteValidation(_p: FormState, form: FormData): Promise<FormState> {
+  try {
+    const me = await admin();
+    const id = String(form.get('id') ?? '');
+    const n = await withActor(me.id, (db) =>
+      db.val<string>(`delete from equipment_validation where id = $1 returning report_no`, [id]),
+      { reason: '설비 밸리데이션 이력 지우기' });
+    revalidatePath('/equipment');
+    revalidatePath('/equipment/plan');
+    return n ? { ok: true, message: '이력 한 줄을 지웠습니다.' } : { error: '이미 지워진 줄입니다' };
   } catch (e) {
     return { error: dbMessage(e) };
   }

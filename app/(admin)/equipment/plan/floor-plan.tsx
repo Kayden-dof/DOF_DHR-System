@@ -5,6 +5,7 @@ import {
 } from 'react';
 import Link from 'next/link';
 import type { FormState } from '@/lib/forms';
+import { isNoExpiry } from '@/lib/equipment-check';
 import { Msg, Tag } from '@/components/ui';
 import {
   CLEAN_CLASSES, MIN_RECT_MM, autoSpots, bounds, inRects, mainRect, rectsText, snap,
@@ -25,7 +26,7 @@ export interface PlanEquip {
   x: number | null; y: number | null;
   valid_until: string | null;
   /** 설비 화면 머리줄과 같은 셈 (공정 밸리데이션 기준) */
-  state: 'ok' | 'warn' | 'danger';
+  state: 'ok' | 'warn' | 'danger' | 'none';
 }
 
 type Sel =
@@ -42,14 +43,20 @@ const ROOM_FILL: Record<string, string> = {
 };
 const DOT: Record<PlanEquip['state'], string> = {
   ok: 'var(--color-ok)', warn: 'var(--color-warn)', danger: 'var(--color-danger)',
+  none: 'var(--color-faint)',
 };
 const STATE_TAG: Record<PlanEquip['state'], { tone: string; label: string }> = {
   ok: { tone: 'ok', label: '밸리데이션 유효' },
   warn: { tone: 'warn', label: '만료 임박' },
   danger: { tone: 'danger', label: '기한 경과 · 기록 없음' },
+  none: { tone: 'quiet', label: '검교정 대상 아님' },
 };
 
 const roomLabel = (r: PlanRoom) => `${r.code} ${r.name}`;
+
+/* 글자 폭 어림 (em). 한글은 한 칸, 숫자 · 영문 · 기호는 0.6 칸 */
+const em = (s: string) =>
+  [...s].reduce((a, ch) => a + (/[ㄱ-힣]/.test(ch) ? 1 : 0.6), 0);
 
 export function FloorPlan({ rooms, equipment, writable }: {
   rooms: PlanRoom[]; equipment: PlanEquip[]; writable: boolean;
@@ -98,7 +105,7 @@ export function FloorPlan({ rooms, equipment, writable }: {
 
   /* 글자 · 점 크기는 도면 폭에 맞춰 잡는다. 화면에서 대략 12 · 10 px 이 된다 */
   const u = box.w;
-  const fRoom = u / 78, fSmall = u / 105, dotR = u / 170, line = u / 1600;
+  const fRoom = u / 70, fSmall = u / 95, dotR = u / 170, line = u / 1600;
 
   function toPlan(ev: { clientX: number; clientY: number }) {
     const svg = svgRef.current!;
@@ -176,7 +183,7 @@ export function FloorPlan({ rooms, equipment, writable }: {
   const selEquip = sel?.kind === 'equip' ? equipment.find((e) => e.id === sel.id) ?? null : null;
 
   return (
-    <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
+    <div className="space-y-5">
       <section className="qd-panel card min-w-0 overflow-hidden">
         {writable && (
           <div className="flex flex-wrap items-center gap-2 border-b border-line-soft px-4 py-3">
@@ -194,7 +201,7 @@ export function FloorPlan({ rooms, equipment, writable }: {
                 ? `${equipment.find((e) => e.id === armed)?.code} 을(를) 놓을 자리를 누르십시오.`
                 : mode === 'draw'
                   ? '빈 곳을 끌어 사각형을 그립니다. 50 mm 격자에 맞춰집니다.'
-                  : '설비 점을 끌어 옮깁니다. 방을 누르면 오른쪽에 내용이 나옵니다.'}
+                  : '설비 점을 끌어 옮깁니다. 방이나 점을 누르면 아래에 내용이 나옵니다.'}
             </p>
             {armed && (
               <button type="button" onClick={() => setArmed(null)} className="qd-text-action">취소</button>
@@ -236,16 +243,32 @@ export function FloorPlan({ rooms, equipment, writable }: {
                           stroke={on ? 'var(--color-brand)' : 'var(--color-line-strong)'}
                           strokeWidth={on ? line * 4 : line * 2} />
                   ))}
-                  {m && (
-                    <text x={m.x + m.w / 2} y={m.y + m.h / 2} textAnchor="middle"
-                          fill="var(--color-ink)" style={{ pointerEvents: 'none' }}>
-                      <tspan fontSize={fRoom} fontWeight={600}>{roomLabel(r)}</tspan>
-                      <tspan x={m.x + m.w / 2} dy={fRoom * 1.25} fontSize={fSmall}
-                             fill="var(--color-muted)">
-                        {[r.clean_class, r.area_m2 ? `${r.area_m2}㎡` : null].filter(Boolean).join(' · ')}
-                      </tspan>
-                    </text>
-                  )}
+                  {m && (() => {
+                    /*
+                     * 좁은 방은 이름이 옆 방으로 넘쳐 겹쳤다. 방 폭에 맞춰 글자를
+                     * 줄이고, 한 줄에 안 들어가면 번호와 이름을 두 줄로 나눈다.
+                     */
+                    const cx = m.x + m.w / 2;
+                    const fit = m.w * 0.86;
+                    const one = roomLabel(r);
+                    const lines = em(one) * fRoom <= fit ? [one] : [r.code, r.name];
+                    const fs = Math.max(fSmall * 0.75, Math.min(fRoom, ...lines.map((l) => fit / em(l))));
+                    const sub = [r.clean_class, r.area_m2 ? `${r.area_m2}㎡` : null].filter(Boolean).join(' · ');
+                    const top = m.y + m.h / 2 - ((lines.length - 1) * fs * 1.15 + (sub ? fs * 1.1 : 0)) / 2;
+                    return (
+                      <text x={cx} y={top} textAnchor="middle" dominantBaseline="middle"
+                            fill="var(--color-ink)" style={{ pointerEvents: 'none' }}>
+                        {lines.map((l, i) => (
+                          <tspan key={i} x={cx} dy={i === 0 ? 0 : fs * 1.15}
+                                 fontSize={fs} fontWeight={600}>{l}</tspan>
+                        ))}
+                        {sub && (
+                          <tspan x={cx} dy={fs * 1.15} fontSize={Math.min(fSmall, fs * 0.82)}
+                                 fill="var(--color-muted)">{sub}</tspan>
+                        )}
+                      </text>
+                    );
+                  })()}
                 </g>
               );
             })}
@@ -304,7 +327,8 @@ export function FloorPlan({ rooms, equipment, writable }: {
         </div>
       </section>
 
-      <aside className="space-y-4">
+      {/* 도면이 가로로 길어(37 m × 11 m) 옆 칸을 두면 도면이 작아진다. 내용은 도면 아래에 둔다 */}
+      <aside className="grid items-start gap-4 lg:grid-cols-2 2xl:grid-cols-3">
         {draft && writable && (
           <DraftForm rect={draft} rooms={rooms} onDone={() => setSel(null)} />
         )}
@@ -331,9 +355,11 @@ export function FloorPlan({ rooms, equipment, writable }: {
           </>
         )}
         {sel && (
-          <button type="button" onClick={() => setSel(null)} className="qd-text-action">
-            목록으로
-          </button>
+          <div className="lg:col-span-full">
+            <button type="button" onClick={() => setSel(null)} className="qd-text-action">
+              목록으로
+            </button>
+          </div>
         )}
       </aside>
     </div>
@@ -355,7 +381,7 @@ function Legend() {
   return (
     <Card title="읽는 법">
       <ul className="space-y-1.5 text-sm text-body">
-        {(['ok', 'warn', 'danger'] as const).map((k) => (
+        {(['ok', 'warn', 'danger', 'none'] as const).map((k) => (
           <li key={k} className="flex items-center gap-2">
             <svg width="14" height="14" aria-hidden><circle cx="7" cy="7" r="6" fill={DOT[k]} /></svg>
             {STATE_TAG[k].label}
@@ -602,7 +628,11 @@ function EquipPanel({ e, rooms, writable, placed, onArm, onError }: {
     <Card title={`${e.code} ${e.name}`}>
       <div className="flex flex-wrap items-center gap-2">
         <Tag tone={STATE_TAG[e.state].tone}>{STATE_TAG[e.state].label}</Tag>
-        {e.valid_until && <span className="tnum text-xs text-muted">{e.valid_until} 까지</span>}
+        {e.valid_until && e.state !== 'none' && (
+          <span className="tnum text-xs text-muted">
+            {isNoExpiry(e.valid_until) ? '최초 1회 · 기한 없음' : `${e.valid_until} 까지`}
+          </span>
+        )}
       </div>
       <dl className="mt-3 space-y-1 text-sm">
         <div className="flex gap-2"><dt className="w-16 shrink-0 text-muted">방</dt>

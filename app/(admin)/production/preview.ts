@@ -87,6 +87,8 @@ export async function previewIssue(
                       group by kind) m
            ) v on true
           where o.device_master_id = $3
+            /* 검교정 대상이 아닌 설비는 짚지 않는다 (0126) */
+            and e.check_cycle <> 'NONE'
             and (v.valid_until is null
                  or v.valid_until < (timezone('Asia/Seoul', now()))::date)`,
         [materialLotId, sheets, deviceMasterId]),

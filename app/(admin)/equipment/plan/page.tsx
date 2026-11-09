@@ -35,8 +35,8 @@ export default async function EquipmentPlanPage() {
          from room r
         where r.is_active
         order by r.code`),
-    equipment: await db.rows<Omit<PlanEquip, 'state'> & { days_left: number | null }>(
-      `select e.id, e.code, e.name, e.room_id, e.to_room_id,
+    equipment: await db.rows<Omit<PlanEquip, 'state'> & { days_left: number | null; check_cycle: string }>(
+      `select e.id, e.code, e.name, e.room_id, e.to_room_id, e.check_cycle,
               e.pos_x_mm as x, e.pos_y_mm as y,
               v.valid_until::text as valid_until,
               (v.valid_until - (timezone('Asia/Seoul', now()))::date) as days_left
@@ -51,9 +51,10 @@ export default async function EquipmentPlanPage() {
   }));
 
   const rooms: PlanRoom[] = d.rooms.map((r) => ({ ...r, rects: cleanRects(r.rects) }));
-  const equipment: PlanEquip[] = d.equipment.map(({ days_left, ...e }) => ({
+  const equipment: PlanEquip[] = d.equipment.map(({ days_left, check_cycle, ...e }) => ({
     ...e,
-    state: e.valid_until === null || (days_left ?? -1) < 0 ? 'danger'
+    state: check_cycle === 'NONE' ? 'none'
+         : e.valid_until === null || (days_left ?? -1) < 0 ? 'danger'
          : days_left !== null && days_left <= warnDays ? 'warn' : 'ok',
   }));
 
