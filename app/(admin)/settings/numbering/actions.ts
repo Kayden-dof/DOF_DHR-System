@@ -103,15 +103,19 @@ export async function retireRule(_prev: FormState, form: FormData): Promise<Form
 
   const id = String(form.get('id') ?? '');
   try {
-    await withActor(user.id, (db) =>
-      db.rows(`update numbering_rule set is_active = false where id = $1`, [id]),
+    const [r] = await withActor(user.id, (db) =>
+      db.rows<{ item_id: string | null; item_type: string | null }>(
+        `update numbering_rule set is_active = false where id = $1
+         returning item_id, item_type::text as item_type`, [id]),
     );
     revalidatePath('/settings/numbering');
     revalidatePath('/');
+    /* 품목별 · 종류별 규칙을 내리면 그 품목은 공통 규칙으로 돌아간다. 채번이 멈추는 것은 공통 규칙뿐이다 */
     return {
       ok: true,
-      message:
-        '규칙을 내렸습니다. 이 대상은 새 규칙을 등록하기 전까지 채번할 수 없습니다.',
+      message: r?.item_id || r?.item_type
+        ? '규칙을 내렸습니다. 해당 품목은 이제 공통 규칙으로 번호를 받습니다.'
+        : '규칙을 내렸습니다. 이 대상은 새 규칙을 등록하기 전까지 채번할 수 없습니다.',
     };
   } catch (e) {
     return { error: dbMessage(e) };

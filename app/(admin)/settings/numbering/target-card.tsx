@@ -25,6 +25,8 @@ export interface RuleRow {
   id: string;
   target: string;
   item_id: string | null;
+  /** 종류별 규칙의 품목 종류 (0097). 공통 · 품목별 규칙이면 null */
+  item_type: string | null;
   pattern: string;
   reset: string;
   seq_width: number;
@@ -67,7 +69,17 @@ export default function TargetCard({
     retireRule, {},
   );
 
-  const active = rules.find((r) => r.is_active && !r.item_id) ?? null;
+  /*
+   * 공통 규칙은 품목도 종류도 매이지 않은 활성 규칙이다.
+   *
+   * 전에는 «품목이 없는» 첫 활성 규칙을 공통으로 골랐다. 종류별 규칙(0097)도
+   * 품목이 없으므로 셋 중 하나가 공통 자리에 앉고, 나머지 활성 규칙(포장재 P ·
+   * 시약 M)은 «지난 규칙» 으로 숨었다. 화면은 R 만 쓰는 것처럼 보였는데 시약
+   * 입고는 M 으로 번호가 났다 (사용자 2026-11-09 «시약 앞에 M 아니고 R»).
+   */
+  const active = rules.find((r) => r.is_active && !r.item_id && !r.item_type) ?? null;
+  /* 종류별 활성 규칙 (0097). 공통 규칙보다 우선하고, 품목별 규칙보다는 뒤다 */
+  const perType = rules.filter((r) => r.is_active && !r.item_id && r.item_type);
   /*
    * 품목별 활성 규칙. 공통 규칙보다 우선한다 (§4.10).
    *
@@ -76,7 +88,7 @@ export default function TargetCard({
    * 형식을 보여 주는 셈이다.
    */
   const perItem = rules.filter((r) => r.is_active && r.item_id);
-  const history = rules.filter((r) => r !== active && !perItem.includes(r));
+  const history = rules.filter((r) => r !== active && !perItem.includes(r) && !perType.includes(r));
 
   return (
     <section className="card overflow-hidden">
@@ -150,6 +162,35 @@ export default function TargetCard({
                   {r.item_code}
                 </span>
                 <span className="min-w-0 flex-1 truncate text-xs text-muted">{r.item_name}</span>
+                <code className="font-mono text-xs text-body">{r.pattern}</code>
+                <span className="font-mono text-xs tnum text-brand">{r.sample}</span>
+                {writable && (
+                  <form action={retireAction}>
+                    <input type="hidden" name="id" value={r.id} />
+                    <button type="submit" disabled={retiring}
+                            className="qd-text-action">
+                      내리기
+                    </button>
+                  </form>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {perType.length > 0 && (
+        <div className="border-t border-line-soft">
+          <p className="bg-surface-low px-4 py-2 text-xs font-semibold tracking-wide text-muted">
+            종류별 규칙 {perType.length}건 · 그 종류의 품목은 공통 규칙 대신 이 형식을 씁니다
+          </p>
+          <ul className="divide-y divide-line-soft">
+            {perType.map((r) => (
+              <li key={r.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2.5">
+                <span className="text-sm font-semibold text-ink">
+                  {MATERIAL_TYPES.find((t) => t.value === r.item_type)?.label ?? r.item_type}
+                </span>
+                <span className="min-w-0 flex-1 truncate font-mono text-xs text-faint">{r.item_type}</span>
                 <code className="font-mono text-xs text-body">{r.pattern}</code>
                 <span className="font-mono text-xs tnum text-brand">{r.sample}</span>
                 {writable && (
