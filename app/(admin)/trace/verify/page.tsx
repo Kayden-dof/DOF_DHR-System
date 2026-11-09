@@ -105,7 +105,7 @@ export default async function VerifyPage({
           placeholder="7f2dbdb9a018"
           className="input flex-1 font-mono uppercase"
         />
-        <button className="btn-primary px-6">찾기</button>
+        <button className="btn-primary">찾기</button>
       </form>
 
       {q.length >= 4 && (
@@ -180,7 +180,7 @@ export default async function VerifyPage({
                     * 화면을 여는 사람이면 누구나 누를 수 있다.
                     */}
                   {viewHref(h)
-                    ? <Link href={viewHref(h)!} className="btn-ghost h-8 px-3 text-xs">
+                    ? <Link href={viewHref(h)!} className="btn-ghost h-9">
                         그 회차 펼쳐 보기
                       </Link>
                     : <p className="text-xs text-muted">
@@ -234,7 +234,7 @@ export default async function VerifyPage({
 
                   {h.work_order_id && (
                     <Link href={`/production/${h.work_order_id}`}
-                          className="btn-ghost h-8">
+                          className="btn-ghost h-9">
                       배치 열기
                     </Link>
                   )}

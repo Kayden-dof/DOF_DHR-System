@@ -212,7 +212,7 @@ export function CancelForm({ id }: { id: string }) {
   const [open, setOpen] = useState(false);
 
   if (!open) {
-    return <button onClick={() => setOpen(true)} className="btn-danger h-9 px-3 text-xs">취소</button>;
+    return <button onClick={() => setOpen(true)} className="btn-danger h-9">취소</button>;
   }
 
   return (
@@ -229,10 +229,10 @@ export function CancelForm({ id }: { id: string }) {
       </div>
       <Msg state={state} />
       <div className="mt-3 flex gap-2">
-        <button type="submit" disabled={pending} className="btn-danger h-9 px-3 text-xs">
+        <button type="submit" disabled={pending} className="btn-danger h-9">
           취소한다
         </button>
-        <button type="button" onClick={() => setOpen(false)} className="btn-ghost h-9 px-3 text-xs">
+        <button type="button" onClick={() => setOpen(false)} className="btn-ghost h-9">
           취소
         </button>
       </div>
@@ -280,11 +280,11 @@ export function DayPrintLink({
   const [ask, setAsk] = useState(false);
 
   if (locked) {
-    return <Link href={href} className="btn-ghost h-8 px-3 text-xs">재발행</Link>;
+    return <Link href={href} className="btn-ghost h-9">재발행</Link>;
   }
   if (!ask) {
     return (
-      <button type="button" onClick={() => setAsk(true)} className="btn-ghost h-8 px-3 text-xs">
+      <button type="button" onClick={() => setAsk(true)} className="btn-ghost h-9">
         인쇄
       </button>
     );
@@ -292,7 +292,7 @@ export function DayPrintLink({
   return (
     <span className="inline-flex items-center gap-2 whitespace-nowrap">
       <span className="text-xs text-warn">열면 잠깁니다</span>
-      <Link href={href} className="btn-primary h-8 px-3 text-xs">발행</Link>
+      <Link href={href} className="btn-primary h-9">발행</Link>
       <button type="button" onClick={() => setAsk(false)} className="qd-text-action">
         그만
       </button>
@@ -315,7 +315,7 @@ export function RetrieveForm({ id, woId, label }: { id: string; woId: string; la
 
   return (
     <>
-      <button onClick={() => setOpen(true)} className="btn-quiet h-8">
+      <button onClick={() => setOpen(true)} className="btn-quiet h-9">
         회수 기록
       </button>
       <Dialog
@@ -369,7 +369,7 @@ export function EndForWorkerForm({ recordId, woId, label }: {
 
   return (
     <>
-      <button onClick={() => setOpen(true)} className="btn-quiet mt-1 h-7 text-xs">
+      <button onClick={() => setOpen(true)} className="btn-quiet mt-1 h-9">
         대신 마감
       </button>
       <Dialog open={open} onClose={() => setOpen(false)}
@@ -588,7 +588,7 @@ export function WipNonconformityForm({ woId, today, ops, sheets }: {
 
   return (
     <>
-      <button onClick={() => setOpen(true)} className="btn-ghost h-9 px-3 text-xs">
+      <button onClick={() => setOpen(true)} className="btn-ghost h-9">
         반제품 부적합
       </button>
       <Dialog open={open} onClose={() => setOpen(false)} wide

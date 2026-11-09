@@ -76,7 +76,7 @@ export default function UserRowView(
         </td>
         {writable && (
           <td className="td text-right">
-            <button onClick={() => setOpen(true)} className="btn-ghost h-8 px-3 text-xs">
+            <button onClick={() => setOpen(true)} className="btn-ghost h-9">
               관리
             </button>
           </td>
@@ -200,7 +200,7 @@ function RolePanel({ u, isMe, sysAdmin }: {
               </option>
             ))}
           </select>
-          <button type="submit" disabled={granting} className="btn-ghost h-9 px-3 text-xs">
+          <button type="submit" disabled={granting} className="btn-ghost h-9">
             부여
           </button>
         </form>
@@ -265,7 +265,7 @@ function PinPanel({ u, isMe, canReset }: { u: UserRow; isMe: boolean; canReset: 
           placeholder={`숫자 ${PIN_MIN_LENGTH}자리 이상 권장`}
           className="input h-9 flex-1 text-xs"
         />
-        <button type="submit" disabled={pending} className="btn-ghost h-9 px-3 text-xs">
+        <button type="submit" disabled={pending} className="btn-ghost h-9">
           변경
         </button>
       </form>
@@ -449,7 +449,7 @@ function QualPanel(
                    placeholder="EDU-2026-001" className="input h-9 font-mono text-xs" />
           </div>
           <div className="sm:col-span-5 flex items-center gap-2">
-            <button type="submit" disabled={pending} className="btn-primary h-9 px-4 text-xs">
+            <button type="submit" disabled={pending} className="btn-primary h-9">
               {pending ? '넣는 중' : '자격 등록'}
             </button>
             <span className="text-xs text-faint">만료일을 비우면 기한이 없습니다.</span>

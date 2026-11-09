@@ -93,7 +93,7 @@ export default function RuleForm({
           <span className="chip mr-2 bg-ok text-white">완료</span>
           {state.message}
         </p>
-        <button type="button" onClick={onDone} className="btn-ghost mt-3 h-9 px-3 text-xs">
+        <button type="button" onClick={onDone} className="btn-ghost mt-3 h-9">
           닫기
         </button>
       </div>

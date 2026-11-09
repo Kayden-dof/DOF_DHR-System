@@ -91,7 +91,7 @@ export function LabourRates({ rows, today, writable = true }: {
 
         <div className="sm:col-span-2 lg:col-span-5">
           <Msg state={state} />
-          <button type="submit" disabled={pending} className="btn-ghost h-9 px-3 text-xs">
+          <button type="submit" disabled={pending} className="btn-ghost h-9">
             {pending ? '등록하는 중' : '단가 등록'}
           </button>
         </div>

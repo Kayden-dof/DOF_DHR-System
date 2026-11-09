@@ -125,11 +125,11 @@ export default function DownloadPanel({ stale, children }: {
           {err && <p role="alert" className="mt-3 text-sm text-danger">{err}</p>}
 
           <div className="mt-4 flex gap-2">
-            <button onClick={run} disabled={!ready || busy} className="btn-primary h-10 px-4 text-xs">
+            <button onClick={run} disabled={!ready || busy} className="btn-primary h-9">
               {busy ? '뜨는 중' : '잠가서 내려받기'}
             </button>
             <button onClick={() => { setOpen(false); setErr(''); setPin(''); setP1(''); setP2(''); }}
-                    className="btn-ghost h-10 px-4 text-xs">
+                    className="btn-ghost h-9">
               취소
             </button>
           </div>

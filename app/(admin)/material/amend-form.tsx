@@ -179,10 +179,10 @@ export function DeleteLotForm({ lot }: { lot: { id: string; lot_no: string; item
           </p>
           <Msg state={state} />
           <div className="mt-4 flex justify-end gap-2">
-            <button type="button" onClick={() => setOpen(false)} className="btn-ghost h-9 px-3 text-xs">
+            <button type="button" onClick={() => setOpen(false)} className="btn-ghost h-9">
               그만두기
             </button>
-            <button type="submit" disabled={pending} className="btn-danger h-9 px-4 text-xs">
+            <button type="submit" disabled={pending} className="btn-danger h-9">
               {pending ? '지우는 중' : '지우기'}
             </button>
           </div>

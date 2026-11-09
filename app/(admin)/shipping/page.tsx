@@ -175,7 +175,7 @@ export default async function ReleasePage() {
                       {l.qty_available > 0 && (
                         <Link
                           href={`/print/release-request/${l.wo_id}?sel=${l.id}:${l.qty_available}`}
-                          className="btn-ghost h-8 px-3 text-xs"
+                          className="btn-ghost h-9"
                         >
                           요청서
                         </Link>

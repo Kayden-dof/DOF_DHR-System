@@ -100,19 +100,19 @@ export default function TargetCard({
         )}
         <div className="ml-auto flex gap-2">
           {writable && !open && items.length > 0 && active && (
-            <button onClick={() => setOpen('item')} className="btn-ghost h-8 px-3 text-xs">
+            <button onClick={() => setOpen('item')} className="btn-ghost h-9">
               품목별 규칙
             </button>
           )}
           {writable && !open && (
-            <button onClick={() => setOpen('replace')} className="btn-ghost h-8 px-3 text-xs">
+            <button onClick={() => setOpen('replace')} className="btn-ghost h-9">
               {active ? '규칙 교체' : '규칙 등록'}
             </button>
           )}
           {writable && active && !open && !confirming && (
             <button
               onClick={() => setConfirming(true)}
-              className="btn-ghost h-8 px-3 text-xs text-muted"
+              className="btn-ghost h-9 text-muted"
             >
               내리기
             </button>
@@ -226,13 +226,13 @@ export default function TargetCard({
             <p role="alert" className="mt-2 text-sm text-danger">{retireState.error}</p>
           )}
           <div className="mt-3 flex gap-2">
-            <button type="submit" disabled={retiring} className="btn-danger h-9 px-3 text-xs">
+            <button type="submit" disabled={retiring} className="btn-danger h-9">
               {retiring ? '처리 중…' : '내린다'}
             </button>
             <button
               type="button"
               onClick={() => setConfirming(false)}
-              className="btn-ghost h-9 px-3 text-xs"
+              className="btn-ghost h-9"
             >
               취소
             </button>

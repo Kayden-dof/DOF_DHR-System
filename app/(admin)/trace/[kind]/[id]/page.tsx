@@ -167,7 +167,7 @@ async function MaterialView({ me, id }: { me: Me; id: string }) {
                       <td className="td tnum text-right">{b.sheet_count}</td>
                       <td className="td text-xs">{b.status}</td>
                       <td className="td text-right">
-                        <Link href={`/trace/batch/${b.id}`} className="btn-ghost h-8 px-3 text-xs">
+                        <Link href={`/trace/batch/${b.id}`} className="btn-ghost h-9">
                           계보
                         </Link>
                       </td>

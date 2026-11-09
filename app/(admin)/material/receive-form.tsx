@@ -193,10 +193,10 @@ export default function ReceiveForm({ items, suppliers, orders, today, presetPo,
           */}
         <div>
           <label className="label" htmlFor={`${uid}-lot_no`}>사내 로트번호 (선택)</label>
-          <input id={`${uid}-lot_no`} name="lot_no" autoComplete="off" placeholder="비우면 자동"
+          <input id={`${uid}-lot_no`} name="lot_no" autoComplete="off" placeholder="R261029-01"
                  className="input font-mono" />
           <p className="mt-1 text-xs text-muted">
-            라벨에 이미 붙인 번호가 있을 때만 적습니다.
+            라벨에 이미 붙인 번호가 있을 때만 적습니다. 비우면 채번 규칙이 만듭니다.
           </p>
         </div>
         <div>

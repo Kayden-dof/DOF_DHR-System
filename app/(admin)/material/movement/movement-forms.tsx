@@ -149,7 +149,7 @@ export function SolutionForm({ lots, fix }: { lots: LotOpt[]; fix?: Fix }) {
         ))}
       </div>
       <button type="button" onClick={() => setRows((r) => [...r, r.length])}
-              className="btn-quiet mt-2 h-8 px-2 text-xs">
+              className="btn-quiet mt-2 h-9">
         원료 줄 추가
       </button>
 

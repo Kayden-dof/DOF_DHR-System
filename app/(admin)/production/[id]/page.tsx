@@ -410,7 +410,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
         action={d.lots.length > 0 ? (
           // 라벨요청서는 재단 뒤에 뽑는다 (§7). 재단 결과가 그대로 요청 내용이다.
           readOnly ? null : (
-            <Link href={`/print/label-request/${wo.id}`} className="btn-ghost h-8">
+            <Link href={`/print/label-request/${wo.id}`} className="btn-ghost h-9">
               라벨요청서
             </Link>
           )
@@ -510,7 +510,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
         title="일차별 기록지"
         note="인쇄하면 그 묶음이 잠깁니다 (S04)"
         action={!readOnly && d.days.some((r) => r.locked) ? (
-          <Link href={`/print/day-record/${wo.id}/all`} className="btn-ghost h-8 px-3 text-xs">
+          <Link href={`/print/day-record/${wo.id}/all`} className="btn-ghost h-9">
             묶음 발행 ({d.days.filter((r) => r.locked).length}건)
           </Link>
         ) : undefined}

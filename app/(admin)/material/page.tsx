@@ -132,7 +132,7 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
             {status && <input type="hidden" name="status" value={status} />}
             <input name="q" defaultValue={q ?? ''} autoComplete="off"
                    placeholder="로트번호 · 품목 · 성적서" className="input h-9 w-64 text-xs" />
-            <button className="btn-ghost h-9 px-3 text-xs">검색</button>
+            <button className="btn-ghost h-9">검색</button>
           </form>
         }
       />
@@ -222,8 +222,9 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
                       * 어느 것으로 뽑았는지가 또 하나의 물음이 된다.
                       */}
                     {!readOnly && <Td right>
+                      {/* 같은 줄의 고치기 · 지우기와 같은 글귀 모양 (2026-11-09 전수 감사) */}
                       <Link href={`/print/label/${l.id}`}
-                            className="btn-ghost h-7 px-2 text-xs">인쇄</Link>
+                            className="qd-text-action">인쇄</Link>
                     </Td>}
                     {!readOnly && <Td right>
                       {/*

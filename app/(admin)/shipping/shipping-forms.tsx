@@ -260,7 +260,7 @@ export function SterilRow({ sb, today }: { sb: SbRow; today: string }) {
                 <input id={`${uid}-request_no`} name="request_no" defaultValue={sb.request_no ?? ''}
                        className="input h-9 font-mono text-xs" />
               </div>
-              <button type="submit" disabled={pending} className="btn-primary h-9 px-3 text-xs">
+              <button type="submit" disabled={pending} className="btn-primary h-9">
                 저장
               </button>
               <p className="w-full text-xs leading-relaxed text-muted">
@@ -320,7 +320,7 @@ export function RequestBuilder({ groups }: {
                 type="button"
                 disabled={picked.length === 0}
                 onClick={() => router.push(`/print/release-request/${g.wo_id}?sel=${sel}`)}
-                className="btn-primary h-9 px-4 text-xs"
+                className="btn-primary h-9"
               >
                 요청서 발행{picked.length > 0 && <> · {picked.length}건 {total}개</>}
               </button>
@@ -378,7 +378,7 @@ export function ApproveForm({ lot, today }: { lot: PlOpt; today: string }) {
 
   if (!open) {
     return (
-      <button onClick={() => setOpen(true)} className="btn-ghost h-8 px-3 text-xs">
+      <button onClick={() => setOpen(true)} className="btn-ghost h-9">
         승인 기록
       </button>
     );
@@ -402,11 +402,11 @@ export function ApproveForm({ lot, today }: { lot: PlOpt; today: string }) {
           <input id={`${uid}-release_approved_on`} name="release_approved_on" type="date" defaultValue={today} required
                  className="input h-9 tnum text-xs" />
         </div>
-        <button type="submit" disabled={pending} className="btn-primary h-9 px-3 text-xs">
+        <button type="submit" disabled={pending} className="btn-primary h-9">
           기록
         </button>
         <button type="button" onClick={() => setOpen(false)}
-                className="btn-quiet h-9 px-2 text-xs">닫기</button>
+                className="btn-quiet h-9">닫기</button>
       </div>
       <Msg state={state} />
     </form>

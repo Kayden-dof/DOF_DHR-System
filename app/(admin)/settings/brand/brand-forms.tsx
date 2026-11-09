@@ -225,7 +225,7 @@ export function BrandForm({
       </div>
 
       <Msg state={state} />
-      <button type="submit" disabled={pending} className="btn-primary h-9 px-4 text-xs">
+      <button type="submit" disabled={pending} className="btn-primary h-9">
         {pending ? '저장하는 중' : '저장'}
       </button>
     </form>
@@ -315,12 +315,12 @@ function LogoSlot({ title, hint, has, name, version, upload, clear, empty, onDar
                           file:text-xs file:text-ink hover:file:bg-surface-sub" />
         <Msg state={up} />
         <div className="flex flex-wrap items-center gap-2">
-          <button type="submit" disabled={upPending} className="btn-ghost h-9 px-3 text-xs">
+          <button type="submit" disabled={upPending} className="btn-ghost h-9">
             {upPending ? '올리는 중' : '올리기'}
           </button>
           {has && (
             <button type="submit" form={`clear-${onDark ? 'dark' : 'light'}`}
-                    disabled={rmPending} className="btn-quiet h-9 px-3 text-xs">
+                    disabled={rmPending} className="btn-quiet h-9">
               {rmPending ? '내리는 중' : '내리기'}
             </button>
           )}

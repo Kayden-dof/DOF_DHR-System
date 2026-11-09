@@ -175,7 +175,7 @@ export function DeviationRow({ d, today }: { d: DevRow; today: string }) {
         </td>
         <td className="td text-right">
           {d.is_open && (
-            <button onClick={() => setOpen(true)} className="btn-ghost h-8 px-3 text-xs">
+            <button onClick={() => setOpen(true)} className="btn-ghost h-9">
               종결 기록
             </button>
           )}

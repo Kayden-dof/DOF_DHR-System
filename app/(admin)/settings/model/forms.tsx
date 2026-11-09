@@ -64,7 +64,7 @@ export function SchemeForm({ scheme }: { scheme: Scheme | null }) {
         </div>
       </div>
       <Msg state={state} />
-      <button type="submit" disabled={pending} className="btn-primary mt-3 h-9 px-3 text-xs">
+      <button type="submit" disabled={pending} className="btn-primary mt-3 h-9">
         {pending ? '저장하는 중' : scheme ? '고치기' : '등록'}
       </button>
     </form>
@@ -113,7 +113,7 @@ export function SegmentForm({ schemeId, next }: { schemeId: string; next: number
       </div>
       <div className="sm:col-span-6">
         <Msg state={state} />
-        <button type="submit" disabled={pending} className="btn-ghost h-9 px-3 text-xs">
+        <button type="submit" disabled={pending} className="btn-ghost h-9">
           {pending ? '저장하는 중' : '자리 정하기'}
         </button>
         <span className="ml-2 text-xs text-muted">

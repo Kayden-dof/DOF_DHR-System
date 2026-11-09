@@ -87,7 +87,7 @@ export default async function TracePage({ searchParams }: { searchParams: Search
         <input name="q" defaultValue={q} autoComplete="off"
                placeholder="P2608-0001 · ML-2608-0003 · B2608-0001 · COA-..."
                className="input flex-1 font-mono" />
-        <button className="btn-primary px-6">찾기</button>
+        <button className="btn-primary">찾기</button>
       </form>
 
       {q && (

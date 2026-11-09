@@ -73,7 +73,7 @@ export default function FindUnit() {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="개체 번호 찾기"
-        className="btn-ghost hidden h-9 items-center gap-2 px-3 text-xs sm:flex"
+        className="btn-ghost hidden h-9 items-center gap-2 sm:flex"
       >
         개체 번호 찾기
         <kbd className="rounded-md border border-line bg-canvas px-1.5 py-0.5 font-mono
