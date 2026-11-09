@@ -42,6 +42,16 @@ export const MOVEMENT_TYPES = [
   { code: 'ADJUSTMENT',     label: '조정',      sign: 0,  note: '실사 차이' },
 ] as const;
 
+/*
+ * 화면 입력 칸이 없는 종류까지 포함한 이름표. 증감 목록과 감사추적이 같은 말을 쓴다.
+ * BATCH_LOAD 가 영문 그대로 보였다 (2026-11-09).
+ */
+export const MOVEMENT_TYPE_LABEL: Record<string, string> = {
+  ...Object.fromEntries(MOVEMENT_TYPES.map((m) => [m.code, m.label])),
+  SOLUTION: '용액 제조',
+  BATCH_LOAD: '배치 장입',
+};
+
 export const MOVEMENT_REASONS = ['파손', '오염', '계량오차', '기한경과', '실사차이', '기타'] as const;
 
 export const PL_STATUS_LABEL: Record<string, string> = {
@@ -387,7 +397,7 @@ export function valueLabel(table: string, key: string, v: unknown): string | nul
   if (typeof v !== 'string') return null;
   if (key === 'status') return STATUS_LABEL_BY_TABLE[table]?.[v] ?? null;
   if (key === 'type' && table === 'stock_movement') {
-    return MOVEMENT_TYPES.find((m) => m.code === v)?.label ?? null;
+    return MOVEMENT_TYPE_LABEL[v] ?? null;
   }
   return VALUE_LABEL[key]?.[v] ?? null;
 }

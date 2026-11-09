@@ -6,7 +6,7 @@ import { PageShell } from '@/components/shell';
 import { SubNav } from '../../nav';
 import { MATERIAL_NAV } from '../../sections';
 import { fmtDateTime } from '@/lib/fmt';
-import { MOVEMENT_TYPES } from '@/lib/forms';
+import { MOVEMENT_TYPE_LABEL } from '@/lib/forms';
 import { Panel, Empty, Tag } from '@/components/ui';
 import { MovementForm, SolutionForm, type LotOpt, type WoOpt } from './movement-forms';
 
@@ -53,8 +53,7 @@ export default async function MovementPage() {
         order by sm.registered_at desc limit 100`),
   }));
 
-  const label = (t: string) => MOVEMENT_TYPES.find((m) => m.code === t)?.label
-    ?? (t === 'SOLUTION' ? '용액 제조' : t);
+  const label = (t: string) => MOVEMENT_TYPE_LABEL[t] ?? t;
 
   return (
     <PageShell
