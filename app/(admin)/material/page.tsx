@@ -12,7 +12,7 @@ import { MATERIAL_STATUS_LABEL } from '@/lib/forms';
 import { Panel, Empty, Truncated, Tag } from '@/components/ui';
 import { Table, Th, Td, IdCell, TwoLine } from '@/components/table';
 import ReceiveForm, { type ItemOpt, type SupplierOpt, type OrderOpt } from './receive-form';
-import AmendLotForm from './amend-form';
+import AmendLotForm, { DeleteLotForm } from './amend-form';
 
 export const dynamic = 'force-dynamic';
 
@@ -240,6 +240,12 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
                         thickness_band: l.thickness_band,
                         qc_passed_on: l.qc_passed_on as unknown as string | null,
                       }} />}
+                      {/* 배치에 투입되지 않은 로트만 지울 수 있다 (0124) */}
+                      {!readOnly && !l.used_in && (
+                        <span className="ml-3 inline-block">
+                          <DeleteLotForm lot={{ id: l.id, lot_no: l.lot_no, item_name: l.item_name }} />
+                        </span>
+                      )}
                     </Td>}
                   </tr>
                 );

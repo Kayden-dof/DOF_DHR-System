@@ -119,6 +119,29 @@ export async function amendMaterialLot(_p: FormState, form: FormData): Promise<F
   }
 }
 
+/**
+ * 자재 로트 지우기 (0124 · 사용자 지시 2026-11-09 «삭제 막힌 것 다 풀고 Log 는 남게»).
+ *
+ * 로트번호는 고쳐 쓸 수 없으므로(0052) 잘못 매겨진 번호는 지우고 다시 입고하는 수밖에
+ * 없다. 지운 행은 지우기 전 값 그대로 감사추적에 남는다. 배치에 투입됐거나 라벨을
+ * 인쇄한 로트는 그 기록이 가리키고 있어 외래키가 막는다 - 화면도 투입된 로트에는
+ * 단추를 내지 않는다.
+ */
+export async function deleteMaterialLot(_p: FormState, form: FormData): Promise<FormState> {
+  try {
+    const me = await mgr();
+    const id = String(form.get('id') ?? '');
+    const lotNo = await withActor(me.id, (db) =>
+      db.val<string>(`delete from material_lot where id = $1 returning lot_no`, [id]),
+      { reason: '자재 로트 지우기' });
+    if (!lotNo) return { error: '로트를 찾을 수 없습니다' };
+    bump();
+    return { ok: true, message: `${lotNo} 을(를) 지웠습니다. 지운 내용은 감사추적에 남았습니다.` };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
 export async function receiveMaterial(_p: FormState, form: FormData): Promise<FormState> {
   try {
     const me = await mgr();

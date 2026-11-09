@@ -4,7 +4,7 @@ import { useActionState, useId, useState } from 'react';
 import { Msg, Caution } from '@/components/ui';
 import { Dialog, useDialog } from '@/components/dialog';
 import type { FormState } from '@/lib/forms';
-import { amendMaterialLot } from './actions';
+import { amendMaterialLot, deleteMaterialLot } from './actions';
 
 /* ---------------------------------------------------------------------------
    자재 로트의 오기를 고친다 (5차 감사 A1)
@@ -146,6 +146,46 @@ export default function AmendLotForm({ lot }: { lot: AmendLot }) {
               </button>
             </div>
           )}
+        </form>
+      </Dialog>
+    </>
+  );
+}
+
+/*
+ * 자재 로트 지우기 (0124). 사내 로트번호는 고쳐 쓸 수 없어(0052) 잘못 매긴 번호는
+ * 지우고 다시 입고한다. 되돌릴 수 없으므로 한 번 더 묻는다. 배치에 투입된 로트에는
+ * 부르는 쪽이 이 단추를 내지 않는다.
+ */
+export function DeleteLotForm({ lot }: { lot: { id: string; lot_no: string; item_name: string } }) {
+  const [state, action, pending] = useActionState<FormState, FormData>(deleteMaterialLot, {});
+  const { open, setOpen } = useDialog(state);
+
+  return (
+    <>
+      <button onClick={() => setOpen(true)} className="qd-text-action qd-text-action--danger">
+        지우기
+      </button>
+      <Dialog open={open} onClose={() => setOpen(false)} title="자재 로트 지우기"
+              note={<span className="font-mono">{lot.lot_no}</span>}>
+        <form action={action}>
+          <input type="hidden" name="id" value={lot.id} />
+          <p className="text-sm leading-relaxed text-ink">
+            {lot.item_name} 로트 <span className="font-mono">{lot.lot_no}</span> 을(를) 지웁니다.
+            되돌릴 수 없고, 지운 내용은 감사추적에 남습니다.
+          </p>
+          <p className="mt-2 text-xs leading-relaxed text-muted">
+            라벨을 인쇄한 로트는 인쇄 대장이 가리키고 있어 지워지지 않습니다.
+          </p>
+          <Msg state={state} />
+          <div className="mt-4 flex justify-end gap-2">
+            <button type="button" onClick={() => setOpen(false)} className="btn-ghost h-9 px-3 text-xs">
+              그만두기
+            </button>
+            <button type="submit" disabled={pending} className="btn-danger h-9 px-4 text-xs">
+              {pending ? '지우는 중' : '지우기'}
+            </button>
+          </div>
         </form>
       </Dialog>
     </>
