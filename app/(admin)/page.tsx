@@ -70,12 +70,17 @@ export default async function Dashboard() {
           where status = 'AVAILABLE' and expiry_date is not null
             and expiry_date < (timezone('Asia/Seoul', now()))::date + 30)   as expiring,
         (select count(*)::int from material_lot where status = 'EXPIRED')   as expired,
-        (select count(*)::int from v_equipment_status
+        /* 검교정 대상이 아닌 설비는 세지 않는다 (0126 · 설비 화면 숫자와 같은 셈) */
+        (select count(*)::int from v_equipment_status s
           where is_active
+            and not exists (select 1 from equipment e
+                             where e.id = s.id and e.check_cycle = 'NONE')
             and (valid_until is null
                  or valid_until < (timezone('Asia/Seoul', now()))::date + 30)) as eq_due,
-        (select count(*)::int from v_equipment_status
+        (select count(*)::int from v_equipment_status s
           where is_active
+            and not exists (select 1 from equipment e
+                             where e.id = s.id and e.check_cycle = 'NONE')
             and (valid_until is null
                  or valid_until < (timezone('Asia/Seoul', now()))::date))      as eq_gone,
         (select count(*)::int from process_record where ended_at is null)   as open_records,
@@ -234,8 +239,10 @@ export default async function Dashboard() {
         (select coalesce(json_agg(x), '[]'::json) from (
            select code, name, valid_until::text as valid_until,
                   (valid_until - (timezone('Asia/Seoul', now()))::date) as days_left
-             from v_equipment_status
+             from v_equipment_status s
             where is_active
+              and not exists (select 1 from equipment e
+                               where e.id = s.id and e.check_cycle = 'NONE')
               and (valid_until is null
                    or valid_until < (timezone('Asia/Seoul', now()))::date + 30)
             order by valid_until nulls first limit 9) x)                   as eq_due`),
@@ -326,7 +333,7 @@ export default async function Dashboard() {
         left: mono(r.code), sub: r.name, right: `${r.on_hand} / ${r.min_stock}`,
       })), '재고선 아래인 품목이 없습니다', c.reorder) },
 
-    { label: '설비 밸리데이션', value: c.eq_due, unit: '대', href: '/equipment',
+    { label: '설비 밸리데이션', value: c.eq_due, unit: '대', href: '/equipment?f=due',
       tone: c.eq_gone > 0 ? 'danger' : c.eq_due > 0 ? 'warn' : undefined,
       detail: statRows(L.eq_due.map((r) => ({
         left: mono(r.code), sub: r.name,

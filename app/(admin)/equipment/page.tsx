@@ -5,7 +5,7 @@ import { withUser } from '@/lib/db';
 import { getBrand } from '@/lib/brand';
 import Denied from '@/components/denied';
 import { Empty } from '@/components/ui';
-import { PageShell, StatStrip, type StatItem } from '@/components/shell';
+import { PageShell, StatStrip, FilterBar, type StatItem } from '@/components/shell';
 import { statRows, mono } from '@/components/stat-rows';
 import { SubNav } from '../nav';
 import { isNoExpiry } from '@/lib/equipment-check';
@@ -34,7 +34,21 @@ export const metadata = { title: '설비' };
    막지는 않는다. 차단은 S01~S05 뿐이다 (§2).
 --------------------------------------------------------------------------- */
 
-export default async function EquipmentPage() {
+/*
+ * 상태 거르개 (사용자 2026-11-09 «17개의 설비를 볼 수 있는 필터»).
+ * 숫자 띠의 칸과 같은 갈래다. 현황의 «설비 밸리데이션» 은 due(임박 + 경과 · 기록 없음)로 온다.
+ */
+const FILTERS = [
+  { code: 'valid', label: '유효' },
+  { code: 'soon', label: '만료 임박' },
+  { code: 'gone', label: '기한 경과 · 기록 없음' },
+  { code: 'none', label: '대상 아님' },
+] as const;
+type FilterCode = (typeof FILTERS)[number]['code'] | 'due';
+
+type Search = Promise<{ f?: string }>;
+
+export default async function EquipmentPage({ searchParams }: { searchParams: Search }) {
   const user = await requireUser();
   if (blocksScreen(user, '/equipment')) {
     return <Denied what="설비 관리" need="생산관리자 또는 시스템관리자" />;
@@ -126,28 +140,43 @@ export default async function EquipmentPage() {
    * 밸리데이션은 서면 보고서가 근거이므로 보고서 번호가 있으면 함께 보인다.
    */
   const valid = subject.filter((e) => !expired.includes(e) && !soon.includes(e));
+  const exempt = active.filter((e) => e.check_cycle === 'NONE');
+
+  const sp = await searchParams;
+  const f = (['valid', 'soon', 'gone', 'none', 'due'] as const).includes(sp.f as FilterCode)
+    ? (sp.f as FilterCode) : null;
+  const groups: Record<FilterCode, EquipRow[]> = {
+    valid, soon, gone: expired, none: exempt, due: [...soon, ...expired],
+  };
+  /* 거르개는 쓰는 설비 안에서 고른다. 전체는 내린 설비까지 그대로 보인다 */
+  const shown = f ? d.equipment.filter((e) => groups[f].includes(e)) : d.equipment;
+  const link = (code?: string) => (code ? `/equipment?f=${code}` : '/equipment');
   const eqRow = (e: EquipRow, right: React.ReactNode) =>
     ({ left: mono(e.code), sub: e.name, right });
 
   const stats: StatItem[] = [
-    { label: '쓰는 설비', value: active.length, unit: '대',
+    { label: '쓰는 설비', value: active.length, unit: '대', href: link(),
       detail: statRows(
         active.map((e) => eqRow(e, `공정 ${e.ops.length}개`)),
         '등록된 설비가 없습니다') },
-    { label: '밸리데이션 유효', value: valid.length, unit: '대',
+    { label: '밸리데이션 유효', value: valid.length, unit: '대', href: link('valid'),
       detail: statRows(
         valid.map((e) => eqRow(e, isNoExpiry(e.valid_until) ? '최초 1회 · 기한 없음' : `${e.valid_until} 까지`)),
         '해당 설비가 없습니다') },
-    { label: `만료 ${warnDays}일 이내`, value: soon.length, unit: '대',
+    { label: `만료 ${warnDays}일 이내`, value: soon.length, unit: '대', href: link('soon'),
       tone: soon.length > 0 ? 'warn' : undefined,
       detail: statRows(
         soon.map((e) => eqRow(e, `${e.days_left}일 남음`)),
         '해당 설비가 없습니다') },
-    { label: '기한 경과 · 기록 없음', value: expired.length, unit: '대',
+    { label: '기한 경과 · 기록 없음', value: expired.length, unit: '대', href: link('gone'),
       tone: expired.length > 0 ? 'danger' : undefined,
       detail: statRows(
         expired.map((e) => eqRow(e,
           e.valid_until === null ? '기록 없음' : `${-(e.days_left ?? 0)}일 지남`)),
+        '해당 설비가 없습니다') },
+    { label: '검교정 대상 아님', value: exempt.length, unit: '대', href: link('none'),
+      detail: statRows(
+        exempt.map((e) => eqRow(e, '대상 아님')),
         '해당 설비가 없습니다') },
   ];
 
@@ -168,6 +197,20 @@ export default async function EquipmentPage() {
         </div>
       )}
 
+      {d.equipment.length > 0 && (
+        <FilterBar
+          items={[
+            { href: link(), label: '전체', count: d.equipment.length, on: !f },
+            ...FILTERS.map((x) => ({
+              href: link(x.code), label: x.label, count: groups[x.code].length, on: f === x.code,
+            })),
+            ...(f === 'due'
+              ? [{ href: link('due'), label: '임박 · 경과 · 기록 없음', count: groups.due.length, on: true }]
+              : []),
+          ]}
+        />
+      )}
+
       {d.equipment.length === 0 ? (
         <div className="card">
           <Empty hint="등록한 설비를 공정에 걸면 현장 화면에 타일로 나옵니다.">
@@ -176,7 +219,14 @@ export default async function EquipmentPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {d.equipment.map((e) => (
+          {shown.length === 0 && (
+            <div className="card">
+              <Empty hint="위 거르개에서 전체를 누르면 모든 설비가 보입니다.">
+                이 갈래에 든 설비가 없습니다.
+              </Empty>
+            </div>
+          )}
+          {shown.map((e) => (
             <EquipCard key={e.id} e={e} ops={d.ops} warnDays={warnDays} writable={writable} />
           ))}
         </div>
