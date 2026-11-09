@@ -9,7 +9,7 @@ import { Unblock } from '@/components/unblock';
 import type { Fix } from '@/lib/unblock';
 import { Dialog, useDialog } from '@/components/dialog';
 import {
-  cutLot, setLotStatus, cancelWorkOrder, finishWorkOrder, retrievePrint,
+  cutLot, setLotStatus, cancelWorkOrder, finishWorkOrder, retrievePrint, setWorkOrderNo,
   recordNonconformity, recordWipNonconformity, endRecordForWorker,
 } from '../actions';
 
@@ -203,6 +203,42 @@ export function LotStatusForm({ lot, woId }: { lot: LotRow; woId: string }) {
 }
 
 /* -------------------------------------------------------------------------- */
+
+/** 지시서 번호를 종이 번호로 고친다 (0127). 사유는 감사추적에 남는다 */
+export function WoNoForm({ id, current }: { id: string; current: string }) {
+  const uid = useId();
+  const [state, action, pending] = useActionState<FormState, FormData>(setWorkOrderNo, {});
+  const [open, setOpen] = useState(false);
+
+  if (!open || state.ok) {
+    return (
+      <>
+        <button type="button" onClick={() => setOpen(true)} className="qd-text-action">고치기</button>
+        {state.ok && <Msg state={state} />}
+      </>
+    );
+  }
+  return (
+    <form action={action} className="mt-2 space-y-2">
+      <input type="hidden" name="id" value={id} />
+      <div>
+        <label className="label" htmlFor={`${uid}-wo_no`}>종이에 적힌 지시서 번호</label>
+        <input id={`${uid}-wo_no`} name="wo_no" required defaultValue={current}
+               autoComplete="off" className="input font-mono" />
+      </div>
+      <div>
+        <label className="label" htmlFor={`${uid}-reason`}>사유</label>
+        <input id={`${uid}-reason`} name="reason" required autoComplete="off"
+               placeholder="종이 작업요청 및 지시서 번호에 맞춤" className="input" />
+      </div>
+      <Msg state={state} />
+      <div className="flex gap-2">
+        <button type="submit" disabled={pending} className="btn-primary h-9">저장</button>
+        <button type="button" onClick={() => setOpen(false)} className="btn-ghost h-9">취소</button>
+      </div>
+    </form>
+  );
+}
 
 export function CancelForm({ id }: { id: string }) {
   /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */

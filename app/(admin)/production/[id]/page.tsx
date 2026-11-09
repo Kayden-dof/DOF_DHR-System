@@ -9,7 +9,7 @@ import { KIND_LABEL, viewHref } from '@/lib/print';
 import Denied from '@/components/denied';
 import { Panel, Empty, Tag, Field, Caution } from '@/components/ui';
 import {
-  CutForm, LotStatusForm, CancelForm, FinishForm, RetrieveForm, EndForWorkerForm, DayPrintLink,
+  CutForm, LotStatusForm, CancelForm, WoNoForm, FinishForm, RetrieveForm, EndForWorkerForm, DayPrintLink,
   NonconformityForm, WipNonconformityForm, type OpOpt,
   type LotRow, type FinOpt,
 } from './batch-forms';
@@ -344,7 +344,10 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
 
       <Panel title="지시 내용">
         <div className="grid gap-x-6 gap-y-3 px-4 py-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Field label="지시서번호"><span className="font-mono">{wo.wo_no}</span></Field>
+          <Field label="지시서번호">
+            <span className="font-mono">{wo.wo_no}</span>
+            {active && !readOnly && <> <WoNoForm id={wo.id} current={wo.wo_no} /></>}
+          </Field>
           <Field label="배치번호"><span className="font-mono font-semibold">{wo.batch_no}</span></Field>
           <Field label="제품표준서 개정"><span className="font-mono">{wo.dmr_revision}</span></Field>
           <Field label="장입 수량">

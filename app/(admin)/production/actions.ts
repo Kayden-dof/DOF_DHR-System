@@ -137,6 +137,32 @@ export async function issueWorkOrder(_p: FormState, form: FormData): Promise<For
   }
 }
 
+/**
+ * 지시서 번호를 종이 번호에 맞춘다 (0127 · 사용자 2026-11-09 «작업 지시번호는 WO-261103-01»).
+ *
+ * 종이 지시서가 먼저 나가고 DHR 에 뒤에 옮겨 적으면 채번 규칙의 번호와 종이 번호가
+ * 다르다. 종이가 먼저다. 계보는 id 로 이어지므로 번호만 바꾸고, 사유는 비울 수 없다.
+ */
+export async function setWorkOrderNo(_p: FormState, form: FormData): Promise<FormState> {
+  try {
+    const me = await mgr();
+    const id = String(form.get('id') ?? '');
+    const no = String(form.get('wo_no') ?? '').trim().toUpperCase();
+    const why = txt(form.get('reason'));
+    if (!/^WO-\d{6}-\d{2,}$/.test(no)) return { error: '지시서 번호는 WO-YYMMDD-NN 꼴로 적으십시오 (예: WO-261103-01)' };
+    if (!why) return { error: '왜 바꾸는지 적으십시오' };
+    const old = await withActor(me.id, async (db) => {
+      const prev = await db.val<string>(`select wo_no from work_order where id = $1`, [id]);
+      await db.rows(`update work_order set wo_no = $2 where id = $1`, [id, no]);
+      return prev;
+    }, { reason: `지시서 번호 고침 · ${why}` });
+    bump(id);
+    return { ok: true, message: `지시서 번호를 ${old} 에서 ${no} 로 고쳤습니다.` };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
 export async function cancelWorkOrder(_p: FormState, form: FormData): Promise<FormState> {
   try {
     const me = await mgr();
