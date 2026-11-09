@@ -157,9 +157,15 @@ export default [
   id: 'S04-04', expect: '없음',
   name: '잠금 해제 함수가 존재하지 않는다 (§10)',
   async run(t) {
+    /*
+     * force_correct_reason(0128) 만 이름으로 뺀다. 사용자 결정(2026-11-10
+     * «강제 정정이 좀 필요하겠네»)으로 연 문이고, 잠금을 풀지 않고 한 칸만
+     * 사유와 함께 고친다 - 잠금이 그대로인지는 FC-07 이 본다.
+     */
     const n = await t.val(
       `select count(*)::int from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace
         where ns.nspname = 'public'
+          and p.proname <> 'force_correct_reason'
           and (p.proname ilike '%unlock%' or p.proname ilike '%force%'
                or p.proname ilike '%override%' or p.proname ilike '%skip_valid%')`);
     t.eq(n, 0, '해제·우회 함수 수');

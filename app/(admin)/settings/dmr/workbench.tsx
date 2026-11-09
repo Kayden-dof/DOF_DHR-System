@@ -89,7 +89,7 @@ export async function DmrWorkbench({
                       'tiers', coalesce((
                         select json_agg(json_build_object(
                           'id', tr.id, 'min_sheets', tr.min_sheets,
-                          'max_sheets', tr.max_sheets, 'qty', tr.qty)
+                          'max_sheets', tr.max_sheets, 'qty', tr.qty, 'qty_max', tr.qty_max)
                           order by tr.min_sheets)
                           from dmr_bom_tier tr where tr.dmr_bom_id = b.id), '[]'::json)
                     ) order by ci.code)
@@ -267,7 +267,8 @@ export async function DmrWorkbench({
                   <div>
                     {d.operations.map((op) => (
                       <OperationCard key={op.id} dm={dm.id} op={op}
-                                     items={d.items} editable={editable} bomFix={fixes?.material}
+                                     items={d.items} editable={editable} rangeable={writable}
+                                     bomFix={fixes?.material}
                                      equipment={d.equipment.map((e) => ({
                                        ...e,
                                        linked: d.opEquip.some((x) =>

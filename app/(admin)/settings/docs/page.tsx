@@ -9,7 +9,7 @@ import { Panel, Empty, Tag } from '@/components/ui';
 import { Table, Th, Td } from '@/components/table';
 import { fmtDate } from '@/lib/fmt';
 import {
-  VERDICT_LABEL, isOff, flowBreaks, kindFor, REQ_KIND_LABEL, REQ_STATUS_LABEL, REQ_TARGET_LABEL,
+  VERDICT_LABEL, isOff, isNumberDiff, flowBreaks, kindFor, REQ_KIND_LABEL, REQ_STATUS_LABEL, REQ_TARGET_LABEL,
   type CheckRow, type Verdict, type ReqKind, type ReqStatus,
 } from '@/lib/mfg-doc';
 import { RevisionButton, StatusForm } from './revision-forms';
@@ -86,10 +86,13 @@ export default async function DocsCheckPage({ searchParams }: { searchParams: Se
     for (const id of flowBreaks(d.checks.filter((c) => c.op_code === op && c.grp !== '흐름'))) breaks.add(id);
   }
   const openReqs = d.reqs.filter((r) => r.status === 'OPEN' || r.status === 'SENT').length;
+  const numDiff = d.checks.filter(isNumberDiff);
+  const docNosOf = (op: string) => d.docs.filter((x) => x.op_code === op).map((x) => x.doc_no).join(', ');
 
   const stats: StatItem[] = d.product ? [
     { label: '대조 항목', value: d.checks.filter((c) => c.grp !== '흐름').length, unit: '줄' },
     { label: '불일치', value: count('MISMATCH'), unit: '줄', tone: 'danger' },
+    { label: '그중 수치가 다른 줄', value: numDiff.length, unit: '줄', tone: 'danger' },
     { label: '기재 누락', value: count('MISSING'), unit: '줄', tone: 'danger' },
     { label: '기준 미정', value: count('UNDEFINED'), unit: '줄', tone: 'danger' },
     { label: '기록서에만', value: count('BR_ONLY'), unit: '줄', tone: 'danger' },
@@ -105,6 +108,9 @@ export default async function DocsCheckPage({ searchParams }: { searchParams: Se
       action={d.product ? (
         <>
           <Link href={`/print/docs-check/${d.product}`} className="btn-ghost">대조표 인쇄</Link>
+          {numDiff.length > 0 && (
+            <Link href={`/print/docs-check/${d.product}?v=num`} className="btn-ghost">수치 다른 줄 인쇄</Link>
+          )}
           <Link href={`/print/revision-requests/${d.product}`} className="btn-primary">개정 제안서 인쇄</Link>
         </>
       ) : null}
@@ -128,6 +134,53 @@ export default async function DocsCheckPage({ searchParams }: { searchParams: Se
         </Panel>
       ) : (
         <>
+          {numDiff.length > 0 && (
+            <Panel
+              title="수치가 다른 항목"
+              note={`불일치 가운데 두 문서가 서로 다른 숫자를 적은 줄 ${numDiff.length}줄입니다. 공정 순서대로 모았습니다.`}
+            >
+              <Table grow={4}>
+                <thead>
+                  <tr>
+                    <Th>공정</Th>
+                    <Th>항목</Th>
+                    <Th>작업표준서</Th>
+                    <Th>제조기록서</Th>
+                    <Th>무엇이 다른가</Th>
+                    {writable && <Th />}
+                  </tr>
+                </thead>
+                <tbody>
+                  {numDiff.map((r) => (
+                    <tr key={r.id}>
+                      <Td className="whitespace-nowrap">
+                        <div className="font-mono text-xs text-faint">{r.op_code}</div>
+                        <div>{r.op_name}</div>
+                      </Td>
+                      <Td className="font-semibold text-ink">{r.item}</Td>
+                      <Td className="min-w-[12rem] whitespace-pre-line">
+                        {r.ws_text}
+                        {r.ws_at && <div className="mt-0.5 text-xs text-faint">{r.ws_at}</div>}
+                      </Td>
+                      <Td className="min-w-[12rem] whitespace-pre-line">
+                        {r.br_text}
+                        {r.br_at && <div className="mt-0.5 text-xs text-faint">{r.br_at}</div>}
+                      </Td>
+                      <Td className="min-w-[14rem] text-danger">{r.why}</Td>
+                      {writable && (
+                        <Td>
+                          <RevisionButton compact product={d.product!} opCode={r.op_code} checkId={r.id}
+                                          docNos={docNosOf(r.op_code)} kind={kindFor(r.verdict)}
+                                          current={`[작업표준서] ${r.ws_text}\n[제조기록서] ${r.br_text}`} />
+                        </Td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </Panel>
+          )}
+
           {ops.map(([op, opName]) => {
             const rows = d.checks.filter((c) => c.op_code === op && c.grp !== '흐름');
             const flow = d.checks.filter((c) => c.op_code === op && c.grp === '흐름');

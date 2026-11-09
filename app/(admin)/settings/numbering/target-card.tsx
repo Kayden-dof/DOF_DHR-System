@@ -39,8 +39,6 @@ export interface RuleRow {
   effective_from: string;
   registered_at: Date;
   registered_by_name: string;
-  /** 종류별 규칙이면 그 종류. 공통 규칙과 품목별 규칙은 비어 있다 (0097) */
-  item_type: string | null;
   sample: string;
   item_code: string | null;
   item_name: string | null;

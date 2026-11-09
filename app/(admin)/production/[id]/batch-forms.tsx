@@ -9,7 +9,7 @@ import { Unblock } from '@/components/unblock';
 import type { Fix } from '@/lib/unblock';
 import { Dialog, useDialog } from '@/components/dialog';
 import {
-  cutLot, setLotStatus, cancelWorkOrder, finishWorkOrder, retrievePrint, setWorkOrderNo,
+  cutLot, setLotStatus, cancelWorkOrder, finishWorkOrder, retrievePrint, setWorkOrderNo, forceCorrectReason,
   recordNonconformity, recordWipNonconformity, endRecordForWorker,
 } from '../actions';
 
@@ -234,6 +234,49 @@ export function WoNoForm({ id, current }: { id: string; current: string }) {
       <Msg state={state} />
       <div className="flex gap-2">
         <button type="submit" disabled={pending} className="btn-primary h-9">저장</button>
+        <button type="button" onClick={() => setOpen(false)} className="btn-ghost h-9">취소</button>
+      </div>
+    </form>
+  );
+}
+
+/*
+ * 강제 정정 (0128). 일차를 마감해 잠긴 기록의 자재 미사용 사유를 고친다.
+ * 잠금은 그대로이고, 이 칸 하나만 사유와 함께 바뀐다. 시스템관리자만 보인다.
+ */
+export function ForceReasonForm({ recordId, woId, current }: {
+  recordId: string; woId: string; current: string;
+}) {
+  const uid = useId();
+  const [state, action, pending] = useActionState<FormState, FormData>(forceCorrectReason, {});
+  const [open, setOpen] = useState(false);
+
+  if (!open || state.ok) {
+    return (
+      <>
+        <button type="button" onClick={() => setOpen(true)} className="qd-text-action">강제 정정</button>
+        {state.ok && <Msg state={state} />}
+      </>
+    );
+  }
+  return (
+    <form action={action} className="mt-2 w-72 space-y-2 rounded-md border border-warn/40 bg-warn-bg p-3">
+      <input type="hidden" name="process_record_id" value={recordId} />
+      <input type="hidden" name="work_order_id" value={woId} />
+      <Caution>잠긴 기록입니다. 잠금은 그대로 두고 이 칸만 고치며, 정정 내역이 남습니다.</Caution>
+      <div>
+        <label className="label" htmlFor={`${uid}-value`}>자재 미사용 사유</label>
+        <input id={`${uid}-value`} name="value" required defaultValue={current}
+               autoComplete="off" className="input" />
+      </div>
+      <div>
+        <label className="label" htmlFor={`${uid}-why`}>정정 사유</label>
+        <input id={`${uid}-why`} name="why" required autoComplete="off"
+               placeholder="종이 제조기록서 대조" className="input" />
+      </div>
+      <Msg state={state} />
+      <div className="flex gap-2">
+        <button type="submit" disabled={pending} className="btn-primary h-9">정정</button>
         <button type="button" onClick={() => setOpen(false)} className="btn-ghost h-9">취소</button>
       </div>
     </form>

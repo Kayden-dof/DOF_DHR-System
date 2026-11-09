@@ -11,7 +11,7 @@ import {
   createDeviceMaster, verifyDeviceMaster, addOperation, addBom, addTier, setExpectedUnits, setProductCode,
   addOperationsBulk, copyDmr, createProduct, addSampleTier, setSampleBasis,
   setTypicalDay, setDmrNote, setDmrLimits,
-  updateOperation, updateBom, updateTier, bulkBom, deleteOperation,
+  updateOperation, updateBom, updateTier, setTierMax, bulkBom, deleteOperation,
 } from './actions';
 import { linkOperation } from '../../equipment/actions';
 
@@ -25,8 +25,16 @@ export interface OperationRow {
 export interface BomRow {
   id: string; component_item_id: string; item_code: string; item_name: string;
   usage_uom: string; basis: string; qty_per_unit: string | null;
-  tiers: { id: string; min_sheets: number; max_sheets: number | null; qty: string }[];
+  tiers: Tier[];
 }
+/** 장입 구간. qty_max 는 작업표준서가 범위로 준 양의 위쪽 끝 (0128) */
+export interface Tier {
+  id: string; min_sheets: number; max_sheets: number | null; qty: string; qty_max: string | null;
+}
+/** "292~293" · "292" */
+export const tierQty = (t: Pick<Tier, 'qty' | 'qty_max'>) =>
+  t.qty_max != null && Number(t.qty_max) > Number(t.qty)
+    ? `${Number(t.qty)}~${Number(t.qty_max)}` : `${Number(t.qty)}`;
 export interface ItemOption { id: string; code: string; name: string; usage_uom: string; type: string }
 
 /* -------------------------------------------------------------------------- */
@@ -292,7 +300,7 @@ function verifyRows(s: VerifySheet) {
           ? `제품 1개당 ${Number(b.qty_per_unit)} ${b.usage_uom}`
           : b.tiers.length
             ? b.tiers.map((t) =>
-                `${t.min_sheets}~${t.max_sheets ?? ''} ${Number(t.qty)} ${b.usage_uom}`).join(' / ')
+                `${t.min_sheets}~${t.max_sheets ?? ''} ${tierQty(t)} ${b.usage_uom}`).join(' / ')
             : '장입 구간 미등록',
       });
     }
@@ -581,9 +589,7 @@ export function EditBomForm({ dm, bom }: { dm: string; bom: BomRow }) {
   );
 }
 
-export function EditTierForm({ dm, tier }: {
-  dm: string; tier: { id: string; min_sheets: number; max_sheets: number | null; qty: string };
-}) {
+export function EditTierForm({ dm, tier }: { dm: string; tier: Tier }) {
   const uid = useId();
   const [show, setShow] = useState(false);
   const [state, action, pending] = useActionState<FormState, FormData>(updateTier, {});
@@ -614,8 +620,53 @@ export function EditTierForm({ dm, tier }: {
         <input id={`${uid}-q`} name="qty" type="number" step="any" min="0.0001" required
                defaultValue={Number(tier.qty)} className="input h-8 tnum text-xs" />
       </div>
+      <div className="w-24">
+        <label className="label" htmlFor={`${uid}-qm`}>소요량 상한</label>
+        <input id={`${uid}-qm`} name="qty_max" type="number" step="any" min="0.0001" placeholder="없음"
+               defaultValue={tier.qty_max != null ? Number(tier.qty_max) : ''}
+               className="input h-8 tnum text-xs" />
+      </div>
       <button type="submit" disabled={pending} className="qd-text-action">
         {pending ? '중' : '고친다'}
+      </button>
+      <button type="button" onClick={() => setShow(false)}
+              className="qd-text-action">취소</button>
+      <div className="w-full"><Msg state={state} /></div>
+    </form>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+/*
+ * 지시가 나간 개정본에서 비어 있던 소요량 상한만 적는다 (0128).
+ * 작업표준서가 "292 ~ 293 g" 으로 준 양을 처음 옮길 때 하한만 들어간 경우다.
+ */
+export function TierRangeForm({ dm, tier, uom }: { dm: string; tier: Tier; uom: string }) {
+  const uid = useId();
+  const [show, setShow] = useState(false);
+  const [state, action, pending] = useActionState<FormState, FormData>(setTierMax, {});
+
+  if (!show) {
+    return (
+      <button type="button" onClick={() => setShow(true)}
+              className="qd-text-action">범위 적기</button>
+    );
+  }
+  return (
+    <form action={action} className="flex flex-wrap items-end justify-end gap-1.5">
+      <input type="hidden" name="device_master_id" value={dm} />
+      <input type="hidden" name="id" value={tier.id} />
+      <input type="hidden" name="qty" value={Number(tier.qty)} />
+      <div className="w-28 text-left">
+        <label className="label" htmlFor={`${uid}-qm`}>
+          {Number(tier.qty)} ~ ({uom})
+        </label>
+        <input id={`${uid}-qm`} name="qty_max" type="number" step="any" required
+               min={Number(tier.qty)} className="input h-8 tnum text-xs" />
+      </div>
+      <button type="submit" disabled={pending} className="qd-text-action">
+        {pending ? '중' : '적기'}
       </button>
       <button type="button" onClick={() => setShow(false)}
               className="qd-text-action">취소</button>
@@ -651,6 +702,11 @@ export function AddTierForm({ dm, bom }: { dm: string; bom: BomRow }) {
       <div className="w-28">
         <label className="label" htmlFor={`${uid}-qty`}>소요량</label>
         <input id={`${uid}-qty`} name="qty" type="number" step="any" min="0.0001" required
+               className="input h-9 tnum text-xs" />
+      </div>
+      <div className="w-28">
+        <label className="label" htmlFor={`${uid}-qty_max`}>소요량 상한</label>
+        <input id={`${uid}-qty_max`} name="qty_max" type="number" step="any" min="0.0001" placeholder="없음"
                className="input h-9 tnum text-xs" />
       </div>
       <button type="submit" disabled={pending} className="btn-quiet h-9">
@@ -730,8 +786,10 @@ function OperationEquipment({ op, equipment }: { op: OperationRow; equipment: Eq
   );
 }
 
-export function OperationCard({ dm, op, items, editable, equipment = [], bomFix }: {
+export function OperationCard({ dm, op, items, editable, rangeable = false, equipment = [], bomFix }: {
   dm: string; op: OperationRow; items: ItemOption[]; editable: boolean;
+  /** 지시가 나간 뒤에도 비어 있는 소요량 상한은 적을 수 있다 (0128) */
+  rangeable?: boolean;
   /** 자재 구성표에 넣을 품목이 없을 때 가는 자리 */
   bomFix?: Fix;
   /** 걸 수 있는 설비 전체와 이 공정에 걸렸는지. 펼친 공정에서 목록으로 골라 건다 */
@@ -807,7 +865,7 @@ export function OperationCard({ dm, op, items, editable, equipment = [], bomFix 
                             <tr>
                               <th className="th">장입 구간</th>
                               <th className="th text-right">소요량</th>
-                              {editable && <th className="th" />}
+                              {(editable || rangeable) && <th className="th" />}
                             </tr>
                           </thead>
                           <tbody>
@@ -817,11 +875,17 @@ export function OperationCard({ dm, op, items, editable, equipment = [], bomFix 
                                   {tr.min_sheets} ~ {tr.max_sheets ?? '제한 없음'}
                                 </td>
                                 <td className="td tnum text-right ">
-                                  {Number(tr.qty)} {b.usage_uom}
+                                  {tierQty(tr)} {b.usage_uom}
                                 </td>
-                                {editable && (
+                                {editable ? (
                                   <td className="td text-right">
                                     <EditTierForm dm={dm} tier={tr} />
+                                  </td>
+                                ) : rangeable && (
+                                  <td className="td text-right">
+                                    {tr.qty_max == null && (
+                                      <TierRangeForm dm={dm} tier={tr} uom={b.usage_uom} />
+                                    )}
                                   </td>
                                 )}
                               </tr>

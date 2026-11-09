@@ -533,6 +533,52 @@ export async function updateBom(_p: FormState, form: FormData): Promise<FormStat
   }
 }
 
+/**
+ * 소요량 상한 (0128). 작업표준서가 "292 ~ 293 g" 처럼 범위로 준 양의 위쪽 끝.
+ * 비우면 null - 소요량 하나다. 소요량과 같으면 범위가 아니므로 null 로 둔다.
+ * 잘못된 값이면 사람이 읽을 문장을 돌려준다.
+ */
+function qtyMax(form: FormData, qty: number): number | null | string {
+  const raw = String(form.get('qty_max') ?? '').trim();
+  if (raw === '') return null;
+  const v = Number(raw);
+  if (!(v > 0)) return '소요량 상한은 0보다 커야 합니다';
+  if (v < qty) return '소요량 상한은 소요량보다 작을 수 없습니다';
+  return v === qty ? null : v;
+}
+
+/**
+ * 비어 있던 소요량 상한만 적는다 (0128).
+ *
+ * 작업 지시가 나간 개정본은 구간을 고칠 수 없다 (0089). 다만 작업표준서가 이미
+ * 범위로 준 양을 처음 옮길 때 하한만 적은 것은 같은 개정본 안에서 채운다 -
+ * 지시서에 찍히는 소요량은 그대로이므로 나간 종이가 달라지지 않는다.
+ * DB 도 같은 것만 연다: 비어 있던 상한을 한 번, 다른 칸은 그대로.
+ */
+export async function setTierMax(_p: FormState, form: FormData): Promise<FormState> {
+  try {
+    const me = await admin();
+    const dm = String(form.get('device_master_id') ?? '');
+    const id = String(form.get('id') ?? '');
+    const qty = Number(form.get('qty') ?? 0);
+    const top = qtyMax(form, qty);
+    if (!id) return { error: '어느 구간인지 알 수 없습니다' };
+    if (typeof top === 'string') return { error: top };
+    if (top === null) return { error: '소요량보다 큰 상한을 적으십시오' };
+
+    const n = await withActor(me.id, (db) =>
+      db.rows(`update dmr_bom_tier set qty_max = $2 where id = $1 and qty_max is null returning id`,
+              [id, top]),
+      { reason: '작업표준서 소요량 범위 옮김' });
+    if (n.length === 0) return { error: '이미 상한이 적혀 있습니다' };
+
+    path(dm);
+    return { ok: true, message: '소요량 상한을 적었습니다.' };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
 export async function updateTier(_p: FormState, form: FormData): Promise<FormState> {
   try {
     const me = await admin();
@@ -541,15 +587,18 @@ export async function updateTier(_p: FormState, form: FormData): Promise<FormSta
     const max = String(form.get('max_sheets') ?? '').trim();
     const min = Number(form.get('min_sheets') ?? 0);
     const qty = Number(form.get('qty') ?? 0);
+    const top = qtyMax(form, qty);
 
     if (!id) return { error: '어느 구간인지 알 수 없습니다' };
     if (!Number.isInteger(min) || min < 1) return { error: '구간 하한은 1 이상의 정수입니다' };
     if (!(qty > 0)) return { error: '소요량은 0보다 커야 합니다' };
+    if (typeof top === 'string') return { error: top };
 
     await withActor(me.id, (db) =>
       db.rows(
-        `update dmr_bom_tier set min_sheets = $2, max_sheets = $3, qty = $4 where id = $1`,
-        [id, min, max === '' ? null : Number(max), qty]),
+        `update dmr_bom_tier set min_sheets = $2, max_sheets = $3, qty = $4, qty_max = $5
+          where id = $1`,
+        [id, min, max === '' ? null : Number(max), qty, top]),
       { reason: '제품표준서 장입 구간 정정' });
 
     path(dm);
@@ -564,12 +613,15 @@ export async function addTier(_p: FormState, form: FormData): Promise<FormState>
     const me = await admin();
     const dm = String(form.get('device_master_id') ?? '');
     const max = String(form.get('max_sheets') ?? '').trim();
+    const qty = Number(form.get('qty') ?? 1);
+    const top = qtyMax(form, qty);
+    if (typeof top === 'string') return { error: top };
     await withActor(me.id, (db) =>
       db.rows(
-        `insert into dmr_bom_tier (dmr_bom_id, min_sheets, max_sheets, qty)
-         values ($1,$2,$3,$4)`,
+        `insert into dmr_bom_tier (dmr_bom_id, min_sheets, max_sheets, qty, qty_max)
+         values ($1,$2,$3,$4,$5)`,
         [String(form.get('dmr_bom_id') ?? ''), Number(form.get('min_sheets') ?? 1),
-         max === '' ? null : Number(max), Number(form.get('qty') ?? 1)]));
+         max === '' ? null : Number(max), qty, top]));
     path(dm);
     return { ok: true, message: '장입 구간을 추가했습니다.' };
   } catch (e) {

@@ -70,7 +70,8 @@ export default async function WorkBatchPage({ params }: { params: Promise<{ id: 
                     'item_id', b.component_item_id, 'item_code', ci.code,
                     'item_name', ci.name, 'usage_uom', ci.usage_uom,
                     'basis', b.basis::text,
-                    'required', required_qty(o.id, b.component_item_id, $2, 0))
+                    'required', required_qty(o.id, b.component_item_id, $2, 0),
+                    'required_max', required_qty_max(o.id, b.component_item_id, $2))
                     order by ci.code)
                     from dmr_bom b join item ci on ci.id = b.component_item_id
                    where b.operation_id = o.id), '[]'::json) as bom,

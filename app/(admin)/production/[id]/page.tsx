@@ -9,7 +9,7 @@ import { KIND_LABEL, viewHref } from '@/lib/print';
 import Denied from '@/components/denied';
 import { Panel, Empty, Tag, Field, Caution } from '@/components/ui';
 import {
-  CutForm, LotStatusForm, CancelForm, WoNoForm, FinishForm, RetrieveForm, EndForWorkerForm, DayPrintLink,
+  CutForm, LotStatusForm, CancelForm, WoNoForm, ForceReasonForm, FinishForm, RetrieveForm, EndForWorkerForm, DayPrintLink,
   NonconformityForm, WipNonconformityForm, type OpOpt,
   type LotRow, type FinOpt,
 } from './batch-forms';
@@ -64,6 +64,10 @@ interface RecRow {
   worker_name: string; rotation_name: string | null;
   started_at: Date | null; ended_at: Date | null; equipment_id: string | null;
   rework_qty: number | null; no_material_reason: string | null;
+  /** 일차 마감으로 잠긴 기록인가. 강제 정정은 잠긴 기록에만 연다 (0128) */
+  locked: boolean;
+  corrections: { old_value: string | null; new_value: string | null; why: string;
+                 by_name: string; at: string }[];
   product_lot_no: string | null; issues: number;
 }
 
@@ -152,7 +156,16 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                 pr.started_at, pr.ended_at, pr.equipment_id, pr.rework_qty,
                 pr.no_material_reason, pl.lot_no as product_lot_no,
                 (select count(*)::int from material_issue mi
-                  where mi.process_record_id = pr.id) as issues
+                  where mi.process_record_id = pr.id) as issues,
+                is_locked(pr.work_order_id, pr.day_no, pr.worker_id) as locked,
+                coalesce((
+                  select json_agg(json_build_object(
+                           'old_value', rc.old_value, 'new_value', rc.new_value, 'why', rc.why,
+                           'by_name', cu.full_name,
+                           'at', to_char(timezone('Asia/Seoul', rc.corrected_at), 'YYYY-MM-DD HH24:MI'))
+                         order by rc.corrected_at)
+                    from record_correction rc join app_user cu on cu.id = rc.corrected_by
+                   where rc.process_record_id = pr.id), '[]'::json) as corrections
            from process_record pr
            join dmr_operation o on o.id = pr.operation_id
            join app_user u on u.id = pr.worker_id
@@ -632,6 +645,14 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                       {r.rework_qty ? <div>재포장 {r.rework_qty}</div> : null}
                       {r.no_material_reason && (
                         <div className="text-warn">{r.no_material_reason}</div>
+                      )}
+                      {r.corrections.map((c, i) => (
+                        <div key={i} className="mt-1 text-xs leading-relaxed text-faint">
+                          강제 정정 {c.at} · {c.by_name}: «{c.old_value}» → «{c.new_value}» · {c.why}
+                        </div>
+                      ))}
+                      {r.locked && r.no_material_reason && hasRole(user, 'SYS_ADMIN') && (
+                        <ForceReasonForm recordId={r.id} woId={wo.id} current={r.no_material_reason} />
                       )}
                     </td>
                   </tr>

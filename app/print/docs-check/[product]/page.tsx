@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import { requireUser, blocksScreen } from '@/lib/session';
 import Denied from '@/components/denied';
 import { withActor } from '@/lib/db';
-import { VERDICT_LABEL, VERDICT_ORDER, isOff, flowBreaks, type CheckRow, type Verdict } from '@/lib/mfg-doc';
+import { VERDICT_LABEL, VERDICT_ORDER, isOff, isNumberDiff, flowBreaks, type CheckRow, type Verdict } from '@/lib/mfg-doc';
 import PrintBar from '../print-bar';
 
 export const dynamic = 'force-dynamic';
@@ -26,10 +26,15 @@ interface DocRow {
   revision: string; issued_on: string | null; pages: number | null;
 }
 
-export default async function DocsCheckPrint({ params }: { params: Promise<{ product: string }> }) {
+export default async function DocsCheckPrint({ params, searchParams }: {
+  params: Promise<{ product: string }>;
+  /** v=num 이면 수치가 다른 줄만 (사용자 2026-11-10) */
+  searchParams: Promise<{ v?: string }>;
+}) {
   const user = await requireUser();
   if (blocksScreen(user, '/settings/docs')) return <Denied what="이 인쇄물" need="생산관리자 또는 시스템관리자" />;
   const { product } = await params;
+  const onlyNum = (await searchParams).v === 'num';
 
   const d = await withActor(user.id, async (db) => ({
     docs: await db.rows<DocRow>(
@@ -45,22 +50,32 @@ export default async function DocsCheckPrint({ params }: { params: Promise<{ pro
   }));
   if (d.checks.length === 0) notFound();
 
-  const ops = [...new Map(d.checks.map((c) => [c.op_code, c.op_name])).entries()];
-  const body = d.checks.filter((c) => c.grp !== '흐름');
+  const allOps = [...new Map(d.checks.map((c) => [c.op_code, c.op_name])).entries()];
+  const all = d.checks.filter((c) => c.grp !== '흐름');
+  /* 수치만 볼 때는 그 줄이 있는 공정만, 흐름 메모와 순서 표시 없이 */
+  const body = onlyNum ? all.filter(isNumberDiff) : all;
+  const ops = onlyNum ? allOps.filter(([op]) => body.some((c) => c.op_code === op)) : allOps;
   const breaks = new Set<string>();
-  for (const [op] of ops) for (const id of flowBreaks(body.filter((c) => c.op_code === op))) breaks.add(id);
+  if (!onlyNum) for (const [op] of ops) for (const id of flowBreaks(body.filter((c) => c.op_code === op))) breaks.add(id);
   const tally = VERDICT_ORDER.filter((v) => v !== 'FLOW')
     .map((v) => [v, body.filter((c) => c.verdict === v).length] as const);
 
   return (
     <>
-      <PrintBar back="/settings/docs" title={`${product} 대조표 · 어긋난 줄은 빨간색`} />
+      <PrintBar back="/settings/docs"
+                title={onlyNum ? `${product} 수치가 다른 항목` : `${product} 대조표 · 어긋난 줄은 빨간색`} />
       <div className="sheet text-[12px] leading-relaxed text-black">
         <header className="mb-3 border-b-2 border-black pb-2">
-          <h1 className="text-[18px] font-bold">{product} 작업표준서 · 제조기록서 대조표</h1>
+          <h1 className="text-[18px] font-bold">
+            {product} 작업표준서 · 제조기록서 {onlyNum ? '수치가 다른 항목' : '대조표'}
+          </h1>
           <p className="mt-1 text-[11px]">
-            출력 {d.now} · {user.full_name} · 대조 {body.length}줄 ·{' '}
-            {tally.map(([v, n]) => `${VERDICT_LABEL[v as Verdict]} ${n}`).join(' · ')} · 순서가 바뀐 줄 {breaks.size}
+            {onlyNum ? (
+              <>출력 {d.now} · {user.full_name} · 대조 {all.length}줄 가운데 불일치이면서 두 문서가 서로 다른 숫자를 적은 줄 {body.length}줄</>
+            ) : (
+              <>출력 {d.now} · {user.full_name} · 대조 {body.length}줄 ·{' '}
+              {tally.map(([v, n]) => `${VERDICT_LABEL[v as Verdict]} ${n}`).join(' · ')} · 순서가 바뀐 줄 {breaks.size}</>
+            )}
           </p>
           <p className="mt-1 text-[11px]">
             <span className="print-red px-1 font-bold">빨간 줄</span> 두 문서가 어긋나는 항목 ·
@@ -92,7 +107,7 @@ export default async function DocsCheckPrint({ params }: { params: Promise<{ pro
 
         {ops.map(([op, name]) => {
           const rows = body.filter((c) => c.op_code === op);
-          const flow = d.checks.filter((c) => c.op_code === op && c.grp === '흐름');
+          const flow = onlyNum ? [] : d.checks.filter((c) => c.op_code === op && c.grp === '흐름');
           const off = rows.filter((r) => isOff(r.verdict) || breaks.has(r.id)).length;
           return (
             <section key={op} className="mb-5 break-inside-auto">

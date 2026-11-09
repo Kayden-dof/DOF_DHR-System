@@ -33,7 +33,9 @@ export interface Op {
   qual_managed: boolean;
   qualified: boolean;
   bom: { item_id: string; item_code: string; item_name: string; usage_uom: string;
-         basis: string; required: string | null }[];
+         basis: string; required: string | null;
+         /** 작업표준서가 범위로 준 양의 위쪽 끝 (0128). 범위가 아니면 required 와 같다 */
+         required_max?: string | null }[];
   /** 이 공정에 걸린 설비. 비어 있으면 화면에 칸이 나오지 않는다 */
   equipment: { id: string; code: string; name: string; valid_until: string | null;
                /** 검교정 주기 (0126). NONE 이면 짚지 않는다 */
@@ -889,7 +891,9 @@ function MaterialForm({ woId, rec, op, lots, sheets, loadUnit, expiryWarnDays }:
               <span className="shrink-0 text-xs tnum">
                 {b.required !== null && b.required !== undefined && (
                   <span className="text-muted">
-                    예상 {Number(b.required)} {b.usage_uom}
+                    예상 {Number(b.required)}
+                    {b.required_max != null && Number(b.required_max) > Number(b.required)
+                      ? `~${Number(b.required_max)}` : ''} {b.usage_uom}
                   </span>
                 )}
                 <span className={`ml-2 font-semibold ${done ? 'text-brand' : 'text-warn'}`}>

@@ -163,6 +163,34 @@ export async function setWorkOrderNo(_p: FormState, form: FormData): Promise<For
   }
 }
 
+/**
+ * 잠긴 기록의 자재 미사용 사유를 고친다 - 강제 정정 (0128 · 사용자 2026-11-10).
+ *
+ * 일차를 마감한 뒤에는 기록을 고칠 길이 없다. 잠금을 풀지 않고 이 한 칸만
+ * 시스템관리자가 사유와 함께 고친다. 판정은 DB 함수가 한다 - 시스템관리자인가,
+ * 잠긴 기록인가, 사유로 마감한 기록인가. 무엇을 무엇으로 왜 고쳤는지 정정
+ * 내역과 감사추적에 남는다.
+ */
+export async function forceCorrectReason(_p: FormState, form: FormData): Promise<FormState> {
+  try {
+    const user = await requireUser();
+    if (!hasRole(user, 'SYS_ADMIN')) return { error: '강제 정정은 시스템관리자만 할 수 있습니다' };
+    const pr = String(form.get('process_record_id') ?? '');
+    const woId = String(form.get('work_order_id') ?? '');
+    const value = txt(form.get('value'));
+    const why = txt(form.get('why'));
+    if (!value) return { error: '고칠 내용을 적으십시오' };
+    if (!why) return { error: '왜 고치는지 적으십시오' };
+    await withActor(user.id, (db) =>
+      db.rows(`select force_correct_reason($1, $2, $3)`, [pr, value, why]),
+      { reason: `강제 정정 · ${why}` });
+    bump(woId);
+    return { ok: true, message: '강제 정정했습니다. 정정 내역이 이 기록 아래에 남습니다.' };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
 export async function cancelWorkOrder(_p: FormState, form: FormData): Promise<FormState> {
   try {
     const me = await mgr();
