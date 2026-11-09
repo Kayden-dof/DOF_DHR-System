@@ -186,6 +186,19 @@ export default function ReceiveForm({ items, suppliers, orders, today, presetPo,
           )}
         </div>
 
+        {/*
+          * 라벨을 먼저 붙인 로트 (사용자 지시 2026-11-09 «라벨에 맞춰»).
+          * 종이 기록서와 실물 라벨이 이미 사내 번호를 쓰고 있으면 DHR 이 그 번호를
+          * 따라야 한다. 비우면 지금처럼 채번 규칙이 만든다.
+          */}
+        <div>
+          <label className="label" htmlFor={`${uid}-lot_no`}>사내 로트번호 (선택)</label>
+          <input id={`${uid}-lot_no`} name="lot_no" autoComplete="off" placeholder="비우면 자동"
+                 className="input font-mono" />
+          <p className="mt-1 text-xs text-muted">
+            라벨에 이미 붙인 번호가 있을 때만 적습니다.
+          </p>
+        </div>
         <div>
           <label className="label" htmlFor={`${uid}-supplier_lot_no`}>공급자 로트번호</label>
           <input id={`${uid}-supplier_lot_no`} name="supplier_lot_no" required autoComplete="off" className="input font-mono" />

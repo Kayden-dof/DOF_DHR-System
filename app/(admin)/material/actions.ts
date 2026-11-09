@@ -167,7 +167,17 @@ export async function receiveMaterial(_p: FormState, form: FormData): Promise<Fo
       const qcOn = String(form.get('qc_passed_on') ?? '').trim();
       if (!qcOn) throw new Error('합격판정일자를 입력하십시오. 로트번호가 이 날짜로 만들어집니다');
 
-      const lotNo = await db.val<string>(
+      /*
+       * 라벨에 이미 붙인 사내 번호가 있으면 그 번호를 쓴다 (사용자 지시 2026-11-09
+       * «라벨에 맞춰»). 종이 기록서와 실물이 그 번호로 움직이고 있으므로 DHR 이
+       * 따라간다. 겹치면 lot_no 의 unique 가 막는다. 비우면 채번 규칙이 만든다.
+       */
+      const manual = String(form.get('lot_no') ?? '').trim();
+      if (manual && await db.val<boolean>(
+        `select exists (select 1 from material_lot where lot_no = $1)`, [manual])) {
+        throw new Error(`${manual} 은(는) 이미 있는 로트번호입니다`);
+      }
+      const lotNo = manual || await db.val<string>(
         `select next_number('MATERIAL_LOT', $1, $2::date)`, [itemId, qcOn]);
 
       await db.rows(
