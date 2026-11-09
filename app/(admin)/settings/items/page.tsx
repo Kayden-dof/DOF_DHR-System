@@ -158,7 +158,7 @@ export default async function ItemsPage({ searchParams }: { searchParams: Search
         <dl className="mt-2 grid gap-x-6 gap-y-1.5 text-xs sm:grid-cols-2 lg:grid-cols-3">
           {ITEM_TYPES.map((x) => (
             <div key={x.code} className="flex gap-2">
-              <dt className="w-16 shrink-0"><Tag tone={x.code === 'FIN' ? 'brand' : 'quiet'}>{x.label}</Tag></dt>
+              <dt className="min-w-24 shrink-0"><Tag tone={x.code === 'FIN' ? 'brand' : 'quiet'}>{x.label}</Tag></dt>
               <dd className="text-muted">{x.note}</dd>
             </div>
           ))}

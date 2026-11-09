@@ -189,7 +189,7 @@ export function PriceForm({ items, suppliers, today }: {
   const [state, action, pending] = useActionState<FormState, FormData>(savePrice, {});
   return (
     <form action={action} className="p-4">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-4">
         <div className="lg:col-span-2">
           <label className="label" htmlFor={`${uid}-item_id`}>품목</label>
           <select id={`${uid}-item_id`} name="item_id" required className="input">
@@ -238,7 +238,7 @@ export function ShelfLifeForm({ items, today, fix }: {
   const fin = items.filter((i) => i.type === 'FIN');
   return (
     <form action={action} className="p-4">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-5">
         <div className="lg:col-span-2">
           <label className="label" htmlFor={`${uid}-item_id`}>완제품 형명</label>
           <select id={`${uid}-item_id`} name="item_id" required className="input">

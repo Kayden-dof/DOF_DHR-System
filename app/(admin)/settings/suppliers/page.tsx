@@ -108,7 +108,8 @@ export default async function SuppliersPage() {
         )}
       </Panel>
 
-      <div className="grid gap-5 lg:grid-cols-2">
+      {/* 두 판을 나란히 두면 1024 px 에서 입력칸이 40 px 로 눌렸다 (2026-11-09). 1280 px 부터 나란히 */}
+      <div className="grid gap-5 xl:grid-cols-2">
         <Panel title="단가 등록" note="사용 단위 기준 공급가액">
           {writable && <PriceForm items={d.items} suppliers={d.suppliers} today={d.today ?? ''} />}
           {d.prices.length > 0 && (
