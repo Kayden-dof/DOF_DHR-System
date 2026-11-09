@@ -79,16 +79,19 @@ export function bounds(rects: Rect[], points: { x: number; y: number }[] = []) {
  */
 export function autoSpots(rect: Rect, n: number): { x: number; y: number }[] {
   if (n === 0) return [];
-  const pad = Math.min(rect.w, rect.h) * 0.18;
-  const iw = Math.max(rect.w - pad * 2, 1);
-  const ih = Math.max(rect.h - pad * 2, 1);
+  /* 방 이름이 위쪽에 서므로 점은 아래 절반에 줄 세운다. 좁은 방에서 이름과 겹쳤다 */
+  const padX = Math.min(rect.w, rect.h) * 0.15;
+  const top = rect.y + rect.h * 0.55;
+  const bottom = rect.y + rect.h - Math.min(rect.w, rect.h) * 0.12;
+  const iw = Math.max(rect.w - padX * 2, 1);
+  const ih = Math.max(bottom - top, 1);
   const cols = Math.max(1, Math.ceil(Math.sqrt(n * (iw / ih))));
   const rows = Math.ceil(n / cols);
   return Array.from({ length: n }, (_, i) => {
     const c = i % cols, r = Math.floor(i / cols);
     return {
-      x: Math.round(rect.x + pad + (cols === 1 ? iw / 2 : (iw * c) / (cols - 1))),
-      y: Math.round(rect.y + pad + (rows === 1 ? ih * 0.75 : (ih * r) / (rows - 1))),
+      x: Math.round(rect.x + padX + (cols === 1 ? iw / 2 : (iw * c) / (cols - 1))),
+      y: Math.round(top + (rows === 1 ? ih / 2 : (ih * r) / (rows - 1))),
     };
   });
 }

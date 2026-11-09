@@ -254,7 +254,8 @@ export function FloorPlan({ rooms, equipment, writable }: {
                     const lines = em(one) * fRoom <= fit ? [one] : [r.code, r.name];
                     const fs = Math.max(fSmall * 0.75, Math.min(fRoom, ...lines.map((l) => fit / em(l))));
                     const sub = [r.clean_class, r.area_m2 ? `${r.area_m2}㎡` : null].filter(Boolean).join(' · ');
-                    const top = m.y + m.h / 2 - ((lines.length - 1) * fs * 1.15 + (sub ? fs * 1.1 : 0)) / 2;
+                    /* 이름은 방 위쪽에 둔다. 아래 절반은 설비 점 자리다 (autoSpots) */
+                    const top = m.y + Math.min(m.h * 0.1, fRoom) + fs * 0.7;
                     return (
                       <text x={cx} y={top} textAnchor="middle" dominantBaseline="middle"
                             fill="var(--color-ink)" style={{ pointerEvents: 'none' }}>
