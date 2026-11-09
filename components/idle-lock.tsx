@@ -26,8 +26,8 @@ const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'clear', '0', 'back']
 --------------------------------------------------------------------------- */
 
 export default function IdleLock({
-  minutes, name, initial,
-}: { minutes: number; name: string; initial: string }) {
+  minutes, sid, name, initial,
+}: { minutes: number; sid: string; name: string; initial: string }) {
   const [locked, setLocked] = useState(false);
 
   /* -------------------------------------------------------------------------
@@ -39,24 +39,73 @@ export default function IdleLock({
      이 탭에 남긴다. sessionStorage 는 탭을 닫으면 사라지고 다른 탭으로 새지
      않는다. §4.1 이 이석 책임을 교육으로 관리하기로 정했으므로 이것은 그 위의
      방어층이고, 서버 세션을 끊는 것과는 다른 일이다.
+
+     ── 표시는 그 세션의 것이다 (2026-11-10 사용자 «계정이 너무 자주 잠긴다») ──
+     전에는 표시가 '1' 하나라, 잠긴 탭에서 로그아웃하고 다시 들어오거나 여덟
+     시간이 지나 다시 로그인해도 같은 탭이면 들어오자마자 또 잠겼다. 비밀번호를
+     두 번 치게 되고, 그사이 틀리면 로그인 시도 제한(0022)까지 쌓였다.
+     이제 표시에 세션 발급 시각(sid)을 적고, 같은 세션일 때만 잠근다. 새 세션은
+     비밀번호로 막 들어온 것이므로 다시 물을 까닭이 없다.
+
+     ── 손길은 탭끼리 나눈다 ────────────────────────────────────────────
+     전에는 탭마다 따로 셌다. 한 탭에서 계속 일해도, 옆 탭(지시서 · 자재 화면을
+     나란히 띄워 둔 것)은 30분 뒤 저 혼자 잠겼다. 같은 브라우저의 같은 세션이면
+     같은 사람이므로 마지막 손길을 localStorage 로 나눈다. 잠금을 푼 것도 나눈다.
+     새 탭은 그 손길을 읽어, 이미 자리를 비운 지 오래면 열리자마자 잠긴다 -
+     새 탭으로 잠금을 건너뛰던 길도 함께 닫힌다.
   ------------------------------------------------------------------------- */
   const KEY = 'dhr-idle-lock';
+  const TOUCH = 'dhr-idle-touch';
+  const OPEN = 'dhr-idle-open';
   const mark = (on: boolean) => {
     try {
-      if (on) sessionStorage.setItem(KEY, '1');
+      if (on) sessionStorage.setItem(KEY, sid);
       else sessionStorage.removeItem(KEY);
     } catch { /* 사생활 보호 모드 등. 그때는 이 층이 없을 뿐이다 */ }
   };
-
-  useEffect(() => {
+  /** 같은 세션이 남긴 시각만 읽는다. 앞 세션 · 다른 사람의 것은 없는 것으로 본다 */
+  const shared = (key: string): number => {
     try {
-      if (sessionStorage.getItem(KEY) === '1') setLocked(true);
-    } catch { /* 못 읽으면 잠기지 않은 것으로 본다 */ }
-  }, []);
+      const [s, t] = (localStorage.getItem(key) ?? '').split('|');
+      return s === sid && Number.isFinite(+t) ? +t : 0;
+    } catch { return 0; }
+  };
+  const share = (key: string, t: number) => {
+    try { localStorage.setItem(key, `${sid}|${t}`); } catch { /* 나누지 못할 뿐이다 */ }
+  };
+
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastActive = useRef(Date.now());
+  const lastActive = useRef(0);
+  const lastShared = useRef(0);
 
   const ms = minutes * 60_000;
+
+  useEffect(() => {
+    let mine = false;
+    try {
+      const v = sessionStorage.getItem(KEY);
+      mine = v === sid;
+      if (v !== null && !mine) sessionStorage.removeItem(KEY);
+    } catch { /* 못 읽으면 잠기지 않은 것으로 본다 */ }
+    /* 같은 세션의 다른 탭이 남긴 마지막 손길. 없으면 이 화면이 열린 지금이다 */
+    const seen = shared(TOUCH);
+    lastActive.current = seen || Date.now();
+    if (mine || (seen && Date.now() - seen >= ms)) { mark(true); setLocked(true); }
+  }, [sid, ms]);
+
+  useEffect(() => {
+    /* 다른 탭에서 비밀번호로 풀었으면 이 탭도 연다. 같은 세션일 때만 */
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== OPEN || !locked) return;
+      const t = shared(OPEN);
+      if (!t) return;
+      lastActive.current = Math.max(lastActive.current, t);
+      mark(false);
+      setLocked(false);
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [locked, sid]);
 
   useEffect(() => {
     if (locked) return;
@@ -69,34 +118,56 @@ export default function IdleLock({
      * 가장 잠겨야 할 때 잠기지 않는다. 브라우저도 배경에서는 타이머를 늦춘다.
      */
     const tick = () => {
+      lastActive.current = Math.max(lastActive.current, shared(TOUCH));
       const left = ms - (Date.now() - lastActive.current);
       if (left <= 0) { mark(true); setLocked(true); return; }
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(tick, Math.min(left, 30_000));
     };
 
-    const touch = () => { lastActive.current = Date.now(); };
+    /* 나누는 쓰기는 5초에 한 번이면 된다. 마우스가 움직일 때마다 쓰지 않는다 */
+    const touch = () => {
+      const now = Date.now();
+      lastActive.current = now;
+      if (now - lastShared.current > 5_000) { lastShared.current = now; share(TOUCH, now); }
+    };
 
-    // 손이 닿는 모든 것을 센다. passive 로 붙여 스크롤을 늦추지 않는다.
-    const evs = ['pointerdown', 'keydown', 'wheel', 'touchstart'] as const;
+    /*
+     * 손이 닿는 모든 것을 센다. passive 로 붙여 스크롤을 늦추지 않는다.
+     * 마우스를 움직이며 읽는 것 · 스크롤도 자리에 있는 것이다 (2026-11-10).
+     * 패드는 손가락이라 touchstart 가 그 몫을 한다.
+     */
+    const evs = ['pointerdown', 'pointermove', 'keydown', 'wheel', 'touchstart'] as const;
     for (const e of evs) window.addEventListener(e, touch, { passive: true });
+    document.addEventListener('scroll', touch, { passive: true, capture: true });
     document.addEventListener('visibilitychange', tick);
 
+    /* 화면이 열린 것 자체는 손길로 나누지 않는다 - 새 탭을 여는 것으로 다른 탭의
+       시간을 늘리지 않게. 첫 판정은 위 effect 가 이미 했다 */
     tick();
 
     return () => {
       for (const e of evs) window.removeEventListener(e, touch);
+      document.removeEventListener('scroll', touch, { capture: true });
       document.removeEventListener('visibilitychange', tick);
       if (timer.current) clearTimeout(timer.current);
     };
-  }, [locked, ms]);
+  }, [locked, ms, sid]);
 
   if (!locked) return null;
   return (
     <LockScreen
       name={name}
       initial={initial}
-      onOpen={() => { lastActive.current = Date.now(); mark(false); setLocked(false); }}
+      onOpen={() => {
+        const now = Date.now();
+        lastActive.current = now;
+        share(TOUCH, now);
+        share(OPEN, now);
+        mark(false);
+        setLocked(false);
+      }}
+      onLeave={() => mark(false)}
     />
   );
 }
@@ -104,8 +175,8 @@ export default function IdleLock({
 /* -------------------------------------------------------------------------- */
 
 function LockScreen({
-  name, initial, onOpen,
-}: { name: string; initial: string; onOpen: () => void }) {
+  name, initial, onOpen, onLeave,
+}: { name: string; initial: string; onOpen: () => void; onLeave: () => void }) {
   const pin = useRef('');
   const [, redraw] = useReducer((n: number) => n + 1, 0);
   const [state, setState] = useState<LoginState>({});
@@ -232,7 +303,7 @@ function LockScreen({
         </div>
 
         {/* 다른 사람이면 자기 계정으로 들어가야 한다 */}
-        <form action={logout} className="mt-5 text-center">
+        <form action={logout} onSubmit={onLeave} className="mt-5 text-center">
           <button type="submit"
                   className="rounded-md px-2 py-1 text-xs font-semibold text-on-dark-mute transition-colors hover:text-white">
             다른 사람이 쓰려면 로그아웃

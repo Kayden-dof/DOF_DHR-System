@@ -38,6 +38,11 @@ export interface SessionUser {
    * 것이 정상이고 그때는 지금까지와 똑같이 움직인다.
    */
   screens: ReadonlyMap<string, boolean>;
+  /**
+   * 이 세션을 발급한 시각(ms). 자리 비움 잠금이 "이 세션에서 잠갔는가" 를 가리는
+   * 데 쓴다 - 다시 로그인하면 값이 바뀌므로 앞 세션의 잠금 표시가 따라오지 않는다.
+   */
+  issued_at: number;
 }
 
 function secret(): Buffer {
@@ -187,6 +192,7 @@ export async function currentUser(): Promise<SessionUser | null> {
 
     return {
       ...row,
+      issued_at: claim.issuedAt,
       roles: row.roles ?? [],
       screens: new Map(Object.entries(row.screens ?? {})),
     };

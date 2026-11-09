@@ -270,7 +270,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         * 누가 언제 봤는지가 함께 남는다. 뒤로가기는 홈 화면 앱에서 브라우저
         * 뒤로가기가 없는 자리를 메운다.
         */}
-      <IdleLock minutes={30} name={user.full_name} initial={initial} />
+      <IdleLock minutes={30} sid={String(user.issued_at)} name={user.full_name} initial={initial} />
       <Watermark text={stamp(user.full_name, user.login_code)} />
       <BackFab />
     </div>

@@ -104,7 +104,7 @@ export default async function WorkLayout({ children }: { children: React.ReactNo
         * 시간은 공정 대기 시간을 보고 정해야 한다. 초임계 가공처럼 오래 도는
         * 공정이 있으면 더 길어야 한다.
         */}
-      <IdleLock minutes={20} name={user.full_name} initial={user.full_name.slice(0, 1)} />
+      <IdleLock minutes={20} sid={String(user.issued_at)} name={user.full_name} initial={user.full_name.slice(0, 1)} />
 
       <footer className="mx-auto w-full max-w-[1240px] px-5 pb-8 pt-4">
         <div className="flex items-center justify-between gap-4 border-t border-line pt-4">
