@@ -796,8 +796,8 @@ export function FormSheet({
         <table className="form-table" style={{ left: pt(right - 240), top: pt(bottom + 8), width: pt(240) }}>
           <tbody>
             <tr style={{ height: pt(13) }}>
-              <td style={{ fontSize: pt(8), fontWeight: 700 }}>작업자</td>
-              <td style={{ fontSize: pt(8), fontWeight: 700 }}>생산 책임자</td>
+              <td style={{ fontSize: pt(9), fontWeight: 700, textAlign: 'center' }}>작업자</td>
+              <td style={{ fontSize: pt(9), fontWeight: 700, textAlign: 'center' }}>생산 책임자</td>
             </tr>
             <tr style={{ height: pt(28) }}>
               <td data-sign-role="작업자" className="sign-box" />

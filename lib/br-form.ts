@@ -92,7 +92,7 @@ export function fillForm(form: BrForm, d: FillData): { pages: FormPage[]; placed
       let section: Section = null;
       /* 자재 줄을 채웠는가 - 작업자 · 일자 칸은 그 칸이 걸친 줄 가운데 하나라도 채웠을 때 */
       const filledRow = new Set<number>();
-      const workerCells: { ri: number; rs: number; cell: FormCell; role: 'worker' | 'date' }[] = [];
+      const workerCells: { ri: number; rs: number; cell: FormCell; role: 'worker' | 'date'; sz: number }[] = [];
 
       tb.rows.forEach((row, ri) => {
         const hits = row.cells.filter((c) => ROLE[norm(c.t)]);
@@ -120,16 +120,18 @@ export function fillForm(form: BrForm, d: FillData): { pages: FormPage[]; placed
         }
 
         const by = (role: string) => row.cells.find((c) => roles[c.c] === role);
+        /* 채운 글자는 그 줄 양식 글자와 같은 크기로 - 작게 들어가면 덧붙인 것처럼 보인다 */
+        const sz = Math.max(0, ...row.cells.filter((c) => norm(c.t) && !c.f).map((c) => c.s ?? 10)) || 10;
 
         if (section === 'head') {
           const batch = by('batch');
           if (batch && (!norm(batch.t) || norm(batch.t) === 'B')) {
-            Object.assign(batch, { t: d.batchNo, f: true, a: 'c' as const, b: false });
+            Object.assign(batch, { t: d.batchNo, f: true, a: 'c' as const, b: false, s: sz });
           }
           const plot = by('plot');
-          if (plot && !norm(plot.t) && d.productLotNo) Object.assign(plot, { t: d.productLotNo, f: true, a: 'c' as const });
+          if (plot && !norm(plot.t) && d.productLotNo) Object.assign(plot, { t: d.productLotNo, f: true, a: 'c' as const, s: sz });
           const model = by('model');
-          if (model && !norm(model.t) && d.productModel) Object.assign(model, { t: d.productModel, f: true, a: 'c' as const });
+          if (model && !norm(model.t) && d.productModel) Object.assign(model, { t: d.productModel, f: true, a: 'c' as const, s: sz });
         }
 
         if (section === 'equip' && d.equipment) {
@@ -161,14 +163,14 @@ export function fillForm(form: BrForm, d: FillData): { pages: FormPage[]; placed
               }
             }
             if (text) {
-              Object.assign(lotCell, { t: text, f: true, a: 'c' as const, b: false });
+              Object.assign(lotCell, { t: text, f: true, a: 'c' as const, b: false, s: sz });
               filledRow.add(ri);
             }
           }
           for (const c of row.cells) {
             const role = roles[c.c];
             if ((role === 'worker' || role === 'date') && !norm(c.t)) {
-              workerCells.push({ ri, rs: c.rs ?? 1, cell: c, role });
+              workerCells.push({ ri, rs: c.rs ?? 1, cell: c, role, sz });
             }
           }
         }
@@ -177,7 +179,7 @@ export function fillForm(form: BrForm, d: FillData): { pages: FormPage[]; placed
           const item = by('stepitem');
           const result = by('result');
           if (item && result && norm(item.t) === norm(rawName) && !norm(result.t)) {
-            Object.assign(result, { t: `${d.sheets} ${d.loadUnit ?? '장'}`, f: true, a: 'c' as const });
+            Object.assign(result, { t: `${d.sheets} ${d.loadUnit ?? '장'}`, f: true, a: 'c' as const, s: sz });
           }
         }
       });
@@ -185,7 +187,7 @@ export function fillForm(form: BrForm, d: FillData): { pages: FormPage[]; placed
       for (const w of workerCells) {
         let hit = false;
         for (let k = w.ri; k < w.ri + w.rs; k++) if (filledRow.has(k)) hit = true;
-        if (hit) Object.assign(w.cell, { t: w.role === 'worker' ? d.worker : d.workDate, f: true, a: 'c' as const, b: false });
+        if (hit) Object.assign(w.cell, { t: w.role === 'worker' ? d.worker : d.workDate, f: true, a: 'c' as const, b: false, s: w.sz });
       }
     }
   }
@@ -200,7 +202,7 @@ export function fillForm(form: BrForm, d: FillData): { pages: FormPage[]; placed
     .map((x) => `정정 ${x.item_name} ${x.lot_no} · ${x.amend_reason}`);
   const lines = [...d.notes, ...extra, ...amend];
   if (noteCell && lines.length) {
-    Object.assign(noteCell as FormCell, { t: lines.join('\n'), f: true, a: 'l' as const, b: false, s: 8 });
+    Object.assign(noteCell as FormCell, { t: lines.join('\n'), f: true, a: 'l' as const, b: false, s: 9 });
   }
 
   /* 특이사항 칸이 없는 양식이면 부르는 쪽이 장 아래에 적는다 */
