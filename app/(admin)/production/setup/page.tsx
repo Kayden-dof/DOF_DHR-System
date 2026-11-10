@@ -34,7 +34,7 @@ export const metadata = { title: '제품' };
 --------------------------------------------------------------------------- */
 export default async function ProductionSetupPage({
   searchParams,
-}: { searchParams: Promise<{ dm?: string }> }) {
+}: { searchParams: Promise<{ dm?: string; p?: string }> }) {
   const user = await requireUser();
   if (blocksScreen(user, '/production/setup')) {
     return <Denied what="생산 품목 설정" need="생산관리자 또는 시스템관리자" />;
@@ -70,7 +70,7 @@ export default async function ProductionSetupPage({
       </>}
       nav={<SubNav items={PRODUCTION_NAV} />}
     >
-      <DmrWorkbench userId={user.id} dmParam={sp.dm} base="/production/setup" writable={canWrite(user)}
+      <DmrWorkbench userId={user.id} dmParam={sp.dm} productParam={sp.p} base="/production/setup" writable={canWrite(user)}
                     fixes={{ fin: fixAt(user, '/settings/items', '?type=FIN'), material: fixAt(user, '/material/items') }} />
     </PageShell>
   );

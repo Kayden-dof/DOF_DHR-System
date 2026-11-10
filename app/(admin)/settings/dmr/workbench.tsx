@@ -3,6 +3,8 @@ import FlowDiagram from './flow-diagram';
 import { withActor } from '@/lib/db';
 import { fmtDate, fmtDateTime } from '@/lib/fmt';
 import { Panel, Empty, Tag, Field } from '@/components/ui';
+import { FilterBar } from '@/components/shell';
+import { Table, Th, Td, IdCell, RowLink } from '@/components/table';
 import { Unblock } from '@/components/unblock';
 import type { Fix } from '@/lib/unblock';
 import {
@@ -32,14 +34,44 @@ interface DmRow {
   load_unit: string | null;
   item_code: string; item_name: string;
   op_count: number; bom_count: number; wo_count: number;
+  /** 작업 지시 발행이 받아 주는 개정인가 (0061 의 세 조건) */
+  in_force: boolean;
 }
+
+/* ---------------------------------------------------------------------------
+   개정의 상태 (사용자 2026-11-11 «Rev 몇이 현행본이고 몇 개가 지나갔는지»)
+
+   작업 지시 발행이 묻는 규칙(0061)을 그대로 읽는다. 시스템이 새로 판정하지 않는다.
+     현행      서면 대조 확인 · ACTIVE · 시행일이 오늘 이전인 개정 가운데 가장 나중 것
+     지난 개정  같은 조건이지만 더 나중 개정이 시행된 것
+     시행 전    확인은 끝났으나 시행일이 비었거나 아직 오지 않은 것
+     작성 중    서면 대조 확인 전
+--------------------------------------------------------------------------- */
+function revState(m: DmRow, currentId: string | null): {
+  key: 'current' | 'past' | 'pending' | 'draft'; label: string; tone: 'ok' | 'quiet' | 'info' | 'warn';
+} {
+  if (!m.verified_at || m.status !== 'ACTIVE') return { key: 'draft', label: '작성 중', tone: 'warn' };
+  if (!m.in_force) return { key: 'pending', label: '시행 전', tone: 'info' };
+  if (m.id === currentId) return { key: 'current', label: '현행', tone: 'ok' };
+  return { key: 'past', label: '지난 개정', tone: 'quiet' };
+}
+
+/** 제품의 열쇠. 제품 코드가 없으면 대표 형명 */
+const keyOf = (m: DmRow) => m.product_code ?? m.item_code;
+/** 그 제품의 현행본: 받아 주는 개정 가운데 시행일 · 개정이 가장 나중 것 */
+const currentOf = (revs: DmRow[]) => revs
+  .filter((m) => m.in_force)
+  .sort((a, b) => (b.effective_from ?? '').localeCompare(a.effective_from ?? '')
+                  || b.revision.localeCompare(a.revision))[0] ?? null;
 
 type Search = Promise<{ dm?: string }>;
 
 export async function DmrWorkbench({
-  userId, dmParam, base, writable = true, fixes,
+  userId, dmParam, productParam, base, writable = true, fixes,
 }: {
   userId: string;
+  /** 고른 제품 (제품 코드, 쿼리스트링 ?p=) */
+  productParam?: string;
   /**
    * 막힌 단추를 푸는 자리 (사용자 요청 2026-11-07). 부르는 화면이 그 사람의
    * 권한으로 정해 넘긴다 (lib/unblock.ts) - 완제품 형명과 자재 품목.
@@ -69,13 +101,24 @@ export async function DmrWorkbench({
               (select count(*)::int from dmr_bom b
                  join dmr_operation o on o.id = b.operation_id
                 where o.device_master_id = dm.id) as bom_count,
-              (select count(*)::int from work_order w where w.device_master_id = dm.id) as wo_count
+              (select count(*)::int from work_order w where w.device_master_id = dm.id) as wo_count,
+              (dm.verified_at is not null and dm.status = 'ACTIVE' and dm.effective_from is not null
+               and dm.effective_from <= (timezone('Asia/Seoul', now()))::date) as in_force
          from device_master dm
          join item i on i.id = dm.item_id
          left join app_user u on u.id = dm.verified_by
         order by i.code, dm.revision desc`);
 
-    const selected = dmParam ?? masters[0]?.id ?? null;
+    /*
+     * 제품을 고르면 그 제품의 현행본(없으면 가장 나중 개정)을 연다. 개정을 직접
+     * 고른 주소(?dm=)가 있으면 그것이 이긴다 - 공정 · 자재 링크가 그 주소로 돌아온다.
+     */
+    const byDm = masters.find((m) => m.id === dmParam);
+    const productKey = byDm ? keyOf(byDm)
+      : (productParam && masters.some((m) => keyOf(m) === productParam) ? productParam
+        : masters[0] ? keyOf(masters[0]) : null);
+    const productRevs = masters.filter((m) => keyOf(m) === productKey);
+    const selected = byDm?.id ?? currentOf(productRevs)?.id ?? productRevs[0]?.id ?? null;
 
     const operations = selected
       ? await db.rows<OperationRow>(
@@ -125,6 +168,19 @@ export async function DmrWorkbench({
   });
 
   const dm = d.masters.find((m) => m.id === d.selected) ?? null;
+
+  /* 제품별 묶음 · 현행본 · 상태별 개수 (사용자 2026-11-11) */
+  const products = [...new Set(d.masters.map(keyOf))].map((key) => {
+    const revs = d.masters.filter((m) => keyOf(m) === key);
+    const current = currentOf(revs);
+    const counts = { past: 0, pending: 0, draft: 0 };
+    for (const m of revs) {
+      const k = revState(m, current?.id ?? null).key;
+      if (k !== 'current') counts[k] += 1;
+    }
+    return { key, name: revs[0].product_name ?? revs[0].item_name, revs, current, counts };
+  });
+  const product = (dm ? products.find((p) => p.key === keyOf(dm)) : products[0]) ?? null;
   const verified = !!dm?.verified_at;
   const editable = !!dm && dm.wo_count === 0 && writable;
 
@@ -139,33 +195,63 @@ export async function DmrWorkbench({
         </Panel>
       ) : (
         <>
-          <div className="flex flex-wrap gap-2">
-            {d.masters.map((m) => (
-              <Link
-                key={m.id}
-                href={`${base}?dm=${m.id}`}
-                className={`rounded-md border px-3 py-2 text-left transition-colors ${
-                  m.id === d.selected
-                    ? 'border-brand bg-brand-soft'
-                    : 'border-line bg-surface hover:border-line-strong'
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <code className="font-mono text-xs font-semibold text-ink">
-                    {m.product_code ?? m.item_code}
-                  </code>
-                  <span className="font-mono text-xs text-brand-deep">{m.revision}</span>
-                  <Tag tone={m.verified_at ? 'ok' : 'warn'}>
-                    {m.verified_at ? '대조 확인' : '확인 전'}
-                  </Tag>
-                </div>
-                <div className="mt-0.5 text-xs text-muted">
-                  공정 {m.op_count} · 자재 {m.bom_count}
-                  {m.wo_count > 0 && ` · 발행 ${m.wo_count}`}
-                </div>
-              </Link>
-            ))}
-          </div>
+          {/*
+            * 제품별로 묶는다 (사용자 2026-11-11 «DX2401 (2) / DX2402 (1) 이런 형태로»).
+            * 전에는 모든 제품의 모든 개정이 카드 한 줄에 섞여, 제품이 늘면 어느 것이
+            * 어느 제품의 현행본인지 카드를 하나씩 읽어야 했다. 숫자는 그 제품의 개정 수.
+            */}
+          <FilterBar items={products.map((p) => ({
+            href: `${base}?p=${encodeURIComponent(p.key)}`,
+            label: p.key, count: p.revs.length, on: p.key === product?.key,
+          }))} />
+
+          {product && (
+            <Panel title="개정 이력"
+                   note={<>
+                     {product.name}
+                     {' · '}현행 <b className="font-mono text-ink">{product.current?.revision ?? '없음'}</b>
+                     {product.counts.past > 0 && <> · 지난 개정 {product.counts.past}</>}
+                     {product.counts.pending > 0 && <> · 시행 전 {product.counts.pending}</>}
+                     {product.counts.draft > 0 && <> · 작성 중 {product.counts.draft}</>}
+                   </>}>
+              {/*
+                * 무엇이 현행본인지는 작업 지시 발행이 묻는 것과 같은 규칙으로 정한다
+                * (0061 trg_wo_dmr_effective): 서면 대조 확인 · 발효(ACTIVE) · 시행일이
+                * 오늘 이전. 그런 개정 가운데 가장 나중 것이 현행이고 그 앞은 지난 개정이다.
+                * 개정 사유는 서면 제품표준서에서 옮긴 비고(note)다 - 시스템이 차이를 셈하지 않는다.
+                */}
+              <Table grow={5}>
+                <thead>
+                  <tr>
+                    <Th>개정</Th>
+                    <Th>상태</Th>
+                    <Th>시행일</Th>
+                    <Th>서면 대조 확인</Th>
+                    <Th>개정 사유</Th>
+                    <Th right>공정 · 자재</Th>
+                    <Th right>발행</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {product.revs.map((m) => {
+                    const st = revState(m, product.current?.id ?? null);
+                    return (
+                      <RowLink key={m.id} href={`${base}?dm=${m.id}`}>
+                        <IdCell id={m.revision}
+                                sub={m.id === d.selected ? '보는 중' : undefined} />
+                        <Td><Tag tone={st.tone}>{st.label}</Tag></Td>
+                        <Td className="tnum">{m.effective_from ? fmtDate(m.effective_from) : '미정'}</Td>
+                        <Td className="tnum">{m.verified_at ? fmtDate(m.verified_at) : ''}</Td>
+                        <Td className="text-sm">{m.note ?? ''}</Td>
+                        <Td right>{m.op_count} · {m.bom_count}</Td>
+                        <Td right>{m.wo_count || ''}</Td>
+                      </RowLink>
+                    );
+                  })}
+                </tbody>
+              </Table>
+            </Panel>
+          )}
 
           {dm && (
             <>

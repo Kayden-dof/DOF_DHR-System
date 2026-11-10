@@ -20,7 +20,7 @@ export const metadata = { title: '제품표준서' };
 /* 작업대는 workbench.tsx 하나다. 생산 > 품목 설정과 같은 것을 쓴다. */
 export default async function DmrPage({
   searchParams,
-}: { searchParams: Promise<{ dm?: string }> }) {
+}: { searchParams: Promise<{ dm?: string; p?: string }> }) {
   const user = await requireUser();
   /* 열람자에게 열어 둔 화면이 아니다. 주소를 직접 쳐도 들어가지 못한다 */
   if (blocksScreen(user, '/settings/dmr')) return <Denied what="이 화면" need="생산관리자 또는 시스템관리자" />;
@@ -43,7 +43,7 @@ export default async function DmrPage({
       action={writable && <NewDeviceMaster items={fin} fix={fixes.fin} />}
       nav={<SubNav items={settingsNav(user.roles, user.screens)} />}
     >
-      <DmrWorkbench userId={user.id} dmParam={sp.dm} base="/settings/dmr" writable={writable}
+      <DmrWorkbench userId={user.id} dmParam={sp.dm} productParam={sp.p} base="/settings/dmr" writable={writable}
                     fixes={fixes} />
     </PageShell>
   );
