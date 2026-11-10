@@ -342,7 +342,7 @@ export function ForceReasonForm({ recordId, woId, current }: {
   if (!open || state.ok) {
     return (
       <>
-        <button type="button" onClick={() => setOpen(true)} className="qd-text-action">강제 정정</button>
+        <button type="button" onClick={() => setOpen(true)} className="qd-text-action">사유 강제 정정</button>
         {state.ok && <Msg state={state} />}
       </>
     );

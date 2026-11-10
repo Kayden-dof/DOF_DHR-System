@@ -969,7 +969,7 @@ export function DmrLimitsForm({
                autoComplete="off" placeholder="장" className="input" />
       </div>
 
-      <div className="w-28">
+      <div className="w-36">
         <label className="label" htmlFor={`${uid}-steril_box_qty`}>멸균 박스 한 개 수량</label>
         <input id={`${uid}-steril_box_qty`} name="steril_box_qty" type="number" min={1} defaultValue={boxQty ?? ''}
                placeholder="없음" className="input tnum" />
