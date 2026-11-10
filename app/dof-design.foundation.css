@@ -2399,6 +2399,54 @@ html[data-theme='light'] .q-mark-on-dark { display: none; }
   min-height: 60mm;
   padding: 2.5mm 3mm;
 }
+
+/* ---------------------------------------------------------------------------
+   회사 양식 장 - 제조기록서(F706) 모양 (0130 · 사용자 2026-11-10)
+
+   양식 PDF 의 좌표(pt)를 그대로 쓴다. 가로 A4 = 842 × 595pt 에 1:1.
+   글꼴은 양식과 같은 맑은 고딕 하나 - 채운 칸도 같은 글꼴 · 같은 크기다.
+   고정폭 글꼴이나 다른 크기를 섞지 않는다 (사용자 «글 규격도 다 너무 엉망»).
+--------------------------------------------------------------------------- */
+.sheet.sheet--form {
+  width: 297mm;
+  height: 210mm;
+  min-height: 210mm;
+  padding: 0;
+  overflow: hidden;
+  font-family: 'Malgun Gothic', '맑은 고딕', var(--font-sans);
+  color: #000;
+}
+.sheet--form .form-text { position: absolute; white-space: nowrap; line-height: 1; color: #000; }
+.sheet--form .form-table {
+  position: absolute;
+  border-collapse: collapse;
+  table-layout: fixed;
+  border: 1.5pt solid #000;
+  color: #000;
+  font-family: inherit;
+}
+.sheet--form .form-table td {
+  border: 0.75pt solid #000;
+  padding: 0 2pt;
+  vertical-align: middle;
+  white-space: pre-wrap;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  line-height: 1.2;
+  overflow: hidden;
+}
+.sheet--form .form-table td[data-note] { vertical-align: top; padding: 3pt 4pt; line-height: 1.35; }
+.sheet--form .form-table td.sign-box { height: auto; }
+.sheet--form .form-strip {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8pt;
+  font-size: 6.5pt;
+  line-height: 1.2;
+  color: #000;
+}
 .sheet {
   width: 210mm;
   min-height: 297mm;
@@ -2703,6 +2751,16 @@ html[data-theme='light'] .q-mark-on-dark { display: none; }
    * 라벨 크기 (오너 결정 2026-09-27 · 화면 검토 C31). 자재 라벨 한 장이 100 × 60mm 한 쪽이다.
    * 이름 붙은 쪽(page: label)이라 A4 양식과 한 문서에 섞여도 그 장만 라벨 크기로 나간다.
    */
+  /* 회사 양식 장은 가로 A4, 여백 없음 - 양식의 좌표가 종이 가장자리부터다 */
+  @page form { size: A4 landscape; margin: 0; }
+  .sheet.sheet--form {
+    page: form;
+    width: 297mm;
+    height: 210mm;
+    min-height: 210mm;
+    padding: 0;
+    overflow: hidden;
+  }
   @page label { size: 100mm 60mm; margin: 0; }
   .sheet.sheet--label {
     page: label;

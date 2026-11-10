@@ -4,7 +4,8 @@ import { withActor, dbMessage } from '@/lib/db';
 import { fmtDate, fmtDateTime } from '@/lib/fmt';
 import { logPrint, printGate, viewParam } from '@/lib/print';
 import Denied from '@/components/denied';
-import PrintFrame, { Sheet, SignRow } from '@/components/print-frame';
+import PrintFrame, { Sheet, SignRow, FormSheet, formHasSignRoom } from '@/components/print-frame';
+import { fillForm, type BrForm, type FormPage } from '@/lib/br-form';
 import { dayRecordPayload, hashable, type RecRow } from '@/lib/print-payload';
 import { chunkRows } from '@/lib/print-pages';
 
@@ -257,6 +258,74 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = fal
   const sheetCount = pageRows.length + (specLines.length > 0 ? 1 : 0);
 
   /* -------------------------------------------------------------------------
+     회사 제조기록서(F706) 모양 (0130 · 사용자 2026-11-10 «제조기록서 모양으로»)
+
+     공정마다 그 공정의 제조기록서 양식이 등록돼 있으면(mfg_doc.form) 그
+     모양 그대로 가로 A4 로 낸다. 시스템이 아는 칸만 채우고 나머지는 종이에서
+     적는다 (lib/br-form.ts). 양식이 없는 공정은 지금까지의 표로 낸다.
+
+     자료 식별자는 바뀌지 않는다 - 담는 자료(payload)는 그대로이고 그리는
+     모양만 바뀌었다. 양식 · 로트 없음 품목은 payload 밖에서 읽는다.
+  ------------------------------------------------------------------------- */
+  const look = await withActor(user.id, async (db) => {
+    const product = await db.val<string>(
+      `select dm.product_code from work_order wo
+         join device_master dm on dm.id = wo.device_master_id where wo.id = $1`, [id]);
+    const ops = [...new Set(records.map((r) => r.operation_code))];
+    const forms = product
+      ? await db.rows<{ op_code: string; doc_no: string; form: BrForm }>(
+          `select distinct on (op_code) op_code, doc_no, form
+             from mfg_doc
+            where product_code = $1 and kind = 'BR' and is_current and form is not null
+              and op_code = any($2::text[])
+            /* 공정 본 기록서가 먼저다 - 별첨(F706-…-03-01)은 번호가 길다 */
+            order by op_code, length(doc_no), doc_no, revision desc`, [product, ops])
+      : [];
+    const noLot = (await db.rows<{ code: string }>(
+      `select code from item where not lot_tracked`)).map((x) => x.code);
+    return { forms, noLot };
+  });
+  const formOf = new Map(look.forms.map((f) => [f.op_code, f.form]));
+  const hms = (v: Date | null) => (v ? fmtDateTime(v).slice(11) : '');
+  const plans = records.flatMap((r) => {
+    const form = formOf.get(r.operation_code);
+    if (!form) return [];
+    const notes = [
+      [`시스템 기록 · 시작 ${hms(r.started_at)} · 종료 ${hms(r.ended_at)}`,
+       r.attempt > 1 ? `${r.attempt}회차` : '',
+       r.equipment_id ? `설비 ${r.equipment_id}` : ''].filter(Boolean).join(' · '),
+      r.rotation_name ? `순환자 ${r.rotation_name} (서명하지 않음)` : '',
+      r.product_lot_no
+        ? `제조번호 ${r.product_lot_no} · ${r.product_item_code ?? ''} · ${r.product_qty ?? ''}개`
+          + (r.product_sample ? ` (샘플 ${r.product_sample})` : '')
+        : '',
+      r.rework_qty ? `재포장 ${r.rework_qty}` : '',
+      r.no_material_reason ? `자재 미사용 사유 · ${r.no_material_reason}` : '',
+      ...r.steril.map((v) => `위탁 발송 ${v.qty}개 · ${v.batch_no}`),
+    ].filter(Boolean);
+    const filled = fillForm(form, {
+      batchNo: head.batch_no,
+      productLotNo: r.product_lot_no, productModel: r.product_item_code,
+      rawItemCode: head.raw_item_code, rawLotNo: head.raw_lot_no,
+      sheets: head.sheet_count, loadUnit: head.load_unit,
+      worker: head.worker_name, workDate: fmtDate(head.work_date),
+      issues: r.issues, noLotCodes: look.noLot,
+      equipment: r.equipment_id, notes,
+    });
+    return [{ r, size: form.page, pages: filled.pages, lost: filled.lost }];
+  });
+  const plain = records.filter((r) => !formOf.has(r.operation_code));
+  const plainPages = plain.length ? chunkRows(plain, ROWS_FIRST, ROWS_NEXT) : [];
+  const formPages = plans.reduce((a, p) => a + p.pages.length, 0);
+  /* 서명란은 묶음의 마지막 장에 한 번. 뒤에 세로 장이 있으면 그 장이 갖는다 */
+  const lastPlan = plans[plans.length - 1];
+  const signOnForm = plans.length > 0 && plain.length === 0 && specLines.length === 0;
+  const signRoom = signOnForm && !!lastPlan
+    && formHasSignRoom(lastPlan.pages[lastPlan.pages.length - 1] as FormPage);
+  const signSheet = signOnForm && !signRoom ? 1 : 0;
+  const formSheetCount = formPages + plainPages.length + signSheet + (specLines.length > 0 ? 1 : 0);
+
+  /* -------------------------------------------------------------------------
      뽑을 수 없으면 그 까닭을 종이 대신 화면으로 말한다
 
      인쇄가 곧 마감이다 (S04). 그런데 종료 시각이 없는 공정이 있으면 마감이
@@ -321,9 +390,155 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = fal
     actorId: user.id, actorName: user.full_name, kind: 'DAY_RECORD',
     workOrderId: id, dayNo, workerId: worker,
     payload: hashable({ head, records }),
-    pages: sheetCount,
+    pages: plans.length > 0 ? formSheetCount : sheetCount,
     lockDay: true,
   });
+
+  /* 생산 규격 기록지 한 장. 세로 양식과 회사 양식 두 갈래가 같은 장을 쓴다 */
+  const specSheet = (page: number) => (
+          <Sheet meta={meta} page={page}
+                 title="생산 규격 기록지"
+                 subtitle={<>배치 {head.batch_no} · {dayNo}일차 · {head.worker_name}</>}>
+            <table className="print-table">
+              <tbody>
+                <tr>
+                  <th className="w-[15%]">배치번호</th>
+                  <td className="w-[35%] font-mono font-bold">{head.batch_no}</td>
+                  <th className="w-[15%]">원재료 로트</th>
+                  <td className="w-[35%] font-mono">{head.raw_lot_no}</td>
+                </tr>
+                <tr>
+                  <th>제품</th>
+                  <td>{head.item_name}</td>
+                  <th>장입 수량</th>
+                  <td className="tnum">{head.sheet_count} {head.load_unit ?? ''}</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <h2 className="mt-5 text-sm font-bold text-black">규격별 생산 수량</h2>
+            <table className="print-table mt-1.5">
+              <thead>
+                <tr>
+                  <th className="w-[18%]">제조번호</th>
+                  <th className="w-[18%]">모델명</th>
+                  <th className="w-[26%]">규격</th>
+                  <th className="w-[10%] text-right">생산</th>
+                  <th className="w-[10%] text-right">샘플</th>
+                  <th className="w-[18%] text-right">멸균 발송</th>
+                </tr>
+              </thead>
+              <tbody>
+                {specLines.map((l) => (
+                  <tr key={l.lot_no}>
+                    <td className="font-mono font-bold">{l.lot_no}</td>
+                    <td className="font-mono">{l.item_code}</td>
+                    <td>{l.item_name}</td>
+                    <td className="text-right tnum">{l.produced}</td>
+                    <td className="text-right tnum">{l.sample || ''}</td>
+                    <td className="text-right tnum font-bold">{l.steril || ''}</td>
+                  </tr>
+                ))}
+                <tr>
+                  <th colSpan={3} className="text-right">합계</th>
+                  <td className="text-right tnum font-bold">
+                    {specLines.reduce((a, l) => a + l.produced, 0)}
+                  </td>
+                  <td className="text-right tnum">
+                    {specLines.reduce((a, l) => a + l.sample, 0) || ''}
+                  </td>
+                  <td className="text-right tnum font-bold">
+                    {specLines.reduce((a, l) => a + l.steril, 0) || ''}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            {sterilBatches.length > 0 && (
+              <>
+                <h2 className="mt-5 text-sm font-bold text-black">위탁 멸균</h2>
+                {sterilBatches.map((b) => (
+                  <table key={b.batch_no} className="print-table mt-1.5">
+                    <tbody>
+                      <tr>
+                        <th className="w-[15%]">멸균 배치</th>
+                        <td className="w-[35%] font-mono font-bold">{b.batch_no}</td>
+                        <th className="w-[15%]">위탁 업체</th>
+                        <td className="w-[35%]">{b.vendor_name}</td>
+                      </tr>
+                      <tr>
+                        <th>발송일</th>
+                        <td className="tnum">{b.shipped_at ? fmtDate(b.shipped_at) : ''}</td>
+                        <th>멸균 성적서</th>
+                        <td className="font-mono">{b.cert_no ?? ''}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                ))}
+              </>
+            )}
+
+            <p className="mt-3 text-[10px] leading-relaxed text-black">
+              규격은 {head.split_op ?? '제조번호 부여'} 공정에서 확정됩니다. 이 표의 수량은
+              그 결과이며 시스템이 판정한 값이 아닙니다.
+            </p>
+
+            <SignRow roles={['작업자', '생산 책임자']} />
+          </Sheet>
+  );
+
+  if (plans.length > 0) {
+    let n = 0;
+    const caption = <>배치 {head.batch_no} · {dayNo}일차 · {head.worker_name}</>;
+    return (
+      <PrintFrame
+        raw
+        bare={bare}
+        meta={meta}
+        title="제조기록서"
+        subtitle={caption}
+        back={`/production/${id}`}
+      >
+        {plans.flatMap((p, k) => p.pages.map((pg, i) => {
+          n += 1;
+          const last = k === plans.length - 1 && i === p.pages.length - 1;
+          return (
+            <FormSheet key={`${k}-${i}`} meta={meta} page={pg} size={p.size}
+                       formPage={{ n: i + 1, of: p.pages.length }}
+                       sheet={{ n, of: formSheetCount }}
+                       caption={caption}
+                       sign={last && signRoom}
+                       extra={i === p.pages.length - 1 ? p.lost : undefined} />
+          );
+        }))}
+
+        {/* 양식이 없는 공정은 지금까지의 표로 */}
+        {plainPages.map((rows, k) => {
+          n += 1;
+          const lastPlain = k === plainPages.length - 1;
+          return (
+            <Sheet key={`p${k}`} meta={meta} page={n}
+                   title="제조기록서"
+                   subtitle={<>{caption} · 양식이 등록되지 않은 공정</>}>
+              <RecordTable rows={rows} title="공정 기록" />
+              {lastPlain && specLines.length === 0 && <SignRow roles={['작업자', '생산 책임자']} />}
+            </Sheet>
+          );
+        })}
+
+        {signSheet > 0 && (
+          <Sheet meta={meta} page={formPages + 1} title="제조기록서 확인" subtitle={caption}>
+            <p className="text-[10px] text-black">
+              앞 {formPages}장의 공정 기록을 확인하고 서명합니다.
+            </p>
+            <SignRow roles={['작업자', '생산 책임자']} />
+          </Sheet>
+        )}
+
+        {specLines.length > 0 && specSheet(formSheetCount)}
+      </PrintFrame>
+    );
+  }
 
   return (
     <PrintFrame
@@ -353,95 +568,7 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = fal
           * 공정 기록 사이에 끼워 넣으면 같은 배치가 여러 건인 것처럼 읽힌다.
           * 장을 나눠 뒤에 붙인다.
           */
-        <Sheet meta={meta} page={sheetCount}
-               title="생산 규격 기록지"
-               subtitle={<>배치 {head.batch_no} · {dayNo}일차 · {head.worker_name}</>}>
-          <table className="print-table">
-            <tbody>
-              <tr>
-                <th className="w-[15%]">배치번호</th>
-                <td className="w-[35%] font-mono font-bold">{head.batch_no}</td>
-                <th className="w-[15%]">원재료 로트</th>
-                <td className="w-[35%] font-mono">{head.raw_lot_no}</td>
-              </tr>
-              <tr>
-                <th>제품</th>
-                <td>{head.item_name}</td>
-                <th>장입 수량</th>
-                <td className="tnum">{head.sheet_count} {head.load_unit ?? ''}</td>
-              </tr>
-            </tbody>
-          </table>
-
-          <h2 className="mt-5 text-sm font-bold text-black">규격별 생산 수량</h2>
-          <table className="print-table mt-1.5">
-            <thead>
-              <tr>
-                <th className="w-[18%]">제조번호</th>
-                <th className="w-[18%]">모델명</th>
-                <th className="w-[26%]">규격</th>
-                <th className="w-[10%] text-right">생산</th>
-                <th className="w-[10%] text-right">샘플</th>
-                <th className="w-[18%] text-right">멸균 발송</th>
-              </tr>
-            </thead>
-            <tbody>
-              {specLines.map((l) => (
-                <tr key={l.lot_no}>
-                  <td className="font-mono font-bold">{l.lot_no}</td>
-                  <td className="font-mono">{l.item_code}</td>
-                  <td>{l.item_name}</td>
-                  <td className="text-right tnum">{l.produced}</td>
-                  <td className="text-right tnum">{l.sample || ''}</td>
-                  <td className="text-right tnum font-bold">{l.steril || ''}</td>
-                </tr>
-              ))}
-              <tr>
-                <th colSpan={3} className="text-right">합계</th>
-                <td className="text-right tnum font-bold">
-                  {specLines.reduce((a, l) => a + l.produced, 0)}
-                </td>
-                <td className="text-right tnum">
-                  {specLines.reduce((a, l) => a + l.sample, 0) || ''}
-                </td>
-                <td className="text-right tnum font-bold">
-                  {specLines.reduce((a, l) => a + l.steril, 0) || ''}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-
-          {sterilBatches.length > 0 && (
-            <>
-              <h2 className="mt-5 text-sm font-bold text-black">위탁 멸균</h2>
-              {sterilBatches.map((b) => (
-                <table key={b.batch_no} className="print-table mt-1.5">
-                  <tbody>
-                    <tr>
-                      <th className="w-[15%]">멸균 배치</th>
-                      <td className="w-[35%] font-mono font-bold">{b.batch_no}</td>
-                      <th className="w-[15%]">위탁 업체</th>
-                      <td className="w-[35%]">{b.vendor_name}</td>
-                    </tr>
-                    <tr>
-                      <th>발송일</th>
-                      <td className="tnum">{b.shipped_at ? fmtDate(b.shipped_at) : ''}</td>
-                      <th>멸균 성적서</th>
-                      <td className="font-mono">{b.cert_no ?? ''}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              ))}
-            </>
-          )}
-
-          <p className="mt-3 text-[10px] leading-relaxed text-black">
-            규격은 {head.split_op ?? '제조번호 부여'} 공정에서 확정됩니다. 이 표의 수량은
-            그 결과이며 시스템이 판정한 값이 아닙니다.
-          </p>
-
-          <SignRow roles={['작업자', '생산 책임자']} />
-        </Sheet>
+        specSheet(sheetCount)
       ) : null}
       </>}
     >

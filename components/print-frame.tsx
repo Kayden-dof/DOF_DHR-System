@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import Barcode from './barcode';
+import { isPageLabel, type FormPage } from '@/lib/br-form';
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 export interface PrintMeta {
@@ -139,7 +140,7 @@ function barRight(m: PrintMeta) {
 }
 
 export default function PrintFrame({
-  meta, title, subtitle, back, children, after, bare = false,
+  meta, title, subtitle, back, children, after, bare = false, raw = false,
 }: {
   meta: PrintMeta;
   title: string;
@@ -150,6 +151,11 @@ export default function PrintFrame({
   after?: React.ReactNode;
   /** 묶음 문서에 끼워 넣을 때. 인쇄 막대를 내지 않는다 */
   bare?: boolean;
+  /**
+   * children 이 이미 장(Sheet · FormSheet)이다. 첫 장을 세로 A4 로 감싸지 않는다.
+   * 제조기록서가 회사 양식(F706, 가로 A4) 모양으로 나갈 때 쓴다 (0130).
+   */
+  raw?: boolean;
 }) {
   /*
    * 발행된 뒤의 meta. 인쇄 단추가 채운다.
@@ -198,12 +204,14 @@ export default function PrintFrame({
         * 성립할 자리가 생긴다 (lib/print.ts 머리 주석).
         */}
       {!m.view?.neverIssued && (
-        <>
-          <Sheet meta={m} title={title} subtitle={subtitle} page={1}>
-            {children}
-          </Sheet>
-          {after}
-        </>
+        raw ? <>{children}{after}</> : (
+          <>
+            <Sheet meta={m} title={title} subtitle={subtitle} page={1}>
+              {children}
+            </Sheet>
+            {after}
+          </>
+        )
       )}
     </MetaCtx.Provider>
   );
@@ -433,6 +441,100 @@ export function PrintBundle({ back, label, right, children }: {
 }
 
 /* ---------------------------------------------------------------------------
+   장 위의 표시 - 재발행 · 열람 · 미발행
+
+   세로 장(Sheet)과 회사 양식 장(FormSheet)이 같은 표시를 쓴다. 두 벌로 두면
+   한쪽만 고쳐져 어떤 종이에는 "정본 아님" 이 빠진다 (§10).
+   floating 은 양식 장에서 알림 줄을 양식 꼬리글 아래 빈자리에 띄운다 - 양식의
+   표 자리를 밀어내지 않는다.
+--------------------------------------------------------------------------- */
+const FLOAT_NOTE =
+  'absolute left-1/2 top-[575pt] z-10 -translate-x-1/2 whitespace-nowrap border border-black bg-white px-2 py-0.5 text-center text-[7pt] font-bold';
+
+function SheetMarks({ meta, floating = false }: { meta: PrintMeta; floating?: boolean }) {
+  const reissued = meta.seq > 1;
+  return (
+    <>
+        {/*
+          * 재발행본 워터마크.
+          *
+          * 이 시스템에서 가장 위험한 상태는 같은 기록의 종이가 두 장 도는 것이다.
+          * 회차는 머리글에도 찍히지만 작아서 겹쳐 놓으면 안 보인다. 종이 한가운데를
+          * 가로지르는 표시가 있어야 멀리서도, 뒤집어 놓아도 눈에 들어온다.
+          *
+          * 1회차에는 아무것도 넣지 않는다. 평소와 다른 것에만 표시가 붙어야
+          * 그 표시가 눈에 들어온다.
+          */}
+        {reissued && !meta.view && !meta.preview && (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden"
+          >
+            <span className="-rotate-[24deg] whitespace-nowrap text-[64px] font-bold tracking-[0.1em] text-black/[0.07]">
+              재발행 {meta.seq}회차
+            </span>
+          </div>
+        )}
+
+        {/*
+          * 열람용 표시.
+          *
+          * 열람 화면에는 인쇄 단추를 내지 않지만 브라우저의 Ctrl+P 까지 막을
+          * 수는 없다. 그렇게 나간 종이는 **대장에 없는 종이**다 - 이 시스템이
+          * 가장 막고 싶어 하는 상태다 (§10 "대장에는 실제 종이만 남는다").
+          *
+          * 재발행 표시보다 진하게, 그리고 종이 위쪽에 한 줄을 더 얹는다.
+          * 멀리서도, 뒤집어 놓아도, 한 장만 주워도 정본이 아닌 것이 보여야 한다.
+          */}
+        {meta.view && (
+          <>
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden"
+            >
+              <span className="-rotate-[24deg] whitespace-nowrap text-[64px] font-bold tracking-[0.1em] text-black/[0.13]">
+                열람용 · 정본 아님
+              </span>
+            </div>
+            <p className={floating ? FLOAT_NOTE : 'mb-2 border border-black px-2 py-1 text-center text-[10px] font-bold'}>
+              열람용입니다. 발행된 종이가 아니며 인쇄 대장에 남지 않았습니다.
+              {meta.view.changed && ' 그 종이가 나간 뒤에 자료가 바뀌었습니다.'}
+            </p>
+          </>
+        )}
+
+        {/*
+          * 미발행 표시 (2026-09-16).
+          *
+          * 인쇄 단추를 누르기 전의 화면이다. 단추는 대장에 적고 나서 인쇄
+          * 대화상자를 열지만, 브라우저의 Ctrl+P 까지 막을 수는 없다. 그렇게
+          * 나간 종이는 **대장에 없는 종이**이고, 그것이 이 시스템이 가장 막고
+          * 싶어 하는 상태다 (§10 "대장에는 실제 종이만 남는다").
+          *
+          * 열람과 같은 어법을 쓰되 말이 다르다. 열람은 이미 나간 것의 사본이고
+          * 이것은 아직 나가지 않은 것이다. 인쇄 일시 · 인쇄자 칸이 비어 있는
+          * 것도 사실이므로 지어내지 않고 그대로 둔다 (§1).
+          */}
+        {meta.preview && (
+          <>
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden"
+            >
+              <span className="-rotate-[24deg] whitespace-nowrap text-[64px] font-bold tracking-[0.1em] text-black/[0.13]">
+                미발행 · 정본 아님
+              </span>
+            </div>
+            <p className={floating ? FLOAT_NOTE : 'mb-2 border border-black px-2 py-1 text-center text-[10px] font-bold'}>
+              아직 발행되지 않았습니다. 인쇄 대장에 남기려면 화면의 인쇄 단추를 누르세요.
+            </p>
+          </>
+        )}
+    </>
+  );
+}
+
+/* ---------------------------------------------------------------------------
    낱장
 
    양식 하나가 여러 장이 될 때가 있다. 장마다 머리글과 꼬리글을 같은 자료
@@ -480,85 +582,16 @@ export function Sheet({
        * 그래서 장 자체를 센다. 이 표가 붙은 개수가 실제 매수다.
        */
       <div data-sheet={page} className="sheet relative">
-        {/*
-          * 재발행본 워터마크.
-          *
-          * 이 시스템에서 가장 위험한 상태는 같은 기록의 종이가 두 장 도는 것이다.
-          * 회차는 머리글에도 찍히지만 작아서 겹쳐 놓으면 안 보인다. 종이 한가운데를
-          * 가로지르는 표시가 있어야 멀리서도, 뒤집어 놓아도 눈에 들어온다.
-          *
-          * 1회차에는 아무것도 넣지 않는다. 평소와 다른 것에만 표시가 붙어야
-          * 그 표시가 눈에 들어온다.
-          */}
-        {reissued && !meta.view && !meta.preview && (
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden"
-          >
-            <span className="-rotate-[24deg] whitespace-nowrap text-[64px] font-bold tracking-[0.1em] text-black/[0.07]">
-              재발행 {meta.seq}회차
-            </span>
-          </div>
-        )}
-
-        {/*
-          * 열람용 표시.
-          *
-          * 열람 화면에는 인쇄 단추를 내지 않지만 브라우저의 Ctrl+P 까지 막을
-          * 수는 없다. 그렇게 나간 종이는 **대장에 없는 종이**다 - 이 시스템이
-          * 가장 막고 싶어 하는 상태다 (§10 "대장에는 실제 종이만 남는다").
-          *
-          * 재발행 표시보다 진하게, 그리고 종이 위쪽에 한 줄을 더 얹는다.
-          * 멀리서도, 뒤집어 놓아도, 한 장만 주워도 정본이 아닌 것이 보여야 한다.
-          */}
-        {meta.view && (
-          <>
-            <div
-              aria-hidden
-              className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden"
-            >
-              <span className="-rotate-[24deg] whitespace-nowrap text-[64px] font-bold tracking-[0.1em] text-black/[0.13]">
-                열람용 · 정본 아님
-              </span>
-            </div>
-            <p className="mb-2 border border-black px-2 py-1 text-center text-[10px] font-bold">
-              열람용입니다. 발행된 종이가 아니며 인쇄 대장에 남지 않았습니다.
-              {meta.view.changed && ' 그 종이가 나간 뒤에 자료가 바뀌었습니다.'}
-            </p>
-          </>
-        )}
-
-        {/*
-          * 미발행 표시 (2026-09-16).
-          *
-          * 인쇄 단추를 누르기 전의 화면이다. 단추는 대장에 적고 나서 인쇄
-          * 대화상자를 열지만, 브라우저의 Ctrl+P 까지 막을 수는 없다. 그렇게
-          * 나간 종이는 **대장에 없는 종이**이고, 그것이 이 시스템이 가장 막고
-          * 싶어 하는 상태다 (§10 "대장에는 실제 종이만 남는다").
-          *
-          * 열람과 같은 어법을 쓰되 말이 다르다. 열람은 이미 나간 것의 사본이고
-          * 이것은 아직 나가지 않은 것이다. 인쇄 일시 · 인쇄자 칸이 비어 있는
-          * 것도 사실이므로 지어내지 않고 그대로 둔다 (§1).
-          */}
-        {meta.preview && (
-          <>
-            <div
-              aria-hidden
-              className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden"
-            >
-              <span className="-rotate-[24deg] whitespace-nowrap text-[64px] font-bold tracking-[0.1em] text-black/[0.13]">
-                미발행 · 정본 아님
-              </span>
-            </div>
-            <p className="mb-2 border border-black px-2 py-1 text-center text-[10px] font-bold">
-              아직 발행되지 않았습니다. 인쇄 대장에 남기려면 화면의 인쇄 단추를 누르세요.
-            </p>
-          </>
-        )}
+        <SheetMarks meta={meta} />
 
         <header className="relative mb-4 border-b-2 border-black pb-2">
-          <div className="flex items-start justify-between">
-            <div>
+          {/*
+            * 오른쪽 인쇄 정보 표가 왼쪽의 긴 소재지 줄에 눌려 "인쇄 일시" 가
+            * 한 글자씩 줄을 바꿨다 (사용자 2026-11-10 «글 규격도 다 너무 엉망»).
+            * 표는 줄이지 않고, 줄어드는 쪽은 왼쪽이다.
+            */}
+          <div className="flex items-start justify-between gap-6">
+            <div className="min-w-0 flex-1">
               {meta.logoUrl
                 ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -583,7 +616,7 @@ export function Sheet({
               <h1 className="mt-1.5 text-lg font-bold text-black">{title}</h1>
               {subtitle && <div className="mt-0.5 text-xs text-black">{subtitle}</div>}
             </div>
-            <table className="text-[10px] text-black">
+            <table className="shrink-0 whitespace-nowrap text-[10px] text-black">
               <tbody>
                 <tr>
                   <td className="pr-2 text-right">인쇄 일시</td>
@@ -656,4 +689,135 @@ export function SignRow({ roles }: { roles: string[] }) {
       </tbody>
     </table>
   );
+}
+
+/* ---------------------------------------------------------------------------
+   회사 양식 장 - 제조기록서(F706) 모양 (0130 · 사용자 2026-11-10)
+
+   양식 PDF 의 한 쪽을 같은 자리 · 같은 크기로 다시 그린다. 좌표는 PDF 의 pt 를
+   그대로 쓴다 - 가로 A4 (842 × 595pt) 에 1:1 이다. 시스템이 채운 칸(f)은 양식
+   글자와 같은 글꼴 · 크기로 놓는다. 양식 위에 고정폭이나 다른 글꼴이 섞이면
+   "글 규격이 엉망" 이 된다.
+
+   양식에 없는 시스템 정보(자료 식별자 · 회차 · 인쇄 일시 · 바코드 · 묶음 쪽 번호)는
+   양식 제목 위 빈자리에 한 줄로 둔다. 종이가 흩어져도 그 장만 보고 어느 묶음의
+   몇 장째인지 알아야 한다 (Sheet 와 같은 약속).
+
+   서명란(작업자 · 생산 책임자)은 묶음의 마지막 장에만 둔다 (sign).
+--------------------------------------------------------------------------- */
+const pt = (v: number) => `${v}pt`;
+
+export function FormSheet({
+  meta: given, page, size, formPage, sheet, caption, sign, extra,
+}: {
+  meta: PrintMeta;
+  page: FormPage;
+  size: { w: number; h: number };
+  /** 양식 안의 쪽 번호 (1 / 2) */
+  formPage: { n: number; of: number };
+  /** 묶음 전체에서 몇 장째 */
+  sheet: { n: number; of: number };
+  /** 묶음을 가리키는 말: 배치 · 일차 · 작업자 */
+  caption: React.ReactNode;
+  sign?: boolean;
+  /** 양식에 적을 자리가 없던 시스템 기록 */
+  extra?: string[];
+}) {
+  const meta = useContext(MetaCtx) ?? given;
+  if (meta.view?.neverIssued) return null;
+  const short = meta.dataHash.slice(0, 12);
+  const reissued = meta.seq > 1;
+  const W = size.w;
+
+  /* 서명란: 마지막 표 아래 빈자리. 자리가 없으면 부르는 쪽이 장을 하나 더 낸다 */
+  const bottom = Math.max(0, ...page.tables.map((t) => t.y + t.rows.reduce((a, r) => a + r.h, 0)));
+  const right = Math.max(0, ...page.tables.map((t) => t.x + t.w));
+
+  return (
+    <div data-sheet={sheet.n} className="sheet sheet--form relative">
+      <SheetMarks meta={meta} floating />
+
+      {/* 시스템 줄 - 양식 제목 위 빈자리 */}
+      <div className="form-strip" style={{ left: pt(50), right: pt(W - 794), top: pt(6) }}>
+        <div className="min-w-0 truncate">
+          <b>시스템 인쇄</b> · {caption} · 자료 식별자{' '}
+          <b className="tracking-wide">{short}</b> · 회차 {meta.seq}
+          {reissued && <b> · 재발행본</b>} · 인쇄 {meta.printedAt || '미발행'} {meta.printedBy}
+          {' '}· 서명 후 정본이 됩니다
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <Barcode value={short.toUpperCase()} height={12} module={0.8} />
+          <span className="tnum font-bold">{sheet.n} / {sheet.of}</span>
+        </div>
+      </div>
+
+      {page.texts.map((t, i) => {
+        const label = isPageLabel(t.t);
+        const cx = (t.x0 + t.x1) / 2;
+        const style: React.CSSProperties = {
+          top: pt(t.y), fontSize: pt(t.s), fontWeight: t.b ? 700 : 400,
+        };
+        if (Math.abs(cx - W / 2) < 40) { style.left = pt(cx); style.transform = 'translateX(-50%)'; }
+        else if (t.x1 > W - 140) style.right = pt(W - t.x1);
+        else style.left = pt(t.x0);
+        if (t.color && !label) {
+          style.color = t.color; style.fontStyle = 'italic'; style.textDecoration = 'underline';
+        }
+        return (
+          <div key={i} className="form-text" style={style}>
+            {label ? `${formPage.n} / ${formPage.of}` : t.t}
+          </div>
+        );
+      })}
+
+      {page.tables.map((tb, i) => (
+        <table key={i} className="form-table" style={{ left: pt(tb.x), top: pt(tb.y), width: pt(tb.w) }}>
+          <colgroup>{tb.cols.map((w, k) => <col key={k} style={{ width: pt(w) }} />)}</colgroup>
+          <tbody>
+            {tb.rows.map((r, ri) => (
+              <tr key={ri} style={{ height: pt(r.h) }}>
+                {r.cells.map((c) => (
+                  <td key={c.c} colSpan={c.cs} rowSpan={c.rs}
+                      data-fill={c.f ? '' : undefined} data-note={c.n ? '' : undefined}
+                      style={{
+                        textAlign: c.a === 'l' ? 'left' : c.a === 'r' ? 'right' : 'center',
+                        fontSize: pt(c.s ?? 10), fontWeight: c.b ? 700 : 400,
+                      }}>
+                    {c.t ?? ''}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ))}
+
+      {sign && (
+        <table className="form-table" style={{ left: pt(right - 240), top: pt(bottom + 8), width: pt(240) }}>
+          <tbody>
+            <tr style={{ height: pt(13) }}>
+              <td style={{ fontSize: pt(8), fontWeight: 700 }}>작업자</td>
+              <td style={{ fontSize: pt(8), fontWeight: 700 }}>생산 책임자</td>
+            </tr>
+            <tr style={{ height: pt(28) }}>
+              <td data-sign-role="작업자" className="sign-box" />
+              <td data-sign-role="생산 책임자" className="sign-box" />
+            </tr>
+          </tbody>
+        </table>
+      )}
+
+      {extra && extra.length > 0 && (
+        <div className="form-text" style={{ left: pt(50), top: pt(bottom + 8), fontSize: pt(7), whiteSpace: 'pre-line', lineHeight: 1.3 }}>
+          {extra.join('\n')}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** 서명란이 마지막 표 아래에 들어갈 자리가 있는가 (양식 꼬리글 위까지) */
+export function formHasSignRoom(page: FormPage) {
+  const bottom = Math.max(0, ...page.tables.map((t) => t.y + t.rows.reduce((a, r) => a + r.h, 0)));
+  return bottom + 8 + 41 <= 550;
 }
