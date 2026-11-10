@@ -100,6 +100,26 @@ function BrSheetView({ sheet, onSheet, onClose, busy }: {
     });
   };
 
+  /*
+   * 보기가 하나뿐인 고르기 칸(«□ 확인» 같은)은 누르면 바로 ■ 로 저장하고, 다시 누르면
+   * 지운다 (사용자 2026-11-11 «확인은 한번에 체크 되게 해줘. 손이 한번 더 가는데»).
+   * 아래 적는 칸을 열고 ■ 확인을 다시 누르던 두 번 손을 한 번으로 줄인다.
+   * 빈칸이 딸린 보기(시각 · 수치)는 적을 것이 있어 그대로 연다.
+   */
+  const oneTap = (c: FormCell) =>
+    c.k === 'choice' && (c.o?.length ?? 0) === 1 && !optionBlank(c.o![0]);
+  const toggle = (c: FormCell) => {
+    const id = c.id!;
+    const next = c.v ? '' : c.o![0];
+    setCell(null);
+    start(async () => {
+      const r = await saveBrEntry(sheet.recordId, sheet.docId, id, next);
+      if ('error' in r) { setErr(r.error); setCell(c); return; }
+      setErr(null);
+      onSheet(r);
+    });
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-canvas">
       <header className="flex items-center gap-3 border-b border-line bg-surface px-4 py-3">
@@ -116,7 +136,8 @@ function BrSheetView({ sheet, onSheet, onClose, busy }: {
 
       <div ref={wrap} className="flex-1 overflow-auto px-2 py-3">
         <p className="mb-2 px-1 text-sm text-muted">
-          노란 칸을 누르면 아래에 적는 칸이 나옵니다. 적은 값은 파란 글씨로 바로 저장됩니다.
+          노란 칸을 누르면 아래에 적는 칸이 나옵니다. □ 확인 칸은 누르면 바로 체크되고, 다시 누르면 지워집니다.
+          적은 값은 파란 글씨로 바로 저장됩니다.
         </p>
         {sheet.pages.map((pg, i) => (
           <div key={i} className="mx-auto mb-3 overflow-hidden rounded-md border border-line bg-white"
@@ -125,7 +146,10 @@ function BrSheetView({ sheet, onSheet, onClose, busy }: {
                  style={{ width: `${sheet.size.w}pt`, height: `${sheet.size.h}pt`,
                           transform: `scale(${scale})`, transformOrigin: 'top left' }}>
               <FormBody page={pg} size={sheet.size} formPage={{ n: i + 1, of: sheet.pages.length }}
-                        onCell={sheet.locked ? undefined : (c) => { setErr(null); setCell(c); }}
+                        onCell={sheet.locked ? undefined : (c) => {
+                          setErr(null);
+                          if (oneTap(c)) toggle(c); else setCell(c);
+                        }}
                         active={cell?.id} />
             </div>
           </div>

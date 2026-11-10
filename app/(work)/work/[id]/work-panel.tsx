@@ -575,7 +575,7 @@ function OperationCard({
       </header>
 
       {locked ? (
-        <p className="px-4 py-6 text-sm text-muted">마감된 일차입니다.</p>
+        <p className="py-6 text-sm text-muted">마감된 일차입니다.</p>
       ) : !rec || rec.ended_at ? (
         <StartCard woId={woId} day={day} op={op} people={people}
                    productLots={productLots} attempt={attemptCount + 1}
@@ -590,7 +590,7 @@ function OperationCard({
         * 공정을 시작한 뒤부터 일차를 마감하기 전까지. 양식이 없는 공정에는 단추가 안 나온다.
         */}
       {rec && !locked && (
-        <div className="border-t border-line p-3">
+        <div className="border-t border-line py-3">
           <BrSheetButton recordId={rec.id} />
         </div>
       )}
@@ -657,7 +657,7 @@ function StartCard({ woId, day, op, people, productLots, attempt, done, splitOp 
     op.equipment.length === 1 ? op.equipment[0].id : '');
 
   return (
-    <form action={action} className="space-y-4 p-4">
+    <form action={action} className="space-y-4 py-4">
       <input type="hidden" name="work_order_id" value={woId} />
       <input type="hidden" name="operation_id" value={op.id} />
       <input type="hidden" name="day_no" value={day} />
@@ -825,7 +825,7 @@ function RunningCard({ woId, op, rec, lots, sheets, loadUnit, expiryWarnDays }: 
         </p>
       )}
       {/* 장갑 낀 손이 누른다. 전환 단추도 조작 대상이므로 --tap 을 그대로 받는다 */}
-      <div className="grid grid-cols-2 gap-1 border-b border-line p-2">
+      <div className="grid grid-cols-2 gap-1 border-b border-line py-2">
         {(['material', 'end'] as const).map((t) => (
           <button key={t} type="button" onClick={() => setTab(t)}
                   aria-pressed={tab === t}
@@ -934,7 +934,7 @@ function MaterialForm({ woId, rec, op, lots, sheets, loadUnit, expiryWarnDays }:
     /* 로트 없이 쓰는 소모품만 걸린 공정이면 적을 것이 없다. 입고를 요청할 일도 아니다 */
     const allNoLot = op.bom.length > 0 && op.bom.every((b) => b.lot_tracked === false);
     return (
-      <div className="space-y-4 p-4">
+      <div className="space-y-4 py-4">
         {guide}
         <p className="text-sm leading-relaxed text-muted">
           {allNoLot
@@ -946,7 +946,7 @@ function MaterialForm({ woId, rec, op, lots, sheets, loadUnit, expiryWarnDays }:
   }
 
   return (
-    <form action={action} className="space-y-4 p-4">
+    <form action={action} className="space-y-4 py-4">
       <input type="hidden" name="work_order_id" value={woId} />
       <input type="hidden" name="process_record_id" value={rec.id} />
       <input type="hidden" name="material_lot_id" value={lotId} />
@@ -1040,7 +1040,7 @@ function EndForm({ woId, rec, op, missing }: {
   const [confirm, setConfirm] = useState(false);
 
   return (
-    <form action={action} className="space-y-4 p-4">
+    <form action={action} className="space-y-4 py-4">
       <input type="hidden" name="work_order_id" value={woId} />
       <input type="hidden" name="process_record_id" value={rec.id} />
 
@@ -1129,7 +1129,7 @@ function CloseDayCard({ woId, day, batchNo, openOps }: {
             {openOps.map((n, i) => <li key={i}>{n}</li>)}
           </ul>
           <p className="mt-2">
-            마감하면 그 칸은 영영 빈 채로 남습니다. 위 공정을 먼저 마감하십시오.
+            마감하면 그 칸은 영영 빈 채로 남습니다. 위 공정 판의 <b>공정 마감</b>을 먼저 누르십시오.
             자재를 적을 것이 없으면 해당없음 사유를 적고 마감하면 됩니다.
           </p>
         </div>
@@ -1137,7 +1137,16 @@ function CloseDayCard({ woId, day, batchNo, openOps }: {
 
       <Msg state={state} />
 
-      {blocked ? null : !confirm ? (
+      {/*
+        * 막힌 동안에도 단추는 보이되 누를 수 없게 둔다 (사용자 2026-11-11 «빨간 글귀가 있다면
+        * 마감 버튼은 비활성화»). 전에는 단추를 아예 숨겨, 바로 위 공정 판의 «공정 마감» 이
+        * 일차 마감 단추처럼 읽혔다.
+        */}
+      {blocked ? (
+        <button type="button" disabled className="btn-ghost mt-4 w-full">
+          {day}일차 마감하고 기록서 발행
+        </button>
+      ) : !confirm ? (
         <button onClick={() => setConfirm(true)} className="btn-ghost mt-4 w-full">
           {day}일차 마감하고 기록서 발행
         </button>
@@ -1234,7 +1243,7 @@ function CutPanel({
   const avail = Math.max(0, n - Number(shown || 0));
 
   return (
-    <div className="border-t border-line bg-canvas p-4">
+    <div className="border-t border-line bg-canvas py-4">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <h3 className="text-base font-semibold text-ink">{splitOp ?? '제조번호 부여'} 결과</h3>
         <p className="text-xs leading-relaxed text-muted">
