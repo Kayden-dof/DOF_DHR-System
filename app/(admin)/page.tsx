@@ -370,7 +370,7 @@ export default async function Dashboard() {
               {setup.map((s, i) => (
                 <div key={i} className="flex flex-wrap items-center gap-3">
                   <p className="text-sm leading-relaxed text-ink">{s.text}</p>
-                  <Link href={s.href} className="btn-ghost h-9">{s.label}</Link>
+                  <Link href={s.href} className="btn-ghost">{s.label}</Link>
                 </div>
               ))}
             </div>

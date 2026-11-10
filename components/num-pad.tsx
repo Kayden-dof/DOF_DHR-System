@@ -88,12 +88,12 @@ export default function NumPad({
 
       <div className="mt-2 flex gap-2">
         <button type="button" onClick={() => set(() => '')}
-                className="btn-ghost h-14 flex-1 text-base">
+                className="btn-ghost flex-1">
           전체 지움
         </button>
         {max !== undefined && (
           <button type="button" onClick={() => set(() => String(max))}
-                  className="btn-ghost h-14 flex-1 text-base">
+                  className="btn-ghost flex-1">
             최대로
           </button>
         )}

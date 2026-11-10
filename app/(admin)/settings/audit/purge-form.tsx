@@ -22,7 +22,7 @@ export default function PurgeForm() {
         </label>
         <input id="purge-confirm" name="confirm" autoComplete="off"
                className="input h-8 w-28 text-xs" />
-        <button type="submit" disabled={pending} className="btn-danger h-9">
+        <button type="submit" disabled={pending} className="btn-danger">
           비우기
         </button>
       </form>

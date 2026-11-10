@@ -236,7 +236,7 @@ export default function LoginForm({ owners }: { owners: string[] }) {
       <button
         type="submit"
         disabled={pending || !ready}
-        className="btn-primary mt-3.5 h-[3.5rem] w-full rounded-xl text-base tracking-tight"
+        className="btn-primary mt-3.5 w-full"
       >
         {pending ? '확인 중' : '로그인'}
       </button>

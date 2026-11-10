@@ -234,8 +234,8 @@ export function WoNoForm({ id, current }: { id: string; current: string }) {
       </div>
       <Msg state={state} />
       <div className="flex gap-2">
-        <button type="submit" disabled={pending} className="btn-primary h-9">저장</button>
-        <button type="button" onClick={() => setOpen(false)} className="btn-ghost h-9">취소</button>
+        <button type="submit" disabled={pending} className="btn-primary">저장</button>
+        <button type="button" onClick={() => setOpen(false)} className="btn-ghost">취소</button>
       </div>
     </form>
   );
@@ -364,8 +364,8 @@ export function ForceReasonForm({ recordId, woId, current }: {
       </div>
       <Msg state={state} />
       <div className="flex gap-2">
-        <button type="submit" disabled={pending} className="btn-primary h-9">정정</button>
-        <button type="button" onClick={() => setOpen(false)} className="btn-ghost h-9">취소</button>
+        <button type="submit" disabled={pending} className="btn-primary">정정</button>
+        <button type="button" onClick={() => setOpen(false)} className="btn-ghost">취소</button>
       </div>
     </form>
   );
@@ -379,7 +379,7 @@ export function CancelForm({ id }: { id: string }) {
   const [open, setOpen] = useState(false);
 
   if (!open) {
-    return <button onClick={() => setOpen(true)} className="btn-danger h-9">취소</button>;
+    return <button onClick={() => setOpen(true)} className="btn-danger">취소</button>;
   }
 
   return (
@@ -396,10 +396,10 @@ export function CancelForm({ id }: { id: string }) {
       </div>
       <Msg state={state} />
       <div className="mt-3 flex gap-2">
-        <button type="submit" disabled={pending} className="btn-danger h-9">
+        <button type="submit" disabled={pending} className="btn-danger">
           취소한다
         </button>
-        <button type="button" onClick={() => setOpen(false)} className="btn-ghost h-9">
+        <button type="button" onClick={() => setOpen(false)} className="btn-ghost">
           취소
         </button>
       </div>
@@ -447,11 +447,11 @@ export function DayPrintLink({
   const [ask, setAsk] = useState(false);
 
   if (locked) {
-    return <Link href={href} className="btn-ghost h-9">재발행</Link>;
+    return <Link href={href} className="btn-ghost">재발행</Link>;
   }
   if (!ask) {
     return (
-      <button type="button" onClick={() => setAsk(true)} className="btn-ghost h-9">
+      <button type="button" onClick={() => setAsk(true)} className="btn-ghost">
         인쇄
       </button>
     );
@@ -459,7 +459,7 @@ export function DayPrintLink({
   return (
     <span className="inline-flex items-center gap-2 whitespace-nowrap">
       <span className="text-xs text-warn">열면 잠깁니다</span>
-      <Link href={href} className="btn-primary h-9">발행</Link>
+      <Link href={href} className="btn-primary">발행</Link>
       <button type="button" onClick={() => setAsk(false)} className="qd-text-action">
         그만
       </button>
@@ -482,7 +482,7 @@ export function RetrieveForm({ id, woId, label }: { id: string; woId: string; la
 
   return (
     <>
-      <button onClick={() => setOpen(true)} className="btn-quiet h-9">
+      <button onClick={() => setOpen(true)} className="btn-quiet">
         회수 기록
       </button>
       <Dialog
@@ -536,7 +536,7 @@ export function EndForWorkerForm({ recordId, woId, label }: {
 
   return (
     <>
-      <button onClick={() => setOpen(true)} className="btn-quiet mt-1 h-9">
+      <button onClick={() => setOpen(true)} className="btn-quiet mt-1">
         대신 마감
       </button>
       <Dialog open={open} onClose={() => setOpen(false)}
@@ -755,7 +755,7 @@ export function WipNonconformityForm({ woId, today, ops, sheets }: {
 
   return (
     <>
-      <button onClick={() => setOpen(true)} className="btn-ghost h-9">
+      <button onClick={() => setOpen(true)} className="btn-ghost">
         반제품 부적합
       </button>
       <Dialog open={open} onClose={() => setOpen(false)} wide

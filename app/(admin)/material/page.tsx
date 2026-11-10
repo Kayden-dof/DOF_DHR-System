@@ -141,7 +141,7 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
             {status && <input type="hidden" name="status" value={status} />}
             <input name="q" defaultValue={q ?? ''} autoComplete="off"
                    placeholder="로트번호 · 품목 · 성적서" className="input h-9 w-64 text-xs" />
-            <button className="btn-ghost h-9">검색</button>
+            <button className="btn-ghost">검색</button>
           </form>
         }
       />

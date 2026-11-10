@@ -83,13 +83,13 @@ export default async function WorkLayout({ children }: { children: React.ReactNo
 
             {isAdmin(user.roles) && (
               <Link href="/"
-                    className="btn-ghost h-14 px-5 text-base">
+                    className="btn-ghost">
                 관리 화면
               </Link>
             )}
             <form action={logout}>
               <button type="submit"
-                      className="btn-ghost h-14 px-5 text-base">
+                      className="btn-ghost">
                 로그아웃
               </button>
             </form>

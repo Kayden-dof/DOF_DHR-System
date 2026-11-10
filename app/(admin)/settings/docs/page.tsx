@@ -121,7 +121,7 @@ export default async function DocsCheckPage({ searchParams }: { searchParams: Se
         <nav className="flex flex-wrap gap-2">
           {d.products.map((p) => (
             <Link key={p} href={`/settings/docs?p=${p}`}
-                  className={p === d.product ? 'btn-primary h-9' : 'btn-ghost h-9'}>{p}</Link>
+                  className={p === d.product ? 'btn-primary' : 'btn-ghost'}>{p}</Link>
           ))}
         </nav>
       )}

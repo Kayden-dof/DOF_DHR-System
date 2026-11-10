@@ -344,7 +344,7 @@ export function PrintBar({
     <div className="no-print sticky top-0 z-20 mb-5 border-b border-line bg-canvas/92 backdrop-blur
                     shadow-[0_1px_2px_rgb(26_26_31/.04),0_8px_20px_-14px_rgb(26_26_31/.24)]">
       <div className="mx-auto flex max-w-[210mm] flex-wrap items-center gap-3 px-2 py-3">
-        {back && <Link href={back} className="btn-ghost h-9">돌아가기</Link>}
+        {back && <Link href={back} className="btn-ghost">돌아가기</Link>}
         <div className="leading-tight">
           <div className="flex items-center gap-1.5">
             <div className="text-[0.8125rem] font-bold text-ink">{label}</div>
@@ -365,7 +365,7 @@ export function PrintBar({
               */}
             {err && <span className="max-w-[28rem] text-xs text-danger">{err}</span>}
             <button onClick={print} disabled={!ready || busy}
-                    className="btn-primary h-9">
+                    className="btn-primary">
               {busy ? '등록 중 …' : '인쇄'}
             </button>
           </div>

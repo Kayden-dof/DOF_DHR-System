@@ -100,7 +100,7 @@ export default async function ReleaseRequestSheet({
             담긴 제품 로트와 수량을 기록하기 시작한 것은 2026-09-09 부터입니다
             (0105). 그 전에 나간 종이는 종이로 확인하십시오.
           </p>
-          <a href="/shipping" className="btn-ghost mt-4 h-9">돌아가기</a>
+          <a href="/shipping" className="btn-ghost mt-4">돌아가기</a>
         </div>
       </div>
     );

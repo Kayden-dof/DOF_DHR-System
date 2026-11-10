@@ -53,7 +53,7 @@ export default function DemoBanner({
 
         {canPurge ? (
           <button type="button" onClick={() => setOpen(true)}
-                  className="btn-ghost h-9 shrink-0 border-danger/40">
+                  className="btn-ghost shrink-0 border-danger/40">
             시연 자료 비우기
           </button>
         ) : (
@@ -106,11 +106,11 @@ export default function DemoBanner({
             </label>
 
             <div className="flex items-center gap-2">
-              <button type="submit" disabled={pending} className="btn-danger h-9">
+              <button type="submit" disabled={pending} className="btn-danger">
                 {pending ? '비우는 중' : '비웁니다'}
               </button>
               <button type="button" onClick={() => setOpen(false)}
-                      className="btn-quiet h-9">
+                      className="btn-quiet">
                 그만두기
               </button>
               <Msg state={state} />

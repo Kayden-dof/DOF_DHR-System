@@ -208,7 +208,7 @@ export function NewEquipment() {
       <BuyFields />
       <Msg state={state} />
       <div className="mt-3 flex gap-2">
-        <button type="submit" disabled={pending} className="btn-primary h-9">
+        <button type="submit" disabled={pending} className="btn-primary">
           {pending ? '등록하는 중' : '등록'}
         </button>
       </div>
@@ -281,7 +281,7 @@ export function EquipCard({ e, ops, warnDays, writable = true }: {
             <span className="tnum text-xs text-muted">밸리데이션 만료 {fmtDate(e.valid_until)}</span>
           )}
           <span className="tnum text-xs text-muted">기록 {e.used}건</span>
-          <Link href={`/print/equipment-log/${e.id}`} className="btn-ghost h-9">
+          <Link href={`/print/equipment-log/${e.id}`} className="btn-ghost">
             사용 기록
           </Link>
           {writable && !edit && (
@@ -333,11 +333,11 @@ export function EquipCard({ e, ops, warnDays, writable = true }: {
 
           <Msg state={state} />
           <div className="mt-3 flex gap-2">
-            <button type="submit" disabled={pending} className="btn-primary h-9">
+            <button type="submit" disabled={pending} className="btn-primary">
               저장
             </button>
             <button type="button" onClick={() => setEdit(false)}
-                    className="btn-ghost h-9">
+                    className="btn-ghost">
               취소
             </button>
           </div>
@@ -449,7 +449,7 @@ function ValidationPanel({ e, writable = true }: { e: EquipRow; writable?: boole
       <div className="flex items-center gap-3 px-4 py-2.5">
         <p className="label mb-0">밸리데이션</p>
         {writable && (
-          <button onClick={() => setOpen(true)} className="btn-ghost h-9">
+          <button onClick={() => setOpen(true)} className="btn-ghost">
             등록
           </button>
         )}

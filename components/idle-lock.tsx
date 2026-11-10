@@ -263,7 +263,7 @@ function LockScreen({
         </div>
 
         <div className="qd-panel qd-panel--box mt-6 p-4">
-          <div className="flex h-[3.25rem] items-center justify-center rounded-md border border-line-strong bg-surface">
+          <div className="flex h-[var(--tap)] items-center justify-center rounded-md border border-line-strong bg-surface">
             <span className="text-2xl font-semibold tnum tracking-[0.3em] text-ink">
               {'•'.repeat(pin.current.length) || (
                 <span className="text-faint">&middot;</span>
@@ -296,7 +296,7 @@ function LockScreen({
             type="button"
             onClick={submit}
             disabled={busy || !pin.current}
-            className="btn-primary mt-3 h-[3.25rem] w-full text-base"
+            className="btn-primary mt-3 w-full"
           >
             {busy ? '확인 중' : '잠금 해제'}
           </button>

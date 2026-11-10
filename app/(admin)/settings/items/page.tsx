@@ -118,7 +118,7 @@ export default async function ItemsPage({ searchParams }: { searchParams: Search
           {type && <input type="hidden" name="type" value={type} />}
           <input name="q" defaultValue={q ?? ''} placeholder="코드 또는 품목명"
                  className="input h-9 w-56 text-xs" autoComplete="off" />
-          <button className="btn-ghost h-9">검색</button>
+          <button className="btn-ghost">검색</button>
         </form>
       </div>
 

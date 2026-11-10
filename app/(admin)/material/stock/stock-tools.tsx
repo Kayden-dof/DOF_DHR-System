@@ -15,12 +15,12 @@ export default function StockTools({ alerts }: { alerts: number }) {
       <div className="flex items-center gap-2">
         {alerts > 0 && <Tag tone="warn">최소 재고선 아래 {alerts}종</Tag>}
         <form action={a2}>
-          <button type="submit" disabled={p2} className="btn-ghost h-9">
+          <button type="submit" disabled={p2} className="btn-ghost">
             유효기한 확인
           </button>
         </form>
         <form action={a1}>
-          <button type="submit" disabled={p1} className="btn-ghost h-9">
+          <button type="submit" disabled={p1} className="btn-ghost">
             최소 재고선 제안
           </button>
         </form>

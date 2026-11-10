@@ -170,7 +170,7 @@ export function VerifyForm({
         <b>아직 서면 대조 확인 전입니다.</b> 확인 전에는 작업 지시 발행에서 선택할 수 없습니다.
         공정과 자재 구성표를 모두 넣은 뒤, 서면 제품표준서와 한 항목씩 대조하고 확인하십시오.
       </p>
-      <button onClick={() => setOpen(true)} className="btn-ghost mt-3 h-9">
+      <button onClick={() => setOpen(true)} className="btn-ghost mt-3">
         서면 대조 확인
       </button>
       <Msg state={state} />
@@ -237,11 +237,11 @@ export function VerifyForm({
                   : '남은 항목을 모두 확인해야 확인할 수 있습니다.'}
               </span>
               <button type="submit" disabled={!all || pending}
-                      className="btn-primary h-9">
+                      className="btn-primary">
                 {pending ? '기록 중' : '서면 확인 완료했습니다'}
               </button>
               <button type="button" onClick={() => setOpen(false)}
-                      className="btn-ghost h-9">닫기</button>
+                      className="btn-ghost">닫기</button>
             </form>
           </div>
         </div>
@@ -405,7 +405,7 @@ export function AddBomForm({ dm, op, items, fix }: {
       <div className="sm:col-span-4">
         <Msg state={state} />
         <button type="submit" disabled={pending || pool.length === 0}
-                className="btn-ghost mt-2 h-9">
+                className="btn-ghost mt-2">
           자재 추가
         </button>
         {pool.length === 0 && (
@@ -455,10 +455,10 @@ function DeleteOperationForm({ dm, op }: { dm: string; op: OperationRow }) {
           </p>
           <Msg state={state} />
           <div className="mt-4 flex justify-end gap-2">
-            <button type="button" onClick={() => setOpen(false)} className="btn-ghost h-9">
+            <button type="button" onClick={() => setOpen(false)} className="btn-ghost">
               그만두기
             </button>
-            <button type="submit" disabled={pending} className="btn-danger h-9">
+            <button type="submit" disabled={pending} className="btn-danger">
               {pending ? '지우는 중' : '지우기'}
             </button>
           </div>
@@ -526,11 +526,11 @@ export function EditOperationForm({ dm, op, extra }: {
           <input type="checkbox" name="takes_rework" defaultChecked={op.takes_rework} />
           재작업 수량
         </label>
-        <button type="submit" disabled={pending} className="btn-quiet h-9">
+        <button type="submit" disabled={pending} className="btn-quiet">
           {pending ? '고치는 중' : '고친다'}
         </button>
         <button type="button" onClick={() => setShow(false)}
-                className="btn-ghost h-9">취소</button>
+                className="btn-ghost">취소</button>
       </div>
       <p className="mt-1.5 text-xs leading-relaxed text-faint">
         공정 코드와 이름, 보통 일차는 작업 지시서에 인쇄됩니다. 제품 로트 단위로 바꾸면
@@ -551,7 +551,7 @@ export function EditBomForm({ dm, bom }: { dm: string; bom: BomRow }) {
   if (!show) {
     return (
       <div className="px-3 pb-2">
-        <button type="button" onClick={() => setShow(true)} className="btn-quiet h-9">
+        <button type="button" onClick={() => setShow(true)} className="btn-quiet">
           자재 고치기
         </button>
       </div>
@@ -579,11 +579,11 @@ export function EditBomForm({ dm, bom }: { dm: string; bom: BomRow }) {
                  className="input h-9 tnum text-xs" />
         </div>
       )}
-      <button type="submit" disabled={pending} className="btn-quiet h-9">
+      <button type="submit" disabled={pending} className="btn-quiet">
         {pending ? '고치는 중' : '고친다'}
       </button>
       <button type="button" onClick={() => setShow(false)}
-              className="btn-ghost h-9">취소</button>
+              className="btn-ghost">취소</button>
       <div className="w-full"><Msg state={state} /></div>
     </form>
   );
@@ -709,7 +709,7 @@ export function AddTierForm({ dm, bom }: { dm: string; bom: BomRow }) {
         <input id={`${uid}-qty_max`} name="qty_max" type="number" step="any" min="0.0001" placeholder="없음"
                className="input h-9 tnum text-xs" />
       </div>
-      <button type="submit" disabled={pending} className="btn-quiet h-9">
+      <button type="submit" disabled={pending} className="btn-quiet">
         구간 추가
       </button>
       <div className="w-full"><Msg state={state} /></div>
@@ -776,7 +776,7 @@ function OperationEquipment({ op, equipment }: { op: OperationRow; equipment: Eq
                   <option key={e.id} value={e.id}>{e.code} {e.name}</option>
                 ))}
               </select>
-              <button type="submit" disabled={pending} className="btn-ghost h-9">걸기</button>
+              <button type="submit" disabled={pending} className="btn-ghost">걸기</button>
             </form>
           )}
           {state.error && <p role="alert" className="mt-2 text-xs text-danger">{state.error}</p>}
@@ -964,7 +964,7 @@ export function DmrLimitsForm({
         <input id={`${uid}-steril_box_qty`} name="steril_box_qty" type="number" min={1} defaultValue={boxQty ?? ''}
                placeholder="없음" className="input h-9 tnum text-xs" />
       </div>
-      <button type="submit" disabled={pending} className="btn-ghost h-9">
+      <button type="submit" disabled={pending} className="btn-ghost">
         저장
       </button>
       <span className="pb-2 text-xs leading-relaxed text-faint">
@@ -991,7 +991,7 @@ export function ExpectedUnitsForm({ id, value }: { id: string; value: number | n
                defaultValue={value ?? ''} placeholder="예: 204"
                className="input h-9 tnum text-xs" />
       </div>
-      <button type="submit" disabled={pending} className="btn-ghost h-9">
+      <button type="submit" disabled={pending} className="btn-ghost">
         저장
       </button>
       <span className="pb-2 text-xs leading-relaxed text-faint">
@@ -1096,7 +1096,7 @@ export function SamplePlanForm({ id, tiers, basis }: {
           <input id={`${uid}-sample_qty`} name="sample_qty" type="number" min={0} required placeholder="예: 3"
                  className="input h-9 tnum text-xs" />
         </div>
-        <button type="submit" disabled={tPending} className="btn-ghost h-9">
+        <button type="submit" disabled={tPending} className="btn-ghost">
           구간 추가
         </button>
         <span className="pb-2 text-xs leading-relaxed text-faint">
@@ -1113,7 +1113,7 @@ export function SamplePlanForm({ id, tiers, basis }: {
                  placeholder="예: 검사기준서 문서번호와 표 번호"
                  className="input h-9 text-xs" />
         </div>
-        <button type="submit" disabled={bPending} className="btn-ghost h-9">
+        <button type="submit" disabled={bPending} className="btn-ghost">
           저장
         </button>
         <Msg state={bState} className="w-full" />
@@ -1161,7 +1161,7 @@ export function DmrNoteForm({ id, note }: { id: string; note: string | null }) {
                placeholder="예: WS-05 세척 시간 변경 · 형명 12종 추가"
                className="input h-9 text-xs" />
       </div>
-      <button type="submit" disabled={pending} className="btn-ghost h-9">
+      <button type="submit" disabled={pending} className="btn-ghost">
         저장
       </button>
       <span className="pb-2 text-xs leading-relaxed text-faint">
@@ -1203,7 +1203,7 @@ export function ProductCodeForm({ id, code, name, itemCode, license }: {
         <input id={`${uid}-license_no`} name="license_no" defaultValue={license ?? ''}
                autoComplete="off" className="input h-9 font-mono text-xs" />
       </div>
-      <button type="submit" disabled={pending} className="btn-ghost h-9">
+      <button type="submit" disabled={pending} className="btn-ghost">
         저장
       </button>
       <span className="pb-2 text-xs leading-relaxed text-faint">
@@ -1277,7 +1277,7 @@ ${opCodes[2] ?? '공정코드-03'} | 포장재코드 | 구간 |`}
       )}
       <Msg state={state} />
       <div className="mt-3 flex gap-2">
-        <button type="submit" disabled={pending} className="btn-primary h-9">
+        <button type="submit" disabled={pending} className="btn-primary">
           {pending ? '넣는 중' : '자재 넣기'}
         </button>
       </div>
@@ -1310,11 +1310,11 @@ export function OperationSetForm({
           가져오면 자재 구성표와 설비 연결까지 함께 옵니다.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
-          <button onClick={() => setMode('flow')} className="btn-primary h-9">
+          <button onClick={() => setMode('flow')} className="btn-primary">
             공정 흐름 적기
           </button>
           {sources.length > 0 && (
-            <button onClick={() => setMode('copy')} className="btn-ghost h-9">
+            <button onClick={() => setMode('copy')} className="btn-ghost">
               다른 표준서에서 가져오기
             </button>
           )}
@@ -1343,11 +1343,11 @@ export function OperationSetForm({
               ))}
             </select>
           </div>
-          <button type="submit" disabled={copyPending} className="btn-primary h-9">
+          <button type="submit" disabled={copyPending} className="btn-primary">
             {copyPending ? '가져오는 중' : '가져오기'}
           </button>
           <button type="button" onClick={() => setMode(null)}
-                  className="btn-ghost h-9">취소</button>
+                  className="btn-ghost">취소</button>
         </div>
         <Msg state={copyState} />
       </form>
@@ -1390,11 +1390,11 @@ export function OperationSetForm({
       </p>
       <Msg state={bulkState} />
       <div className="mt-3 flex gap-2">
-        <button type="submit" disabled={bulkPending} className="btn-primary h-9">
+        <button type="submit" disabled={bulkPending} className="btn-primary">
           {bulkPending ? '넣는 중' : '공정 넣기'}
         </button>
         <button type="button" onClick={() => setMode(null)}
-                className="btn-ghost h-9">취소</button>
+                className="btn-ghost">취소</button>
       </div>
     </form>
   );
@@ -1504,7 +1504,7 @@ export function NewProduct({
 
       <Msg state={state} />
       <div className="mt-3 flex gap-2">
-        <button type="submit" disabled={pending} className="btn-primary h-9">
+        <button type="submit" disabled={pending} className="btn-primary">
           {pending ? '등록 중' : '등록'}
         </button>
       </div>

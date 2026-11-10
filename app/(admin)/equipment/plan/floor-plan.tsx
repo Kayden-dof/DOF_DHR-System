@@ -513,10 +513,10 @@ function DraftForm({ rect, rooms, onDone }: {
         </div>
         {target === '' && <RoomFields />}
         <div className="flex gap-2">
-          <button type="submit" disabled={pending} className="btn-primary h-9">
+          <button type="submit" disabled={pending} className="btn-primary">
             {target ? '사각형 더하기' : '방 만들기'}
           </button>
-          <button type="button" onClick={onDone} className="btn-ghost h-9">버리기</button>
+          <button type="button" onClick={onDone} className="btn-ghost">버리기</button>
         </div>
         <Msg state={state} />
       </form>
@@ -579,7 +579,7 @@ function RoomPanel({ room, equipment, writable, onPick, onGone }: {
               <label className="label" htmlFor={`${uid}-note`}>비고</label>
               <input id={`${uid}-note`} name="note" defaultValue={room.note ?? ''} className="input" />
             </div>
-            <button type="submit" disabled={pending} className="btn-primary h-9">저장</button>
+            <button type="submit" disabled={pending} className="btn-primary">저장</button>
             <Msg state={state} />
           </form>
           <form action={delAction} className="mt-4 flex flex-wrap items-center gap-3 border-t border-line-soft pt-3">
@@ -671,7 +671,7 @@ function EquipPanel({ e, rooms, writable, placed, onArm, onError }: {
             </select>
           </div>
           <div className="flex flex-wrap gap-3">
-            <button type="button" onClick={onArm} className="btn-ghost h-9">자리 누르기</button>
+            <button type="button" onClick={onArm} className="btn-ghost">자리 누르기</button>
             {(e.room_id || e.x !== null) && (
               <button type="button" disabled={busy}
                       onClick={() => save({ roomId: null, toRoomId: null, keepPos: false })}
@@ -700,7 +700,7 @@ function Bulk() {
           <p className="text-xs leading-relaxed text-muted">
             같은 번호를 여러 줄 적으면 사각형이 여럿인 방입니다. 있는 번호는 고쳐 씁니다.
           </p>
-          <button type="submit" disabled={roomPending} className="btn-ghost h-9">방 넣기</button>
+          <button type="submit" disabled={roomPending} className="btn-ghost">방 넣기</button>
           <Msg state={rs} />
         </form>
       </details>
@@ -713,7 +713,7 @@ function Bulk() {
           <p className="text-xs leading-relaxed text-muted">
             자리를 비우면 방 안에 «자리 미정» 으로 줄 섭니다. 끌어 놓으면 그 자리가 저장됩니다.
           </p>
-          <button type="submit" disabled={placePending} className="btn-ghost h-9">설비 놓기</button>
+          <button type="submit" disabled={placePending} className="btn-ghost">설비 놓기</button>
           <Msg state={ps} />
         </form>
       </details>

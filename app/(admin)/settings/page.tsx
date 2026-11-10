@@ -270,7 +270,7 @@ export default async function SettingsHome() {
               <p className="mt-1 text-muted">
                 규칙이 없으면 자재 입고와 작업 지시 발행에서 번호를 만들 수 없습니다.
               </p>
-              <Link href="/settings/numbering" className="btn-primary mt-3 h-9">
+              <Link href="/settings/numbering" className="btn-primary mt-3">
                 채번 규칙 등록
               </Link>
             </div>

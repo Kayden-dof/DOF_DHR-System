@@ -55,7 +55,7 @@ export default async function PasswordPage() {
         </div>
 
         <form action={logout} className="mt-4">
-          <button type="submit" className="btn-quiet h-10 w-full text-sm">
+          <button type="submit" className="btn-quiet w-full">
             로그아웃
           </button>
         </form>

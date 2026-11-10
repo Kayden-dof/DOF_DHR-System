@@ -448,7 +448,7 @@ export default function WorkPanel({
       {locked && (
         <div className="flex justify-end">
           <Link href={`/print/day-record/${woId}/${day}/${meId}`}
-                className="btn-ghost h-14 px-5 text-base">
+                className="btn-ghost">
             {day}일차 기록서 다시 보기
           </Link>
         </div>
@@ -778,7 +778,7 @@ function StartCard({ woId, day, op, people, productLots, attempt, done, splitOp 
       <Msg state={state} />
 
       <button type="submit" disabled={pending || (op.after_cutting && !lot)}
-              className="btn-primary h-14 w-full text-base">
+              className="btn-primary w-full">
         {pending ? '시작하는 중' : `${op.name} 시작`}
       </button>
     </form>
@@ -1014,7 +1014,7 @@ function MaterialForm({ woId, rec, op, lots, sheets, loadUnit, expiryWarnDays }:
 
       <Msg state={state} />
 
-      <button type="submit" disabled={pending || !lotId} className="btn-primary h-14 w-full text-base">
+      <button type="submit" disabled={pending || !lotId} className="btn-primary w-full">
         {pending ? '기록하는 중' : '자재 기록'}
       </button>
     </form>
@@ -1060,7 +1060,7 @@ function EndForm({ woId, rec, op, missing }: {
 
       {!confirm ? (
         <button type="button" onClick={() => setConfirm(true)}
-                className="btn-primary h-14 w-full text-base">
+                className="btn-primary w-full">
           공정 마감
         </button>
       ) : (
@@ -1070,11 +1070,11 @@ function EndForm({ woId, rec, op, missing }: {
             마감 후에도 일차를 마감하기 전이면 자재를 더 넣을 수 있습니다.
           </p>
           <div className="flex gap-2">
-            <button type="submit" disabled={pending} className="btn-primary h-14 flex-1 text-base">
+            <button type="submit" disabled={pending} className="btn-primary flex-1">
               {pending ? '마감하는 중' : '마감한다'}
             </button>
             <button type="button" onClick={() => setConfirm(false)}
-                    className="btn-ghost h-14 flex-1 text-base">
+                    className="btn-ghost flex-1">
               취소
             </button>
           </div>
@@ -1127,7 +1127,7 @@ function CloseDayCard({ woId, day, batchNo, openOps }: {
       <Msg state={state} />
 
       {blocked ? null : !confirm ? (
-        <button onClick={() => setConfirm(true)} className="btn-ghost mt-4 h-14 w-full text-base">
+        <button onClick={() => setConfirm(true)} className="btn-ghost mt-4 w-full">
           {day}일차 마감하고 기록서 발행
         </button>
       ) : (
@@ -1139,11 +1139,11 @@ function CloseDayCard({ woId, day, batchNo, openOps }: {
             되돌릴 수 없습니다.
           </p>
           <div className="flex gap-2">
-            <button type="submit" disabled={pending} className="btn-primary h-14 flex-1 text-base">
+            <button type="submit" disabled={pending} className="btn-primary flex-1">
               {pending ? '마감하는 중' : '마감한다'}
             </button>
             <button type="button" onClick={() => setConfirm(false)}
-                    className="btn-ghost h-14 flex-1 text-base">
+                    className="btn-ghost flex-1">
               취소
             </button>
           </div>
@@ -1404,7 +1404,7 @@ function IssueRow({ woId, x, locked }: {
         </span>
         {!locked && (
           <button type="button" onClick={() => setMode(mode ? null : 'amend')}
-                  className="btn-quiet h-14 px-5 text-base">
+                  className="btn-quiet">
             {mode ? '닫기' : '정정'}
           </button>
         )}
@@ -1552,7 +1552,7 @@ function PrepCard(
         */}
       {onGo && goLabel && (
         <button type="button" onClick={onGo}
-                className="btn-primary mt-3 h-14 w-full text-base">
+                className="btn-primary mt-3 w-full">
           {goLabel}
         </button>
       )}

@@ -198,7 +198,7 @@ export default function PinForm({ first }: { first: boolean }) {
       </p>
 
       <button type="submit" disabled={!ready || pending}
-              className="btn-primary mt-4 h-12 w-full text-base">
+              className="btn-primary mt-4 w-full">
         {pending ? '바꾸는 중' : first ? '정하고 시작하기' : '비밀번호 바꾸기'}
       </button>
     </form>

@@ -180,7 +180,7 @@ export default async function VerifyPage({
                     * 화면을 여는 사람이면 누구나 누를 수 있다.
                     */}
                   {viewHref(h)
-                    ? <Link href={viewHref(h)!} className="btn-ghost h-9">
+                    ? <Link href={viewHref(h)!} className="btn-ghost">
                         그 회차 펼쳐 보기
                       </Link>
                     : <p className="text-xs text-muted">
@@ -234,7 +234,7 @@ export default async function VerifyPage({
 
                   {h.work_order_id && (
                     <Link href={`/production/${h.work_order_id}`}
-                          className="btn-ghost h-9">
+                          className="btn-ghost">
                       배치 열기
                     </Link>
                   )}

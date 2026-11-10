@@ -153,7 +153,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Search
               </option>
             ))}
           </select>
-          <button className="btn-ghost h-9">보기</button>
+          <button className="btn-ghost">보기</button>
         </form>
         <span className="h-5 w-px bg-line" />
         <Filters
@@ -192,7 +192,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Search
       {pages > 1 && (
         <div className="flex items-center justify-center gap-2">
           {page > 1 && (
-            <Link href={qs({ page: page - 1 })} className="btn-ghost h-9">
+            <Link href={qs({ page: page - 1 })} className="btn-ghost">
               이전
             </Link>
           )}
@@ -200,7 +200,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Search
             {page} / {pages}
           </span>
           {page < pages && (
-            <Link href={qs({ page: page + 1 })} className="btn-ghost h-9">
+            <Link href={qs({ page: page + 1 })} className="btn-ghost">
               다음
             </Link>
           )}

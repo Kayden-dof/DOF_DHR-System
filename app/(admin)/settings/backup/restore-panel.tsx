@@ -90,7 +90,7 @@ export default function RestorePanel({ canRestore, left }: {
           계정도 함께 되돌아갔습니다. 지금 로그인이 더 이상 맞지 않을 수 있으니
           한 번 나갔다 들어오십시오. 되돌린 사실은 복구 대장에 남았습니다.
         </p>
-        <button onClick={() => window.location.reload()} className="btn-ghost mt-4 h-9">
+        <button onClick={() => window.location.reload()} className="btn-ghost mt-4">
           화면 새로 고침
         </button>
       </section>
@@ -151,7 +151,7 @@ export default function RestorePanel({ canRestore, left }: {
               <button
                 onClick={() => send('inspect')}
                 disabled={!file || !pass || busy !== ''}
-                className="btn-ghost h-9 shrink-0"
+                className="btn-ghost shrink-0"
               >
                 {busy === 'look' ? '읽는 중' : '살펴보기'}
               </button>
@@ -312,7 +312,7 @@ export default function RestorePanel({ canRestore, left }: {
               <button
                 onClick={() => send('apply')}
                 disabled={!ready || busy !== '' || !canRestore}
-                className="btn-danger mt-4 h-9"
+                className="btn-danger mt-4"
               >
                 {busy === 'run' ? '되돌리는 중' : '이 백업으로 되돌린다'}
               </button>

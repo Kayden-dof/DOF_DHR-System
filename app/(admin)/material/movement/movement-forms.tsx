@@ -194,7 +194,7 @@ export function SolutionLotForm({ items, lots, fix }: {
         ))}
       </div>
       <button type="button" onClick={() => setRows((r) => [...r, r.length])}
-              className="btn-quiet mt-2 h-9">
+              className="btn-quiet mt-2">
         원료 줄 추가
       </button>
 
@@ -205,7 +205,7 @@ export function SolutionLotForm({ items, lots, fix }: {
       <Msg state={state} />
       {state.ok && state.href && (
         <div className="mt-2">
-          <Link href={state.href} className="btn-ghost h-9">라벨 인쇄</Link>
+          <Link href={state.href} className="btn-ghost">라벨 인쇄</Link>
         </div>
       )}
       <div className="mt-3">

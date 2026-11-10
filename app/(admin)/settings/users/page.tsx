@@ -143,7 +143,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Search
             {role && <input type="hidden" name="role" value={role} />}
             <input name="q" defaultValue={q ?? ''} placeholder="이름 또는 사번"
                    className="input h-9 w-56 text-xs" autoComplete="off" />
-            <button className="btn-ghost h-9">검색</button>
+            <button className="btn-ghost">검색</button>
           </form>
         }
       />
