@@ -70,6 +70,11 @@ export interface RecRow {
   rotation_name: string | null;
   issues: { item_code: string; item_name: string; lot_no: string;
             qty: string; usage_uom: string; amend_reason: string | null }[];
+  /**
+   * 현장에서 적은 제조기록서 칸 (0132). 적은 칸이 없으면 이 열쇠 자체가 없다 -
+   * 칸 적기 전에 나간 종이의 자료 식별자가 그대로 맞도록.
+   */
+  br?: { doc: string; field: string; value: string; by: string; at: string }[];
   /** 위탁 멸균으로 나간 수량. 자재가 아니라 제품이라 투입 자재 칸에 들어가지 않는다 */
   steril: { batch_no: string; qty: number; vendor_name: string;
             shipped_at: string | null; cert_no: string | null }[];
@@ -102,9 +107,7 @@ export async function dayRecordPayload(
       where wo.id = $1`, [id, dayNo, worker]);
   if (!head) return null;
 
-  return {
-    head,
-    records: await db.rows<RecRow>(
+  const records = await db.rows<RecRow>(
       `select o.seq as operation_seq, o.code as operation_code, o.name as operation_name,
               pr.attempt, pl.lot_no as product_lot_no,
               pi.code as product_item_code, pi.name as product_item_name,
@@ -136,7 +139,15 @@ export async function dayRecordPayload(
                   from steril_batch_lot sbl
                   join steril_batch sb on sb.id = sbl.steril_batch_id
                  where pr.product_lot_id is not null
-                   and sbl.product_lot_id = pr.product_lot_id), '[]'::json) as steril
+                   and sbl.product_lot_id = pr.product_lot_id), '[]'::json) as steril,
+              /* 적은 칸이 없으면 null - 아래에서 열쇠를 지운다 (0132) */
+              (select json_agg(json_build_object(
+                        'doc', e.doc_id, 'field', e.field, 'value', e.value,
+                        'by', eu.full_name,
+                        'at', to_char(timezone('Asia/Seoul', e.entered_at), 'YYYY-MM-DD'))
+                        order by e.doc_id, e.field)
+                 from br_entry e join app_user eu on eu.id = e.entered_by
+                where e.process_record_id = pr.id and e.value <> '') as br
          from process_record pr
          join dmr_operation o on o.id = pr.operation_id
          left join product_lot pl on pl.id = pr.product_lot_id
@@ -162,6 +173,7 @@ export async function dayRecordPayload(
          * 제조번호를 먼저 놓고 (재단 전 공정은 비어 있으므로 앞에 온다), 그래도
          * 남는 동점은 행 식별자로 끊는다.
          */
-        order by o.seq, pr.attempt, pl.lot_no nulls first, pr.id`, [id, dayNo, worker]),
-  };
+        order by o.seq, pr.attempt, pl.lot_no nulls first, pr.id`, [id, dayNo, worker]);
+  for (const r of records) if (r.br == null) delete r.br;
+  return { head, records };
 }

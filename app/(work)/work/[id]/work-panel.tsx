@@ -9,6 +9,7 @@ import { fmtDateTime } from '@/lib/fmt';
 import { Msg, Tag } from '@/components/ui';
 import NumPad, { PresetPicker } from '@/components/num-pad';
 import { Dialog } from '@/components/dialog';
+import { BrSheetButton } from './br-sheet';
 import { todayKST } from '@/lib/kst';
 import { isNoExpiry } from '@/lib/equipment-check';
 import {
@@ -582,6 +583,16 @@ function OperationCard({
       ) : (
         <RunningCard woId={woId} op={op} rec={rec} lots={lots} sheets={sheets}
                      loadUnit={loadUnit} expiryWarnDays={expiryWarnDays} />
+      )}
+
+      {/*
+        * 제조기록서 칸 (0132). 종이 제조기록서의 확인 · 결과 칸을 여기서 적는다.
+        * 공정을 시작한 뒤부터 일차를 마감하기 전까지. 양식이 없는 공정에는 단추가 안 나온다.
+        */}
+      {rec && !locked && (
+        <div className="border-t border-line p-3">
+          <BrSheetButton recordId={rec.id} />
+        </div>
       )}
 
       {/*

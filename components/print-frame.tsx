@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import Barcode from './barcode';
-import { isPageLabel, type FormPage } from '@/lib/br-form';
+import { isPageLabel, type FormPage, type FormCell } from '@/lib/br-form';
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 export interface PrintMeta {
@@ -773,6 +773,48 @@ export function FormSheet({
         </div>
       </div>
 
+      <FormBody page={page} size={size} formPage={formPage} />
+
+      {sign && (
+        <table className="form-table" style={{ left: pt(right - 240), top: pt(bottom + 8), width: pt(240) }}>
+          <tbody>
+            <tr style={{ height: pt(13) }}>
+              <td style={{ fontSize: pt(9), fontWeight: 700, textAlign: 'center' }}>작업자</td>
+              <td style={{ fontSize: pt(9), fontWeight: 700, textAlign: 'center' }}>생산 책임자</td>
+            </tr>
+            <tr style={{ height: pt(28) }}>
+              <td data-sign-role="작업자" className="sign-box" />
+              <td data-sign-role="생산 책임자" className="sign-box" />
+            </tr>
+          </tbody>
+        </table>
+      )}
+
+      {extra && extra.length > 0 && (
+        <div className="form-text" style={{ left: pt(50), top: pt(bottom + 8), fontSize: pt(7), whiteSpace: 'pre-line', lineHeight: 1.3, color: SYS_BLUE }}>
+          {extra.join('\n')}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   양식 한 쪽의 글과 표 - 종이(FormSheet)와 현장 화면(제조기록서 칸 적기)이 같은 것을 그린다
+
+   onCell 이 있으면 사람이 적는 칸(c.id)을 누를 수 있다. 빈 칸은 옅은 노랑,
+   적은 칸은 파란 글씨. 종이에는 onCell 을 주지 않으므로 칸 표시가 없다.
+--------------------------------------------------------------------------- */
+export function FormBody({ page, size, formPage, onCell, active }: {
+  page: FormPage;
+  size: { w: number; h: number };
+  formPage: { n: number; of: number };
+  onCell?: (c: FormCell) => void;
+  active?: string | null;
+}) {
+  const W = size.w;
+  return (
+    <>
       {page.texts.map((t, i) => {
         const label = isPageLabel(t.t);
         const cx = (t.x0 + t.x1) / 2;
@@ -801,6 +843,9 @@ export function FormSheet({
                 {r.cells.map((c) => (
                   <td key={c.c} colSpan={c.cs} rowSpan={c.rs}
                       data-fill={c.f || c.tk?.length ? '' : undefined} data-note={c.n ? '' : undefined}
+                      data-field={onCell && c.id ? (c.v ? 'done' : 'open') : undefined}
+                      data-active={onCell && c.id && c.id === active ? '' : undefined}
+                      onClick={onCell && c.id ? () => onCell(c) : undefined}
                       style={{
                         textAlign: c.a === 'l' ? 'left' : c.a === 'r' ? 'right' : 'center',
                         fontSize: pt(c.s ?? 10), fontWeight: c.b ? 700 : 400,
@@ -814,28 +859,6 @@ export function FormSheet({
           </tbody>
         </table>
       ))}
-
-      {sign && (
-        <table className="form-table" style={{ left: pt(right - 240), top: pt(bottom + 8), width: pt(240) }}>
-          <tbody>
-            <tr style={{ height: pt(13) }}>
-              <td style={{ fontSize: pt(9), fontWeight: 700, textAlign: 'center' }}>작업자</td>
-              <td style={{ fontSize: pt(9), fontWeight: 700, textAlign: 'center' }}>생산 책임자</td>
-            </tr>
-            <tr style={{ height: pt(28) }}>
-              <td data-sign-role="작업자" className="sign-box" />
-              <td data-sign-role="생산 책임자" className="sign-box" />
-            </tr>
-          </tbody>
-        </table>
-      )}
-
-      {extra && extra.length > 0 && (
-        <div className="form-text" style={{ left: pt(50), top: pt(bottom + 8), fontSize: pt(7), whiteSpace: 'pre-line', lineHeight: 1.3, color: SYS_BLUE }}>
-          {extra.join('\n')}
-        </div>
-      )}
-    </div>
+    </>
   );
 }
-

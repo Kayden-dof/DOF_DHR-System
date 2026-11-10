@@ -6,6 +6,7 @@ import { withActor, dbMessage } from '@/lib/db';
 import { requireUser } from '@/lib/session';
 import { isWorker, isAdmin } from '@/lib/roles';
 import type { FormState } from '@/lib/forms';
+import { brSheet, type BrSheet } from '@/lib/br-sheet';
 
 async function worker() {
   const user = await requireUser();
@@ -237,6 +238,45 @@ export async function returnIssue(_p: FormState, form: FormData): Promise<FormSt
 
     bump(wo);
     return { ok: true, message: `${qty}을(를) 원 로트로 반납했습니다. 투입 기록은 그대로 남습니다.` };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   제조기록서 칸 (0132 · 사용자 2026-11-10 «제조기록서 상에 체크와 적어야 하는
+   부분들은 모두 생산자가 체크 하거나 기록 할수 있도록»)
+
+   읽기: 양식에 시스템 값과 적은 값을 얹은 모양. 쓰기: 칸 하나에 값 하나.
+   누가 · 언제는 DB 가 정하고, 일차가 잠기면 DB 가 막는다 (S04).
+--------------------------------------------------------------------------- */
+export async function loadBrSheet(recordId: string): Promise<BrSheet | { error: string }> {
+  try {
+    const me = await worker();
+    const sheet = await withActor(me.id, (db) => brSheet(db, recordId), { readOnly: false });
+    return sheet ?? { error: '이 공정에는 등록된 제조기록서 양식이 없습니다' };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
+export async function saveBrEntry(
+  recordId: string, docId: string, field: string, value: string,
+): Promise<BrSheet | { error: string }> {
+  try {
+    const me = await worker();
+    if (!/^p\d+t\d+r\d+c\d+$/.test(field)) return { error: '칸 자리가 올바르지 않습니다' };
+    const v = String(value ?? '').slice(0, 2000);
+    const sheet = await withActor(me.id, async (db) => {
+      await db.rows(
+        `insert into br_entry (process_record_id, doc_id, field, value, entered_by)
+         values ($1, $2, $3, $4, $5)
+         on conflict (process_record_id, doc_id, field)
+           do update set value = excluded.value`,
+        [recordId, docId, field, v, me.id]);
+      return brSheet(db, recordId);
+    }, { reason: v ? '제조기록서 칸 적음' : '제조기록서 칸 비움' });
+    return sheet ?? { error: '제조기록서를 다시 읽지 못했습니다' };
   } catch (e) {
     return { error: dbMessage(e) };
   }

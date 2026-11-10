@@ -31,7 +31,24 @@ export interface FormCell {
   tk?: string[];
   /** 특이사항 칸 (위 · 왼쪽부터 적는다) */
   n?: boolean;
+  /* --- 현장에서 적는 칸 (0132) --------------------------------------------- */
+  /** 칸 자리 p쪽 t표 r줄 c열. 사람이 적는 칸에만 있다 */
+  id?: string;
+  /** 무엇을 적는가: 고르기 · 시각 · 수치 · 글 */
+  k?: FieldKind;
+  /** 고르기의 보기 (□ 다음 글) */
+  o?: string[];
+  /** 수치 뒤에 붙는 단위 (양식에 인쇄된 것) */
+  u?: string;
+  /** 시각에 날짜도 적는가 (여러 날에 걸치는 칸) */
+  dt?: boolean;
+  /** 화면에 보일 이름: 세부공정 · 관리항목 · 허용범위 */
+  lb?: string;
+  /** 지금 적힌 값 */
+  v?: string;
 }
+export type FieldKind = 'choice' | 'time' | 'number' | 'text';
+export interface Entry { value: string; by: string; at: string }
 export interface FormRow { h: number; cells: FormCell[] }
 export interface FormTable { x: number; y: number; w: number; cols: number[]; rows: FormRow[] }
 export interface FormText { t: string; x0: number; x1: number; y: number; s: number; b: boolean; color: string | null }
@@ -58,6 +75,8 @@ export interface FillData {
   equipment: string | null;
   /** 특이사항에 적을 줄 (시각 · 설비 · 순환자 · 사유 …) */
   notes: string[];
+  /** 현장에서 적은 칸 (0132). 칸 자리 → 값 · 적은 사람 · 날짜(YYYY-MM-DD) */
+  entries?: Record<string, Entry>;
 }
 
 const norm = (s: string | undefined) => (s ?? '').replace(/\s+/g, '');
@@ -109,18 +128,22 @@ export function fillForm(form: BrForm, d: FillData): { pages: FormPage[]; placed
   let section: Section = null;
   /* 세부공정 칸은 여러 줄에 걸친다 - 그 아래 줄은 위 줄의 세부공정을 이어받는다 */
   let stepGroup = '';
+  let equipName = '';
+  /* 사람이 적을 수 있는 칸 후보와 서명(작업자 · 일자) 칸. 칸 판정은 시스템 채움이 끝난 뒤에 한다 */
+  const cand: { cell: FormCell; id: string; role?: string; section: Section; lb: string; row: string; left?: string }[] = [];
+  const signs: { rows: string[]; cell: FormCell; role: 'worker' | 'date'; sz: number }[] = [];
+  /* 자재를 채운 줄 (그 줄의 작업자 칸은 투입한 작업자로) */
+  const matRow = new Set<string>();
 
-  for (const page of pages) {
-    for (const tb of page.tables) {
+  pages.forEach((page, pi) => {
+    page.tables.forEach((tb, ti) => {
       const edge = [tb.x];
       for (const w of tb.cols) edge.push(edge[edge.length - 1] + w);
       const x0Of = (c: FormCell) => edge[c.c];
       const x1Of = (c: FormCell) => edge[Math.min(edge.length - 1, c.c + (c.cs ?? 1))];
       const roleOf = (c: FormCell) =>
         roles.find((r) => x0Of(c) >= r.x0 - 1.5 && x0Of(c) < r.x1 - 1.5)?.role;
-      /* 자재 줄을 채웠는가 - 작업자 · 일자 칸은 그 칸이 걸친 줄 가운데 하나라도 채웠을 때 */
-      const filledRow = new Set<number>();
-      const workerCells: { ri: number; rs: number; cell: FormCell; role: 'worker' | 'date'; sz: number }[] = [];
+      const rowKey = (ri: number) => `${pi}:${ti}:${ri}`;
 
       tb.rows.forEach((row, ri) => {
         const hits = row.cells.filter((c) => ROLE[norm(c.t)]);
@@ -145,13 +168,44 @@ export function fillForm(form: BrForm, d: FillData): { pages: FormPage[]; placed
         const first = row.cells[0];
         if (first && norm(first.t) === '특이사항') {
           const next = row.cells[1];
-          if (next && !norm(next.t)) { next.n = true; noteCell = next; }
+          if (next && !norm(next.t)) {
+            next.n = true; noteCell = next;
+            Object.assign(next, { id: `p${pi}t${ti}r${ri}c${next.c}`, k: 'text' as const, lb: '특이사항' });
+          }
           return;
         }
 
         const by = (role: string) => row.cells.find((c) => roleOf(c) === role);
         /* 채운 글자는 그 줄 양식 글자와 같은 크기로 - 작게 들어가면 덧붙인 것처럼 보인다 */
         const sz = Math.max(0, ...row.cells.filter((c) => norm(c.t) && !c.f).map((c) => c.s ?? 10)) || 10;
+
+        /* 사람이 적을 칸 후보와 서명 칸 - 모든 구역 */
+        if (by('equip')?.t) equipName = by('equip')!.t!;
+        if (by('step')?.t) stepGroup = by('step')!.t!;
+        /* 공정검사 줄은 첫 칸(이물질 · pH)이 검사 이름이다 */
+        if (by('inspect')?.t) stepGroup = `공정검사 · ${by('inspect')!.t!}`;
+        const flat = (s?: string) => (s ?? '').replace(/\s*\n\s*/g, ' ').trim();
+        const label = section === 'equip'
+          ? [equipName, by('precheck')?.t].map(flat).filter(Boolean).join(' · ')
+          : [stepGroup || flat(first?.t), by('stepitem')?.t, by('range')?.t].map(flat).filter(Boolean).join(' · ');
+        const sorted = [...row.cells].sort((a, b) => a.c - b.c);
+        for (const c of row.cells) {
+          const role = roleOf(c);
+          if (role === 'worker' || role === 'date') {
+            if (!norm(c.t)) {
+              const span: string[] = [];
+              for (let k = ri; k < ri + (c.rs ?? 1); k++) span.push(rowKey(k));
+              signs.push({ rows: span, cell: c, role, sz });
+            }
+            continue;
+          }
+          const left = sorted[sorted.indexOf(c) - 1]?.t?.trim();
+          const CUT_COL: Record<string, string> = { cutlot: '제조번호', model: '모델명', qty: '수량' };
+          const lb = role === 'calib' ? [flat(equipName), '검교정일자 확인'].filter(Boolean).join(' · ')
+            : section === 'cut' ? `${ri}줄 · ${CUT_COL[role ?? ''] ?? '측정'}`
+            : label;
+          cand.push({ cell: c, id: `p${pi}t${ti}r${ri}c${c.c}`, role, section, lb, row: rowKey(ri), left });
+        }
 
         if (section === 'head') {
           const batch = by('batch');
@@ -195,13 +249,7 @@ export function fillForm(form: BrForm, d: FillData): { pages: FormPage[]; placed
             }
             if (text) {
               Object.assign(lotCell, { t: text, f: true, a: 'c' as const, b: false, s: sz });
-              filledRow.add(ri);
-            }
-          }
-          for (const c of row.cells) {
-            const role = roleOf(c);
-            if ((role === 'worker' || role === 'date') && !norm(c.t)) {
-              workerCells.push({ ri, rs: c.rs ?? 1, cell: c, role, sz });
+              matRow.add(rowKey(ri));
             }
           }
         }
@@ -209,8 +257,6 @@ export function fillForm(form: BrForm, d: FillData): { pages: FormPage[]; placed
         if (section === 'step') {
           const item = by('stepitem');
           const result = by('result');
-          const group = by('step');
-          if (group?.t) stepGroup = group.t;
           /*
            * 원재료 투입량: 관리항목이 원재료 이름이거나 (2025.10.16 판), 세부공정이
            * "Porcine dermis 투입량" 이고 관리항목이 "수량" 이다 (2026.02.20 판).
@@ -225,14 +271,8 @@ export function fillForm(form: BrForm, d: FillData): { pages: FormPage[]; placed
           }
         }
       });
-
-      for (const w of workerCells) {
-        let hit = false;
-        for (let k = w.ri; k < w.ri + w.rs; k++) if (filledRow.has(k)) hit = true;
-        if (hit) Object.assign(w.cell, { t: w.role === 'worker' ? d.worker : d.workDate, f: true, a: 'c' as const, b: false, s: w.sz });
-      }
-    }
-  }
+    });
+  });
 
   /* -------------------------------------------------------------------------
      투입량 → 세부공정 결과 칸
@@ -278,6 +318,69 @@ export function fillForm(form: BrForm, d: FillData): { pages: FormPage[]; placed
     if (!done) qtyNotes.push(`투입량 ${m.name.replace(/\s*\n\s*/g, '')} ${amount}`);
   }
 
+  /* -------------------------------------------------------------------------
+     사람이 적는 칸 (0132 · 사용자 2026-11-10 «체크와 적어야 하는 부분들은 모두
+     생산자가 체크 하거나 기록 할수 있도록»)
+
+     시스템이 채운 칸은 빼고, 양식 글로 무엇을 적는 칸인지 가른다.
+       □ 가 있다              고르기 (보기 = □ 다음 글)
+       "시작 … 종료" 가 있다    시각 (날짜 칸 "/" 가 있으면 날짜도)
+       제조번호 · 모델명 열     글 (GM · PD 처럼 앞머리가 인쇄됨)
+       비었거나 단위만 있다     수치 (단위는 양식 그대로)
+     이름표 · 허용범위 · 자재명 · 기기번호 같은 인쇄 글은 칸이 아니다.
+     작업(검사)자 · 일자는 적는 칸이 아니라 적은 사람이 들어가는 자리다.
+  ------------------------------------------------------------------------- */
+  const LABEL_ROLES = new Set(['product', 'batch', 'plot', 'model_head', 'checker', 'checkdate', 'equip',
+    'equipno', 'precheck', 'mat', 'matname', 'matcode', 'matlot', 'step', 'stepitem', 'range', 'inspect']);
+  const UNIT = /^[A-Za-z℃°%µ²₂/.\s]{1,8}$/;
+  const entries = d.entries ?? {};
+  const enteredRow = new Map<string, Entry>();
+  for (const x of cand) {
+    const c = x.cell;
+    if (c.f || c.tk?.length || c.id) continue;
+    const t = (c.t ?? '').trim();
+    const cutText = x.section === 'cut' && (x.role === 'cutlot' || x.role === 'model');
+    if (!cutText && x.role && LABEL_ROLES.has(x.role)) continue;
+    if (x.section === 'head') continue;
+    let k: FieldKind | null = null;
+    /* "합격 [ ] 불합격 [ ]" 처럼 이름 칸 옆의 빈칸은 표시(✓) 하나를 고르는 칸이다 */
+    const MARK = /^(합격|불합격|적합|부적합|재포장)$/;
+    if (!t && x.left && MARK.test(x.left)) {
+      Object.assign(c, { id: x.id, k: 'choice' as const, o: ['✓'], lb: `${x.lb || '칸'} · ${x.left}` });
+      const e = entries[x.id];
+      if (e && e.value !== '') { c.v = e.value; Object.assign(c, { t: '✓', f: true, a: 'c' as const }); enteredRow.set(x.row, e); }
+      continue;
+    }
+    if (t.includes('□')) k = 'choice';
+    else if (/시작/.test(t) && /종료/.test(t)) k = 'time';
+    else if (cutText) k = 'text';
+    else if (!t || UNIT.test(t)) k = 'number';
+    if (!k) continue;
+    Object.assign(c, { id: x.id, k, lb: x.lb || '칸' });
+    if (k === 'choice') {
+      c.o = t.split('□').slice(1).map((s) => s.replace(/\s+/g, ' ').trim()).filter(Boolean);
+    }
+    if (k === 'number' && t) c.u = t;
+    if (k === 'time' && t.includes('/')) c.dt = true;
+    if (k === 'text' && t) c.u = t;      // 앞머리 (GM · PD)
+    const e = entries[x.id];
+    if (e && e.value !== '') {
+      c.v = e.value;
+      applyEntry(c, e.value);
+      enteredRow.set(x.row, e);
+    }
+  }
+
+  /* 서명 칸: 자재를 채운 줄은 투입한 작업자, 사람이 적은 줄은 적은 사람 (모두 파랗다) */
+  for (const s of signs) {
+    const e = s.rows.map((r) => enteredRow.get(r)).filter(Boolean)
+      .sort((a, b) => (a!.at < b!.at ? 1 : -1))[0];
+    const sys = s.rows.some((r) => matRow.has(r));
+    if (!e && !sys) continue;
+    const text = s.role === 'worker' ? (e?.by ?? d.worker) : (e?.at ?? d.workDate);
+    Object.assign(s.cell, { t: text, f: true, a: 'c' as const, b: false, s: s.sz });
+  }
+
   /* 특이사항: 시스템 기록과 양식에 자리가 없던 투입 */
   const extra = d.issues
     .map((x, k) => ({ x, k }))
@@ -287,12 +390,68 @@ export function fillForm(form: BrForm, d: FillData): { pages: FormPage[]; placed
     .filter((x) => x.amend_reason)
     .map((x) => `정정 ${x.item_name} ${x.lot_no} · ${x.amend_reason}`);
   const lines = [...d.notes, ...qtyNotes, ...extra, ...amend];
-  if (noteCell && lines.length) {
-    Object.assign(noteCell as FormCell, { t: lines.join('\n'), f: true, a: 'l' as const, b: false, s: 9 });
+  if (noteCell) {
+    const nc = noteCell as FormCell;
+    /* 현장에서 적은 특이사항이 먼저, 시스템 기록이 뒤에 */
+    const mine = nc.id ? entries[nc.id]?.value ?? '' : '';
+    if (mine) nc.v = mine;
+    const all = [mine, ...lines].filter(Boolean);
+    if (all.length) Object.assign(nc, { t: all.join('\n'), f: true, a: 'l' as const, b: false, s: 9 });
   }
 
   /* 특이사항 칸이 없는 양식이면 부르는 쪽이 장 아래에 적는다 */
   return { pages, placed, lost: noteCell ? [] : lines };
+}
+
+/* ---------------------------------------------------------------------------
+   적은 값을 칸에 놓는다
+
+   값의 모양
+     고르기   "보기"  또는 "보기|덧붙임" (충진시간처럼 보기 안에 빈자리가 있을 때)
+     시각     "09:20~09:40"  또는 날짜까지 "11/05 15:19~11/06 10:19"
+     수치     "45.6"  (단위는 양식의 것)
+     글       그대로
+--------------------------------------------------------------------------- */
+export function applyEntry(c: FormCell, value: string) {
+  if (c.k === 'choice') {
+    const [pick, extra] = value.split('|');
+    const opts = c.o ?? [];
+    const sep = (c.t ?? '').includes('\n') ? '\n' : '  ';
+    let hit = '';
+    const shown = opts.map((o) => {
+      if (o !== pick) return `□ ${o}`;
+      let s = `■ ${o}`;
+      if (extra) {
+        s = /:\s*~\s*:/.test(s) ? s.replace(/:\s*~\s*:/, extra.replace('~', ' ~ '))
+          : /_{2,}/.test(s) ? s.replace(/_{2,}/, extra)
+          : `${s} ${extra}`;
+      }
+      hit = s;
+      return s;
+    });
+    c.t = shown.join(sep);
+    if (hit) c.tk = [hit];
+    return;
+  }
+  if (c.k === 'time') {
+    const [s, e] = value.split('~').map((x) => x.trim());
+    Object.assign(c, { t: `시작 ${s || '  :  '} ~ 종료 ${e || '  :  '}`, f: true, a: 'c' as const, b: false });
+    return;
+  }
+  if (c.k === 'number') {
+    Object.assign(c, { t: c.u ? `${value} ${c.u}` : value, f: true, a: 'c' as const, b: false });
+    return;
+  }
+  Object.assign(c, { t: value, f: true, b: false });
+}
+
+/** 보기 안에 덧붙여 적을 빈자리가 있는가 (충진시간 : ~ : · ____ 분) */
+export const optionBlank = (o: string): 'time' | 'number' | null =>
+  /:\s*~\s*:/.test(o) ? 'time' : /_{2,}/.test(o) ? 'number' : null;
+
+/** 사람이 적을 칸 목록 (화면이 몇 칸 적었는지 센다) */
+export function fieldsOf(pages: FormPage[]) {
+  return pages.flatMap((p) => p.tables.flatMap((t) => t.rows.flatMap((r) => r.cells.filter((c) => c.id))));
 }
 
 /** 머리 · 꼬리 글 가운데 쪽 번호 ("1 / 2", "1 / __") */

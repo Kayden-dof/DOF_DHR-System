@@ -273,8 +273,8 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = fal
          join device_master dm on dm.id = wo.device_master_id where wo.id = $1`, [id]);
     const ops = [...new Set(records.map((r) => r.operation_code))];
     const forms = product
-      ? await db.rows<{ op_code: string; doc_no: string; form: BrForm }>(
-          `select distinct on (op_code) op_code, doc_no, form
+      ? await db.rows<{ op_code: string; id: string; doc_no: string; form: BrForm }>(
+          `select distinct on (op_code) op_code, id, doc_no, form
              from mfg_doc
             where product_code = $1 and kind = 'BR' and is_current and form is not null
               and op_code = any($2::text[])
@@ -286,6 +286,7 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = fal
     return { forms, noLot };
   });
   const formOf = new Map(look.forms.map((f) => [f.op_code, f.form]));
+  const docOf = new Map(look.forms.map((f) => [f.op_code, f.id]));
   const hms = (v: Date | null) => (v ? fmtDateTime(v).slice(11) : '');
   const plans = records.flatMap((r) => {
     const form = formOf.get(r.operation_code);
@@ -311,6 +312,10 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = fal
       worker: head.worker_name, workDate: fmtDate(head.work_date),
       issues: r.issues, noLotCodes: look.noLot,
       equipment: r.equipment_id, notes,
+      /* 현장에서 적은 칸 (0132) - 그 양식에 적힌 것만 */
+      entries: Object.fromEntries((r.br ?? [])
+        .filter((e) => e.doc === docOf.get(r.operation_code))
+        .map((e) => [e.field, { value: e.value, by: e.by, at: e.at }])),
     });
     return [{ r, size: form.page, pages: filled.pages, lost: filled.lost }];
   });
