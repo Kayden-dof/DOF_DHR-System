@@ -191,6 +191,59 @@ export async function forceCorrectReason(_p: FormState, form: FormData): Promise
   }
 }
 
+/**
+ * 배치번호를 종이 번호에 맞춘다 (0131 · 사용자 2026-11-10 «배치 번호도 … B261104-01 임»).
+ * 기록이 붙은 지시면 까닭이 있어야 바뀐다 (DB 가 막는다). 계보는 id 로 이어진다.
+ */
+export async function setBatchNo(_p: FormState, form: FormData): Promise<FormState> {
+  try {
+    const me = await mgr();
+    const id = String(form.get('id') ?? '');
+    const no = String(form.get('batch_no') ?? '').trim().toUpperCase();
+    const why = txt(form.get('reason'));
+    if (!/^B\d{6}-\d{2,}$/.test(no)) return { error: '배치번호는 BYYMMDD-NN 꼴로 적으십시오 (예: B261104-01)' };
+    if (!why) return { error: '왜 바꾸는지 적으십시오' };
+    const old = await withActor(me.id, async (db) => {
+      const prev = await db.val<string>(`select batch_no from work_order where id = $1`, [id]);
+      await db.rows(`update work_order set batch_no = $2 where id = $1`, [id, no]);
+      return prev;
+    }, { reason: `배치번호 고침 · ${why}` });
+    bump(id);
+    return { ok: true, message: `배치번호를 ${old} 에서 ${no} 로 고쳤습니다.` };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
+/**
+ * 잠긴 기록의 작업일 · 시작 · 종료 시각을 종이 기록에 맞춘다 - 강제 정정 (0131).
+ * 시스템관리자만. 비운 칸은 그대로 둔다. 칸마다 정정 내역이 남는다.
+ */
+export async function forceCorrectTimes(_p: FormState, form: FormData): Promise<FormState> {
+  try {
+    const user = await requireUser();
+    if (!hasRole(user, 'SYS_ADMIN')) return { error: '강제 정정은 시스템관리자만 할 수 있습니다' };
+    const pr = String(form.get('process_record_id') ?? '');
+    const woId = String(form.get('work_order_id') ?? '');
+    const wd = txt(form.get('work_date'));
+    /* datetime-local 은 시간대가 없다. 한국 시각으로 읽는다 */
+    const kst = (v: string | null) => (v ? `${v.length === 16 ? `${v}:00` : v}+09:00` : null);
+    const st = kst(txt(form.get('started_at')));
+    const en = kst(txt(form.get('ended_at')));
+    const why = txt(form.get('why'));
+    if (!why) return { error: '왜 고치는지 적으십시오' };
+    if (!wd && !st && !en) return { error: '고칠 칸을 하나 이상 적으십시오' };
+    const n = await withActor(user.id, (db) =>
+      db.val<number>(`select force_correct_times($1, $2::date, $3::timestamptz, $4::timestamptz, $5)`,
+        [pr, wd, st, en, why]),
+      { reason: `강제 정정 · ${why}` });
+    bump(woId);
+    return { ok: true, message: `${n}칸을 강제 정정했습니다. 정정 내역이 이 기록 아래에 남습니다.` };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
 export async function cancelWorkOrder(_p: FormState, form: FormData): Promise<FormState> {
   try {
     const me = await mgr();

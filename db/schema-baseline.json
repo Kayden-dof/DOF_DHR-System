@@ -35,6 +35,7 @@
     "expire_material_lots",
     "find_unit",
     "force_correct_reason",
+    "force_correct_times",
     "generate_finished_items",
     "has_role",
     "is_locked",

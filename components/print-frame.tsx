@@ -707,6 +707,28 @@ export function SignRow({ roles }: { roles: string[] }) {
 --------------------------------------------------------------------------- */
 const pt = (v: number) => `${v}pt`;
 
+/*
+ * 시스템이 적은 글은 파란 글씨 (사용자 2026-11-10 «시스템상 작성이 되었다면 파란색 글씨로»).
+ * 손으로 적는 칸(검정 · 사람 글씨)과 종이 위에서 바로 갈린다. 흑백으로 뽑으면 회색이 된다.
+ */
+const SYS_BLUE = '#1d4ed8';
+
+/** 양식 글 가운데 시스템이 적은 조각(■ 1 L)만 파랗게 */
+function marked(text: string, tokens: string[]) {
+  const out: React.ReactNode[] = [];
+  let rest = text;
+  let k = 0;
+  while (rest) {
+    const hits = tokens.map((t) => ({ t, at: rest.indexOf(t) })).filter((h) => h.at >= 0);
+    if (!hits.length) { out.push(rest); break; }
+    const h = hits.reduce((a, b) => (b.at < a.at ? b : a));
+    if (h.at > 0) out.push(rest.slice(0, h.at));
+    out.push(<span key={k++} style={{ color: SYS_BLUE }}>{h.t}</span>);
+    rest = rest.slice(h.at + h.t.length);
+  }
+  return out;
+}
+
 export function FormSheet({
   meta: given, page, size, formPage, sheet, caption, sign, extra,
 }: {
@@ -778,12 +800,13 @@ export function FormSheet({
               <tr key={ri} style={{ height: pt(r.h) }}>
                 {r.cells.map((c) => (
                   <td key={c.c} colSpan={c.cs} rowSpan={c.rs}
-                      data-fill={c.f ? '' : undefined} data-note={c.n ? '' : undefined}
+                      data-fill={c.f || c.tk?.length ? '' : undefined} data-note={c.n ? '' : undefined}
                       style={{
                         textAlign: c.a === 'l' ? 'left' : c.a === 'r' ? 'right' : 'center',
                         fontSize: pt(c.s ?? 10), fontWeight: c.b ? 700 : 400,
+                        color: c.f ? SYS_BLUE : undefined,
                       }}>
-                    {c.t ?? ''}
+                    {c.tk?.length ? marked(c.t ?? '', c.tk) : (c.t ?? '')}
                   </td>
                 ))}
               </tr>
@@ -808,7 +831,7 @@ export function FormSheet({
       )}
 
       {extra && extra.length > 0 && (
-        <div className="form-text" style={{ left: pt(50), top: pt(bottom + 8), fontSize: pt(7), whiteSpace: 'pre-line', lineHeight: 1.3 }}>
+        <div className="form-text" style={{ left: pt(50), top: pt(bottom + 8), fontSize: pt(7), whiteSpace: 'pre-line', lineHeight: 1.3, color: SYS_BLUE }}>
           {extra.join('\n')}
         </div>
       )}

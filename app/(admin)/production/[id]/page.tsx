@@ -10,9 +10,12 @@ import Denied from '@/components/denied';
 import { Panel, Empty, Tag, Field, Caution } from '@/components/ui';
 import {
   CutForm, LotStatusForm, CancelForm, WoNoForm, ForceReasonForm, FinishForm, RetrieveForm, EndForWorkerForm, DayPrintLink,
+  BatchNoForm, ForceTimesForm,
   NonconformityForm, WipNonconformityForm, type OpOpt,
   type LotRow, type FinOpt,
 } from './batch-forms';
+
+const FIELD_LABEL: Record<string, string> = { work_date: '작업일', started_at: '시작', ended_at: '종료' };
 
 export const dynamic = 'force-dynamic';
 
@@ -66,7 +69,8 @@ interface RecRow {
   rework_qty: number | null; no_material_reason: string | null;
   /** 일차 마감으로 잠긴 기록인가. 강제 정정은 잠긴 기록에만 연다 (0128) */
   locked: boolean;
-  corrections: { old_value: string | null; new_value: string | null; why: string;
+  work_date_text: string; started_local: string | null; ended_local: string | null;
+  corrections: { field?: string; old_value: string | null; new_value: string | null; why: string;
                  by_name: string; at: string }[];
   product_lot_no: string | null; issues: number;
 }
@@ -158,9 +162,12 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                 (select count(*)::int from material_issue mi
                   where mi.process_record_id = pr.id) as issues,
                 is_locked(pr.work_order_id, pr.day_no, pr.worker_id) as locked,
+                pr.work_date::text as work_date_text,
+                to_char(timezone('Asia/Seoul', pr.started_at), 'YYYY-MM-DD"T"HH24:MI') as started_local,
+                to_char(timezone('Asia/Seoul', pr.ended_at), 'YYYY-MM-DD"T"HH24:MI') as ended_local,
                 coalesce((
                   select json_agg(json_build_object(
-                           'old_value', rc.old_value, 'new_value', rc.new_value, 'why', rc.why,
+                           'field', rc.field, 'old_value', rc.old_value, 'new_value', rc.new_value, 'why', rc.why,
                            'by_name', cu.full_name,
                            'at', to_char(timezone('Asia/Seoul', rc.corrected_at), 'YYYY-MM-DD HH24:MI'))
                          order by rc.corrected_at)
@@ -361,7 +368,10 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
             <span className="font-mono">{wo.wo_no}</span>
             {active && !readOnly && <> <WoNoForm id={wo.id} current={wo.wo_no} /></>}
           </Field>
-          <Field label="배치번호"><span className="font-mono font-semibold">{wo.batch_no}</span></Field>
+          <Field label="배치번호">
+            <span className="font-mono font-semibold">{wo.batch_no}</span>
+            {active && !readOnly && <> <BatchNoForm id={wo.id} current={wo.batch_no} /></>}
+          </Field>
           <Field label="제품표준서 개정"><span className="font-mono">{wo.dmr_revision}</span></Field>
           <Field label="장입 수량">
             <span className="tnum font-semibold">{wo.sheet_count}{wo.load_unit ?? ''}</span>
@@ -648,11 +658,18 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                       )}
                       {r.corrections.map((c, i) => (
                         <div key={i} className="mt-1 text-xs leading-relaxed text-faint">
-                          강제 정정 {c.at} · {c.by_name}: «{c.old_value}» → «{c.new_value}» · {c.why}
+                          강제 정정 {c.at} · {c.by_name}{c.field && c.field !== 'no_material_reason' ? ` · ${FIELD_LABEL[c.field] ?? c.field}` : ''}: «{c.old_value}» → «{c.new_value}» · {c.why}
                         </div>
                       ))}
                       {r.locked && r.no_material_reason && hasRole(user, 'SYS_ADMIN') && (
                         <ForceReasonForm recordId={r.id} woId={wo.id} current={r.no_material_reason} />
+                      )}
+                      {r.locked && hasRole(user, 'SYS_ADMIN') && (
+                        <div>
+                          <ForceTimesForm recordId={r.id} woId={wo.id}
+                                          workDate={r.work_date_text}
+                                          started={r.started_local ?? ''} ended={r.ended_local ?? ''} />
+                        </div>
                       )}
                     </td>
                   </tr>

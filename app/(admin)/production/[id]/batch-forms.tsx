@@ -10,6 +10,7 @@ import type { Fix } from '@/lib/unblock';
 import { Dialog, useDialog } from '@/components/dialog';
 import {
   cutLot, setLotStatus, cancelWorkOrder, finishWorkOrder, retrievePrint, setWorkOrderNo, forceCorrectReason,
+  setBatchNo, forceCorrectTimes,
   recordNonconformity, recordWipNonconformity, endRecordForWorker,
 } from '../actions';
 
@@ -235,6 +236,93 @@ export function WoNoForm({ id, current }: { id: string; current: string }) {
       <div className="flex gap-2">
         <button type="submit" disabled={pending} className="btn-primary h-9">저장</button>
         <button type="button" onClick={() => setOpen(false)} className="btn-ghost h-9">취소</button>
+      </div>
+    </form>
+  );
+}
+
+/** 배치번호를 종이 번호로 고친다 (0131). 기록이 있으면 사유가 있어야 바뀐다 */
+export function BatchNoForm({ id, current }: { id: string; current: string }) {
+  const uid = useId();
+  const [state, action, pending] = useActionState<FormState, FormData>(setBatchNo, {});
+  const [open, setOpen] = useState(false);
+
+  if (!open || state.ok) {
+    return (
+      <>
+        <button type="button" onClick={() => setOpen(true)} className="qd-text-action">고치기</button>
+        {state.ok && <Msg state={state} />}
+      </>
+    );
+  }
+  return (
+    <form action={action} className="mt-2 space-y-2">
+      <input type="hidden" name="id" value={id} />
+      <div>
+        <label className="label" htmlFor={`${uid}-batch_no`}>종이에 적힌 배치번호</label>
+        <input id={`${uid}-batch_no`} name="batch_no" required defaultValue={current}
+               autoComplete="off" className="input font-mono" />
+      </div>
+      <div>
+        <label className="label" htmlFor={`${uid}-reason`}>사유</label>
+        <input id={`${uid}-reason`} name="reason" required autoComplete="off"
+               placeholder="종이 제조기록서 배치번호에 맞춤" className="input" />
+      </div>
+      <Msg state={state} />
+      <div className="flex gap-2">
+        <button type="submit" disabled={pending} className="btn-primary">저장</button>
+        <button type="button" onClick={() => setOpen(false)} className="btn-ghost">취소</button>
+      </div>
+    </form>
+  );
+}
+
+/*
+ * 강제 정정 (0131). 잠긴 기록의 작업일 · 시작 · 종료 시각을 종이 기록에 맞춘다.
+ * 비운 칸은 그대로 둔다. 시스템관리자만 보인다.
+ */
+export function ForceTimesForm({ recordId, woId, workDate, started, ended }: {
+  recordId: string; woId: string; workDate: string; started: string; ended: string;
+}) {
+  const uid = useId();
+  const [state, action, pending] = useActionState<FormState, FormData>(forceCorrectTimes, {});
+  const [open, setOpen] = useState(false);
+
+  if (!open || state.ok) {
+    return (
+      <>
+        <button type="button" onClick={() => setOpen(true)} className="qd-text-action">시각 강제 정정</button>
+        {state.ok && <Msg state={state} />}
+      </>
+    );
+  }
+  return (
+    <form action={action} className="mt-2 space-y-2">
+      <input type="hidden" name="process_record_id" value={recordId} />
+      <input type="hidden" name="work_order_id" value={woId} />
+      <div className="grid gap-2 sm:grid-cols-3">
+        <div>
+          <label className="label" htmlFor={`${uid}-wd`}>작업일</label>
+          <input id={`${uid}-wd`} name="work_date" type="date" defaultValue={workDate} className="input tnum" />
+        </div>
+        <div>
+          <label className="label" htmlFor={`${uid}-st`}>시작</label>
+          <input id={`${uid}-st`} name="started_at" type="datetime-local" defaultValue={started} className="input tnum" />
+        </div>
+        <div>
+          <label className="label" htmlFor={`${uid}-en`}>종료</label>
+          <input id={`${uid}-en`} name="ended_at" type="datetime-local" defaultValue={ended} className="input tnum" />
+        </div>
+      </div>
+      <div>
+        <label className="label" htmlFor={`${uid}-why`}>사유</label>
+        <input id={`${uid}-why`} name="why" required autoComplete="off"
+               placeholder="종이 제조기록서 시각에 맞춤" className="input" />
+      </div>
+      <Msg state={state} />
+      <div className="flex gap-2">
+        <button type="submit" disabled={pending} className="btn-primary">저장</button>
+        <button type="button" onClick={() => setOpen(false)} className="btn-ghost">취소</button>
       </div>
     </form>
   );

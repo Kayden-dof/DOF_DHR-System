@@ -25,8 +25,10 @@
 export interface FormCell {
   c: number; cs?: number; rs?: number;
   t?: string; a?: 'l' | 'c' | 'r'; b?: boolean; s?: number;
-  /** 시스템이 채운 칸 */
+  /** 시스템이 채운 칸 (종이에 파란 글씨, 사용자 2026-11-10) */
   f?: boolean;
+  /** 양식 글 가운데 시스템이 적은 조각만 (■ 1 L 같은 고른 칸). 이 조각만 파랗다 */
+  tk?: string[];
   /** 특이사항 칸 (위 · 왼쪽부터 적는다) */
   n?: boolean;
 }
@@ -105,6 +107,8 @@ export function fillForm(form: BrForm, d: FillData): { pages: FormPage[]; placed
    */
   let roles: { x0: number; x1: number; role: string }[] = [];
   let section: Section = null;
+  /* 세부공정 칸은 여러 줄에 걸친다 - 그 아래 줄은 위 줄의 세부공정을 이어받는다 */
+  let stepGroup = '';
 
   for (const page of pages) {
     for (const tb of page.tables) {
@@ -164,7 +168,7 @@ export function fillForm(form: BrForm, d: FillData): { pages: FormPage[]; placed
           const no = by('equipno');
           if (no?.t && no.t.includes('□') && no.t.includes(d.equipment)) {
             no.t = no.t.replace(`□ ${d.equipment}`, `■ ${d.equipment}`);
-            no.f = true;
+            no.tk = [`■ ${d.equipment}`];
           }
         }
 
@@ -205,7 +209,16 @@ export function fillForm(form: BrForm, d: FillData): { pages: FormPage[]; placed
         if (section === 'step') {
           const item = by('stepitem');
           const result = by('result');
-          if (item && result && rawName && norm(item.t) === norm(rawName) && !norm(result.t)) {
+          const group = by('step');
+          if (group?.t) stepGroup = group.t;
+          /*
+           * 원재료 투입량: 관리항목이 원재료 이름이거나 (2025.10.16 판), 세부공정이
+           * "Porcine dermis 투입량" 이고 관리항목이 "수량" 이다 (2026.02.20 판).
+           */
+          const rawRow = !!rawName && !!item && (
+            norm(item.t) === norm(rawName)
+            || (norm(item.t) === '수량' && norm(stepGroup).includes(norm(rawName))));
+          if (item && result && rawRow && !norm(result.t)) {
             Object.assign(result, { t: `${d.sheets} ${d.loadUnit ?? '장'}`, f: true, a: 'c' as const, s: sz });
           } else if (item?.t && result) {
             stepRows.push({ item: item.t, result, sz });
@@ -248,12 +261,16 @@ export function fillForm(form: BrForm, d: FillData): { pages: FormPage[]; placed
       if (!norm(result.t)) {
         Object.assign(result, { t: amount, f: true, a: 'c' as const, b: false, s: sz });
         done = true;
+      } else if (key(result.t) === key(m.uom)) {
+        /* 단위만 인쇄된 칸 ("g") - 그 단위 앞에 양을 적는다 */
+        Object.assign(result, { t: amount, f: true, a: 'c' as const, b: false, s: sz });
+        done = true;
       } else if (result.t?.includes('□')) {
         const opts = result.t.split('\n');
         const at = opts.findIndex((l) => key(l.replace('□', '')) === key(amount));
         if (at >= 0) {
           opts[at] = opts[at].replace('□', '■');
-          Object.assign(result, { t: opts.join('\n'), f: true });
+          Object.assign(result, { t: opts.join('\n'), tk: [opts[at].trim()] });
           done = true;
         }
       }

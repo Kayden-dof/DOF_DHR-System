@@ -212,4 +212,47 @@ export default [
   },
 },
 
+{
+  id: 'FC-09', expect: '통과',
+  name: '작업일 · 시작 · 종료를 종이 기록에 맞춘다 (발행일 앞 작업일 · 칸마다 정정 내역 · 잠금 그대로)',
+  async run(t) {
+    const m = await master(t);
+    const { wo, pr } = await lockedReason(t, m);
+    await t.rows(`update work_order set issued_at = now() where id = $1`, [wo.id]);
+    const n = await asUser(t, m.admin, () => t.val(
+      `select force_correct_times($1, current_date - 2,
+              (current_date - 2) + interval '9 hours', (current_date - 1) + interval '8 hours',
+              '종이 제조기록서 대조')`, [pr]));
+    t.eq(n, 3, '바뀐 칸 수');
+    t.eq(await t.val(`select (work_date = current_date - 2) from process_record where id = $1`, [pr]), true, '작업일');
+    t.eq(await t.val(`select count(*)::int from record_correction where process_record_id = $1
+                        and field in ('work_date','started_at','ended_at')`, [pr]), 3, '정정 내역');
+    t.ok(await t.val(`select is_locked($1, 1, $2)`, [wo.id, m.worker]), '잠금은 그대로');
+    /* 강제 정정 밖에서는 발행일 앞 작업일이 여전히 막힌다 */
+    await asUser(t, m.admin, () => t.rejects(() => t.rows(
+      `select force_correct_times($1, null, now() + interval '1 hour', now(), '거꾸로')`, [pr]),
+      { message: '종료 시각이' }));
+  },
+},
+
+{
+  id: 'FC-10', expect: '거부',
+  name: '기록이 있는 지시의 배치번호를 까닭 없이 바꿈 (까닭이 있으면 바뀐다)',
+  async run(t) {
+    const m = await master(t);
+    const { wo } = await lockedReason(t, m);
+    await t.rejects(() => t.rows(`update work_order set batch_no = 'B-FC10-01' where id = $1`, [wo.id]),
+      { message: '까닭' });
+    await t.rows(`select set_config('app.change_reason', '종이 배치번호', false)`);
+    try {
+      await t.rows(`update work_order set batch_no = 'B-FC10-01' where id = $1`, [wo.id]);
+    } finally {
+      await t.rows(`select set_config('app.change_reason', '', false)`);
+    }
+    t.eq(await t.val(`select batch_no from work_order where id = $1`, [wo.id]), 'B-FC10-01', '바뀐 번호');
+    await t.rejects(() => t.rows(`update work_order set sheet_count = sheet_count + 1 where id = $1`, [wo.id]),
+      { message: '장입 장수' });
+  },
+},
+
 ];
