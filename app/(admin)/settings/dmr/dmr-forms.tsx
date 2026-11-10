@@ -528,11 +528,11 @@ export function EditOperationForm({ dm, op, extra }: {
                  defaultValue={op.typical_day ?? ''} placeholder="비움"
                  className="input tnum" />
         </div>
-        <label className="flex h-9 items-center gap-1.5 text-xs text-ink">
+        <label className="flex h-[var(--tap)] items-center gap-1.5 text-sm text-ink">
           <input type="checkbox" name="after_cutting" defaultChecked={op.after_cutting} />
           제품 로트 단위
         </label>
-        <label className="flex h-9 items-center gap-1.5 text-xs text-ink">
+        <label className="flex h-[var(--tap)] items-center gap-1.5 text-sm text-ink">
           <input type="checkbox" name="takes_rework" defaultChecked={op.takes_rework} />
           재작업 수량
         </label>

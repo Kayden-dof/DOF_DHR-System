@@ -10,7 +10,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "node scripts/check-sql-params.mjs && node test/run.mjs",
+    "test": "node scripts/size-check.mjs && node scripts/check-sql-params.mjs && node test/run.mjs",
     "check:sql": "node scripts/check-sql-params.mjs",
     "test:print": "node --env-file=.env.local test/print.mjs",
     "test:mutation": "node test/mutation.mjs",
@@ -35,6 +35,7 @@
     "save": "node --env-file=.env.local scripts/save-check.mjs",
     "screen": "node --env-file=.env.local scripts/screen-check.mjs",
     "font": "node scripts/font-check.mjs",
+    "size": "node scripts/size-check.mjs",
     "net": "node scripts/net-check.mjs",
     "second": "node --env-file=.env.local scripts/seed-second.mjs",
     "volume": "node --env-file=.env.local scripts/volume-check.mjs"
