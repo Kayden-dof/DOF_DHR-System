@@ -104,13 +104,13 @@ export default function DownloadPanel({ stale, children }: {
               <input id="dl-p1" type="password" value={p1} autoComplete="new-password"
                      onChange={(e) => setP1(e.target.value)}
                      placeholder={`${PASSPHRASE_MIN}자 이상`}
-                     className="input mt-1 text-xs" />
+                     className="input mt-1" />
             </div>
             <div>
               <label htmlFor="dl-p2" className="label">파일 암호 다시</label>
               <input id="dl-p2" type="password" value={p2} autoComplete="new-password"
                      onChange={(e) => setP2(e.target.value)}
-                     className="input mt-1 text-xs" />
+                     className="input mt-1" />
               {mismatch && <p className="mt-1 text-xs text-danger">두 값이 다릅니다</p>}
             </div>
             <div>
@@ -118,7 +118,7 @@ export default function DownloadPanel({ stale, children }: {
               <input id="dl-pin" type="password" inputMode="numeric" value={pin}
                      autoComplete="off" onChange={(e) => setPin(e.target.value)}
                      placeholder="로그인에 쓰는 비밀번호"
-                     className="input mt-1 text-xs" />
+                     className="input mt-1" />
             </div>
           </div>
 

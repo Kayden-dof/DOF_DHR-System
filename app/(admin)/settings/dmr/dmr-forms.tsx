@@ -39,10 +39,12 @@ export interface ItemOption { id: string; code: string; name: string; usage_uom:
 
 /* -------------------------------------------------------------------------- */
 
-export function NewDeviceMaster({ items, fix }: {
+export function NewDeviceMaster({ items, fix, quiet }: {
   items: ItemOption[];
   /** 완제품 형명이 없을 때 만들러 가는 자리 (lib/unblock.ts) */
   fix?: Fix;
+  /** 화면 머리에 주 동작이 따로 있을 때 (생산 > 제품의 «제품 등록») 보조 단추로 선다 */
+  quiet?: boolean;
 }) {
   /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
   const uid = useId();
@@ -53,11 +55,19 @@ export function NewDeviceMaster({ items, fix }: {
 
   return (
     <>
-      <button onClick={() => setOpen(true)} className="btn-primary" disabled={fin.length === 0}> 제품표준서 개정 추가 </button>
-      {fin.length === 0 && (
-        <Unblock fix={fix} align="start" why="완제품 형명이 없어 대상 형명을 고를 수 없습니다."
-                 todo="완제품 형명 만들기" />
-      )}
+      {/*
+        * 화면 머리 오른쪽에 선다 (사용자 2026-11-10 «화면 위치 통일성»). 전에는 본문 맨 위
+        * 왼쪽에 따로 서서, 다른 설정 화면(품목 등록 · 새 계정 등록 · 공급자 등록)과 자리가
+        * 달랐다. 막힌 까닭은 단추 왼쪽에 둔다 - 아래에 두면 단추가 위로 올라간다.
+        */}
+      <div className="flex flex-row-reverse flex-wrap items-end gap-x-4 gap-y-2">
+        <button onClick={() => setOpen(true)} className={quiet ? 'btn-ghost' : 'btn-primary'}
+                disabled={fin.length === 0}>제품표준서 개정 추가</button>
+        {fin.length === 0 && (
+          <Unblock fix={fix} why="완제품 형명이 없어 대상 형명을 고를 수 없습니다."
+                   todo="완제품 형명 만들기" />
+        )}
+      </div>
       <Dialog open={open} onClose={() => setOpen(false)} wide title="제품표준서 개정 추가">
         <form action={action}>
       <h3 className="mb-3 text-sm font-semibold text-ink">새 개정</h3>
@@ -380,7 +390,7 @@ export function AddBomForm({ dm, op, items, fix }: {
       <input type="hidden" name="operation_id" value={op.id} />
       <div className="sm:col-span-2">
         <label className="label" htmlFor={`${uid}-component_item_id`}>자재</label>
-        <select id={`${uid}-component_item_id`} name="component_item_id" required className="input h-9 text-xs">
+        <select id={`${uid}-component_item_id`} name="component_item_id" required className="input">
           {pool.map((i) => (
             <option key={i.id} value={i.id}>{i.code} · {i.name} ({i.usage_uom})</option>
           ))}
@@ -389,7 +399,7 @@ export function AddBomForm({ dm, op, items, fix }: {
       <div>
         <label className="label" htmlFor={`${uid}-basis`}>소요량 기준</label>
         <select id={`${uid}-basis`} name="basis" value={basis} onChange={(e) => setBasis(e.target.value)}
-                className="input h-9 text-xs">
+                className="input">
           <option value="SHEET_TIER">장입 구간 기준</option>
           <option value="PER_UNIT">제품 개수 기준</option>
         </select>
@@ -400,7 +410,7 @@ export function AddBomForm({ dm, op, items, fix }: {
         </label>
         <input id={`${uid}-qty_per_unit`} name="qty_per_unit" type="number" step="any" min="0"
                disabled={basis !== 'PER_UNIT'}
-               className="input h-9 tnum text-xs" />
+               className="input tnum" />
       </div>
       <div className="sm:col-span-4">
         <Msg state={state} />
@@ -500,23 +510,23 @@ export function EditOperationForm({ dm, op, extra }: {
         <div className="w-20">
           <label className="label" htmlFor={`${uid}-seq`}>순번</label>
           <input id={`${uid}-seq`} name="seq" type="number" min="1" required
-                 defaultValue={op.seq} className="input h-9 tnum text-xs" />
+                 defaultValue={op.seq} className="input tnum" />
         </div>
         <div className="w-44">
           <label className="label" htmlFor={`${uid}-code`}>공정 코드</label>
           <input id={`${uid}-code`} name="code" required autoComplete="off"
-                 defaultValue={op.code} className="input h-9 font-mono text-xs" />
+                 defaultValue={op.code} className="input font-mono" />
         </div>
         <div className="min-w-44 flex-1">
           <label className="label" htmlFor={`${uid}-name`}>공정 이름</label>
           <input id={`${uid}-name`} name="name" required autoComplete="off"
-                 defaultValue={op.name} className="input h-9 text-xs" />
+                 defaultValue={op.name} className="input" />
         </div>
         <div className="w-24">
           <label className="label" htmlFor={`${uid}-day`}>보통 일차</label>
           <input id={`${uid}-day`} name="typical_day" type="number" min="1"
                  defaultValue={op.typical_day ?? ''} placeholder="비움"
-                 className="input h-9 tnum text-xs" />
+                 className="input tnum" />
         </div>
         <label className="flex h-9 items-center gap-1.5 text-xs text-ink">
           <input type="checkbox" name="after_cutting" defaultChecked={op.after_cutting} />
@@ -566,7 +576,7 @@ export function EditBomForm({ dm, bom }: { dm: string; bom: BomRow }) {
         <label className="label" htmlFor={`${uid}-basis`}>기준</label>
         <select id={`${uid}-basis`} name="basis" value={basis}
                 onChange={(e) => setBasis(e.target.value as BomRow['basis'])}
-                className="input h-9 text-xs">
+                className="input">
           <option value="SHEET_TIER">장입 구간 기준</option>
           <option value="PER_UNIT">제품 개수 기준</option>
         </select>
@@ -576,7 +586,7 @@ export function EditBomForm({ dm, bom }: { dm: string; bom: BomRow }) {
           <label className="label" htmlFor={`${uid}-per`}>1개당 소요량</label>
           <input id={`${uid}-per`} name="qty_per_unit" type="number" step="any" min="0.0001"
                  required defaultValue={bom.qty_per_unit ?? ''}
-                 className="input h-9 tnum text-xs" />
+                 className="input tnum" />
         </div>
       )}
       <button type="submit" disabled={pending} className="btn-quiet">
@@ -608,23 +618,23 @@ export function EditTierForm({ dm, tier }: { dm: string; tier: Tier }) {
       <div className="w-20">
         <label className="label" htmlFor={`${uid}-min`}>하한</label>
         <input id={`${uid}-min`} name="min_sheets" type="number" min="1" required
-               defaultValue={tier.min_sheets} className="input h-8 tnum text-xs" />
+               defaultValue={tier.min_sheets} className="input tnum" />
       </div>
       <div className="w-20">
         <label className="label" htmlFor={`${uid}-max`}>상한</label>
         <input id={`${uid}-max`} name="max_sheets" type="number" min="1" placeholder="없음"
-               defaultValue={tier.max_sheets ?? ''} className="input h-8 tnum text-xs" />
+               defaultValue={tier.max_sheets ?? ''} className="input tnum" />
       </div>
       <div className="w-24">
         <label className="label" htmlFor={`${uid}-q`}>소요량</label>
         <input id={`${uid}-q`} name="qty" type="number" step="any" min="0.0001" required
-               defaultValue={Number(tier.qty)} className="input h-8 tnum text-xs" />
+               defaultValue={Number(tier.qty)} className="input tnum" />
       </div>
       <div className="w-24">
         <label className="label" htmlFor={`${uid}-qm`}>소요량 상한</label>
         <input id={`${uid}-qm`} name="qty_max" type="number" step="any" min="0.0001" placeholder="없음"
                defaultValue={tier.qty_max != null ? Number(tier.qty_max) : ''}
-               className="input h-8 tnum text-xs" />
+               className="input tnum" />
       </div>
       <button type="submit" disabled={pending} className="qd-text-action">
         {pending ? '중' : '고친다'}
@@ -663,7 +673,7 @@ export function TierRangeForm({ dm, tier, uom }: { dm: string; tier: Tier; uom: 
           {Number(tier.qty)} ~ ({uom})
         </label>
         <input id={`${uid}-qm`} name="qty_max" type="number" step="any" required
-               min={Number(tier.qty)} className="input h-8 tnum text-xs" />
+               min={Number(tier.qty)} className="input tnum" />
       </div>
       <button type="submit" disabled={pending} className="qd-text-action">
         {pending ? '중' : '적기'}
@@ -692,22 +702,22 @@ export function AddTierForm({ dm, bom }: { dm: string; bom: BomRow }) {
       <div className="w-24">
         <label className="label" htmlFor={`${uid}-min_sheets`}>장입 하한</label>
         <input id={`${uid}-min_sheets`} name="min_sheets" type="number" min="1" defaultValue={nextMin} required
-               className="input h-9 tnum text-xs" />
+               className="input tnum" />
       </div>
       <div className="w-24">
         <label className="label" htmlFor={`${uid}-max_sheets`}>상한</label>
         <input id={`${uid}-max_sheets`} name="max_sheets" type="number" min="1" placeholder="없음"
-               className="input h-9 tnum text-xs" />
+               className="input tnum" />
       </div>
       <div className="w-28">
         <label className="label" htmlFor={`${uid}-qty`}>소요량</label>
         <input id={`${uid}-qty`} name="qty" type="number" step="any" min="0.0001" required
-               className="input h-9 tnum text-xs" />
+               className="input tnum" />
       </div>
       <div className="w-28">
         <label className="label" htmlFor={`${uid}-qty_max`}>소요량 상한</label>
         <input id={`${uid}-qty_max`} name="qty_max" type="number" step="any" min="0.0001" placeholder="없음"
-               className="input h-9 tnum text-xs" />
+               className="input tnum" />
       </div>
       <button type="submit" disabled={pending} className="btn-quiet">
         구간 추가
@@ -770,7 +780,7 @@ function OperationEquipment({ op, equipment }: { op: OperationRow; equipment: Eq
               <input type="hidden" name="on" value="1" />
               <label htmlFor={`${uid}-equipment_id`} className="sr-only">걸 설비</label>
               <select id={`${uid}-equipment_id`} name="equipment_id" required defaultValue=""
-                      className="input h-9 w-auto min-w-64">
+                      className="input w-auto min-w-64">
                 <option value="" disabled>설비 고르기</option>
                 {free.map((e) => (
                   <option key={e.id} value={e.id}>{e.code} {e.name}</option>
@@ -941,12 +951,12 @@ export function DmrLimitsForm({
       <div className="w-28">
         <label className="label" htmlFor={`${uid}-sheet_min`}>장입 하한</label>
         <input id={`${uid}-sheet_min`} name="sheet_min" type="number" min={1} defaultValue={sheetMin ?? ''}
-               placeholder="1" className="input h-9 tnum text-xs" />
+               placeholder="1" className="input tnum" />
       </div>
       <div className="w-28">
         <label className="label" htmlFor={`${uid}-sheet_max`}>장입 상한</label>
         <input id={`${uid}-sheet_max`} name="sheet_max" type="number" min={1} defaultValue={sheetMax ?? ''}
-               placeholder="없음" className="input h-9 tnum text-xs" />
+               placeholder="없음" className="input tnum" />
       </div>
       <div className="w-28">
         <label className="label" htmlFor={`${uid}-load_unit`}>장입 단위</label>
@@ -956,13 +966,13 @@ export function DmrLimitsForm({
           * 숫자만 보여 준다. 지어낸 단위를 붙이는 것보다 낫다 (§2.0).
           */}
         <input id={`${uid}-load_unit`} name="load_unit" defaultValue={loadUnit ?? ''}
-               autoComplete="off" placeholder="장" className="input h-9 text-xs" />
+               autoComplete="off" placeholder="장" className="input" />
       </div>
 
       <div className="w-28">
         <label className="label" htmlFor={`${uid}-steril_box_qty`}>멸균 박스 한 개 수량</label>
         <input id={`${uid}-steril_box_qty`} name="steril_box_qty" type="number" min={1} defaultValue={boxQty ?? ''}
-               placeholder="없음" className="input h-9 tnum text-xs" />
+               placeholder="없음" className="input tnum" />
       </div>
       <button type="submit" disabled={pending} className="btn-ghost">
         저장
@@ -989,7 +999,7 @@ export function ExpectedUnitsForm({ id, value }: { id: string; value: number | n
         <label className="label" htmlFor={`${uid}-expected_units`}>배치당 예상 생산수량 (계획 참고값)</label>
         <input id={`${uid}-expected_units`} name="expected_units" type="number" min={1}
                defaultValue={value ?? ''} placeholder="예: 204"
-               className="input h-9 tnum text-xs" />
+               className="input tnum" />
       </div>
       <button type="submit" disabled={pending} className="btn-ghost">
         저장
@@ -1018,7 +1028,7 @@ export function TypicalDayForm({ id, dm, value }: {
       <input type="hidden" name="device_master_id" value={dm} />
       <input name="typical_day" type="number" min="1" defaultValue={value ?? ''}
              placeholder="일차" aria-label="보통 일차"
-             className="input h-8 w-16 tnum text-xs" />
+             className="input w-16 tnum" />
       <button type="submit" disabled={pending} className="qd-text-action">
         저장
       </button>
@@ -1058,7 +1068,7 @@ export function SamplePlanForm({ id, tiers, basis }: {
       </div>
 
       {tiers.length > 0 && (
-        <table className="mt-2 w-full max-w-md">
+        <table className="qd-table qd-table--hangul mt-2 max-w-md">
           <thead>
             <tr>
               <th className="th">생산 수량</th>
@@ -1084,17 +1094,17 @@ export function SamplePlanForm({ id, tiers, basis }: {
         <div className="w-24">
           <label className="label" htmlFor={`${uid}-min_qty`}>구간 시작</label>
           <input id={`${uid}-min_qty`} name="min_qty" type="number" min={1} required placeholder="1"
-                 className="input h-9 tnum text-xs" />
+                 className="input tnum" />
         </div>
         <div className="w-24">
           <label className="label" htmlFor={`${uid}-max_qty`}>구간 끝</label>
           <input id={`${uid}-max_qty`} name="max_qty" type="number" min={1} placeholder="비우면 무제한"
-                 className="input h-9 tnum text-xs" />
+                 className="input tnum" />
         </div>
         <div className="w-24">
           <label className="label" htmlFor={`${uid}-sample_qty`}>시료 수</label>
           <input id={`${uid}-sample_qty`} name="sample_qty" type="number" min={0} required placeholder="예: 3"
-                 className="input h-9 tnum text-xs" />
+                 className="input tnum" />
         </div>
         <button type="submit" disabled={tPending} className="btn-ghost">
           구간 추가
@@ -1111,7 +1121,7 @@ export function SamplePlanForm({ id, tiers, basis }: {
           <label className="label" htmlFor={`${uid}-sample_basis`}>근거</label>
           <input id={`${uid}-sample_basis`} name="sample_basis" defaultValue={basis ?? ''}
                  placeholder="예: 검사기준서 문서번호와 표 번호"
-                 className="input h-9 text-xs" />
+                 className="input" />
         </div>
         <button type="submit" disabled={bPending} className="btn-ghost">
           저장
@@ -1159,7 +1169,7 @@ export function DmrNoteForm({ id, note }: { id: string; note: string | null }) {
         <label className="label" htmlFor={`${uid}-note`}>개정 사유 (비고)</label>
         <input id={`${uid}-note`} name="note" defaultValue={note ?? ''} autoComplete="off" maxLength={300}
                placeholder="예: WS-05 세척 시간 변경 · 형명 12종 추가"
-               className="input h-9 text-xs" />
+               className="input" />
       </div>
       <button type="submit" disabled={pending} className="btn-ghost">
         저장
@@ -1189,19 +1199,19 @@ export function ProductCodeForm({ id, code, name, itemCode, license }: {
       <div className="w-40">
         <label className="label" htmlFor={`${uid}-product_code`}>제품 코드 (관리 코드)</label>
         <input id={`${uid}-product_code`} name="product_code" defaultValue={code ?? ''}
-               autoComplete="off" className="input h-9 font-mono text-xs" />
+               autoComplete="off" className="input font-mono" />
       </div>
       <div className="w-56">
         <label className="label" htmlFor={`${uid}-product_name`}>제품명</label>
         <input id={`${uid}-product_name`} name="product_name" defaultValue={name ?? ''}
-               autoComplete="off" className="input h-9 text-xs" />
+               autoComplete="off" className="input" />
       </div>
       <div className="w-52">
         <label className="label" htmlFor={`${uid}-license_no`}>
           허가 번호 <span className="text-faint">(인증 · 신고 번호)</span>
         </label>
         <input id={`${uid}-license_no`} name="license_no" defaultValue={license ?? ''}
-               autoComplete="off" className="input h-9 font-mono text-xs" />
+               autoComplete="off" className="input font-mono" />
       </div>
       <button type="submit" disabled={pending} className="btn-ghost">
         저장
@@ -1261,7 +1271,7 @@ export function BomSetForm({ dm, opCodes }: { dm: string; opCodes: string[] }) {
         placeholder={`${opCodes[0] ?? '공정코드-01'} | 시약코드 | 구간 | 1-10:292.2, 11-30:584.4
 ${opCodes[1] ?? '공정코드-02'} | 포장재코드 | 개당 | 1
 ${opCodes[2] ?? '공정코드-03'} | 포장재코드 | 구간 |`}
-        className="input mt-3 h-auto text-xs leading-relaxed"
+        className="input mt-3 h-auto leading-relaxed"
       />
       <p className="mt-2 text-xs leading-relaxed text-muted">
         구간은 <b className="text-ink">시작-끝:수량</b>을 쉼표로 잇습니다.
@@ -1336,7 +1346,7 @@ export function OperationSetForm({
         <div className="mt-3 flex flex-wrap items-end gap-2">
           <div className="w-72">
             <label className="label" htmlFor={`${uid}-source_id`}>가져올 표준서</label>
-            <select id={`${uid}-source_id`} name="source_id" required className="input h-9 text-xs">
+            <select id={`${uid}-source_id`} name="source_id" required className="input">
               <option value="">선택하십시오</option>
               {sources.map((x) => (
                 <option key={x.id} value={x.id}>{x.label} · 공정 {x.op_count}</option>
@@ -1379,7 +1389,7 @@ export function OperationSetForm({
 공정코드-02 | 다음 공정 이름
 공정코드-03 | 분기 공정 | | 2
 공정코드-04 | 그 뒤 공정 | 로트단위 | 3`}
-        className="input mt-3 h-auto text-xs leading-relaxed"
+        className="input mt-3 h-auto leading-relaxed"
       />
       <p className="mt-2 text-xs leading-relaxed text-muted">
         칸은 <b className="text-ink">공정 코드 | 공정명 | 로트단위 | 보통 일차</b> 순입니다.

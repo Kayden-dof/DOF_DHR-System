@@ -281,7 +281,7 @@ export default function WorkPanel({
                   : null} />
 
       {/* 일차 --------------------------------------------------------------- */}
-      <section className="card p-5">
+      <section className="card py-5">
         <div className="flex items-baseline justify-between">
           <h2 className="text-base font-semibold text-ink">일차</h2>
           <span className="text-sm text-muted">지시서별 실작업일 순번</span>
@@ -354,7 +354,7 @@ export default function WorkPanel({
       </section>
 
       {/* 공정 --------------------------------------------------------------- */}
-      <section className="card p-5">
+      <section className="card py-5">
         <div className="flex items-baseline justify-between">
           <h2 className="text-base font-semibold text-ink">{day}일차 공정</h2>
           <span className="text-sm text-muted">
@@ -1115,7 +1115,7 @@ function CloseDayCard({ woId, day, batchNo, openOps }: {
   const blocked = openOps.length > 0;
 
   return (
-    <section className="card border-brand-line p-4">
+    <section className="card border-brand-line py-4">
       <h2 className="text-base font-semibold text-ink">{day}일차 마감</h2>
       <p className="mt-1 text-sm leading-relaxed text-muted">
         마감하면 제조기록서가 발행되고 <b className="text-ink">이 묶음은 더 이상 수정할 수 없습니다.</b>
@@ -1549,7 +1549,7 @@ function PrepCard(
   const unit = loadUnit ?? '';
 
   return (
-    <section className="card p-5">
+    <section className="card py-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-base font-semibold text-ink">
           오늘 할 것{todayDay !== 99 ? ` · 보통 ${todayDay}일차` : ''}

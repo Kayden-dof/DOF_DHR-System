@@ -199,7 +199,7 @@ export default async function WorkHome(
         * 없애려던 실수 그 자체다.
         */}
       {picked.length > 1 && (
-        <section className="card p-4">
+        <section className="card py-4">
           <p className="text-base leading-relaxed text-ink">
             <b className="font-mono">{scan}</b> 에 {picked.length}건이 걸렸습니다.
             어느 것입니까?
@@ -248,7 +248,7 @@ export default async function WorkHome(
         </summary>
         <div className="mt-3">
       {batches.length === 0 ? (
-        <div className="card p-10 text-center">
+        <div className="card py-10 text-center">
           <p className="text-lg font-semibold text-ink">진행 중인 배치가 없습니다.</p>
           <p className="mt-2 text-sm text-muted">
             작업 지시가 발행되면 여기에 나타납니다.

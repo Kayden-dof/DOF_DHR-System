@@ -140,7 +140,7 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
           <form className="flex gap-2">
             {status && <input type="hidden" name="status" value={status} />}
             <input name="q" defaultValue={q ?? ''} autoComplete="off"
-                   placeholder="로트번호 · 품목 · 성적서" className="input h-9 w-64 text-xs" />
+                   placeholder="로트번호 · 품목 · 성적서" className="input w-64" />
             <button className="btn-ghost">검색</button>
           </form>
         }
@@ -257,7 +257,13 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
                         * 로트를 받는데 원액에는 그 칸이 없고, 채우면 DB 가 거부한다
                         * (material_lot_source). 열리기만 하고 저장되지 않는 화면은 내지 않는다.
                         */}
-                      {!readOnly && !l.made_on && <AmendLotForm lot={{
+                      {/*
+                        * 고치기 · 지우기는 늘 같은 자리에 선다 (사용자 2026-11-10 «화면 위치 통일성»).
+                        * 한쪽이 없는 줄은 그 자리를 비워 둔다 - 전에는 오른쪽으로 당겨져, 같은 자리에
+                        * 어떤 줄은 고치기가 어떤 줄은 지우기가 섰다.
+                        */}
+                      <span className="inline-flex items-center gap-3">
+                      {!readOnly && !l.made_on ? <AmendLotForm lot={{
                         id: l.id, lot_no: l.lot_no, item_name: l.item_name,
                         coa_no: l.coa_no ?? '', coa_date: l.coa_date as unknown as string | null,
                         supplier_lot_no: l.supplier_lot_no ?? '',
@@ -266,13 +272,12 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
                         unit_price: l.unit_price,
                         thickness_band: l.thickness_band,
                         qc_passed_on: l.qc_passed_on as unknown as string | null,
-                      }} />}
+                      }} /> : <span aria-hidden className="qd-text-action invisible">고치기</span>}
                       {/* 배치에 투입되지 않은 로트만 지울 수 있다 (0124) */}
-                      {!readOnly && !l.used_in && (
-                        <span className="ml-3 inline-block">
-                          <DeleteLotForm lot={{ id: l.id, lot_no: l.lot_no, item_name: l.item_name }} />
-                        </span>
-                      )}
+                      {!readOnly && !l.used_in
+                        ? <DeleteLotForm lot={{ id: l.id, lot_no: l.lot_no, item_name: l.item_name }} />
+                        : <span aria-hidden className="qd-text-action invisible">지우기</span>}
+                      </span>
                     </Td>}
                   </tr>
                 );

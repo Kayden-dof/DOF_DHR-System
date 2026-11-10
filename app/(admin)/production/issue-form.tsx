@@ -89,8 +89,12 @@ export default function IssueForm({ masters, rawLots, finished, users, today, fi
   useEffect(() => { if (state.ok) setOpen(false); }, [state.ok]);
 
   if (!open) {
+    /*
+     * 막힌 까닭은 단추 «왼쪽»에 둔다 (사용자 2026-11-10 «화면 위치 통일성»). 아래에 두면
+     * 화면 머리가 아래 끝에 맞춰 서므로 이 화면만 단추가 제목 높이로 올라갔다.
+     */
     return (
-      <div className="flex flex-col items-end gap-2">
+      <div className="flex flex-row-reverse flex-wrap items-end gap-x-4 gap-y-2">
         <button onClick={() => setOpen(true)} className="btn-primary"
                 disabled={ready.length === 0 || rawLots.length === 0}>
           작업 지시 발행
@@ -104,23 +108,27 @@ export default function IssueForm({ masters, rawLots, finished, users, today, fi
           * 막혔으면 까닭마다 푸는 자리로 가는 단추를 붙인다 (사용자 요청 2026-11-07).
           * 둘 다 비었으면 둘 다 적는다 - 하나를 풀고 와서 또 막히지 않게.
           */}
-        {ready.length === 0 && (
-          <Unblock fix={fixes?.dmr}
-                   why={masters.length === 0
-                     ? '등록된 제품표준서가 없습니다.'
-                     : '서면 대조가 확인된 제품표준서가 없습니다.'}
-                   todo={masters.length === 0 ? '제품표준서 등록하기' : '제품표준서 서면 확인하기'} />
-        )}
-        {rawLots.length === 0 && (
-          <Unblock fix={fixes?.material} why="사용할 수 있는 원재료 로트가 없습니다."
-                   todo="원재료 입고 등록하기" />
+        {(ready.length === 0 || rawLots.length === 0) && (
+          <div className="flex flex-col items-end gap-1">
+            {ready.length === 0 && (
+              <Unblock fix={fixes?.dmr}
+                       why={masters.length === 0
+                         ? '등록된 제품표준서가 없습니다.'
+                         : '서면 대조가 확인된 제품표준서가 없습니다.'}
+                       todo={masters.length === 0 ? '제품표준서 등록하기' : '제품표준서 서면 확인하기'} />
+            )}
+            {rawLots.length === 0 && (
+              <Unblock fix={fixes?.material} why="사용할 수 있는 원재료 로트가 없습니다."
+                       todo="원재료 입고 등록하기" />
+            )}
+          </div>
         )}
       </div>
     );
   }
 
   return (
-    <form action={action} className="card w-full p-4">
+    <form action={action} className="card w-full py-4">
       <h3 className="text-sm font-semibold text-ink">작업 지시 발행</h3>
       <p className="mt-1 text-xs leading-relaxed text-muted">
         지시서번호와 배치번호는 채번 규칙이 만듭니다. 원재료 로트는 배치당 하나입니다.

@@ -135,7 +135,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Search
           작업과 수행자는 서넛뿐이라 조각 그대로 둔다. 지금 무엇으로 걸러 보고
           있는지가 한눈에 보이는 편이 낫다.
       --------------------------------------------------------------------- */}
-      <div className="card flex flex-wrap items-center gap-2 p-3">
+      <div className="card flex flex-wrap items-center gap-2 py-3">
         <form className="flex items-center gap-2">
           {action && <input type="hidden" name="action" value={action} />}
           {actor && <input type="hidden" name="actor" value={actor} />}
@@ -143,7 +143,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Search
             표
           </label>
           <select id="tbl" name="table" defaultValue={table ?? ''}
-                  className="input h-8 w-44 text-xs">
+                  className="input w-44">
             <option value="">전체</option>
             {[...data.tables].sort((a, b) =>
               tableLabel(a.table_name).localeCompare(tableLabel(b.table_name), 'ko')

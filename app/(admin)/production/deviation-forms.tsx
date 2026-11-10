@@ -68,7 +68,7 @@ export function OpenDeviation({ opts, today }: { opts: DevOpts; today: string })
   }
 
   return (
-    <form action={action} className="card w-full p-4">
+    <form action={action} className="card w-full py-4">
       <h3 className="text-sm font-semibold text-ink">일탈 등록</h3>
       <p className="mt-1 text-xs leading-relaxed text-muted">
         일탈 번호는 채번 규칙이 만듭니다. 무엇이 일탈인지와 그 조치는 서면으로 정하며,

@@ -5,7 +5,7 @@ import Denied from '@/components/denied';
 import { PageShell } from '@/components/shell';
 import { SubNav } from '../../nav';
 import { PRODUCTION_NAV } from '../../sections';
-import { NewProduct } from '../../settings/dmr/dmr-forms';
+import { NewProduct, NewDeviceMaster, type ItemOption } from '../../settings/dmr/dmr-forms';
 import { DmrWorkbench } from '../../settings/dmr/workbench';
 
 export const dynamic = 'force-dynamic';
@@ -48,6 +48,10 @@ export default async function ProductionSetupPage({
         where i.type = 'FIN' and i.is_active
           and not exists (select 1 from device_master dm where dm.item_id = i.id)
         order by i.code limit 200`),
+    /* 화면 머리의 «제품표준서 개정 추가» 가 고를 완제품 형명 */
+    fin: await db.rows<ItemOption>(
+        `select id, code, name, usage_uom, type::text as type from item
+          where is_active and type = 'FIN' order by code`),
     today: (await db.val<string>(
       `select to_char(timezone('Asia/Seoul', now()),'YYYY-MM-DD')`)) ?? '',
   }));
@@ -57,7 +61,13 @@ export default async function ProductionSetupPage({
       section="생산"
       title="제품"
       lede="만드는 제품을 여기서 셋업합니다. 제품 코드와 규격을 정하고, 공정 흐름을 넣고, 자재 구성표와 설비를 겁니다. 서면 대조 확인까지 끝나야 작업 지시를 발행할 수 있습니다. 사들이는 자재는 자재 > 품목에서 등록합니다."
-      action={<NewProduct finished={d.finished} today={d.today} />}
+      action={<>
+        {canWrite(user) && (
+          <NewDeviceMaster quiet items={d.fin}
+                           fix={fixAt(user, '/settings/items', '?type=FIN')} />
+        )}
+        <NewProduct finished={d.finished} today={d.today} />
+      </>}
       nav={<SubNav items={PRODUCTION_NAV} />}
     >
       <DmrWorkbench userId={user.id} dmParam={sp.dm} base="/production/setup" writable={canWrite(user)}

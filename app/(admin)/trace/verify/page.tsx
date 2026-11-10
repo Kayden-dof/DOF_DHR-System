@@ -96,7 +96,7 @@ export default async function VerifyPage({
       lede="종이 아래쪽에 찍힌 자료 식별자 12자리를 입력하십시오. 바코드를 읽어도 같은 값이 들어갑니다."
       nav={<SubNav items={TRACE_NAV} />}
     >
-      <form className="card flex gap-2 p-3">
+      <form className="card flex gap-2 py-3">
         <input
           name="q"
           defaultValue={sp.q ?? ''}
@@ -245,7 +245,7 @@ export default async function VerifyPage({
         </Panel>
       )}
 
-      <section className="card p-4">
+      <section className="card py-4">
         <h3 className="text-xs font-semibold text-ink">자료 식별자가 말해 주는 것과 아닌 것</h3>
         <ul className="mt-2 space-y-1.5 text-xs leading-relaxed text-muted">
           <li>

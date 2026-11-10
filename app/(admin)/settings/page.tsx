@@ -333,7 +333,7 @@ export default async function SettingsHome() {
         </div>
       )}
 
-      <section className="card p-4">
+      <section className="card py-4">
         <h3 className="text-xs font-semibold text-ink">이 배포</h3>
         <dl className="mt-2 flex flex-wrap gap-x-10 gap-y-3 text-xs">
           <div>

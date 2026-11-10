@@ -45,8 +45,13 @@ export default function ScanBox() {
     return () => el.removeEventListener('blur', back);
   }, []);
 
+  /*
+   * 바깥 판 없이 화면 열에 바로 선다. 판(card)은 지금 테마에서 테두리 · 면이 없어 안쪽
+   * 여백만 남고, 그 여백만큼 아래 «배치 고르기» 상자와 끝선이 16px 어긋났다
+   * (사용자 2026-11-10).
+   */
   return (
-    <form action="/work" method="get" className="card p-4">
+    <form action="/work" method="get">
       <label htmlFor="scan" className="label mb-1 text-base">
         작업 서류의 바코드를 찍으십시오
       </label>

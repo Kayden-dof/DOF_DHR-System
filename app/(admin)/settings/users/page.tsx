@@ -142,7 +142,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Search
           <form className="flex gap-2">
             {role && <input type="hidden" name="role" value={role} />}
             <input name="q" defaultValue={q ?? ''} placeholder="이름 또는 사번"
-                   className="input h-9 w-56 text-xs" autoComplete="off" />
+                   className="input w-56" autoComplete="off" />
             <button className="btn-ghost">검색</button>
           </form>
         }
@@ -181,7 +181,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Search
 
       {showRates && <LabourRates rows={d.rates} today={d.rateToday ?? ''} writable={writable} />}
 
-      <section className="card p-4">
+      <section className="card py-4">
         <h2 className="text-xs font-semibold text-ink">역할</h2>
         <dl className="mt-2 grid gap-x-6 gap-y-1.5 text-xs sm:grid-cols-2">
           {ROLE_ORDER.map((r) => (

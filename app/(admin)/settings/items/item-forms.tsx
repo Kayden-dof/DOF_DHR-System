@@ -180,7 +180,7 @@ export function BulkItemForm() {
 RM-009 | 에탄올(99.5%) | 시약 | L | L | 1
 PM-002 | PE 파우치 | 포장재
 PM-005 | 파우치 라벨 (1차) | 포장재`}
-            className="input mt-3 h-auto text-xs leading-relaxed"
+            className="input mt-3 h-auto leading-relaxed"
           />
           <p className="mt-2 text-xs leading-relaxed text-muted">
             유형은 <b className="text-ink">원재료 · 시약 · 공정 자재 · 포장재</b> 중
@@ -457,7 +457,7 @@ export function GenerateFinished({ schemes, fix }: {
           <textarea id="sizes" name="sizes" rows={3} required
                     onChange={() => setRows(null)}
                     placeholder={sc ? '0'.repeat(sc.head) : ''}
-                    className="input font-mono text-xs" />
+                    className="input font-mono" />
           <p className="mt-1 text-xs text-faint">
             공백이나 쉼표로 구분{sc ? ` · 한 덩이가 ${sc.head}자리입니다` : ''}
           </p>
@@ -469,7 +469,7 @@ export function GenerateFinished({ schemes, fix }: {
           <textarea id="bands" name="bands" rows={3} required
                     onChange={() => setRows(null)}
                     placeholder={sc ? '0'.repeat(sc.tail) : ''}
-                    className="input font-mono text-xs" />
+                    className="input font-mono" />
           <p className="mt-1 text-xs text-faint">
             공백이나 쉼표로 구분{sc ? ` · 한 덩이가 ${sc.tail}자리입니다` : ''}
           </p>

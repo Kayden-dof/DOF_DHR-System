@@ -83,7 +83,7 @@ export default async function TracePage({ searchParams }: { searchParams: Search
       lede="제조번호 · 자재 로트번호 · 배치번호 · 성적서 번호 중 아무거나 입력하십시오."
       nav={<SubNav items={TRACE_NAV} />}
     >
-      <form className="card flex gap-2 p-3">
+      <form className="card flex gap-2 py-3">
         <input name="q" defaultValue={q} autoComplete="off"
                placeholder="P2608-0001 · ML-2608-0003 · B2608-0001 · COA-..."
                className="input flex-1 font-mono" />
@@ -116,7 +116,7 @@ export default async function TracePage({ searchParams }: { searchParams: Search
       )}
 
       {!q && (
-        <section className="card p-4">
+        <section className="card py-4">
           <h3 className="text-xs font-semibold text-ink">계보가 성립하는 방식</h3>
           <ul className="mt-2 space-y-1.5 text-xs leading-relaxed text-muted">
             <li>

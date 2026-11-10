@@ -130,9 +130,7 @@ export default function RestorePanel({ canRestore, left }: {
               /* 파일을 바꾸면 앞 파일의 암호도 지운다 (4차 감사 G4) */
               setLook(null); setErr(''); setTyped(''); setPin(''); setPass('');
             }}
-            className="input h-10 max-w-md flex-1 py-1.5 text-xs file:mr-3 file:rounded-md
-                       file:border-0 file:bg-canvas-deep file:px-3 file:py-1.5
-                       file:text-xs file:font-semibold file:text-ink"
+            className="input max-w-md flex-1 py-1.5 file:mr-3 file:rounded-md file:border-0 file:bg-canvas-deep file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-ink"
           />
           </div>
 
@@ -146,7 +144,7 @@ export default function RestorePanel({ canRestore, left }: {
                 onChange={(e) => setPass(e.target.value)}
                 autoComplete="off"
                 placeholder="내려받을 때 정한 암호"
-                className="input h-10 max-w-xs flex-1 text-xs"
+                className="input max-w-xs flex-1"
               />
               <button
                 onClick={() => send('inspect')}
@@ -286,7 +284,7 @@ export default function RestorePanel({ canRestore, left }: {
                     onChange={(e) => setTyped(e.target.value)}
                     autoComplete="off"
                     placeholder="파일 이름"
-                    className="input mt-2 max-w-md font-mono text-xs"
+                    className="input mt-2 max-w-md font-mono"
                   />
 
                   <label htmlFor="confirm-pin" className="label mt-4 block">
@@ -300,7 +298,7 @@ export default function RestorePanel({ canRestore, left }: {
                     onChange={(e) => setPin(e.target.value)}
                     autoComplete="off"
                     placeholder="로그인에 쓰는 비밀번호"
-                    className="input mt-1 max-w-xs text-xs"
+                    className="input mt-1 max-w-xs"
                   />
                   <p className="mt-1 text-xs text-body">
                     로그인한 지 오래되었을 수 있어 한 번 더 묻습니다.

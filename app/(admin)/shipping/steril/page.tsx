@@ -128,7 +128,7 @@ export default async function SterilPage() {
         )}
       </Panel>
 
-      <section className="card p-4">
+      <section className="card py-4">
         <h3 className="text-xs font-semibold text-ink">이 화면이 하는 일과 하지 않는 일</h3>
         <ul className="mt-2 space-y-1.5 text-xs leading-relaxed text-muted">
           <li>· 발송·회수 시점과 성적서 번호를 기록합니다.</li>

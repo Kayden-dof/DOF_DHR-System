@@ -6,7 +6,7 @@ import { Panel, Empty, Tag, Field } from '@/components/ui';
 import { Unblock } from '@/components/unblock';
 import type { Fix } from '@/lib/unblock';
 import {
-  NewDeviceMaster, VerifyForm, AddOperationForm, OperationCard, ExpectedUnitsForm,
+  VerifyForm, AddOperationForm, OperationCard, ExpectedUnitsForm,
   SamplePlanForm, type SampleTier,
   ProductCodeForm, OperationSetForm, BomSetForm, DmrNoteForm, DmrLimitsForm,
   type OperationRow, type ItemOption,
@@ -130,15 +130,9 @@ export async function DmrWorkbench({
 
   return (
     <div className="space-y-6">
-      {writable && (
-        <div className="flex flex-wrap items-center gap-2">
-          <NewDeviceMaster items={d.items} fix={fixes?.fin} />
-        </div>
-      )}
-
       {d.masters.length === 0 ? (
         <Panel>
-          <Empty hint="완제품 형명을 먼저 만들고, 위의 제품표준서 개정 추가를 누릅니다."
+          <Empty hint="완제품 형명을 먼저 만들고, 오른쪽 위의 제품표준서 개정 추가를 누릅니다."
                  action={fixes?.fin && <Unblock fix={fixes.fin} todo="완제품 형명 만들기" />}>
             등록된 제품표준서가 없습니다.
           </Empty>
@@ -305,7 +299,7 @@ export async function DmrWorkbench({
               )}
               </div>
 
-              <section className="card p-4">
+              <section className="card py-4">
                 <h3 className="text-xs font-semibold text-ink">소요량 기준</h3>
                 <dl className="mt-2 space-y-1.5 text-xs leading-relaxed">
                   <div className="flex gap-2">

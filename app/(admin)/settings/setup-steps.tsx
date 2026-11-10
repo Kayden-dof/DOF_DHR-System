@@ -41,7 +41,7 @@ export function SetupSteps({ steps, title = '첫 설정 차례' }: {
   const left = steps.filter((s) => s.empty);
 
   return (
-    <section className="card p-4">
+    <section className="card py-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="text-xs font-semibold text-ink">{title}</h3>
         {left.length > 0 && (

@@ -10,7 +10,7 @@ export default function PurgeForm() {
   const [state, action, pending] = useActionState<FormState, FormData>(purgeLogs, {});
 
   return (
-    <div className="card p-4">
+    <div className="card py-4">
       <h2 className="text-sm font-semibold text-ink">감사추적 비우기</h2>
       <p className="mt-1 text-xs leading-relaxed text-muted">
         지금까지 쌓인 감사추적과 로그인 실패 기록을 모두 지웁니다. 누가 언제 몇 건을 비웠는지
@@ -21,7 +21,7 @@ export default function PurgeForm() {
           확인란에 <b className="text-ink">비우기</b> 를 적습니다
         </label>
         <input id="purge-confirm" name="confirm" autoComplete="off"
-               className="input h-8 w-28 text-xs" />
+               className="input w-28" />
         <button type="submit" disabled={pending} className="btn-danger">
           비우기
         </button>

@@ -91,7 +91,7 @@ export default async function NumberingPage() {
       nav={<SubNav items={settingsNav(user.roles, user.screens)} />}
     >
 
-      <div className="card p-4">
+      <div className="card py-4">
         <h2 className="text-xs font-semibold text-ink">알아둘 것</h2>
         <ul className="mt-2 space-y-1.5 text-xs leading-relaxed text-muted">
           <li>

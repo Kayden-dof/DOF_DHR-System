@@ -281,7 +281,7 @@ export function EquipCard({ e, ops, warnDays, writable = true }: {
             <span className="tnum text-xs text-muted">밸리데이션 만료 {fmtDate(e.valid_until)}</span>
           )}
           <span className="tnum text-xs text-muted">기록 {e.used}건</span>
-          <Link href={`/print/equipment-log/${e.id}`} className="btn-ghost">
+          <Link href={`/print/equipment-log/${e.id}`} className="qd-text-action">
             사용 기록
           </Link>
           {writable && !edit && (

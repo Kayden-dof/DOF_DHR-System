@@ -211,8 +211,8 @@ async function MaterialView({ me, id }: { me: Me; id: string }) {
                   원료로 남은 로트가 없습니다.
                 </Empty>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
+                <div className="qd-table-scroll">
+                  <table className="qd-table qd-table--hangul" data-grow="2">
                     <thead>
                       <tr>
                         <th className="th">원료 로트</th>
@@ -353,8 +353,8 @@ async function MaterialView({ me, id }: { me: Me; id: string }) {
             title="원액을 거쳐 들어간 곳"
             note="이 로트를 원료로 만든 원액이 투입된 자리입니다"
           >
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            <div className="qd-table-scroll">
+              <table className="qd-table qd-table--hangul" data-grow="3">
                 <thead>
                   <tr>
                     <th className="th">원액 로트</th>

@@ -72,7 +72,7 @@ export default function SolutionCorrectForm({ solutionId, inputs, lots, used }: 
             <div>
               <label className="label" htmlFor={`${uid}-return_lot_id`}>원료 로트</label>
               <select id={`${uid}-return_lot_id`} name="return_lot_id" required
-                      disabled={inputs.length === 0} defaultValue="" className="input text-xs">
+                      disabled={inputs.length === 0} defaultValue="" className="input">
                 <option value="">고르십시오</option>
                 {inputs.map((x) => (
                   <option key={x.material_lot_id} value={x.material_lot_id}>
@@ -111,7 +111,7 @@ export default function SolutionCorrectForm({ solutionId, inputs, lots, used }: 
             <div>
               <label className="label" htmlFor={`${uid}-add_lot_id`}>원료 로트</label>
               <select id={`${uid}-add_lot_id`} name="add_lot_id" required
-                      disabled={lots.length === 0} defaultValue="" className="input text-xs">
+                      disabled={lots.length === 0} defaultValue="" className="input">
                 <option value="">고르십시오</option>
                 {lots.map((l) => (
                   <option key={l.id} value={l.id}>

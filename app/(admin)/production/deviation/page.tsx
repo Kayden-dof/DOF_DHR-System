@@ -122,7 +122,7 @@ export default async function DeviationPage() {
         )}
       </Panel>
 
-      <section className="card p-4">
+      <section className="card py-4">
         <h3 className="text-xs font-semibold text-ink">이 화면이 하는 일과 하지 않는 일</h3>
         <ul className="mt-2 space-y-1.5 text-xs leading-relaxed text-muted">
           <li>· 일탈 번호를 채번 규칙으로 만들고 대장에 남깁니다.</li>

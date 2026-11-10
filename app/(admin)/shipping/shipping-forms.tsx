@@ -82,8 +82,12 @@ export function SterilForm({ lots, today, boxQty, fix }: {
       .map((l) => ({ item_code: l.item_code, item_name: l.item_name, qty: picked[l.id] })));
 
   if (!open) {
+    /*
+     * 막힌 까닭은 단추 «왼쪽»에 둔다 (사용자 2026-11-10 «화면 위치 통일성»). 아래에 두면
+     * 화면 머리가 아래 끝에 맞춰 서므로 이 화면만 단추가 제목 높이로 올라갔다.
+     */
     return (
-      <div className="flex flex-col items-end gap-2">
+      <div className="flex flex-row-reverse flex-wrap items-end gap-x-4 gap-y-2">
         <button onClick={() => setOpen(true)} className="btn-primary" disabled={lots.length === 0}>
           멸균 배치 만들기
         </button>
@@ -101,7 +105,7 @@ export function SterilForm({ lots, today, boxQty, fix }: {
   }
 
   return (
-    <form action={action} className="card w-full p-4">
+    <form action={action} className="card w-full py-4">
       <h3 className="text-sm font-semibold text-ink">멸균 위탁 발송</h3>
       <p className="mt-1 text-xs leading-relaxed text-muted">
         한 박스에 여러 제품 로트가 들어갈 수 있습니다. 파괴검사용 2개를 박스에 동봉하는 것은
@@ -156,7 +160,7 @@ export function SterilForm({ lots, today, boxQty, fix }: {
                          onChange={(e) => setPicked((p) => ({
                            ...p, [l.id]: p[l.id] ? Number(e.target.value) : 0,
                          }))}
-                         className="input h-9 w-24 tnum text-right text-xs" />
+                         className="input w-24 tnum text-right" />
                 </td>
               </tr>
             ))}
@@ -243,22 +247,22 @@ export function SterilRow({ sb, today }: { sb: SbRow; today: string }) {
               <div className="w-40">
                 <label className="label" htmlFor={`${uid}-shipped_at`}>발송일</label>
                 <input id={`${uid}-shipped_at`} name="shipped_at" type="date" defaultValue={sb.shipped_at ?? today}
-                       className="input h-9 tnum text-xs" />
+                       className="input tnum" />
               </div>
               <div className="w-40">
                 <label className="label" htmlFor={`${uid}-received_at`}>회수일</label>
                 <input id={`${uid}-received_at`} name="received_at" type="date" defaultValue={sb.received_at ?? ''}
-                       className="input h-9 tnum text-xs" />
+                       className="input tnum" />
               </div>
               <div className="w-48">
                 <label className="label" htmlFor={`${uid}-cert_no`}>멸균 성적서 번호</label>
                 <input id={`${uid}-cert_no`} name="cert_no" defaultValue={sb.cert_no ?? ''}
-                       className="input h-9 font-mono text-xs" />
+                       className="input font-mono" />
               </div>
               <div className="w-48">
                 <label className="label" htmlFor={`${uid}-request_no`}>의뢰서 번호</label>
                 <input id={`${uid}-request_no`} name="request_no" defaultValue={sb.request_no ?? ''}
-                       className="input h-9 font-mono text-xs" />
+                       className="input font-mono" />
               </div>
               <button type="submit" disabled={pending} className="btn-primary">
                 저장
@@ -353,7 +357,7 @@ export function RequestBuilder({ groups }: {
                       value={on ? v : ''}
                       placeholder="0"
                       onChange={(e) => set(l.id, Number(e.target.value), l.qty_available)}
-                      className="input h-8 w-20 text-right text-xs tnum"
+                      className="input w-20 text-right tnum"
                       aria-label={`${l.lot_no} 요청 수량`}
                     />
                   </li>
@@ -395,12 +399,12 @@ export function ApproveForm({ lot, today }: { lot: PlOpt; today: string }) {
         <div className="w-44">
           <label className="label" htmlFor={`${uid}-release_approved_by`}>품질책임자 성명</label>
           <input id={`${uid}-release_approved_by`} name="release_approved_by" required autoComplete="off"
-                 className="input h-9 text-xs" />
+                 className="input" />
         </div>
         <div className="w-36">
           <label className="label" htmlFor={`${uid}-release_approved_on`}>승인 일자</label>
           <input id={`${uid}-release_approved_on`} name="release_approved_on" type="date" defaultValue={today} required
-                 className="input h-9 tnum text-xs" />
+                 className="input tnum" />
         </div>
         <button type="submit" disabled={pending} className="btn-primary">
           기록

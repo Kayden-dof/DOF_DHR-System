@@ -308,7 +308,7 @@ export default async function CostPage() {
         )}
       </Panel>
 
-      <section className="card p-4">
+      <section className="card py-4">
         <h3 className="text-xs font-semibold text-ink">계산 방식</h3>
         <ul className="mt-2 space-y-1.5 text-xs leading-relaxed text-muted">
           <li>

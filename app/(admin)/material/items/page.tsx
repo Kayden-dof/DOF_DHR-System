@@ -67,7 +67,7 @@ export default async function MaterialItemsPage({ searchParams }: { searchParams
       nav={<SubNav items={MATERIAL_NAV} />}
     >
 
-      <div className="card flex flex-wrap items-center gap-2 p-3">
+      <div className="card flex flex-wrap items-center gap-2 py-3">
         <div className="flex flex-wrap items-center gap-1.5">
           <a href={link()} className={`chip ${!type ? 'bg-brand text-white' : 'bg-canvas text-muted'}`}>
             전체 {total}
@@ -82,7 +82,7 @@ export default async function MaterialItemsPage({ searchParams }: { searchParams
         <form className="ml-auto flex gap-2">
           {type && <input type="hidden" name="type" value={type} />}
           <input name="q" defaultValue={q ?? ''} placeholder="코드 또는 품목명"
-                 className="input h-9 w-56 text-xs" autoComplete="off" />
+                 className="input w-56" autoComplete="off" />
           <button className="btn-ghost">검색</button>
         </form>
       </div>
@@ -116,7 +116,7 @@ export default async function MaterialItemsPage({ searchParams }: { searchParams
         )}
       </Panel>
 
-      <section className="card p-4">
+      <section className="card py-4">
         <h3 className="text-xs font-semibold text-ink">유형</h3>
         <dl className="mt-2 grid gap-x-6 gap-y-1.5 text-xs sm:grid-cols-2 lg:grid-cols-3">
           {ITEM_TYPES.map((x) => (

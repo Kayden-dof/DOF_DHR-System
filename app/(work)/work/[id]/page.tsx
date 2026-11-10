@@ -171,11 +171,11 @@ export default async function WorkBatchPage({ params }: { params: Promise<{ id: 
       <div>
         {/* 현장 규칙(56px)대로. 글줄 링크(36px)였다 (디자인 점검 2026-11-06) */}
         <Link href="/work"
-              className="-ml-2 inline-flex h-14 items-center gap-2 rounded-lg px-3 text-base font-semibold
+              className="-ml-3 inline-flex h-14 items-center gap-2 rounded-lg px-3 text-base font-semibold
                          text-muted transition-colors hover:bg-surface-sub hover:text-ink">
           <span aria-hidden className="text-xl leading-none">‹</span> 배치 목록으로
         </Link>
-        <div className="mt-1 card p-4">
+        <div className="mt-1 card py-4">
           <div className="flex flex-wrap items-center gap-3">
             {/* 이 화면의 제목은 배치번호다. h1 로 적어 두면 읽어 주는 도구와
                 점검 도구가 그것을 제목으로 안다 */}

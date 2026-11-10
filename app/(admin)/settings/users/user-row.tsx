@@ -193,7 +193,7 @@ function RolePanel({ u, isMe, sysAdmin }: {
       {missing.length > 0 && (
         <form action={grantAction} className="flex gap-2">
           <input type="hidden" name="id" value={u.id} />
-          <select name="role" className="input h-9 flex-1 text-xs" defaultValue={missing[0]}>
+          <select name="role" className="input flex-1" defaultValue={missing[0]}>
             {missing.map((r) => (
               <option key={r} value={r}>
                 {ROLE_LABEL[r]} - {ROLE_NOTE[r]}
@@ -263,7 +263,7 @@ function PinPanel({ u, isMe, canReset }: { u: UserRow; isMe: boolean; canReset: 
           pattern="[0-9]*"
           autoComplete="new-password"
           placeholder={`숫자 ${PIN_MIN_LENGTH}자리 이상 권장`}
-          className="input h-9 flex-1 text-xs"
+          className="input flex-1"
         />
         <button type="submit" disabled={pending} className="btn-ghost">
           변경
@@ -428,7 +428,7 @@ function QualPanel(
           <input type="hidden" name="user_id" value={u.id} />
           <div className="sm:col-span-2">
             <label className="label" htmlFor={`q-op-${u.id}`}>공정</label>
-            <select id={`q-op-${u.id}`} name="operation_code" required className="input h-9 text-xs">
+            <select id={`q-op-${u.id}`} name="operation_code" required className="input">
               <option value="">고르십시오</option>
               {opCodes.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
@@ -436,17 +436,17 @@ function QualPanel(
           <div>
             <label className="label" htmlFor={`q-from-${u.id}`}>시작일</label>
             <input id={`q-from-${u.id}`} name="valid_from" type="date" required
-                   className="input h-9 tnum text-xs" />
+                   className="input tnum" />
           </div>
           <div>
             <label className="label" htmlFor={`q-until-${u.id}`}>만료일</label>
             <input id={`q-until-${u.id}`} name="valid_until" type="date"
-                   className="input h-9 tnum text-xs" />
+                   className="input tnum" />
           </div>
           <div>
             <label className="label" htmlFor={`q-doc-${u.id}`}>교육 기록 번호</label>
             <input id={`q-doc-${u.id}`} name="training_doc_no" required autoComplete="off"
-                   placeholder="EDU-2026-001" className="input h-9 font-mono text-xs" />
+                   placeholder="EDU-2026-001" className="input font-mono" />
           </div>
           <div className="sm:col-span-5 flex items-center gap-2">
             <button type="submit" disabled={pending} className="btn-primary">

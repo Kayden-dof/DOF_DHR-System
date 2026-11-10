@@ -59,7 +59,7 @@ export function BrandForm({
           <div className="flex items-center gap-2">
             <input type="color" value={c} onChange={(e) => setC(e.target.value)}
                    aria-label="강조색 고르기"
-                   className="h-10 w-14 cursor-pointer rounded-md border border-line bg-surface p-1" />
+                   className="h-[var(--tap)] w-14 shrink-0 cursor-pointer rounded-md border border-line bg-surface p-1" />
             <input name="brand_color" value={c} onChange={(e) => setC(e.target.value)}
                    pattern="#[0-9A-Fa-f]{6}" required autoComplete="off"
                    className="input font-mono uppercase" />

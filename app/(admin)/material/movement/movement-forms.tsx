@@ -179,7 +179,7 @@ export function SolutionLotForm({ items, lots, fix }: {
       <div className="space-y-2">
         {rows.map((i) => (
           <div key={i} className="flex gap-2">
-            <select name={`lot_${i}`} aria-label={`원료 ${i + 1}번째 줄`} className="input flex-1 text-xs">
+            <select name={`lot_${i}`} aria-label={`원료 ${i + 1}번째 줄`} className="input flex-1">
               <option value="">사용 안 함</option>
               {lots.map((l) => (
                 <option key={l.id} value={l.id}>
@@ -189,7 +189,7 @@ export function SolutionLotForm({ items, lots, fix }: {
             </select>
             <input name={`qty_${i}`} type="number" step="any" min="0"
                    aria-label={`원료 ${i + 1}번째 줄의 수량`}
-                   placeholder="수량" className="input w-32 tnum text-xs" />
+                   placeholder="수량" className="input w-32 tnum" />
           </div>
         ))}
       </div>
