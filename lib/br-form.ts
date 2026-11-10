@@ -59,6 +59,13 @@ export interface FillData {
 }
 
 const norm = (s: string | undefined) => (s ?? '').replace(/\s+/g, '');
+/* 자재 이름과 세부공정 관리항목을 맞댈 때: 띄어쓰기 · 붙임표 · 괄호 · % · 점을 뺀다
+   ("6N-수산화나트륨 수용액" = "6N 수산화나트륨 수용액", "에탄올 99.5%" = "에탄올(99.5%)") */
+const key = (s: string | undefined) => (s ?? '').replace(/[\s\-()%.·,]/g, '').toLowerCase();
+const sameThing = (a: string | undefined, b: string | undefined) => {
+  const A = key(a), B = key(b);
+  return A.length >= 2 && B.length >= 2 && (A.includes(B) || B.includes(A));
+};
 
 /* 머리 줄의 낱말 → 그 열이 무엇인가 */
 const ROLE: Record<string, string> = {
@@ -85,11 +92,28 @@ export function fillForm(form: BrForm, d: FillData): { pages: FormPage[]; placed
   const pages: FormPage[] = JSON.parse(JSON.stringify(form.pages));
   let rawName: string | null = null;
   let noteCell: FormCell | null = null;
+  /* 투입한 자재가 양식의 어느 자재 줄에 붙었는가 (그 줄의 자재명) */
+  const matOf = new Map<number, string>();
+  /* 세부공정 줄 - 투입량은 부여로트번호가 아니라 여기 결과 칸에 적는다 */
+  const stepRows: { item: string; result: FormCell; sz: number }[] = [];
+
+  /*
+   * 열이 무엇인지는 머리 줄의 **가로 자리(pt)**로 기억한다. 다음 쪽의 표가 머리
+   * 줄 없이 이어지면(F706-01 의 2쪽처럼) 앞 표의 머리 줄을 그대로 쓴다 - 종이
+   * 위에서 같은 세로줄이기 때문이다. 열 번호로 기억하면 이어지는 표의 칸
+   * 나눔이 달라질 때 엉뚱한 칸을 짚는다.
+   */
+  let roles: { x0: number; x1: number; role: string }[] = [];
+  let section: Section = null;
 
   for (const page of pages) {
     for (const tb of page.tables) {
-      let roles: string[] = [];
-      let section: Section = null;
+      const edge = [tb.x];
+      for (const w of tb.cols) edge.push(edge[edge.length - 1] + w);
+      const x0Of = (c: FormCell) => edge[c.c];
+      const x1Of = (c: FormCell) => edge[Math.min(edge.length - 1, c.c + (c.cs ?? 1))];
+      const roleOf = (c: FormCell) =>
+        roles.find((r) => x0Of(c) >= r.x0 - 1.5 && x0Of(c) < r.x1 - 1.5)?.role;
       /* 자재 줄을 채웠는가 - 작업자 · 일자 칸은 그 칸이 걸친 줄 가운데 하나라도 채웠을 때 */
       const filledRow = new Set<number>();
       const workerCells: { ri: number; rs: number; cell: FormCell; role: 'worker' | 'date'; sz: number }[] = [];
@@ -97,10 +121,12 @@ export function fillForm(form: BrForm, d: FillData): { pages: FormPage[]; placed
       tb.rows.forEach((row, ri) => {
         const hits = row.cells.filter((c) => ROLE[norm(c.t)]);
         if (hits.length >= 2) {
-          roles = [...roles];
-          for (const c of hits) {
-            for (let j = 0; j < (c.cs ?? 1); j++) roles[c.c + j] = ROLE[norm(c.t)];
-          }
+          /* 새 머리 줄이 덮는 가로 자리만 바꾼다 (투입자재 줄은 사용설비 줄 아래 같은 표에 온다) */
+          const fresh = hits.map((c) => ({ x0: x0Of(c), x1: x1Of(c), role: ROLE[norm(c.t)] }));
+          roles = [
+            ...roles.filter((r) => !fresh.some((f) => f.x0 < r.x1 - 1.5 && r.x0 < f.x1 - 1.5)),
+            ...fresh,
+          ];
           const set = new Set(hits.map((c) => ROLE[norm(c.t)]));
           section = set.has('equip') ? 'equip'
             : set.has('matname') ? 'mat'
@@ -119,7 +145,7 @@ export function fillForm(form: BrForm, d: FillData): { pages: FormPage[]; placed
           return;
         }
 
-        const by = (role: string) => row.cells.find((c) => roles[c.c] === role);
+        const by = (role: string) => row.cells.find((c) => roleOf(c) === role);
         /* 채운 글자는 그 줄 양식 글자와 같은 크기로 - 작게 들어가면 덧붙인 것처럼 보인다 */
         const sz = Math.max(0, ...row.cells.filter((c) => norm(c.t) && !c.f).map((c) => c.s ?? 10)) || 10;
 
@@ -158,8 +184,9 @@ export function fillForm(form: BrForm, d: FillData): { pages: FormPage[]; placed
                   ? x.item_code === code
                   : !!norm(name) && (norm(x.item_name).includes(norm(name)) || norm(name).includes(norm(x.item_name))));
               if (hit.length) {
-                text = hit.map(({ x }) => `${x.lot_no} · ${fmtQty(x.qty)} ${x.usage_uom}`).join('\n');
-                hit.forEach(({ k }) => placed.add(k));
+                /* 부여로트번호 칸에는 로트만 (사용자 2026-11-10). 양은 세부공정 결과로 간다 */
+                text = [...new Set(hit.map(({ x }) => x.lot_no))].join('\n');
+                hit.forEach(({ k }) => { placed.add(k); matOf.set(k, name); });
               }
             }
             if (text) {
@@ -168,18 +195,20 @@ export function fillForm(form: BrForm, d: FillData): { pages: FormPage[]; placed
             }
           }
           for (const c of row.cells) {
-            const role = roles[c.c];
+            const role = roleOf(c);
             if ((role === 'worker' || role === 'date') && !norm(c.t)) {
               workerCells.push({ ri, rs: c.rs ?? 1, cell: c, role, sz });
             }
           }
         }
 
-        if (section === 'step' && rawName) {
+        if (section === 'step') {
           const item = by('stepitem');
           const result = by('result');
-          if (item && result && norm(item.t) === norm(rawName) && !norm(result.t)) {
+          if (item && result && rawName && norm(item.t) === norm(rawName) && !norm(result.t)) {
             Object.assign(result, { t: `${d.sheets} ${d.loadUnit ?? '장'}`, f: true, a: 'c' as const, s: sz });
+          } else if (item?.t && result) {
+            stepRows.push({ item: item.t, result, sz });
           }
         }
       });
@@ -192,6 +221,46 @@ export function fillForm(form: BrForm, d: FillData): { pages: FormPage[]; placed
     }
   }
 
+  /* -------------------------------------------------------------------------
+     투입량 → 세부공정 결과 칸
+
+     같은 자재의 관리항목 줄이 **딱 하나**일 때만 놓는다. 둘 이상이면 어느
+     단계에 얼마를 넣었는지 시스템이 모르므로 특이사항에 적는다.
+     결과 칸이 비어 있으면 양을 적고, "□ 1 L / □ 2 L" 같은 고르는 칸이면 같은
+     양의 □ 를 ■ 로 한다. 같은 양이 없으면 (단위가 다르면) 특이사항으로.
+  ------------------------------------------------------------------------- */
+  const qtyNotes: string[] = [];
+  const byMat = new Map<string, { name: string; qty: number; uom: string; ok: boolean }>();
+  for (const [k, name] of matOf) {
+    const x = d.issues[k];
+    const cur = byMat.get(name) ?? { name, qty: 0, uom: x.usage_uom, ok: true };
+    const n = Number(x.qty);
+    if (!Number.isFinite(n) || cur.uom !== x.usage_uom) cur.ok = false;
+    cur.qty += Number.isFinite(n) ? n : 0;
+    byMat.set(name, cur);
+  }
+  for (const m of byMat.values()) {
+    const amount = `${+m.qty.toFixed(6)} ${m.uom}`;
+    const rows = stepRows.filter((r) => sameThing(r.item, m.name));
+    let done = false;
+    if (m.ok && rows.length === 1) {
+      const { result, sz } = rows[0];
+      if (!norm(result.t)) {
+        Object.assign(result, { t: amount, f: true, a: 'c' as const, b: false, s: sz });
+        done = true;
+      } else if (result.t?.includes('□')) {
+        const opts = result.t.split('\n');
+        const at = opts.findIndex((l) => key(l.replace('□', '')) === key(amount));
+        if (at >= 0) {
+          opts[at] = opts[at].replace('□', '■');
+          Object.assign(result, { t: opts.join('\n'), f: true });
+          done = true;
+        }
+      }
+    }
+    if (!done) qtyNotes.push(`투입량 ${m.name.replace(/\s*\n\s*/g, '')} ${amount}`);
+  }
+
   /* 특이사항: 시스템 기록과 양식에 자리가 없던 투입 */
   const extra = d.issues
     .map((x, k) => ({ x, k }))
@@ -200,7 +269,7 @@ export function fillForm(form: BrForm, d: FillData): { pages: FormPage[]; placed
   const amend = d.issues
     .filter((x) => x.amend_reason)
     .map((x) => `정정 ${x.item_name} ${x.lot_no} · ${x.amend_reason}`);
-  const lines = [...d.notes, ...extra, ...amend];
+  const lines = [...d.notes, ...qtyNotes, ...extra, ...amend];
   if (noteCell && lines.length) {
     Object.assign(noteCell as FormCell, { t: lines.join('\n'), f: true, a: 'l' as const, b: false, s: 9 });
   }
