@@ -27,6 +27,26 @@ export interface ItemRow {
   shelf_life_months: number | null;
   is_active: boolean;
   lot_count: number;
+  /** 거짓이면 로트 없이 쓰는 소모품. 현장이 투입을 적지 않는다 (0129) */
+  lot_tracked: boolean;
+}
+
+/*
+ * 로트 없이 쓰는 소모품 (사용자 2026-11-10 «로트번호 없이 단순 소모품으로 사용되니까
+ * 굳이 로트 번호를 기입할 필요 없어서 그냥 공란을 디폴트값으로»).
+ * 체크하면 공정 마감이 그 자재의 투입 기록을 묻지 않고, 기록지의 로트 칸은 공란이다.
+ */
+function NoLotBox({ id, defaultChecked }: { id: string; defaultChecked: boolean }) {
+  return (
+    <label htmlFor={id} className="flex items-start gap-2 text-sm text-ink">
+      <input id={id} type="checkbox" name="no_lot" defaultChecked={defaultChecked}
+             className="mt-0.5 size-4 accent-brand" />
+      <span>
+        로트 없이 쓰는 소모품
+        <span className="block text-xs text-muted">현장에서 투입을 적지 않고, 기록지의 로트 칸은 공란으로 둡니다.</span>
+      </span>
+    </label>
+  );
 }
 
 const typeLabel = (t: string) => ITEM_TYPES.find((x) => x.code === t)?.label ?? t;
@@ -87,6 +107,9 @@ export function NewItemForm({ materialOnly = false }: { materialOnly?: boolean }
             <label className="label" htmlFor="lead_days">리드타임(일)</label>
             <input id="lead_days" name="lead_days" type="number" className="input tnum" />
           </div>
+        </div>
+        <div className="sm:col-span-2 lg:col-span-4">
+          <NoLotBox id="no_lot" defaultChecked={false} />
         </div>
       </div>
 
@@ -198,7 +221,10 @@ export function ItemRowView({ it, suppliers }: {
       <tr className={it.is_active ? '' : 'opacity-55'}>
         <td className="td font-mono font-semibold">{it.code}</td>
         <td className="td">{it.name}</td>
-        <td className="td"><Tag tone={it.type === 'FIN' ? 'brand' : 'quiet'}>{typeLabel(it.type)}</Tag></td>
+        <td className="td">
+          <Tag tone={it.type === 'FIN' ? 'brand' : 'quiet'}>{typeLabel(it.type)}</Tag>
+          {!it.lot_tracked && <span className="ml-1.5 text-xs text-muted">로트 없음</span>}
+        </td>
         <td className="td text-muted">
           {it.purchase_uom === it.usage_uom
             ? it.usage_uom
@@ -286,6 +312,12 @@ export function ItemRowView({ it, suppliers }: {
                   이 품목으로 들어온 로트가 {it.lot_count}건 있고, 재고 · 불출 · 단가가
                   모두 사용 단위 기준의 숫자로 적혀 있습니다 - 단위를 바꾸면 이미
                   적힌 숫자의 뜻이 바뀝니다.
+                </div>
+              )}
+
+              {it.type !== 'FIN' && (
+                <div className="sm:col-span-2">
+                  <NoLotBox id={`${uid}-no_lot`} defaultChecked={!it.lot_tracked} />
                 </div>
               )}
 

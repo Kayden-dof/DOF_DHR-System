@@ -69,7 +69,7 @@ export default async function WorkBatchPage({ params }: { params: Promise<{ id: 
                   select json_agg(json_build_object(
                     'item_id', b.component_item_id, 'item_code', ci.code,
                     'item_name', ci.name, 'usage_uom', ci.usage_uom,
-                    'basis', b.basis::text,
+                    'basis', b.basis::text, 'lot_tracked', ci.lot_tracked,
                     'required', required_qty(o.id, b.component_item_id, $2, 0),
                     'required_max', required_qty_max(o.id, b.component_item_id, $2))
                     order by ci.code)

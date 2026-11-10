@@ -35,7 +35,9 @@ export interface Op {
   bom: { item_id: string; item_code: string; item_name: string; usage_uom: string;
          basis: string; required: string | null;
          /** 작업표준서가 범위로 준 양의 위쪽 끝 (0128). 범위가 아니면 required 와 같다 */
-         required_max?: string | null }[];
+         required_max?: string | null;
+         /** 거짓이면 로트 없이 쓰는 소모품. 투입을 적지 않고 로트 칸은 공란이다 (0129) */
+         lot_tracked?: boolean }[];
   /** 이 공정에 걸린 설비. 비어 있으면 화면에 칸이 나오지 않는다 */
   equipment: { id: string; code: string; name: string; valid_until: string | null;
                /** 검교정 주기 (0126). NONE 이면 짚지 않는다 */
@@ -791,7 +793,8 @@ function RunningCard({ woId, op, rec, lots, sheets, loadUnit, expiryWarnDays }: 
 }) {
   const [tab, setTab] = useState<'material' | 'end'>('material');
   const recorded = new Set(rec.issues.map((x) => x.item_id));
-  const missing = op.bom.filter((b) => !recorded.has(b.item_id));
+  /* 로트 없이 쓰는 소모품은 적을 것이 없다. 남은 자재로 세지 않는다 (0129 · S05 와 같은 규칙) */
+  const missing = op.bom.filter((b) => b.lot_tracked !== false && !recorded.has(b.item_id));
 
   return (
     <div>
@@ -880,11 +883,12 @@ function MaterialForm({ woId, rec, op, lots, sheets, loadUnit, expiryWarnDays }:
       <ul className="mt-2 space-y-1.5">
         {op.bom.map((b) => {
           const done = recordedItems.has(b.item_id);
+          const noLot = b.lot_tracked === false;
           return (
             <li key={b.item_id} className="flex items-baseline justify-between gap-3 text-sm">
               <span className="min-w-0">
-                <span className={done ? 'text-muted line-through' : 'font-semibold text-ink'}>
-                  {b.item_name}
+                <span className={done || noLot ? 'text-muted' : 'font-semibold text-ink'}>
+                  <span className={done ? 'line-through' : ''}>{b.item_name}</span>
                 </span>
                 <span className="ml-1.5 font-mono text-xs text-faint">{b.item_code}</span>
               </span>
@@ -896,9 +900,13 @@ function MaterialForm({ woId, rec, op, lots, sheets, loadUnit, expiryWarnDays }:
                       ? `~${Number(b.required_max)}` : ''} {b.usage_uom}
                   </span>
                 )}
-                <span className={`ml-2 font-semibold ${done ? 'text-brand' : 'text-warn'}`}>
-                  {done ? '기록함' : '아직'}
-                </span>
+                {noLot ? (
+                  <span className="ml-2 text-muted">로트 없음</span>
+                ) : (
+                  <span className={`ml-2 font-semibold ${done ? 'text-brand' : 'text-warn'}`}>
+                    {done ? '기록함' : '아직'}
+                  </span>
+                )}
               </span>
             </li>
           );
@@ -912,11 +920,15 @@ function MaterialForm({ woId, rec, op, lots, sheets, loadUnit, expiryWarnDays }:
   );
 
   if (pool.length === 0) {
+    /* 로트 없이 쓰는 소모품만 걸린 공정이면 적을 것이 없다. 입고를 요청할 일도 아니다 */
+    const allNoLot = op.bom.length > 0 && op.bom.every((b) => b.lot_tracked === false);
     return (
       <div className="space-y-4 p-4">
         {guide}
         <p className="text-sm leading-relaxed text-muted">
-          이 공정에 넣을 수 있는 자재 로트가 없습니다. 관리자에게 입고를 요청하십시오.
+          {allNoLot
+            ? '이 공정의 자재는 로트 없이 쓰는 소모품이라 적을 것이 없습니다. 공정 마감으로 넘어가십시오.'
+            : '이 공정에 넣을 수 있는 자재 로트가 없습니다. 관리자에게 입고를 요청하십시오.'}
         </p>
       </div>
     );

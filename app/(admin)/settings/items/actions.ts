@@ -27,8 +27,8 @@ export async function createItem(_p: FormState, form: FormData): Promise<FormSta
     await withActor(me.id, (db) =>
       db.rows(
         `insert into item (code, name, type, purchase_uom, usage_uom, conversion,
-                           min_stock, lead_days, shelf_life_months)
-         values ($1,$2,$3::item_type,$4,$5,$6,$7,$8,$9)`,
+                           min_stock, lead_days, shelf_life_months, lot_tracked)
+         values ($1,$2,$3::item_type,$4,$5,$6,$7,$8,$9,$10)`,
         [code, name,
          String(form.get('type') ?? 'REAGENT'),
          String(form.get('purchase_uom') ?? '').trim(),
@@ -36,7 +36,8 @@ export async function createItem(_p: FormState, form: FormData): Promise<FormSta
          num(form.get('conversion')) ?? 1,
          num(form.get('min_stock')),
          num(form.get('lead_days')),
-         num(form.get('shelf_life_months'))],
+         num(form.get('shelf_life_months')),
+         form.get('no_lot') !== 'on'],
       ),
     );
     revalidatePath('/settings/items');
@@ -165,13 +166,15 @@ export async function updateItem(_p: FormState, form: FormData): Promise<FormSta
                          default_supplier_id = $7,
                          purchase_uom = coalesce($8, purchase_uom),
                          usage_uom    = coalesce($9, usage_uom),
-                         conversion   = coalesce($10, conversion)
+                         conversion   = coalesce($10, conversion),
+                         lot_tracked  = case when type = 'FIN' then lot_tracked else $11 end
           where id = $1`,
         [id, String(form.get('name') ?? '').trim(),
          num(form.get('min_stock')), num(form.get('lead_days')),
          num(form.get('shelf_life_months')), form.get('is_active') === 'on',
          String(form.get('default_supplier_id') ?? '').trim() || null,
-         uom('purchase_uom'), uom('usage_uom'), conv],
+         uom('purchase_uom'), uom('usage_uom'), conv,
+         form.get('no_lot') !== 'on'],
       );
     });
     revalidatePath('/settings/items');
