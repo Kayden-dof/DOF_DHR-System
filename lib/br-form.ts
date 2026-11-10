@@ -209,3 +209,13 @@ export function fillForm(form: BrForm, d: FillData): { pages: FormPage[]; placed
 
 /** 머리 · 꼬리 글 가운데 쪽 번호 ("1 / 2", "1 / __") */
 export const isPageLabel = (t: string) => /^\d+\s*\/\s*(\d+|_+)$/.test(t.trim());
+
+/**
+ * 서명란이 마지막 표 아래에 들어갈 자리가 있는가 (양식 꼬리글 위까지).
+ * 서버(인쇄 화면)가 부르므로 클라이언트 부품 파일에 두지 않는다 - 'use client'
+ * 파일의 함수는 서버에서 부를 수 없다 (운영에서 화면이 죽었다, 2026-11-10).
+ */
+export function formHasSignRoom(page: FormPage) {
+  const bottom = Math.max(0, ...page.tables.map((t) => t.y + t.rows.reduce((a, r) => a + r.h, 0)));
+  return bottom + 8 + 41 <= 550;
+}

@@ -4,8 +4,8 @@ import { withActor, dbMessage } from '@/lib/db';
 import { fmtDate, fmtDateTime } from '@/lib/fmt';
 import { logPrint, printGate, viewParam } from '@/lib/print';
 import Denied from '@/components/denied';
-import PrintFrame, { Sheet, SignRow, FormSheet, formHasSignRoom } from '@/components/print-frame';
-import { fillForm, type BrForm, type FormPage } from '@/lib/br-form';
+import PrintFrame, { Sheet, SignRow, FormSheet } from '@/components/print-frame';
+import { fillForm, formHasSignRoom, type BrForm, type FormPage } from '@/lib/br-form';
 import { dayRecordPayload, hashable, type RecRow } from '@/lib/print-payload';
 import { chunkRows } from '@/lib/print-pages';
 

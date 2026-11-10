@@ -816,8 +816,3 @@ export function FormSheet({
   );
 }
 
-/** 서명란이 마지막 표 아래에 들어갈 자리가 있는가 (양식 꼬리글 위까지) */
-export function formHasSignRoom(page: FormPage) {
-  const bottom = Math.max(0, ...page.tables.map((t) => t.y + t.rows.reduce((a, r) => a + r.h, 0)));
-  return bottom + 8 + 41 <= 550;
-}
