@@ -58,7 +58,9 @@ export default async function OrdersPage() {
          from item
         where is_active and type not in ('FIN', 'SOLUTION') order by type, code`),
     suppliers: await db.rows<SupplierOpt>(
-      `select id, name, status from supplier order by status desc, name`),
+      /* 승인된 공급자가 먼저 (UI/UX 검수 2026-11-11). 전에는 status desc 라
+       * SUSPENDED · PENDING 이 맨 위에 와서 기본값으로 골라졌다 */
+      `select id, name, status from supplier order by (status = 'APPROVED') desc, name`),
     /*
      * 입고 폼이 쓰는 품목 정보는 발주 폼이 쓰는 것과 다르다 - 구매 단위와
      * 환산율이 필요하다. 폼을 복제하지 않는 대신 자료를 한 벌 더 읽는다.

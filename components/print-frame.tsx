@@ -47,6 +47,16 @@ export interface PrintMeta {
   readOnly?: boolean;
 
   /**
+   * 이 인쇄가 그 묶음을 잠그는가 (제조기록서 · S04). 미리보기일 때만 쓴다.
+   *
+   * 되돌릴 수 없는 일은 그 단추 자리에서 말한다 (사용자 2026-11-11 «검토를
+   * 해야 하는 주요 부분이라면 안내가 반드시»). 전에는 배치 화면의 여는 단추
+   * 옆에 «열면 잠깁니다» 가 있었는데, 여는 것은 미리보기로 바뀐 지 오래였고
+   * 실제로 잠그는 이 단추 옆에는 회차 말뿐이었다.
+   */
+  locks?: boolean;
+
+  /**
    * 발행권. 미리보기일 때만 있다 (lib/print.ts).
    *
    * 서버가 봉한 값이라 화면이 안을 들여다볼 수 없고, 그럴 필요도 없다 -
@@ -131,6 +141,11 @@ function barRight(m: PrintMeta) {
     return <>
       인쇄하면 <b className="tnum text-ink">{m.seq}</b>회차로 남습니다
       {m.seq > 1 && <span className="ml-1.5 font-bold text-warn">재발행</span>}
+      {m.locks && m.seq === 1 && (
+        <span className="block font-bold text-warn">
+          이 일차 기록이 함께 잠깁니다. 잠기면 현장에서 고칠 수 없고 되돌릴 수 없습니다
+        </span>
+      )}
     </>;
   }
   return <>

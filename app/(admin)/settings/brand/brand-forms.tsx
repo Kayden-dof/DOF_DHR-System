@@ -212,7 +212,7 @@ export function BrandForm({
                  defaultValue={recordRetentionYears ?? 5} className="input tnum" />
           <p className="mt-1 text-xs leading-relaxed text-faint">
             <b className="text-ink">편철 표지에 인쇄됩니다.</b> 시스템은 이 값으로
-            아무것도 막거나 지우지 않습니다 - 기록을 지우는 길이 없습니다.
+            아무것도 막거나 지우지 않습니다 - 기간이 지나도 기록은 그대로 남습니다.
           </p>
         </div>
         </div>

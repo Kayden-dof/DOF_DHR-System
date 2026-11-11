@@ -277,6 +277,8 @@ function PinPanel({ u, isMe, canReset }: { u: UserRow; isMe: boolean; canReset: 
 function FlagPanel({ u, isMe, sysAdmin }: { u: UserRow; isMe: boolean; sysAdmin: boolean }) {
   const [activeState, activeAction, a1] = useActionState<FormState, FormData>(setActive, {});
   const [devState, devAction, a2] = useActionState<FormState, FormData>(setDeveloper, {});
+  /* 한 번 더 묻는다 - 켜면 끌 수 없다 (0052 app_user_dev_sticky · UI/UX 검수 2026-11-11) */
+  const [devAsk, setDevAsk] = useState(false);
   const [delState, delAction, a3] = useActionState<FormState, FormData>(deleteUser, {});
 
   return (
@@ -317,8 +319,18 @@ function FlagPanel({ u, isMe, sysAdmin }: { u: UserRow; isMe: boolean; sysAdmin:
           </span>
           {u.is_developer ? (
             <span className="text-xs text-faint">되돌릴 수 없음</span>
+          ) : devAsk ? (
+            <>
+              <span className="text-xs text-warn">
+                되돌릴 수 없습니다. 품질책임자 역할을 받을 수 없게 됩니다.
+              </span>
+              <button type="submit" disabled={a2} className="qd-text-action qd-text-action--danger">
+                바꾼다
+              </button>
+              <button type="button" onClick={() => setDevAsk(false)} className="qd-text-action">그만</button>
+            </>
           ) : (
-            <button type="submit" disabled={a2} className="qd-text-action">
+            <button type="button" onClick={() => setDevAsk(true)} className="qd-text-action">
               개발 계정으로
             </button>
           )}

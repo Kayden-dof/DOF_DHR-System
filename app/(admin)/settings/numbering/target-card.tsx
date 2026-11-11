@@ -176,13 +176,7 @@ export default function TargetCard({
                 <code className="font-mono text-xs text-body">{r.pattern}</code>
                 <span className="font-mono text-xs tnum text-brand">{r.sample}</span>
                 {writable && (
-                  <form action={retireAction}>
-                    <input type="hidden" name="id" value={r.id} />
-                    <button type="submit" disabled={retiring}
-                            className="qd-text-action">
-                      내리기
-                    </button>
-                  </form>
+                  <RetireRow id={r.id} action={retireAction} pending={retiring} />
                 )}
               </li>
             ))}
@@ -205,13 +199,7 @@ export default function TargetCard({
                 <code className="font-mono text-xs text-body">{r.pattern}</code>
                 <span className="font-mono text-xs tnum text-brand">{r.sample}</span>
                 {writable && (
-                  <form action={retireAction}>
-                    <input type="hidden" name="id" value={r.id} />
-                    <button type="submit" disabled={retiring}
-                            className="qd-text-action">
-                      내리기
-                    </button>
-                  </form>
+                  <RetireRow id={r.id} action={retireAction} pending={retiring} />
                 )}
               </li>
             ))}
@@ -329,6 +317,37 @@ export default function TargetCard({
         </details>
       )}
     </section>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   품목별 · 종류별 규칙 내리기 (UI/UX 검수 2026-11-11)
+
+   전에는 한 번 누르면 곧장 제출됐다. 내린 규칙은 다시 켤 수 없다 - 공통 규칙의
+   내리기처럼 한 번 더 묻고, 무엇이 바뀌는지 그 자리에 적는다.
+--------------------------------------------------------------------------- */
+function RetireRow({ id, action, pending }: {
+  id: string; action: (f: FormData) => void; pending: boolean;
+}) {
+  const [ask, setAsk] = useState(false);
+  if (!ask) {
+    return (
+      <button type="button" onClick={() => setAsk(true)} className="qd-text-action">
+        내리기
+      </button>
+    );
+  }
+  return (
+    <form action={action} className="flex w-full flex-wrap items-center justify-end gap-2">
+      <input type="hidden" name="id" value={id} />
+      <span className="text-xs text-warn">
+        내리면 다시 켤 수 없습니다. 이 품목은 그다음 규칙(종류별 · 공통)으로 채번됩니다.
+      </span>
+      <button type="submit" disabled={pending} className="qd-text-action qd-text-action--danger">
+        내린다
+      </button>
+      <button type="button" onClick={() => setAsk(false)} className="qd-text-action">그만</button>
+    </form>
   );
 }
 

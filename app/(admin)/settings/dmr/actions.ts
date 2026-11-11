@@ -43,17 +43,22 @@ export async function createProduct(_p: FormState, form: FormData): Promise<Form
     const existing = String(form.get('item_id') ?? '').trim();
     const newCode = String(form.get('new_item_code') ?? '').trim();
     const newName = String(form.get('new_item_name') ?? '').trim();
+    const months = Number(form.get('shelf_life_months') ?? 0);
 
     if (!productCode) return { error: '제품 코드를 입력하십시오' };
     if (!existing && !newCode) return { error: '대표 형명을 선택하거나 새로 입력하십시오' };
+    /* 12개월을 조용히 넣지 않는다 (UI/UX 검수 2026-11-11) */
+    if (!existing && !(Number.isInteger(months) && months > 0)) {
+      return { error: '새 형명의 사용기간(개월)을 입력하십시오' };
+    }
 
     await withActor(me.id, async (db) => {
       let itemId = existing;
       if (!itemId) {
         itemId = (await db.val<string>(
           `insert into item (code, name, type, purchase_uom, usage_uom, shelf_life_months)
-           values ($1,$2,'FIN','EA','EA',12) returning id`,
-          [newCode, newName || `${productName} ${newCode}`]))!;
+           values ($1,$2,'FIN','EA','EA',$3) returning id`,
+          [newCode, newName || `${productName} ${newCode}`, months]))!;
       }
       await db.rows(
         `insert into device_master

@@ -43,6 +43,22 @@ export default async function AuditPage({ searchParams }: { searchParams: Search
   const actor = sp.actor || null;
   const page = Math.max(1, Number(sp.page ?? 1) || 1);
 
+  /*
+   * 비우기 자리에 적을 사실 (UI/UX 검수 2026-11-11). 시스템관리자에게만 읽는다.
+   * 읽지 못해도 화면은 그린다 - 그때는 건수가 '?' 로 나온다.
+   */
+  const purge = hasRole(user, 'SYS_ADMIN')
+    ? await withUser(user, (db) => db.one<{
+        audit: number; login: number; backupAt: string | null; backupDays: number | null;
+      }>(
+        `select (select count(*)::int from audit_log) as audit,
+                (select count(*)::int from login_attempt) as login,
+                (select to_char(timezone('Asia/Seoul', max(taken_at)), 'YYYY-MM-DD HH24:MI')
+                   from backup_log) as "backupAt",
+                (select (current_date - (timezone('Asia/Seoul', max(taken_at)))::date)
+                   from backup_log) as "backupDays"`)).catch(() => null)
+    : null;
+
   const data = await withUser(user, async (db) => ({
     total: await db.val<number>(
       `select count(*)::int from audit_log a
@@ -207,7 +223,11 @@ export default async function AuditPage({ searchParams }: { searchParams: Search
         </div>
       )}
 
-      {hasRole(user, 'SYS_ADMIN') && <PurgeForm />}
+      {hasRole(user, 'SYS_ADMIN') && (
+        <PurgeForm auditCount={purge?.audit ?? null} loginCount={purge?.login ?? null}
+                   lastBackup={purge?.backupAt
+                     ? { at: purge.backupAt, daysAgo: purge.backupDays ?? 0 } : null} />
+      )}
     </PageShell>
   );
 }

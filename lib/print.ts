@@ -572,6 +572,7 @@ export async function logPrint(a: LogArgs): Promise<PrintMeta> {
       printedBy: '',
       preview: true,
       readOnly,
+      locks: a.lockDay || undefined,
       /* 읽기 전용 세션에는 발행권을 주지 않는다. 눌러도 DB 가 거부한다 */
       ticket: readOnly ? undefined : makeTicket(a, hash),
     };

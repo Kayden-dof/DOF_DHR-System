@@ -7,6 +7,7 @@ import { fmtDate } from '@/lib/fmt';
 import { daysUntilKST } from '@/lib/kst';
 import type { FormState } from '@/lib/forms';
 import { Msg, Tag, Caution } from '@/components/ui';
+import { PL_STATUS_LABEL } from '@/lib/forms';
 import Toasts from '@/components/toast';
 import { Unblock } from '@/components/unblock';
 import type { Fix } from '@/lib/unblock';
@@ -391,10 +392,23 @@ export function ApproveForm({ lot, today }: { lot: PlOpt; today: string }) {
   return (
     <form action={action} className="rounded-md border border-line bg-canvas p-3 text-left">
       <input type="hidden" name="id" value={lot.id} />
+      {/*
+        * 안내를 고쳤다 (UI/UX 검수 2026-11-11). 전에는 «품질책임자는 시스템
+        * 계정을 쓰지 않습니다» 였는데 품질책임자 역할이 있다 - 열람 전용이다.
+        * 기록하면 성명 · 일자는 고칠 수 없다 (0056 trg_once_written).
+        * 멸균 회수 전 로트를 승인하는 일은 막지 않고 그 자리에서 알린다.
+        */}
       <Caution>
-        품질책임자는 시스템 계정을 쓰지 않습니다. 서면 요청서에 서명받은 내용을
-        그대로 옮겨 입력하십시오. 시스템이 판정하는 것이 아닙니다.
+        서면 출하 승인 요청서에 품질책임자가 서명한 내용을 그대로 옮겨 적습니다.
+        품질책임자 계정은 열람 전용이라 여기서 직접 적지 않습니다. 시스템이
+        판정하는 것이 아닙니다. <b>기록하면 성명 · 일자를 고칠 수 없고 되돌릴 수 없습니다.</b>
       </Caution>
+      {lot.status !== 'TESTED' && (
+        <p className="mt-2 rounded-md border border-warn/40 bg-warn-bg px-3 py-2 text-xs leading-relaxed text-ink">
+          이 로트는 아직 <b>{PL_STATUS_LABEL[lot.status] ?? lot.status}</b> 입니다. 멸균 회수 전에
+          승인을 적는 것이 맞는지 서면을 다시 보십시오.
+        </p>
+      )}
       <div className="mt-2 flex flex-wrap items-end gap-2">
         <div className="w-44">
           <label className="label" htmlFor={`${uid}-release_approved_by`}>품질책임자 성명</label>

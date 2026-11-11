@@ -298,7 +298,9 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
               작업 지시서 인쇄
             </Link>
           )}
-          {active && !readOnly && <FinishForm id={wo.id} />}
+          {active && !readOnly && (
+            <FinishForm id={wo.id} remaining={remaining.filter((x) => x !== '배치 미종료')} />
+          )}
         </div>
       </div>
 

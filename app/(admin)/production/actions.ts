@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { withActor, dbMessage } from '@/lib/db';
 import { requireUser, hasRole } from '@/lib/session';
-import type { FormState } from '@/lib/forms';
+import { PL_MANUAL_STATUS, type FormState } from '@/lib/forms';
 
 async function mgr() {
   const user = await requireUser();
@@ -314,10 +314,20 @@ export async function setLotStatus(_p: FormState, form: FormData): Promise<FormS
     const me = await mgr();
     const id = String(form.get('id') ?? '');
     const woId = String(form.get('work_order_id') ?? '');
+    const want = String(form.get('status') ?? 'CUT');
+    /*
+     * 승인 · 멸균 · 출고 상태는 그 일을 하는 화면만 바꾼다 (UI/UX 검수
+     * 2026-11-11). 화면이 거르지만 액션도 같은 규칙으로 본다 - 지금 상태를
+     * 그대로 두는 것은 된다.
+     */
+    const cur = await withActor(me.id, (db) =>
+      db.val<string>(`select status::text from product_lot where id=$1`, [id]));
+    if (want !== cur && !PL_MANUAL_STATUS.includes(want)) {
+      return { error: '멸균 · 출하 승인 · 출고 상태는 그 화면에서만 바뀝니다' };
+    }
     await withActor(me.id, (db) =>
       db.rows(`update product_lot set status=$2::pl_status, location=$3 where id=$1`,
-        [id, String(form.get('status') ?? 'CUT'),
-         String(form.get('location') ?? '').trim() || null]));
+        [id, want, String(form.get('location') ?? '').trim() || null]));
     bump(woId);
     return { ok: true, message: '제품 로트를 갱신했습니다.' };
   } catch (e) {

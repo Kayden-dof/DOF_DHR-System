@@ -46,7 +46,7 @@ export function NewOrder({ items, suppliers, today }: {
   const [supplierId, setSupplierId] = useState('');
   const picked = supplierId
     || (item?.default_supplier_id ?? '')
-    || (suppliers[0]?.id ?? '');
+    || (suppliers.find((x) => x.status === 'APPROVED')?.id ?? suppliers[0]?.id ?? '');
 
   return (
     <>
@@ -75,7 +75,7 @@ export function NewOrder({ items, suppliers, today }: {
                   className="input">
             {suppliers.map((s) => (
               <option key={s.id} value={s.id}>
-                {s.name}{s.status !== 'APPROVED' ? ' (미승인)' : ''}
+                {s.name}{s.status === 'SUSPENDED' ? ' (정지)' : s.status !== 'APPROVED' ? ' (미승인)' : ''}
               </option>
             ))}
           </select>

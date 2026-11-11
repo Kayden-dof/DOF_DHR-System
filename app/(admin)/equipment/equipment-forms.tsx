@@ -563,8 +563,11 @@ function DeleteHistory({ id }: { id: string }) {
       <input type="hidden" name="id" value={id} />
       {sure ? (
         <>
+          <span className="text-xs text-warn">
+            지우면 이 설비의 상태 · 다음 만료일이 남은 이력으로 다시 셈됩니다.
+          </span>
           <button type="submit" disabled={pending}
-                  className="qd-text-action qd-text-action--danger">지우기</button>
+                  className="qd-text-action qd-text-action--danger">지운다</button>
           <button type="button" onClick={() => setSure(false)} className="qd-text-action">취소</button>
         </>
       ) : (

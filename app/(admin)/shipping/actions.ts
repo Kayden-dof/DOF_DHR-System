@@ -111,8 +111,8 @@ export async function updateSterilBatch(_p: FormState, form: FormData): Promise<
 /* ---------------------------------------------------------------------------
    출하 승인 (§4.5)
 
-   품질책임자는 시스템 계정이 없다. 서면으로 승인한 내용을 관리자가 옮겨 적는다.
-   그래서 release_approved_by가 FK가 아니라 이름 문자열이다.
+   품질책임자 계정은 열람 전용이다 (lib/roles.ts QP). 서면으로 승인한 내용을
+   관리자가 옮겨 적는다. 그래서 release_approved_by가 FK가 아니라 이름 문자열이다.
 --------------------------------------------------------------------------- */
 export async function approveRelease(_p: FormState, form: FormData): Promise<FormState> {
   try {

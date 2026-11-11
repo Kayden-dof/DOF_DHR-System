@@ -10,6 +10,8 @@ export interface ItemOpt {
   id: string; code: string; name: string; type: string;
   purchase_uom: string; usage_uom: string; conversion: string;
   shelf_life_months: number | null;
+  /** 품목의 기본 공급자. 입고 폼의 처음 값 (UI/UX 검수 2026-11-11) */
+  default_supplier_id?: string | null;
 }
 export interface SupplierOpt { id: string; name: string; status: string }
 export interface OrderOpt {
@@ -58,6 +60,16 @@ export default function ReceiveForm({ items, suppliers, orders, today, presetPo,
   const isRaw = item?.type === 'RAW';
   const poPool = orders.filter((o) => !itemId || o.item_id === itemId);
   const po = orders.find((o) => o.id === poId);
+  /*
+   * 처음 놓이는 공급자 (UI/UX 검수 2026-11-11). 사람이 고른 것 → 연결한 발주 →
+   * 품목의 기본 공급자 → 승인된 첫 공급자. 전에는 목록 첫 줄이었고 그것이
+   * 정지된 공급자였다.
+   */
+  const pickedSupplier = supplierId
+    || po?.supplier_id
+    || item?.default_supplier_id
+    || suppliers.find((s) => s.status === 'APPROVED')?.id
+    || suppliers[0]?.id || '';
 
   /*
    * 발주를 고르면 그 발주의 값으로 채운다.
@@ -146,7 +158,7 @@ export default function ReceiveForm({ items, suppliers, orders, today, presetPo,
         <div className="lg:col-span-2">
           <label className="label" htmlFor={`${uid}-item_id`}>품목</label>
           <select id={`${uid}-item_id`} name="item_id" required value={item?.id ?? ''}
-                  onChange={(e) => setItemId(e.target.value)} className="input">
+                  onChange={(e) => { setItemId(e.target.value); setSupplierId(''); }} className="input">
             {pool.map((i) => (
               <option key={i.id} value={i.id}>{i.code} · {i.name}</option>
             ))}
@@ -156,11 +168,11 @@ export default function ReceiveForm({ items, suppliers, orders, today, presetPo,
         <div>
           <label className="label" htmlFor={`${uid}-supplier_id`}>공급자</label>
           <select id={`${uid}-supplier_id`} name="supplier_id" required
-                  value={supplierId || suppliers[0]?.id || ''}
+                  value={pickedSupplier}
                   onChange={(e) => setSupplierId(e.target.value)} className="input">
             {suppliers.map((s) => (
               <option key={s.id} value={s.id}>
-                {s.name}{s.status !== 'APPROVED' ? ' (미승인)' : ''}
+                {s.name}{s.status === 'SUSPENDED' ? ' (정지)' : s.status !== 'APPROVED' ? ' (미승인)' : ''}
               </option>
             ))}
           </select>

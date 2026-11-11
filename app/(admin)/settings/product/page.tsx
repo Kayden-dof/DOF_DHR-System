@@ -48,6 +48,8 @@ interface Row {
   expected_units: number | null;
   item_id: string; item_code: string; item_name: string;
   shelf_life_months: number | null;
+  /** 지금 쓰이는 사용기간과 그 근거 보고서 (shelf_life_at · 0061) */
+  shelf_now: number | null; shelf_report: string | null;
   product_code: string; product_name: string;
   issuable: boolean;
   ops: number; ops_after: number; ops_with_equip: number;
@@ -69,6 +71,11 @@ export default async function ProductSetupPage() {
               dm.steril_box_qty, dm.license_no, dm.expected_units,
               i.id as item_id, i.code as item_code, i.name as item_name,
               i.shelf_life_months,
+              (select months from shelf_life_at(i.id, (timezone('Asia/Seoul', now()))::date)) as shelf_now,
+              (select h.study_report_no from shelf_life_history h
+                where h.item_id = i.id
+                  and h.effective_from <= (timezone('Asia/Seoul', now()))::date
+                order by h.effective_from desc, h.registered_at desc limit 1) as shelf_report,
               coalesce(dm.product_code, i.code) as product_code,
               coalesce(dm.product_name, i.name) as product_name,
 
@@ -244,16 +251,30 @@ export default async function ProductSetupPage() {
             empty: r.ops > 0 && r.ops_with_equip === 0,
             blocks: '공정에 걸린 설비가 없습니다. 설비 사용 기록이 남지 않습니다',
           },
+          /*
+           * 사용기간은 제품표준서 화면에 칸이 없다 (UI/UX 검수 2026-11-11). 값은
+           * 형명(item)에 있고, 한 번 들어간 뒤에는 안정성 보고서와 함께 이력으로만
+           * 바뀐다 (0061). 전에는 이 단계가 제품표준서로 보내 막다른 길이었다.
+           * 근거 보고서가 없으면 그 사실을 적는다 - 막지 않는다.
+           */
+          {
+            href: '/settings/suppliers',
+            title: '사용기간',
+            fact: r.shelf_now
+              ? `${r.shelf_now}개월 · ${r.shelf_report ? `보고서 ${r.shelf_report}` : '안정성 보고서 미등록 (형명 기본값)'}`
+              : '',
+            empty: !r.shelf_life_months,
+            blocks: '완제품 사용기간이 없습니다. 유효기한을 계산할 근거가 없습니다',
+          },
           {
             href: dmr,
             title: '그 밖의 값',
             fact: [
-              r.shelf_life_months ? `사용기간 ${r.shelf_life_months}개월` : '',
               r.steril_box_qty ? `멸균 박스 ${r.steril_box_qty}개` : '',
               r.expected_units ? `배치당 예상 ${r.expected_units}개` : '',
-            ].filter(Boolean).join(' · '),
-            empty: !r.shelf_life_months,
-            blocks: '완제품 사용기간이 없습니다. 유효기한을 계산할 근거가 없습니다',
+            ].filter(Boolean).join(' · ') || '정하지 않음 (선택)',
+            empty: false,
+            blocks: '',
           },
         ];
 

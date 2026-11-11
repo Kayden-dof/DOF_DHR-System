@@ -69,6 +69,12 @@ export const PL_STATUS_LABEL: Record<string, string> = {
   DISPOSED: '폐기',
 };
 
+/*
+ * 제품 로트 «수정» 에서 손으로 고를 수 있는 상태 (UI/UX 검수 2026-11-11).
+ * 나머지는 그 일을 하는 화면이 바꾼다 - 멸균 발송 · 회수, 출하 승인, 출고.
+ */
+export const PL_MANUAL_STATUS: string[] = ['CUT', 'PACKED', 'DISPOSED'];
+
 export const WO_STATUS_LABEL: Record<string, string> = {
   ISSUED: '발행',
   IN_PROCESS: '진행 중',

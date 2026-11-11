@@ -243,7 +243,8 @@ export function VerifyForm({
               <input type="hidden" name="id" value={id} />
               <span className="min-w-0 flex-1 text-xs leading-relaxed text-muted">
                 {all
-                  ? '전부 대조했습니다. 확인자로 기록되며 되돌릴 수 없습니다.'
+                  ? <>전부 대조했습니다. 확인자로 기록되고 이 개정이 <b className="text-ink">발효(ACTIVE)</b>되어,
+                     시행일부터 작업 지시를 발행할 수 있습니다. 되돌릴 수 없습니다.</>
                   : '남은 항목을 모두 확인해야 확인할 수 있습니다.'}
               </span>
               <button type="submit" disabled={!all || pending}
@@ -1502,6 +1503,21 @@ export function NewProduct({
               <label className="label" htmlFor={`${uid}-new_item_name`}>형명 이름</label>
               <input id={`${uid}-new_item_name`} name="new_item_name" autoComplete="off"
                      placeholder="DX2402 0.5x0.5 0.5~1.0mm" className="input" />
+            </div>
+            {/*
+              * 사용기간을 묻는다 (UI/UX 검수 2026-11-11). 전에는 12개월이 조용히
+              * 들어갔고, 한 번 들어간 값은 화면에서 바꿀 수 없다 (0061) - 바꾸려면
+              * 안정성 보고서 번호와 함께 이력으로 등록해야 한다. 그래서 처음
+              * 들어가는 값을 사람이 보고 넣게 한다. 기본값을 두지 않는다.
+              */}
+            <div>
+              <label className="label" htmlFor={`${uid}-shelf_life_months`}>사용기간 (개월)</label>
+              <input id={`${uid}-shelf_life_months`} name="shelf_life_months" type="number"
+                     min={1} required className="input tnum" />
+              <p className="mt-1 text-xs leading-relaxed text-faint">
+                제품 로트의 유효기한이 됩니다. 등록한 뒤에는 안정성 시험 보고서와 함께
+                사용기간 이력으로만 바꿀 수 있습니다.
+              </p>
             </div>
           </div>
         )}

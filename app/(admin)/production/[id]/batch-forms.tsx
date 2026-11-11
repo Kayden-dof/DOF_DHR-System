@@ -3,7 +3,7 @@
 import Link from 'next/link';
 
 import { useActionState, useEffect, useState, useId } from 'react';
-import { PL_STATUS_LABEL, type FormState } from '@/lib/forms';
+import { PL_STATUS_LABEL, PL_MANUAL_STATUS, type FormState } from '@/lib/forms';
 import { Msg, Caution } from '@/components/ui';
 import { Unblock } from '@/components/unblock';
 import type { Fix } from '@/lib/unblock';
@@ -128,7 +128,8 @@ export function CutForm({ woId, options, today, used, band, cutDate, fix }: {
             {cutDate
               ? <>재단을 적은 날로 채웠습니다. 제조번호가 이 날짜로 만들어집니다.</>
               : <>재단 기록이 아직 없어 <b className="text-ink">오늘</b>로 두었습니다.
-                 실제 재단한 날이 다르면 고치십시오. 붙고 나면 바꿀 수 없습니다.</>}
+                 실제 재단한 날이 다르면 고치십시오.</>}
+            {' '}<b className="text-ink">제조번호 · 제조일 · 유효기한은 붙고 나면 바꿀 수 없습니다.</b>
           </p>
         </div>
       </div>
@@ -181,13 +182,27 @@ export function LotStatusForm({ lot, woId }: { lot: LotRow; woId: string }) {
         <form action={action} className="space-y-3">
           <input type="hidden" name="id" value={lot.id} />
           <input type="hidden" name="work_order_id" value={woId} />
+          {/*
+            * 손으로 고를 수 있는 상태만 낸다 (UI/UX 검수 2026-11-11).
+            *
+            * 전에는 모든 상태를 냈다. 그래서 승인자도 승인일도 없이 «출하 승인»
+            * 이 되었다. 멸균 중 · 멸균 회수는 멸균 배치의 발송 · 회수가, 출하
+            * 승인은 출하 화면의 승인 기록이, 출고 완료는 출고가 바꾼다. 지금
+            * 상태는 그대로 둘 수 있게 함께 낸다. 액션도 같은 규칙으로 거른다.
+            */}
           <div>
             <label className="label" htmlFor={`${uid}-status`}>상태</label>
             <select id={`${uid}-status`} name="status" defaultValue={lot.status} className="input">
-              {Object.entries(PL_STATUS_LABEL).map(([c, l]) => (
-                <option key={c} value={c}>{l}</option>
-              ))}
+              {Object.entries(PL_STATUS_LABEL)
+                .filter(([c]) => c === lot.status || PL_MANUAL_STATUS.includes(c))
+                .map(([c, l]) => (
+                  <option key={c} value={c}>{l}</option>
+                ))}
             </select>
+            <p className="mt-1 text-xs leading-relaxed text-muted">
+              멸균 중 · 멸균 회수는 멸균 배치의 발송 · 회수로, 출하 승인은 출하 화면의
+              승인 기록으로, 출고 완료는 출고로만 바뀝니다.
+            </p>
           </div>
           <div>
             <label className="label" htmlFor={`${uid}-location`}>보관 위치</label>
@@ -407,7 +422,18 @@ export function CancelForm({ id }: { id: string }) {
   );
 }
 
-export function FinishForm({ id }: { id: string }) {
+/*
+ * 배치 종료 (UI/UX 검수 2026-11-11).
+ *
+ * 전에는 «종료하고 편철 표지를 출력하시겠습니까?» 라고 물었다. 종료는 표지를
+ * 내지 않고, 되돌리는 자리도 없다. 무엇이 사라지는지와 아직 남은 것을 묻는
+ * 자리에 적는다. 남은 것이 있어도 막지 않는다 - 알린다.
+ */
+export function FinishForm({ id, remaining = [] }: {
+  id: string;
+  /** 편철 전에 남은 것 (기록서 미발행 · 제조번호 전). 사실만 센 것 */
+  remaining?: string[];
+}) {
   const [state, action, pending] = useActionState<FormState, FormData>(finishWorkOrder, {});
   const [ask, setAsk] = useState(false);
 
@@ -416,12 +442,18 @@ export function FinishForm({ id }: { id: string }) {
   }
 
   return (
-    <form action={action} className="inline-flex flex-wrap items-center gap-2">
+    <form action={action} className="flex w-full flex-wrap items-center gap-2 rounded-md border border-warn/40 bg-warn-bg px-3 py-2">
       <input type="hidden" name="id" value={id} />
-      <span className="text-sm text-muted">종료하고 편철 표지를 출력하시겠습니까?</span>
-      <button type="submit" disabled={pending} className="btn-primary">종료</button>
+      <span className="min-w-0 flex-1 text-sm leading-relaxed text-ink">
+        <b>종료하면 되돌릴 수 없습니다.</b> 번호 정정 · 제조번호 부여 · 배치 취소 단추가
+        사라지고, 다음은 편철 표지 인쇄입니다.
+        {remaining.length > 0 && (
+          <span className="block font-bold text-warn">아직 남은 것: {remaining.join(' · ')}</span>
+        )}
+      </span>
+      <button type="submit" disabled={pending} className="btn-primary">종료한다</button>
       <button type="button" onClick={() => setAsk(false)} className="btn-quiet">
-        아니오
+        그만
       </button>
       <Msg state={state} />
     </form>
@@ -429,41 +461,20 @@ export function FinishForm({ id }: { id: string }) {
 }
 
 /* ---------------------------------------------------------------------------
-   기록서 첫 발행
+   기록서 인쇄로 가는 길
 
-   이 화면을 여는 것만으로 그 묶음이 잠긴다 (S04). 화면이 그려지는 순간 순번과
-   자료 식별자가 붙은 종이가 존재하게 되고, 실제로 인쇄했는지는 브라우저 밖의
-   일이라 알 수 없기 때문이다.
+   여는 것은 미리보기다 (2026-09-16). 잠그는 것은 그 화면의 인쇄 단추이고,
+   잠긴다는 말도 그 단추 옆에 있다 (print-frame barRight · locks).
 
-   그래서 한 번 더 묻는다. 다른 되돌릴 수 없는 조작에는 전부 확인 단계가
-   있는데 여기만 곧장 열리고 있었다. 내용을 보려고 눌렀다가 잠기면 되돌릴
-   방법이 없다 - 잠금 해제 함수는 만들지 않는다.
-
-   이미 잠긴 묶음은 묻지 않는다. 재발행은 잠금을 새로 만들지 않는다.
+   전에는 여기서 한 번 더 묻고 «열면 잠깁니다» 라고 적었다. 여는 것만으로
+   잠기던 때의 말이 남아 있었다 (UI/UX 검수 2026-11-11) - 틀린 경고는 한 번
+   더 누르게 하면서, 정작 잠그는 자리에서는 아무 말도 하지 않았다.
 --------------------------------------------------------------------------- */
 export function DayPrintLink({
   href, locked,
 }: { href: string; locked: boolean }) {
-  const [ask, setAsk] = useState(false);
-
-  if (locked) {
-    return <Link href={href} className="btn-ghost">재발행</Link>;
-  }
-  if (!ask) {
-    return (
-      <button type="button" onClick={() => setAsk(true)} className="btn-ghost">
-        인쇄
-      </button>
-    );
-  }
   return (
-    <span className="inline-flex items-center gap-2 whitespace-nowrap">
-      <span className="text-xs text-warn">열면 잠깁니다</span>
-      <Link href={href} className="btn-primary">발행</Link>
-      <button type="button" onClick={() => setAsk(false)} className="qd-text-action">
-        그만
-      </button>
-    </span>
+    <Link href={href} className="btn-ghost">{locked ? '재발행' : '인쇄'}</Link>
   );
 }
 

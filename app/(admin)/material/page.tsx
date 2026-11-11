@@ -91,10 +91,12 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
      */
     items: await db.rows<ItemOpt>(
       `select id, code, name, type::text as type, purchase_uom, usage_uom, conversion,
-              shelf_life_months
+              shelf_life_months, default_supplier_id
          from item where is_active and type <> 'SOLUTION' order by type, code`),
     suppliers: await db.rows<SupplierOpt>(
-      `select id, name, status from supplier order by status desc, name`),
+      /* 승인된 공급자가 먼저 (UI/UX 검수 2026-11-11). 전에는 status desc 라
+       * SUSPENDED · PENDING 이 맨 위에 와서 기본값으로 골라졌다 */
+      `select id, name, status from supplier order by (status = 'APPROVED') desc, name`),
     /*
      * 발주중인 것만 담는다. 부분 입고면 누계가 발주 수량에 닿기 전까지
      * ORDERED 로 남으므로 (0102), 나눠 들어오는 발주가 목록에 계속 있다.
