@@ -14,8 +14,12 @@ export interface BrSheet {
   docNo: string;
   size: { w: number; h: number };
   pages: FormPage[];
+  /** 꼭 적을 칸 (조건부 칸 빼고) */
   total: number;
   done: number;
+  /** 조건부 칸 - 해당할 때만 적는다 (FormCell.op) */
+  optTotal: number;
+  optDone: number;
   locked: boolean;
   workDate: string;
   title: string;
@@ -80,10 +84,13 @@ export async function brSheet(db: Db, recordId: string): Promise<BrSheet | null>
     issues, noLotCodes: noLot, equipment: r.equipment_id, notes: [],
     entries,
   });
-  const fields = fieldsOf(filled.pages);
+  const all = fieldsOf(filled.pages);
+  const fields = all.filter((c) => !c.op);
+  const opt = all.filter((c) => c.op);
   return {
     recordId, docId: doc.id, docNo: doc.doc_no, size: doc.form.page, pages: filled.pages,
     total: fields.length, done: fields.filter((c) => c.v).length,
+    optTotal: opt.length, optDone: opt.filter((c) => c.v).length,
     locked: r.locked, workDate: r.work_date, title: `${r.op_name} · ${doc.doc_no}`,
   };
 }

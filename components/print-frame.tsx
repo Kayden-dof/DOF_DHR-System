@@ -818,7 +818,8 @@ export function FormSheet({
    양식 한 쪽의 글과 표 - 종이(FormSheet)와 현장 화면(제조기록서 칸 적기)이 같은 것을 그린다
 
    onCell 이 있으면 사람이 적는 칸(c.id)을 누를 수 있다. 빈 칸은 옅은 노랑,
-   적은 칸은 파란 글씨. 종이에는 onCell 을 주지 않으므로 칸 표시가 없다.
+   조건부 칸(해당할 때만)은 점선, 적은 칸은 파란 글씨. 종이에는 onCell 을 주지
+   않으므로 칸 표시가 없다.
 --------------------------------------------------------------------------- */
 export function FormBody({ page, size, formPage, onCell, active }: {
   page: FormPage;
@@ -858,7 +859,7 @@ export function FormBody({ page, size, formPage, onCell, active }: {
                 {r.cells.map((c) => (
                   <td key={c.c} colSpan={c.cs} rowSpan={c.rs}
                       data-fill={c.f || c.tk?.length ? '' : undefined} data-note={c.n ? '' : undefined}
-                      data-field={onCell && c.id ? (c.v ? 'done' : 'open') : undefined}
+                      data-field={onCell && c.id ? (c.v ? 'done' : c.op ? 'cond' : 'open') : undefined}
                       data-active={onCell && c.id && c.id === active ? '' : undefined}
                       onClick={onCell && c.id ? () => onCell(c) : undefined}
                       style={{

@@ -128,6 +128,10 @@ function BrSheetView({ sheet, onSheet, onClose, busy }: {
           <p className="text-sm text-muted">
             적을 칸 <b className="tnum text-ink">{sheet.total}</b> · 적은 칸{' '}
             <b className="tnum text-brand">{sheet.done}</b>
+            {sheet.optTotal > 0 && (
+              <> · 해당할 때만 <b className="tnum text-ink">{sheet.optTotal}</b>
+                {sheet.optDone > 0 && <> (적은 칸 <b className="tnum text-brand">{sheet.optDone}</b>)</>}</>
+            )}
             {sheet.locked && <span className="ml-2 font-semibold text-warn">일차가 마감되어 고칠 수 없습니다</span>}
           </p>
         </div>
@@ -136,7 +140,7 @@ function BrSheetView({ sheet, onSheet, onClose, busy }: {
 
       <div ref={wrap} className="flex-1 overflow-auto px-2 py-3">
         <p className="mb-2 px-1 text-sm text-muted">
-          노란 칸을 누르면 아래에 적는 칸이 나옵니다. □ 확인 칸은 누르면 바로 체크되고, 다시 누르면 지워집니다.
+          노란 칸을 누르면 아래에 적는 칸이 나옵니다. 점선 칸은 해당할 때만 적습니다. □ 확인 칸은 누르면 바로 체크되고, 다시 누르면 지워집니다.
           적은 값은 파란 글씨로 바로 저장됩니다.
         </p>
         {sheet.pages.map((pg, i) => (
