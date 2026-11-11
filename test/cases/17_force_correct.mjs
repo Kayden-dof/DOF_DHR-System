@@ -255,4 +255,53 @@ export default [
   },
 },
 
+{
+  id: 'FC-11', expect: '통과',
+  name: '쓰이지 않은 자재 로트의 공급자를 시스템관리자가 사유와 함께 바로잡는다 (0135)',
+  async run(t) {
+    const m = await master(t);
+    await t.setActor(m.admin);
+    const lot = await newMaterialLot(t, m, m.reagent, { supplier: m.supplier });
+    await t.setActor(null);
+    /* 정정 함수 밖에서는 여전히 잠겨 있다 */
+    await asUser(t, m.admin, () => t.rejects(
+      () => t.rows(`update material_lot set supplier_id = $2 where id = $1`, [lot, m.supplierPending]),
+      { message: 'supplier_id' }));
+    await asUser(t, m.admin, () => t.rows(
+      `select force_correct_lot_supplier($1, $2, '입고 등록 때 공급자를 잘못 고름')`, [lot, m.supplierPending]));
+    t.eq(await t.val(`select supplier_id::text from material_lot where id = $1`, [lot]), m.supplierPending, '바뀐 공급자');
+    t.ok(await t.val(
+      `select exists (select 1 from audit_log where table_name = 'material_lot' and record_id = $1
+                         and action = 'UPDATE' and reason like '공급자 정정%')`, [lot]), '감사추적 사유');
+    /* 로트번호 · 품목 · 입고 수량은 그대로 잠겨 있다 */
+    await t.rejects(() => t.rows(`update material_lot set lot_no = lot_no || 'X' where id = $1`, [lot]),
+      { message: 'lot_no' });
+  },
+},
+
+{
+  id: 'FC-12', expect: '거부',
+  name: '공급자 정정을 관리자 아닌 사람이 하거나 · 사유 없이 하거나 · 이미 투입된 로트에 함',
+  async run(t) {
+    const m = await master(t);
+    await t.setActor(m.admin);
+    const lot = await newMaterialLot(t, m, m.reagent, { supplier: m.supplier });
+    await t.setActor(null);
+    await asUser(t, m.worker, () => t.rejects(() => t.rows(
+      `select force_correct_lot_supplier($1, $2, '사유')`, [lot, m.supplierPending]),
+      { message: '시스템관리자만' }));
+    await asUser(t, m.admin, () => t.rejects(() => t.rows(
+      `select force_correct_lot_supplier($1, $2, ' ')`, [lot, m.supplierPending]),
+      { message: '사유' }));
+    /* 공정에 투입된 로트 */
+    const wo = await opWithQty(t, m, 1);
+    const used = await t.val(
+      `select mi.material_lot_id from material_issue mi join process_record pr on pr.id = mi.process_record_id
+        where pr.work_order_id = $1 limit 1`, [wo.id]);
+    await asUser(t, m.admin, () => t.rejects(() => t.rows(
+      `select force_correct_lot_supplier($1, $2, '사유')`, [used, m.supplierPending]),
+      { message: '이미 쓰인' }));
+  },
+},
+
 ];
