@@ -355,8 +355,8 @@ export default [
 
     // {MODEL}은 코드 뒤 8자리다. 형명 PD99990510 -> 99990510
     const fin = await t.val(
-      `insert into item (code, name, type, purchase_uom, usage_uom)
-       values ('PD99990510','채번시험 형명','FIN','EA','EA') returning id`);
+      `insert into item (code, name, type, purchase_uom, usage_uom, shelf_life_months)
+       values ('PD99990510','채번시험 형명','FIN','EA','EA',12) returning id`);
     await mkRule(t, { target: 'STERIL_BATCH', item: fin,
                       pattern: 'M-{MODEL}-{SEQ:3}', reset: 'NEVER', width: 3 });
     t.eq(await t.val(`select next_number('STERIL_BATCH', $1)`, [fin]),

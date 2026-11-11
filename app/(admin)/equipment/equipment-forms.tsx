@@ -378,7 +378,7 @@ export function EquipCard({ e, ops, warnDays, writable = true }: {
           if (groups.length === 0) {
             return (
               <p className="text-xs text-faint">
-                서면 대조가 확인된 제품표준서가 없습니다.
+                등록된 제품표준서가 없습니다.
               </p>
             );
           }
@@ -421,6 +421,11 @@ export function EquipCard({ e, ops, warnDays, writable = true }: {
             );
           });
         })()}
+        {writable && (
+          <p className="mt-2 text-xs leading-relaxed text-muted">
+            설비는 서면 대조 항목입니다. 공정에 걸거나 떼면 그 제품표준서의 서면 대조 확인이 풀립니다.
+          </p>
+        )}
         {/*
           * 공정 연결은 단추만 있는 자리다. 결과가 아래에 붙으면 목록이 밀린다
           * (사용자 지시 2026-09-08).

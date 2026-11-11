@@ -11,7 +11,7 @@
 // 이 파일은 자기 제품표준서를 따로 세운다.
 // =============================================================================
 
-import { masterData as master, newMaterialLot } from '../fixtures.mjs';
+import { masterData as master, newMaterialLot, reverify } from '../fixtures.mjs';
 
 let SETUP = null;
 
@@ -39,6 +39,7 @@ async function setup(t, m) {
     await tier(sc, noLot, 4);
     await tier(al, noLot, 1);
     await tier(al, m.reagent, 2);
+    await reverify(t, dm, m.admin);   // 다 세운 뒤에 대조 (0134)
     return { noLot, dm, sc, al };
   })());
 }

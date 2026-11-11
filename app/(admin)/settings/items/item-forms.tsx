@@ -489,8 +489,9 @@ export function GenerateFinished({ schemes, fix }: {
         </div>
         <div>
           <label className="label" htmlFor="shelf_months">사용기간(개월)</label>
-          <input id="shelf_months" name="shelf_months" type="number" defaultValue={12}
-                 className="input tnum" />
+          {/* 12 를 미리 넣지 않는다 - 만든 뒤에는 이력으로만 바뀐다 (0061 · UI/UX 검수 2026-11-11) */}
+          <input id="shelf_months" name="shelf_months" type="number" min={1} required
+                 placeholder="예: 24" className="input tnum" />
         </div>
         <div className="flex items-end">
           <button type="button" disabled={busy}

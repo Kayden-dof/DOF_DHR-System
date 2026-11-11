@@ -10,7 +10,7 @@ import type { Fix } from '@/lib/unblock';
 import {
   VerifyForm, AddOperationForm, OperationCard, ExpectedUnitsForm,
   SamplePlanForm, type SampleTier,
-  ProductCodeForm, OperationSetForm, BomSetForm, DmrNoteForm, DmrLimitsForm,
+  ProductCodeForm, OperationSetForm, BomSetForm, DmrNoteForm, DmrLimitsForm, EffectiveFromForm,
   type OperationRow, type ItemOption,
 } from './dmr-forms';
 
@@ -270,11 +270,26 @@ export async function DmrWorkbench({
                     <span className="tnum">{fmtDateTime(dm.verified_at)}</span>
                   </Field>
                 </div>
+                {/*
+                  * 대조를 마친 개정을 고치면 무엇이 일어나는지 고치는 자리 위에 적는다
+                  * (0134 · UI/UX 검수 2026-11-11). 대조 항목이 바뀌면 확인이 풀린다.
+                  */}
+                {writable && verified && (
+                  <p className="border-t border-line bg-warn-bg px-4 py-2.5 text-xs leading-relaxed text-ink">
+                    <b>서면 대조를 마친 개정입니다.</b> 제품 코드 · 제품명 · 예상 생산수량 · 정해 둔
+                    시행일 · 공정 · 자재 · 장입 구간 · 설비를 고치면 대조 확인이 풀리고, 다시 대조해야
+                    작업 지시를 낼 수 있습니다. 비고 · 장입 범위 · 시료 기준은 고쳐도 풀리지 않습니다.
+                  </p>
+                )}
                 {writable && (
                   <>
                     <ProductCodeForm id={dm.id} code={dm.product_code}
                                      name={dm.product_name} itemCode={dm.item_code}
                                      license={dm.license_no} />
+                    {dm.wo_count === 0 && (
+                      <EffectiveFromForm id={dm.id} verified={verified}
+                                         value={dm.effective_from ? String(dm.effective_from).slice(0, 10) : null} />
+                    )}
                     <DmrNoteForm id={dm.id} note={dm.note} />
                     <DmrLimitsForm id={dm.id} sheetMin={dm.sheet_min}
                                    sheetMax={dm.sheet_max} boxQty={dm.steril_box_qty}

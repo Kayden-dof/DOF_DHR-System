@@ -239,8 +239,8 @@ export default [
     await master(t);
 
     await t.rows(
-      `insert into item (code, name, type, purchase_uom, usage_uom)
-       values ('ZZNOSCHEME', '체계 밖 완제품', 'FIN', 'EA', 'EA')`);
+      `insert into item (code, name, type, purchase_uom, usage_uom, shelf_life_months)
+       values ('ZZNOSCHEME', '체계 밖 완제품', 'FIN', 'EA', 'EA', 12)`);
 
     t.eq(await t.val(`select spec_label('ZZNOSCHEME')`),
          '(형명 체계에 없는 코드)', '완제품은 말한다');

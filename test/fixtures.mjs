@@ -141,6 +141,13 @@ async function seedMasterData(t) {
   await mkUnitBom(ops['WS-DX2401-08'], pouch, 1);
   await mkUnitBom(ops['WS-DX2401-08'], label, 2);
 
+  /*
+   * 다 세운 뒤에 대조 확인을 다시 적는다 (0134). 공정 · 자재를 넣는 순간 대조가
+   * 풀리므로, 처음에 적어 둔 확인은 여기까지 오면 거둬져 있다. 화면에서도
+   * 순서가 같다 - 다 세우고 나서 서면과 견준다.
+   */
+  await reverify(t, dm, admin);
+
   // 채번 규칙
   const rule = (target, pattern, width = 4) =>
     t.rows(
@@ -163,6 +170,24 @@ async function seedMasterData(t) {
   };
 }
 
+/** 그 지시의 제품 로트에 서면 출하 승인을 옮겨 적는다 (0134). 이미 적힌 것은 둔다 */
+export async function approveLots(t, woId) {
+  await t.rows(
+    `update product_lot set release_approved_by = '시험 품질책임자', release_approved_on = current_date
+      where work_order_id = $1 and release_approved_by is null`, [woId]);
+}
+
+/**
+ * 제품표준서 대조 확인을 다시 적는다 (0134).
+ * 공정 · 자재 · 구간 · 설비를 고치면 대조가 풀리므로, 시험이 그런 것을 고친 뒤
+ * 작업 지시를 내려면 화면에서처럼 다시 대조해야 한다.
+ */
+export async function reverify(t, dm, admin) {
+  await t.rows(
+    `update device_master set verified_by = $2, verified_at = now(), status = 'ACTIVE'
+      where id = $1`, [dm, admin]);
+}
+
 /** 자재 로트 하나. 기본은 승인 공급자·충분한 수량. */
 export async function newMaterialLot(t, m, itemId, opts = {}) {
   const lotNo = opts.lot_no ?? (await t.val(`select next_number('MATERIAL_LOT')`));
@@ -179,6 +204,11 @@ export async function newMaterialLot(t, m, itemId, opts = {}) {
 
 /** 작업지시 하나. 원재료 로트 1건에 대응한다. */
 export async function newWorkOrder(t, m, opts = {}) {
+  /*
+   * 앞 시험이 공용 표준서에 자재 · 구간을 덧붙였으면 대조가 풀려 있다 (0134).
+   * 이 지시가 보려는 것은 그 규칙이 아니므로 다시 대조하고 낸다.
+   */
+  await reverify(t, m.dm, m.admin);
   const rawLot = opts.rawLot ?? (await newMaterialLot(t, m, m.raw, { thickness_band: '0510' }));
   const woNo = await t.val(`select next_number('WORK_ORDER')`);
   const batchNo = await t.val(`select next_number('BATCH')`);
@@ -204,6 +234,11 @@ export async function newWorkOrder(t, m, opts = {}) {
 export async function releaseRequestNo(t, m, woId, tag = 'rr') {
   const had = await t.val(`select current_user_id()`);
   if (!had) await t.setActor(m.admin);
+  /*
+   * 요청서에 품질책임자가 서명한 것을 옮겨 적는다 (0134 - 승인 기록 없는 로트는
+   * 출고하지 않는다). 화면에서도 요청서 → 서면 승인 → 승인 기록 → 출고 차례다.
+   */
+  await approveLots(t, woId);
   const no = await t.val(
     `select doc_no from record_print_log('RELEASE_REQUEST', md5($2) || md5($2),
                                          $1, null, null, null, null, 1, null)`,

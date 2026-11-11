@@ -10,7 +10,7 @@ import type { Fix } from '@/lib/unblock';
 import {
   createDeviceMaster, verifyDeviceMaster, addOperation, addBom, addTier, setExpectedUnits, setProductCode,
   addOperationsBulk, copyDmr, createProduct, addSampleTier, setSampleBasis,
-  setTypicalDay, setDmrNote, setDmrLimits,
+  setTypicalDay, setDmrNote, setDmrLimits, setEffectiveFrom,
   updateOperation, updateBom, updateTier, setTierMax, bulkBom, deleteOperation,
 } from './actions';
 import { linkOperation } from '../../equipment/actions';
@@ -1156,6 +1156,38 @@ export function SamplePlanForm({ id, tiers, basis }: {
    않는다 (§1). 서명이 든 값이 아니므로 나중에 고칠 수 있고, 고친 사실은
    감사추적에 남는다.
 --------------------------------------------------------------------------- */
+/*
+ * 시행일 (UI/UX 검수 2026-11-11). 작업 지시가 나가기 전에만 그린다 (workbench).
+ * 무엇이 바뀌는지 단추 옆에 적는다 - 비어 있던 날을 정하면 대조가 남고, 정해 둔
+ * 날을 바꾸면 대조가 풀린다 (0134).
+ */
+export function EffectiveFromForm({ id, value, verified }: {
+  id: string; value: string | null; verified: boolean;
+}) {
+  const uid = useId();
+  const [state, action, pending] = useActionState<FormState, FormData>(setEffectiveFrom, {});
+  return (
+    <form action={action}
+          className="flex flex-wrap items-end gap-2 border-t border-line-soft px-4 py-3">
+      <input type="hidden" name="id" value={id} />
+      <div className="w-44">
+        <label className="label" htmlFor={`${uid}-effective_from`}>시행일</label>
+        <input id={`${uid}-effective_from`} name="effective_from" type="date"
+               defaultValue={value ?? ''} className="input tnum" />
+      </div>
+      <button type="submit" disabled={pending} className="btn-ghost">
+        저장
+      </button>
+      <span className="pb-2 text-xs leading-relaxed text-faint">
+        서면 제품표준서의 시행일을 옮겨 적습니다. 그날부터 작업 지시를 낼 수 있고,
+        지시가 나간 뒤에는 바꿀 수 없습니다.
+        {verified && value && <b className="text-warn"> 정해 둔 날을 바꾸면 서면 대조 확인이 풀립니다.</b>}
+      </span>
+      <Msg state={state} className="w-full" />
+    </form>
+  );
+}
+
 export function DmrNoteForm({ id, note }: { id: string; note: string | null }) {
   /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
   const uid = useId();

@@ -17,7 +17,7 @@
 // SL-17~18 은 원액 기록을 바로잡는 길이다 (0121) - 원료 줄 되돌리기 · 더하기.
 // =============================================================================
 
-import { masterData as master, newMaterialLot, newWorkOrder } from '../fixtures.mjs';
+import { masterData as master, newMaterialLot, newWorkOrder, reverify } from '../fixtures.mjs';
 
 let seq = 0;
 
@@ -655,6 +655,7 @@ export default [
         `insert into dmr_bom_tier (dmr_bom_id, min_sheets, max_sheets, qty) values ($1,$2,$3,$4)`,
         [bom, lo, hi, qty]);
     }
+    await reverify(t, dm, m.admin);   // 다 세운 뒤에 대조 (0134)
     /* 원액은 시약과 같이 장입 장수 구간의 고정량으로 센다 */
     t.eq(Number(await t.val(`select required_qty($1,$2,20,0)`, [op, sol])), 1.6, '20장 소요량');
     t.eq(Number(await t.val(`select required_qty($1,$2,10,0)`, [op, sol])), 0.8, '10장 소요량');

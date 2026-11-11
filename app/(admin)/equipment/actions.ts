@@ -184,18 +184,38 @@ export async function linkOperation(_p: FormState, form: FormData): Promise<Form
     const op = String(form.get('operation_id') ?? '');
     const on = form.get('on') === '1';
 
-    await withActor(me.id, (db) =>
-      db.rows(
+    /*
+     * 설비는 서면 대조 항목이다. 걸거나 떼면 그 제품표준서의 대조가 풀린다 (0134).
+     * 풀렸으면 그 자리에서 말한다 - 모르고 지나가면 다음 지시 발행에서 막힌다.
+     */
+    const r = await withActor(me.id, async (db) => {
+      const before = await db.one<{ dm: string; label: string; verified: boolean }>(
+        `select dm.id as dm, coalesce(dm.product_code, i.code) || ' ' || dm.revision as label,
+                dm.verified_at is not null as verified
+           from dmr_operation o
+           join device_master dm on dm.id = o.device_master_id
+           join item i on i.id = dm.item_id
+          where o.id = $1`, [op]);
+      await db.rows(
         `insert into operation_equipment (operation_id, equipment_id, is_active)
          values ($1, $2, $3)
          on conflict (operation_id, equipment_id)
-           do update set is_active = excluded.is_active`, [op, eq, on]));
+           do update set is_active = excluded.is_active`, [op, eq, on]);
+      const after = before
+        ? await db.val<boolean>(`select verified_at is not null from device_master where id = $1`, [before.dm])
+        : null;
+      return { label: before?.label ?? '', lost: !!before?.verified && after === false };
+    });
 
     revalidatePath('/equipment');
     // 같은 연결을 제품표준서 작업대 두 화면도 보여 준다
     revalidatePath('/production/setup');
     revalidatePath('/settings/dmr');
-    return { ok: true, message: on ? '공정에 걸었습니다.' : '공정에서 뗐습니다.' };
+    return {
+      ok: true,
+      message: (on ? '공정에 걸었습니다.' : '공정에서 뗐습니다.')
+        + (r.lost ? ` ${r.label} 의 서면 대조 확인이 풀렸습니다. 제품표준서에서 다시 대조해야 작업 지시를 낼 수 있습니다.` : ''),
+    };
   } catch (e) {
     return { error: dbMessage(e) };
   }

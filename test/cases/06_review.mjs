@@ -235,8 +235,8 @@ export default [
     await t.setActor(m.admin);
 
     const item = await t.val(
-      `insert into item (code,name,type,purchase_uom,usage_uom)
-       values ('ZZ-COPY-TEST','시험 신제품','FIN','EA','EA') returning id`);
+      `insert into item (code,name,type,purchase_uom,usage_uom,shelf_life_months)
+       values ('ZZ-COPY-TEST','시험 신제품','FIN','EA','EA',12) returning id`);
     const dst = await t.val(
       `insert into device_master (item_id,revision,status,effective_from)
        values ($1,'Rev.01','ACTIVE',current_date) returning id`, [item]);
@@ -400,8 +400,8 @@ export default [
      * 시험의 자료를 바꾸고, 이 시스템에는 삭제가 없어 되돌릴 수도 없다.
      */
     const item = await t.val(
-      `insert into item (code,name,type,purchase_uom,usage_uom)
-       values ('ZZ-SP-TIER','시료 구간 시험','FIN','EA','EA') returning id`);
+      `insert into item (code,name,type,purchase_uom,usage_uom,shelf_life_months)
+       values ('ZZ-SP-TIER','시료 구간 시험','FIN','EA','EA',12) returning id`);
     const dm = await t.val(
       `insert into device_master (item_id,revision,status,effective_from)
        values ($1,'Rev.01','ACTIVE',current_date) returning id`, [item]);
@@ -429,8 +429,8 @@ export default [
     await t.setActor(m.admin);
 
     const item = await t.val(
-      `insert into item (code,name,type,purchase_uom,usage_uom)
-       values ('ZZ-SP-NONE','구간 없는 제품','FIN','EA','EA') returning id`);
+      `insert into item (code,name,type,purchase_uom,usage_uom,shelf_life_months)
+       values ('ZZ-SP-NONE','구간 없는 제품','FIN','EA','EA',12) returning id`);
     const dm = await t.val(
       `insert into device_master (item_id,revision,status,effective_from)
        values ($1,'Rev.01','ACTIVE',current_date) returning id`, [item]);

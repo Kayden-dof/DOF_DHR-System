@@ -759,6 +759,39 @@ export async function bulkBom(_p: FormState, form: FormData): Promise<FormState>
  * 계산하지 않는다 (§1). 서명이 든 값이 아니므로 고쳐 쓸 수 있고, 고친 사실은
  * 감사추적에 남는다.
  */
+/**
+ * 시행일 (UI/UX 검수 2026-11-11 · 0134).
+ *
+ * 전에는 개정을 추가할 때만 받았다. 비워 두면 0061 의 발행 조건(시행일이 오늘
+ * 이전)을 영영 채울 수 없었다 - DX2401 Rev.01 이 대조까지 마치고 그렇게 서 있었다.
+ *
+ * 작업 지시가 나간 뒤에는 DB 가 거부한다 (0134 trg_dmr_frozen). 비어 있던 날을
+ * 처음 정하면 대조가 그대로 남고, 정해 둔 날을 바꾸면 대조가 풀린다 (0134).
+ */
+export async function setEffectiveFrom(_p: FormState, form: FormData): Promise<FormState> {
+  try {
+    const me = await admin();
+    const id = String(form.get('id') ?? '');
+    const date = String(form.get('effective_from') ?? '').trim() || null;
+    const r = await withActor(me.id, async (db) => {
+      const before = await db.val<boolean>(
+        `select verified_at is not null from device_master where id = $1`, [id]);
+      await db.rows(`update device_master set effective_from = $2::date where id = $1`, [id, date]);
+      const after = await db.val<boolean>(
+        `select verified_at is not null from device_master where id = $1`, [id]);
+      return { lost: !!before && !after };
+    }, { reason: '제품표준서 시행일 정정' });
+    path(id);
+    return {
+      ok: true,
+      message: (date ? `시행일을 ${date} 로 정했습니다.` : '시행일을 비웠습니다.')
+        + (r.lost ? ' 정해 둔 날이 바뀌어 서면 대조 확인이 풀렸습니다. 다시 대조해야 작업 지시를 낼 수 있습니다.' : ''),
+    };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
 export async function setDmrNote(_p: FormState, form: FormData): Promise<FormState> {
   try {
     const me = await admin();

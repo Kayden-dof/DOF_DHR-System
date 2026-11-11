@@ -10,7 +10,7 @@
 // 막는 것만 시험하면 너무 많이 막아 놓고도 통과한다.
 // =============================================================================
 
-import { masterData as master, newMaterialLot, newWorkOrder } from '../fixtures.mjs';
+import { masterData as master, newMaterialLot, newWorkOrder, reverify } from '../fixtures.mjs';
 
 const BLOCKED = { code: 'P0001' };
 
@@ -41,6 +41,7 @@ async function freshDmr(t, m, rev) {
   const tier = await t.val(
     `insert into dmr_bom_tier (dmr_bom_id, min_sheets, max_sheets, qty)
      values ($1, 1, 10, 1) returning id`, [bom]);
+  await reverify(t, dm, m.admin);   // 다 세운 뒤에 대조 (0134)
   return { dm, op, bom, tier };
 }
 

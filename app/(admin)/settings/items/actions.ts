@@ -264,11 +264,17 @@ export async function generateFinished(_p: GenResult, form: FormData): Promise<G
     const scheme = String(form.get('scheme_id') ?? '').trim();
     if (!scheme) return { error: '어느 형명 체계로 만들지 고르십시오' };
 
+    /* 사용기간을 조용히 12 로 두지 않는다 (UI/UX 검수 2026-11-11) */
+    const shelfMonths = Number(form.get('shelf_months') ?? 0);
+    if (!(Number.isInteger(shelfMonths) && shelfMonths > 0)) {
+      return { error: '만들 형명의 사용기간(개월)을 적으십시오' };
+    }
+
     const rows = await withActor(me.id, (db) =>
       db.rows<{ item_code: string; item_name: string; was_created: boolean }>(
         `select * from generate_finished_items($1::text[], $2::text[], $3::text[], $4, $5, $6)`,
         [sizes, bands, exclude, prefix,
-         Number(form.get('shelf_months') ?? 12) || 12, scheme],
+         shelfMonths, scheme],
       ),
     );
 
