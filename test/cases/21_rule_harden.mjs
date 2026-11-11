@@ -225,4 +225,28 @@ export default [
   },
 },
 
+{
+  id: 'RH-10', expect: '확인',
+  name: '작업요청(F705-01)을 옮겨 적고 고친다 · 적은 사람은 DB 가 정하고 지우지 못한다 (0136)',
+  async run(t) {
+    const m = await master(t);
+    const wo = await newWorkOrder(t, m);
+    await t.setActor(m.admin);
+    await t.rows(
+      `insert into work_request (work_order_id, request_dept, requester, purpose, purpose_note, urgent,
+                                 lines, registered_by)
+       values ($1, '품질팀', '김해중', 'OTHER', '선량감사', false,
+               '[{"product":"메디포젠","model":"PD10182025","qty":"20 EA","due":"26.11.13"}]', $2)`,
+      [wo.id, m.qa]);
+    t.eq(await t.val(`select registered_by from work_request where work_order_id = $1`, [wo.id]),
+         m.admin, '적은 사람은 세션 사용자');
+    await t.rows(`update work_request set requester = '김해중 (정정)' where work_order_id = $1`, [wo.id]);
+    t.eq(Number(await t.val(
+      `select count(*) from audit_log where table_name = 'work_request' and record_id = $1`, [wo.id])) >= 2,
+      true, '감사추적에 두 줄');
+    await t.rejects(() => t.rows(`delete from work_request where work_order_id = $1`, [wo.id]));
+    await t.setActor(null);
+  },
+},
+
 ];

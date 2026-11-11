@@ -684,6 +684,46 @@ export function Sheet({
   );
 }
 
+/* ---------------------------------------------------------------------------
+   회사 양식 세로 장 (F705-01 작업요청 및 지시서 · 사용자 2026-11-11)
+
+   양식이 제 머리(로고 · 제목 · 결재란)와 꼬리(양식 번호 · 시행일)를 갖고 있어
+   Sheet 의 머리 · 꼬리를 씌우지 않는다. 시스템이 붙이는 것은 맨 위 한 줄(자료
+   식별자 · 회차 · 바코드 · 쪽)과 재발행 · 미발행 표시뿐이다 - 가로 양식의
+   FormSheet 와 같은 자리이고 같은 말이다.
+--------------------------------------------------------------------------- */
+export function PaperSheet({ meta: given, page, caption, children }: {
+  meta: PrintMeta;
+  /** 이 문서에서 몇 장째 */
+  page: number;
+  /** 묶음을 가리키는 말: 배치 · 지시서 */
+  caption: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  const meta = useContext(MetaCtx) ?? given;
+  if (meta.view?.neverIssued) return null;
+  const short = meta.dataHash.slice(0, 12);
+  const reissued = meta.seq > 1;
+  return (
+    <div data-sheet={page} className="sheet relative">
+      <SheetMarks meta={meta} />
+      <div className="relative mb-3 flex items-center justify-between gap-3 text-[8px] leading-tight text-black">
+        <div className="min-w-0 truncate">
+          <b>시스템 인쇄</b> · {caption} · 자료 식별자{' '}
+          <b className="tracking-wide">{short}</b> · 회차 {meta.seq}
+          {reissued && <b> · 재발행본</b>} · 인쇄 {meta.printedAt || '미발행'} {meta.printedBy}
+          {' '}· 서명 후 정본이 됩니다
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <Barcode value={short.toUpperCase()} height={12} module={0.8} />
+          <span className="tnum font-bold">{page} / {meta.pages}</span>
+        </div>
+      </div>
+      <div className="relative">{children}</div>
+    </div>
+  );
+}
+
 /* 서명란. 순환자는 서명하지 않는다 (§7). */
 export function SignRow({ roles }: { roles: string[] }) {
   return (

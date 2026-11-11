@@ -8,6 +8,7 @@ import { WO_STATUS_LABEL, PL_STATUS_LABEL } from '@/lib/forms';
 import { KIND_LABEL, viewHref } from '@/lib/print';
 import Denied from '@/components/denied';
 import { Panel, Empty, Tag, Field, Caution } from '@/components/ui';
+import WorkRequestForm, { type ReqValue } from './request-form';
 import {
   CutForm, LotStatusForm, CancelForm, WoNoForm, ForceReasonForm, FinishForm, RetrieveForm, EndForWorkerForm, DayPrintLink,
   BatchNoForm, ForceTimesForm,
@@ -42,6 +43,8 @@ interface Wo {
   dmr_revision: string; issued_at: Date; cancelled_reason: string | null;
   planned_units: number | null;
   item_id: string; item_code: string; item_name: string;
+  /** 제품명 (제품표준서, 없으면 형명 이름). 작업요청 첫 줄에 미리 둔다 */
+  product_name: string | null;
   raw_lot_id: string; raw_lot_no: string; thickness_band: string | null;
   supplier_name: string; coa_no: string; coa_date: string;
   prod_name: string; qa_name: string; device_master_id: string;
@@ -111,7 +114,8 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
               ml.id as raw_lot_id, ml.lot_no as raw_lot_no, ml.thickness_band,
               ml.coa_no, ml.coa_date, s.name as supplier_name,
               up.full_name as prod_name, uq.full_name as qa_name,
-              split_op_name(dm.id) as split_op, dm.load_unit
+              split_op_name(dm.id) as split_op, dm.load_unit,
+              coalesce(dm.product_name, i.name) as product_name
          from work_order wo
          join device_master dm on dm.id = wo.device_master_id
          join item i on i.id = dm.item_id
@@ -194,6 +198,11 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
        * 검토 지원 (§8.5). 산술로 판정되는 것만 돌아온다.
        * 이상이 없으면 빈 배열이고, 그때는 아무것도 그리지 않는다.
        */
+      /* 옮겨 적은 작업요청 (F705-01 · 0136). 작업 지시서 인쇄 첫 장이 이 값을 쓴다 */
+      request: await db.one<ReqValue>(
+        `select request_dept, requester, purpose, purpose_note, urgent, lines, notes,
+                complete_by::text as complete_by, instruction
+           from work_request where work_order_id = $1`, [id]),
       review: await db.rows<{ kind: string; detail: string; day_no: number | null; ref: string }>(
         `select kind, detail, day_no, ref from review_flags($1)`, [id]),
       prints: await db.rows<PrintRow>(
@@ -297,6 +306,14 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
             <Link href={`/print/work-order/${wo.id}`} className="btn-quiet">
               작업 지시서 인쇄
             </Link>
+          )}
+          {/*
+            * 작업 지시서 첫 장은 회사 양식 F705-01 작업요청 및 지시서다 (사용자 2026-11-11).
+            * 요청자가 종이에 적은 1 · 2 · 3 을 여기서 옮겨 적으면 그 장이 채워진다.
+            */}
+          {!readOnly && (
+            <WorkRequestForm woId={wo.id} woNo={wo.wo_no} value={d.request ?? null}
+                             productName={wo.product_name ?? wo.item_name} />
           )}
           {active && !readOnly && (
             <FinishForm id={wo.id} remaining={remaining.filter((x) => x !== '배치 미종료')} />

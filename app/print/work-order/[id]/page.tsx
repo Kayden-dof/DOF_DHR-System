@@ -6,7 +6,8 @@ import { logPrint, printGate, viewParam } from '@/lib/print';
 import Denied from '@/components/denied';
 import { chunkByWeight } from '@/lib/print-pages';
 import { isNoExpiry } from '@/lib/equipment-check';
-import PrintFrame, { Sheet, SignRow } from '@/components/print-frame';
+import PrintFrame, { Sheet, SignRow, PaperSheet } from '@/components/print-frame';
+import F705, { type WorkRequest } from './f705';
 
 export const dynamic = 'force-dynamic';
 
@@ -203,6 +204,11 @@ export default async function WorkOrderSheet({ params, searchParams }: {
 
     return {
       wo,
+      /* 옮겨 적은 작업요청 (F705-01 · 0136). 없으면 null */
+      req: await db.one<WorkRequest>(
+        `select request_dept, requester, purpose, purpose_note, urgent, lines, notes,
+                complete_by::text as complete_by, instruction
+           from work_request where work_order_id = $1`, [id]),
       today: await db.val<string>(
         `select to_char(timezone('Asia/Seoul', now()), 'YYYY-MM-DD')`),
       ops: await db.rows<OpRow>(
@@ -235,7 +241,7 @@ export default async function WorkOrderSheet({ params, searchParams }: {
   });
 
   if (!d) notFound();
-  const { wo, ops, today } = d;
+  const { wo, ops, today, req } = d;
   /* 종이의 낱말이 제품에서 나온다 (0101) */
   const splitOp = wo.split_op;
   /* 예정 제품 개수. 0 이면 아직 정해지지 않은 것이지 0 개가 아니다 */
@@ -284,111 +290,101 @@ export default async function WorkOrderSheet({ params, searchParams }: {
     preview: !view,
     actorId: user.id, actorName: user.full_name, kind: 'WORK_ORDER',
     workOrderId: id,
-    payload: { wo, ops },
-    pages: opPages.length,
+    /*
+     * 요청 내용은 있을 때만 싣는다 - 옮겨 적기 전에 나간 종이의 자료 식별자가
+     * 그대로 맞도록 (0132 의 br 과 같은 까닭).
+     */
+    payload: req ? { wo, ops, req } : { wo, ops },
+    /* 첫 장은 F705-01 작업요청 및 지시서, 그 뒤가 공정 순서 및 자재 소요량 */
+    pages: 1 + opPages.length,
   });
 
+  const last = opPages.length - 1;
+  const caption = <>작업 지시서 · 배치 {wo.batch_no} · 지시서 {wo.wo_no}</>;
+
+  /*
+   * 첫 장은 회사 양식 F705-01(Rev.02) 작업요청 및 지시서 (사용자 2026-11-11). 배치의
+   * 사실(원재료 · 장입 · 표준서 · 발행)은 그 양식의 3 «생산팀 검토 & 지시사항» 에
+   * 들어가고, 공정 순서와 자재 소요량은 둘째 장부터 이어진다. 서명란(생산 · 품질
+   * 책임자)은 마지막 장에 그대로 둔다.
+   */
   return (
     <PrintFrame
       meta={meta}
       title="작업 지시서"
       subtitle={<>배치 {wo.batch_no} · 지시서 {wo.wo_no}</>}
       back={`/production/${id}`}
-      after={opPages.slice(1).map((rows, k) => (
+      raw
+    >
+      <PaperSheet meta={meta} page={1} caption={caption}>
+        <F705
+          req={req ?? null}
+          logoUrl={meta.logoUrl}
+          companyName={meta.companyName}
+          facts={{
+            woNo: wo.wo_no,
+            batchNo: wo.batch_no,
+            product: `${wo.product_name ?? wo.item_name} (${wo.product_code ?? wo.item_code})`,
+            revision: wo.dmr_revision,
+            rawLot: wo.raw_lot_no + (wo.thickness_band ? ` · 두께 ${wo.thickness_band}` : ''),
+            supplier: `${wo.supplier_name} / ${wo.supplier_lot_no}`,
+            coa: `${wo.coa_no} (${fmtDate(wo.coa_date)})`,
+            load: `${wo.sheet_count} ${wo.load_unit ?? ''}`.trim(),
+            containers: containerParts.length > 0 ? containerParts.join(' · ') : '해당 없음',
+            planned: units,
+            issued: fmtDate(wo.issued_at),
+            issuers: `생산 ${wo.prod_name} / 품질 ${wo.qa_name}`,
+          }}
+        />
+      </PaperSheet>
+
+      {opPages.map((rows, k) => (
         <Sheet key={k} meta={meta} page={k + 2}
                title="작업 지시서"
-               subtitle={<>배치 {wo.batch_no} · 지시서 {wo.wo_no} · 이어짐</>}>
-          <OpTable rows={rows} title="공정 순서 및 자재 소요량 (이어짐)" today={today} units={units}
-                    splitOp={splitOp} />
+               subtitle={<>배치 {wo.batch_no} · 지시서 {wo.wo_no}{k > 0 ? ' · 이어짐' : ''}</>}>
+          {/*
+            * 예정 생산 수량.
+            *
+            * 형명은 적지 않는다. 재단에서 정해지므로 (§3 ①) 착수 전 종이에 형명을
+            * 적으면 작업자가 재료가 허락하는 대로 자르는 대신 그 수에 맞추려 하게
+            * 된다 (사용자 지적).
+            *
+            * 개수는 적는다. 포장재가 제품 1개당 기준이라 이 값이 없으면 아래 표의
+            * 소요량이 서지 않는다. 어디까지나 예정이고 실제는 재단에서 정해진다.
+            */}
+          {k === 0 && units > 0 && (
+            <p className="mb-2 text-[10px] leading-relaxed text-black">
+              아래 표의 제품 개수 기준 자재는 <b>예정 생산 {units}개</b>로 계산했습니다.
+              어떤 형명이 몇 개 나올지는 {splitOp ?? '제조번호 부여'}에서 정해지며, 실제와 달라도 시스템이
+              보정하지 않습니다.
+            </p>
+          )}
+
+          {/*
+            * 설비는 따로 표를 세우지 않고 이 표의 열로 넣는다 (사용자 지시).
+            * 공정 하나가 표에서 한 묶음이므로, 그 공정의 설비와 밸리데이션 만료일도
+            * 같은 줄에서 읽히는 편이 종이에서 자연스럽다. 발행 시점의 사실이다.
+            */}
+          <OpTable rows={rows}
+                   title={k === 0 ? '공정 순서 및 자재 소요량' : '공정 순서 및 자재 소요량 (이어짐)'}
+                   today={today} units={units} splitOp={splitOp} />
+
+          {k === last && (
+            <>
+              <p className="mt-2 text-[10px] leading-relaxed text-black">
+                일차는 보통 며칠째에 하는 공정인지를 적은 참고값입니다. 실제 작업 일차는
+                현장이 정하며 이 표가 그것을 제약하지 않습니다.
+                실제로 투입한 자재의 로트번호와 수량은 제조기록서에 기록되므로 이 표에
+                따로 표시하지 않습니다.
+                시약과 포장재의 로트번호는 이 지시서에 인쇄하지 않습니다. 착수 전에 확정되지 않으며,
+                실제 투입 로트는 제조기록서에 기록합니다. 여기 적힌 소요량은 예정이며, 실제와 달라도
+                시스템이 보정하지 않습니다.
+              </p>
+              <SignRow roles={['생산 책임자', '품질 책임자']} />
+            </>
+          )}
         </Sheet>
       ))}
-    >
-      <table className="print-table">
-        <tbody>
-          <tr>
-            <th className="w-[15%]">지시서번호</th>
-            <td className="w-[35%] font-mono font-bold">{wo.wo_no}</td>
-            <th className="w-[15%]">배치번호</th>
-            <td className="w-[35%] font-mono font-bold">{wo.batch_no}</td>
-          </tr>
-          <tr>
-            <th>제품</th>
-            <td>
-              {wo.product_name ?? wo.item_name}{' '}
-              (<span className="font-mono">{wo.product_code ?? wo.item_code}</span>)
-              {wo.product_code && (
-                <span className="ml-2">형명 <span className="font-mono">{wo.item_code}</span></span>
-              )}
-            </td>
-            <th>제품표준서 개정</th>
-            <td className="font-mono">{wo.dmr_revision}</td>
-          </tr>
-          <tr>
-            <th>원재료 로트번호</th>
-            <td className="font-mono font-bold">{wo.raw_lot_no}</td>
-            <th>두께 구간</th>
-            <td>{wo.thickness_band ?? ''}</td>
-          </tr>
-          <tr>
-            <th>원재료 공급자</th>
-            <td>{wo.supplier_name} / {wo.supplier_lot_no}</td>
-            <th>성적서</th>
-            <td>{wo.coa_no} ({fmtDate(wo.coa_date)})</td>
-          </tr>
-          <tr>
-            <th>장입 수량</th>
-            <td className="tnum font-bold">{wo.sheet_count} {wo.load_unit ?? ''}</td>
-            <th>필요 용기 수</th>
-            <td className="tnum font-bold">
-              {containerParts.length > 0 ? containerParts.join(' · ') : '해당 없음'}
-            </td>
-          </tr>
-          <tr>
-            <th>발행 일시</th>
-            <td className="tnum">{fmtDate(wo.issued_at)}</td>
-            <th>발행자</th>
-            <td>생산 {wo.prod_name} / 품질 {wo.qa_name}</td>
-          </tr>
-        </tbody>
-      </table>
-
-      {/*
-        * 예정 생산 수량.
-        *
-        * 형명은 적지 않는다. 재단에서 정해지므로 (§3 ①) 착수 전 종이에 형명을
-        * 적으면 작업자가 재료가 허락하는 대로 자르는 대신 그 수에 맞추려 하게
-        * 된다 (사용자 지적).
-        *
-        * 개수는 적는다. 포장재가 제품 1개당 기준이라 이 값이 없으면 위 표의
-        * 소요량이 서지 않는다. 어디까지나 예정이고 실제는 재단에서 정해진다.
-        */}
-      {units > 0 && (
-        <p className="mt-2 text-[10px] leading-relaxed text-black">
-          위 표의 제품 개수 기준 자재는 <b>예정 생산 {units}개</b>로 계산했습니다.
-          어떤 형명이 몇 개 나올지는 {splitOp ?? '제조번호 부여'}에서 정해지며, 실제와 달라도 시스템이
-          보정하지 않습니다.
-        </p>
-      )}
-
-      {/*
-        * 설비는 따로 표를 세우지 않고 이 표의 열로 넣는다 (사용자 지시).
-        * 공정 하나가 표에서 한 묶음이므로, 그 공정의 설비와 밸리데이션 만료일도
-        * 같은 줄에서 읽히는 편이 종이에서 자연스럽다. 발행 시점의 사실이다.
-        */}
-      <OpTable rows={opPages[0]} title="공정 순서 및 자재 소요량" today={today} units={units}
-                splitOp={splitOp} />
-
-      <p className="mt-2 text-[10px] leading-relaxed text-black">
-        일차는 보통 며칠째에 하는 공정인지를 적은 참고값입니다. 실제 작업 일차는
-        현장이 정하며 이 표가 그것을 제약하지 않습니다.
-        실제로 투입한 자재의 로트번호와 수량은 제조기록서에 기록되므로 이 표에
-        따로 표시하지 않습니다.
-        시약과 포장재의 로트번호는 이 지시서에 인쇄하지 않습니다. 착수 전에 확정되지 않으며,
-        실제 투입 로트는 제조기록서에 기록합니다. 여기 적힌 소요량은 예정이며, 실제와 달라도
-        시스템이 보정하지 않습니다.
-      </p>
-
-      <SignRow roles={['생산 책임자', '품질 책임자']} />
     </PrintFrame>
   );
 }
