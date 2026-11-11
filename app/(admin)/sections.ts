@@ -58,20 +58,25 @@ export function boardNav(canSeeCost: boolean): NavItem[] {
     : [{ href: '/board', label: '경영 현황' }];
 }
 
+/*
+ * 넷으로 묶는다 (UI/UX 검수 2026-11-11 «설정 탭 13개 한 줄»). 열세 칸이 한 줄에
+ * 섞여 있어 품목 옆에 형명 체계, 백업 옆에 권한이 왔다. 무엇을 다루는가로 묶고
+ * 자주 여는 묶음을 앞에 둔다. 주소와 칸 수는 그대로다 - 한 번에 가는 길이 줄지 않는다.
+ */
 export const SETTINGS_NAV: NavItem[] = [
   { href: '/settings', label: '개요' },
-  { href: '/settings/brand', label: '회사 표시' },
-  { href: '/settings/numbering', label: '채번 규칙' },
-  { href: '/settings/items', label: '품목' },
-  { href: '/settings/model', label: '형명 체계' },
-  { href: '/settings/suppliers', label: '공급자' },
-  { href: '/settings/product', label: '제품 세우기' },
-  { href: '/settings/dmr', label: '제품표준서' },
-  { href: '/settings/docs', label: '문서 대조' },
-  { href: '/settings/users', label: '사용자' },
-  { href: '/settings/backup', label: '백업' },
-  { href: '/settings/access', label: '권한' },
-  { href: '/settings/audit', label: '감사추적' },
+  { href: '/settings/product', label: '제품 세우기', group: '제품' },
+  { href: '/settings/dmr', label: '제품표준서', group: '제품' },
+  { href: '/settings/model', label: '형명 체계', group: '제품' },
+  { href: '/settings/docs', label: '문서 대조', group: '제품' },
+  { href: '/settings/items', label: '품목', group: '자재' },
+  { href: '/settings/suppliers', label: '공급자', group: '자재' },
+  { href: '/settings/users', label: '사용자', group: '사람' },
+  { href: '/settings/access', label: '권한', group: '사람' },
+  { href: '/settings/brand', label: '회사 표시', group: '시스템' },
+  { href: '/settings/numbering', label: '채번 규칙', group: '시스템' },
+  { href: '/settings/backup', label: '백업', group: '시스템' },
+  { href: '/settings/audit', label: '감사추적', group: '시스템' },
 ];
 
 /**

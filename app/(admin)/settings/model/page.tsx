@@ -132,7 +132,8 @@ export default async function ModelSchemePage() {
                   </table>
                 </TableWrap>
               )}
-              <SegmentForm schemeId={sc.id} next={nextSeqOf(sc.id)} />
+              <SegmentForm schemeId={sc.id} next={nextSeqOf(sc.id)}
+                           taken={segs.map((sg) => ({ seq: sg.seq, label: sg.label }))} />
             </Panel>
           </section>
         );

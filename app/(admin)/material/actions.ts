@@ -180,13 +180,15 @@ export async function receiveMaterial(_p: FormState, form: FormData): Promise<Fo
       const lotNo = manual || await db.val<string>(
         `select next_number('MATERIAL_LOT', $1, $2::date)`, [itemId, qcOn]);
 
-      await db.rows(
+      /* 라벨 인쇄로 이어 가려면 새 로트의 id 가 있어야 한다 (UI/UX 검수 2026-11-11) */
+      const id = await db.val<string>(
         `insert into material_lot (item_id, lot_no, supplier_id, supplier_lot_no,
            purchase_order_id, coa_no, coa_date, received_at, registered_by,
            qty_received, qty_available, unit_price, expiry_date, location, thickness_band,
            qc_passed_on)
          values ($1,$2,$3,$4,$5,$6,$7::date,$8::timestamptz,$9,$10,$10,$11,$12::date,$13,$14,
-                 $15::date)`,
+                 $15::date)
+         returning id`,
         [itemId, lotNo,
          String(form.get('supplier_id') ?? ''),
          String(form.get('supplier_lot_no') ?? '').trim(),
@@ -211,7 +213,7 @@ export async function receiveMaterial(_p: FormState, form: FormData): Promise<Fo
        * 이제 `material_lot` 트리거가 입고 누계로 정한다. 같은 것을 두 곳에서
        * 정하면 갈라진다 (§10).
        */
-      return { lotNo, usageQty, uom: item.usage_uom, code: item.code };
+      return { id, lotNo, usageQty, uom: item.usage_uom, code: item.code };
     });
 
     bump();
@@ -219,6 +221,12 @@ export async function receiveMaterial(_p: FormState, form: FormData): Promise<Fo
       ok: true,
       message: `${result.code} 로트 ${result.lotNo} 등록. ` +
                `재고에 ${result.usageQty} ${result.uom} 들어갔습니다.`,
+      /*
+       * 입고 뒤 라벨로 가는 길 (UI/UX 검수 2026-11-11). 라벨은 입고 시점에 붙이는데
+       * (§7), 전에는 목록에서 그 로트를 다시 찾아 «인쇄» 를 눌러야 했다. 원액 제조와
+       * 같은 꼴이다.
+       */
+      href: result.id ? `/print/label/${result.id}` : undefined,
     };
   } catch (e) {
     return { error: dbMessage(e) };

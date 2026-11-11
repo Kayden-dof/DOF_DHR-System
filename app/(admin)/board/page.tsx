@@ -7,6 +7,7 @@ import { statRows as rows, mono } from '@/components/stat-rows';
 import { Panel, Empty, Tag } from '@/components/ui';
 import { SubNav } from '../nav';
 import { boardNav } from '../sections';
+import { canOpen } from '@/lib/access';
 
 export const dynamic = 'force-dynamic';
 
@@ -189,43 +190,56 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
   const ncOf = (kind: string, from: string) =>
     d.nc.filter((n) => n.outcome === kind && n.made_on >= from);
 
+  /*
+   * 숫자마다 그 내역이 있는 자리로 보낸다 (UI/UX 검수 2026-11-11 «경영 숫자 띠 링크»).
+   * 설비 화면의 띠는 누르면 걸러 둔 목록으로 가는데 여기 띠만 숫자로 멈춰 있었다.
+   * 오늘 · 이번 주 · 달별은 이 화면 아래 판이 그 목록이라 그 판으로 내린다. 출고와
+   * 자재 지출은 따로 목록이 있는 화면으로 보내되, 그 사람이 열 수 없는 화면이면
+   * 이 화면의 판으로 대신 보낸다 - 눌러서 막히는 링크를 만들지 않는다.
+   */
+  const canShip = canOpen('/shipping/ship', user.roles, user.screens);
+  const canCost = hasRole(user, 'SYS_ADMIN', 'PROD_MGR', 'VIEWER')
+    && canOpen('/board/cost', user.roles, user.screens);
+
   const stats: StatItem[] = [
-    { label: '오늘 생산', value: day?.produced ?? 0, unit: '개',
+    { label: '오늘 생산', value: day?.produced ?? 0, unit: '개', href: '#board-today',
       detail: rows(todayRows.map((r) => ({
         left: mono(r.item_code), sub: r.item_name, right: `${r.produced}개`,
       })), '오늘 제조번호가 붙은 제품이 없습니다.') },
-    { label: '오늘 제조번호', value: day?.lots ?? 0, unit: '건',
+    { label: '오늘 제조번호', value: day?.lots ?? 0, unit: '건', href: '#board-today',
       detail: rows(d.todayLots.map((l) => ({
         left: <b className="font-mono">{l.lot_no}</b>, sub: l.item_code,
         right: `${l.produced}개`,
       })), '오늘 붙은 제조번호가 없습니다.') },
     { label: '오늘 출고', value: day?.shipped ?? 0, unit: '개',
+      href: canShip ? '/shipping/ship' : '#board-week',
       detail: rows(d.todayShip.map((r) => ({
         left: r.customer_name, sub: r.lot_no, right: `${r.qty}개`,
       })), '오늘 나간 것이 없습니다.') },
-    { label: '이번 주 생산', value: week?.produced ?? 0, unit: '개',
+    { label: '이번 주 생산', value: week?.produced ?? 0, unit: '개', href: '#board-week',
       detail: rows(list('day', 10)
         .filter((b) => b.bucket >= weekFrom && b.produced > 0)
         .map((b) => ({ left: fmtDate(b.bucket), right: `${b.produced}개` })),
         '이번 주 생산이 없습니다.') },
-    { label: '이번 달 생산', value: month?.produced ?? 0, unit: '개',
+    { label: '이번 달 생산', value: month?.produced ?? 0, unit: '개', href: '#board-month',
       detail: rows(list('day', 40)
         .filter((b) => b.bucket.slice(0, 7) === thisMonth && b.produced > 0)
         .map((b) => ({ left: fmtDate(b.bucket), right: `${b.produced}개` })),
         '이번 달 생산이 없습니다.') },
-    { label: '이번 달 불량률', value: pct(month?.scrap_pct),
+    { label: '이번 달 불량률', value: pct(month?.scrap_pct), href: '#board-month',
       tone: Number(month?.scrap_pct ?? 0) > 0 ? 'danger' : undefined,
       detail: rows(ncOf('SCRAP', `${thisMonth}-01`).map((n) => ({
         left: <b className="font-mono">{n.lot_no}</b>,
         sub: `${n.op_name ?? '공정 미기재'} · ${n.reason_code}`, right: `${n.qty}개`,
       })), '이번 달 불량이 없습니다.') },
-    { label: '이번 달 특채', value: month?.concession ?? 0, unit: '개',
+    { label: '이번 달 특채', value: month?.concession ?? 0, unit: '개', href: '#board-month',
       tone: (month?.concession ?? 0) > 0 ? 'warn' : undefined,
       detail: rows(ncOf('CONCESSION', `${thisMonth}-01`).map((n) => ({
         left: <b className="font-mono">{n.concession_doc_no ?? ''}</b>,
         sub: `${n.lot_no} · ${n.reason_code}`, right: `${n.qty}개`,
       })), '이번 달 특채가 없습니다.') },
     { label: '이번 달 자재 지출', value: amount(month?.spend), unit: '원',
+      href: canCost ? '/board/cost#cost-spend' : '#board-month',
       detail: rows(d.spendItems.map((r) => ({
         left: mono(r.code), sub: r.name, right: won(r.won),
       })), '이번 달 입고가 없습니다.') },
@@ -310,6 +324,8 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
       )}
 
       {/* 오늘 ── 무엇이 나왔나 --------------------------------------------- */}
+      {/* 숫자 띠가 #board-today 로 내린다 (UI/UX 검수 2026-11-11) */}
+      <div id="board-today" className="scroll-mt-6">
       <Panel title="오늘" note={fmtDate(today)}>
         {todayRows.length === 0 ? (
           <Empty hint="재단에서 제조번호를 붙이면 그 제조일로 여기 올라옵니다.">
@@ -344,8 +360,10 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
           </div>
         )}
       </Panel>
+      </div>
 
       {/* 이번 주 ── 어떻게 흘러왔나 ---------------------------------------- */}
+      <div id="board-week" className="scroll-mt-6">
       <Panel title="이번 주" note={<>{fmtDate(weekFrom)}부터 · 월요일 시작</>}>
         <PeriodTable rows={list('day', 10).filter((b) => b.bucket >= weekFrom)}
                      label={(b) => fmtDate(b.bucket)}
@@ -353,8 +371,10 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
                      empty="이번 주 기록이 없습니다."
                      hint="생산과 출고가 기록되면 날짜별로 나뉩니다." />
       </Panel>
+      </div>
 
       {/* 달별 ── 어디쯤인가 ------------------------------------------------ */}
+      <div id="board-month" className="scroll-mt-6">
       <Panel title="달별">
         <PeriodTable rows={list('month', 6)}
                      label={(b) => b.bucket.slice(0, 7)}
@@ -388,6 +408,7 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
           </p>
         </div>
       </Panel>
+      </div>
 
       {/* ------------------------------------------------------------------
         * 제품코드별 자재 원가

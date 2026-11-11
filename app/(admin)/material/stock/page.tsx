@@ -46,6 +46,14 @@ export default async function StockPage() {
       `select * from v_finished_stock where qty_available > 0
         order by expiry_date, lot_no`),
     alerts: await db.val<number>(`select count(*)::int from v_reorder_alert`),
+    /*
+     * «유효기한 확인» 이 넘길 로트 수 (UI/UX 검수 2026-11-11). expire_material_lots()
+     * 와 같은 조건이다 - 사용 가능 · 기한 있음 · 기한이 오늘보다 앞.
+     */
+    expirable: await db.val<number>(
+      `select count(*)::int from material_lot
+        where status = 'AVAILABLE' and expiry_date is not null
+          and expiry_date < (timezone('Asia/Seoul', now()))::date`),
   }));
 
   const byType = new Map<string, StockRow[]>();
@@ -61,7 +69,7 @@ export default async function StockPage() {
           사용기간이 짧고 형명이 많아 형명별로 보면 임박품이 묻힙니다.
         </>
       }
-      action={viewer ? null : (<StockTools alerts={d.alerts ?? 0} />)}
+      action={viewer ? null : (<StockTools alerts={d.alerts ?? 0} expirable={d.expirable ?? 0} />)}
       nav={<SubNav items={MATERIAL_NAV} />}
     >
 

@@ -199,7 +199,13 @@ export default async function AuditPage({ searchParams }: { searchParams: Search
       {/* 목록 --------------------------------------------------------------- */}
       <div className="card overflow-hidden">
         {data.entries.length === 0 ? (
-          <p className="px-4 py-8 text-center text-sm text-faint">해당하는 기록이 없습니다.</p>
+          <p className="px-4 py-8 text-center text-sm text-faint">
+            해당하는 기록이 없습니다.
+            {/* 거른 결과가 빈 것이면 푸는 길을 둔다 (UI/UX 검수 2026-11-11) */}
+            {(table || action || actor) && (
+              <> <Link href="/settings/audit" className="qd-text-action">거르개 풀기</Link></>
+            )}
+          </p>
         ) : (
           <AuditTable entries={data.entries} />
         )}

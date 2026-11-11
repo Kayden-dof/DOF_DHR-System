@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { requireUser, hasRole, canWrite, blocksScreen } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import { ROLE_LABEL, ROLE_NOTE, ROLE_ORDER } from '@/lib/roles';
@@ -53,6 +54,12 @@ export default async function UsersPage({ searchParams }: { searchParams: Search
   const sp = await searchParams;
   const q = (sp.q || '').trim() || null;
   const role = ROLE_ORDER.includes(sp.role as never) ? sp.role! : null;
+  /*
+   * 역할 없는 계정 (UI/UX 검수 2026-11-11). 새 계정은 역할 없이 만들어질 수 있고, 그
+   * 계정은 로그인해도 갈 곳이 없다 (/no-role). 역할마다 거르개가 있는데 «없음» 만
+   * 없어 표를 눈으로 훑어야 했다. 설정 개요의 사용자 타일이 이 수를 세어 여기로 보낸다.
+   */
+  const noRole = sp.role === 'none';
 
   const d = await withActor(me.id, async (db) => ({
     /*
@@ -104,12 +111,17 @@ export default async function UsersPage({ searchParams }: { searchParams: Search
           and ($2::text is null
                or exists (select 1 from user_role x
                            where x.user_id = u.id and x.role::text = $2))
+          and (not $3::boolean
+               or not exists (select 1 from user_role x where x.user_id = u.id))
         group by u.id
-        order by u.is_active desc, u.login_code`, [q, role]),
+        order by u.is_active desc, u.login_code`, [q, role, noRole]),
     counts: await db.rows<{ role: string; n: number }>(
       `select r.role::text as role, count(distinct r.user_id)::int as n
          from user_role r group by r.role`),
     total: await db.val<number>(`select count(*)::int from app_user`),
+    noRoleCount: await db.val<number>(
+      `select count(*)::int from app_user u
+        where not exists (select 1 from user_role r where r.user_id = u.id)`),
   }));
 
   const users = d.users;
@@ -133,14 +145,15 @@ export default async function UsersPage({ searchParams }: { searchParams: Search
 
       <FilterBar
         items={[
-          { href: link(), label: '전체', count: d.total ?? 0, on: !role },
+          { href: link(), label: '전체', count: d.total ?? 0, on: !role && !noRole },
           ...ROLE_ORDER.map((r) => ({
             href: link(r), label: ROLE_LABEL[r], count: byRole.get(r) ?? 0, on: role === r,
           })),
+          { href: link('none'), label: '역할 없음', count: d.noRoleCount ?? 0, on: noRole },
         ]}
         extra={
           <form className="flex gap-2">
-            {role && <input type="hidden" name="role" value={role} />}
+            {(role || noRole) && <input type="hidden" name="role" value={role ?? 'none'} />}
             <input name="q" defaultValue={q ?? ''} placeholder="이름 또는 사번"
                    className="input w-56" autoComplete="off" />
             <button className="btn-ghost">검색</button>
@@ -165,6 +178,12 @@ export default async function UsersPage({ searchParams }: { searchParams: Search
                 <tr>
                   <td colSpan={writable ? 5 : 4} className="td text-center text-faint">
                     해당하는 계정이 없습니다.
+                    {/* 다음 걸음을 적는다 (UI/UX 검수 2026-11-11). 거른 결과와 아직 없는 것을 가른다 */}
+                    {role || noRole || q ? (
+                      <> <Link href="/settings/users" className="qd-text-action">거르개 풀기</Link></>
+                    ) : writable && (
+                      <> 오른쪽 위 새 계정 등록에서 만듭니다.</>
+                    )}
                   </td>
                 </tr>
               ) : users.map((u) => (

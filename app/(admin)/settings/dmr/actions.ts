@@ -52,7 +52,7 @@ export async function createProduct(_p: FormState, form: FormData): Promise<Form
       return { error: '새 형명의 사용기간(개월)을 입력하십시오' };
     }
 
-    await withActor(me.id, async (db) => {
+    const dmId = await withActor(me.id, async (db) => {
       let itemId = existing;
       if (!itemId) {
         itemId = (await db.val<string>(
@@ -60,18 +60,20 @@ export async function createProduct(_p: FormState, form: FormData): Promise<Form
            values ($1,$2,'FIN','EA','EA',$3) returning id`,
           [newCode, newName || `${productName} ${newCode}`, months]))!;
       }
-      await db.rows(
+      return db.val<string>(
         `insert into device_master
            (item_id, revision, status, effective_from, product_code, product_name,
             license_no)
-         values ($1,$2,'DRAFT',$3::date,$4,$5,$6)`,
+         values ($1,$2,'DRAFT',$3::date,$4,$5,$6) returning id`,
         [itemId, revision, String(form.get('effective_from') ?? '') || null,
          productCode, productName || null,
          String(form.get('license_no') ?? '').trim() || null]);
     });
 
     path();
-    return { ok: true,
+    revalidatePath('/production/setup');
+    /* 만든 개정을 화면이 바로 연다 (UI/UX 검수 2026-11-11). 폼이 ?dm= 를 지금 주소에 붙인다 */
+    return { ok: true, href: dmId ? `?dm=${dmId}` : undefined,
       message: `${productCode} ${revision} 을(를) 등록했습니다. 공정 흐름부터 입력하십시오.` };
   } catch (e) {
     return { error: dbMessage(e) };
@@ -93,16 +95,26 @@ export async function createDeviceMaster(_p: FormState, form: FormData): Promise
      *
      * 형명은 그대로 받는다. 채번과 소요량이 거기 매여 있다 (0031).
      */
-    await withActor(me.id, (db) =>
-      db.rows(
+    /*
+     * 허가 번호도 넣는다 (UI/UX 검수 2026-11-11). 폼에 칸이 있는데 여기서 받지 않아,
+     * 적은 번호가 말없이 사라졌다. 제품 등록(createProduct)은 이미 넣고 있었다.
+     *
+     * 만든 id 를 돌려준다. 화면이 방금 만든 개정을 연다 - 전에는 그 제품의 현행본이
+     * 열려 새 개정을 표에서 다시 찾아야 했다.
+     */
+    const dmId = await withActor(me.id, (db) =>
+      db.val<string>(
         `insert into device_master
-           (item_id, revision, status, effective_from, product_code, product_name, note)
-         values ($1,$2,'DRAFT',$3::date,$4,$5,$6)`,
+           (item_id, revision, status, effective_from, product_code, product_name, note,
+            license_no)
+         values ($1,$2,'DRAFT',$3::date,$4,$5,$6,$7) returning id`,
         [String(form.get('item_id') ?? ''), revision,
          String(form.get('effective_from') ?? '') || null,
-         txt('product_code'), txt('product_name'), txt('note')]));
+         txt('product_code'), txt('product_name'), txt('note'), txt('license_no')]));
     path();
-    return { ok: true, message: `${revision} 개정을 등록했습니다. 공정과 자재 구성표를 입력하십시오.` };
+    revalidatePath('/production/setup');
+    return { ok: true, href: dmId ? `?dm=${dmId}` : undefined,
+      message: `${revision} 개정을 등록했습니다. 공정과 자재 구성표를 입력하십시오.` };
   } catch (e) {
     return { error: dbMessage(e) };
   }

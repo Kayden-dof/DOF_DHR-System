@@ -104,10 +104,13 @@ export default async function OrdersPage() {
                   <th className="th text-right">기준선</th>
                   <th className="th text-right">부족</th>
                   <th className="th text-right">리드타임</th>
+                  {!viewer && <th className="th" />}
                 </tr>
               </thead>
               <tbody>
-                {d.alerts.map((a) => (
+                {d.alerts.map((a) => {
+                  const short = Number(a.min_stock) - Number(a.on_hand) - Number(a.on_order);
+                  return (
                   <tr key={a.id}>
                     <td className="td">
                       <div className="text-sm">{a.name}</div>
@@ -117,13 +120,27 @@ export default async function OrdersPage() {
                     <td className="td tnum text-right text-muted">{Number(a.on_order)}</td>
                     <td className="td tnum text-right text-muted">{Number(a.min_stock)}</td>
                     <td className="td tnum text-right font-semibold text-warn">
-                      {Number(a.min_stock) - Number(a.on_hand) - Number(a.on_order)}
+                      {short}
                     </td>
                     <td className="td tnum text-right text-muted">
                       {a.lead_days ? `${a.lead_days}일` : ''}
                     </td>
+                    {/*
+                      * 모자란 줄에서 바로 발주로 간다 (UI/UX 검수 2026-11-11). 품목과
+                      * 모자란 양을 채운 채 열린다. 발주할 수 없는 품목(완제품 · 원액)
+                      * 이면 단추를 내지 않는다.
+                      */}
+                    {!viewer && (
+                      <td className="td text-right">
+                        {d.items.some((i) => i.id === a.id) && (
+                          <NewOrder items={d.items} suppliers={d.suppliers} today={d.today ?? ''}
+                                    presetItem={a.id} presetQty={short} label="발주" />
+                        )}
+                      </td>
+                    )}
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

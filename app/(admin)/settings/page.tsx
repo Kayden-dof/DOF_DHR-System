@@ -33,6 +33,8 @@ interface Counts {
   /* 첫 설정 차례표가 보는 것 (M5-3) */
   supplies: number; equipment: number; dmr_issuable: number; workers: number;
   schemes: number; segments: number;
+  /** 역할이 하나도 없는 계정. 사용자 타일이 할 일로 센다 (UI/UX 검수 2026-11-11) */
+  no_role: number;
 }
 
 /** 문 앞에서 막힌 접속 한 묶음 (0109) */
@@ -96,6 +98,9 @@ export default async function SettingsHome() {
               (select count(*)::int from model_scheme where is_active)           as schemes,
               (select count(*)::int from model_segment)                          as segments,
               (select count(*)::int from user_role where role = 'WORKER')         as workers,
+              /* 사용자 화면의 «역할 없음» 거르개와 같은 셈이다 - 두 숫자가 갈리지 않게 */
+              (select count(*)::int from app_user u
+                where not exists (select 1 from user_role r where r.user_id = u.id)) as no_role,
               /*
                * 발행할 수 있는 표준서. 세 가지가 모두 서야 한다 (0061).
                * 화면이 따로 셈하지 않고 DB 가 막는 조건을 그대로 쓴다.
@@ -217,7 +222,15 @@ export default async function SettingsHome() {
   const mine = <T extends { href: string }>(xs: T[]) =>
     xs.filter((x) => canOpen(x.href, user.roles, user.screens));
 
-  const cards = [
+  /*
+   * 타일이 남은 일을 센다 (UI/UX 검수 2026-11-11 «타일이 할 일을 세지 않음»). 이 화면이
+   * 이미 세어 둔 값만 쓴다 - 새로 묻지 않는다 (역할 없는 계정 하나만 같은 질의에 얹었다).
+   * 할 일이 있으면 그 수를 주황 조각으로 내고, 누르면 걸러 둔 목록으로 간다(to).
+   * 판정이 아니라 셈이다 - 0 이면 그냥 지금 값을 적는다.
+   */
+  const unapproved = c.suppliers - c.approved;
+  const unverified = c.dmr - c.dmr_verified;
+  const cards: { href: string; to?: string; title: string; value: string; note: string; tone: string }[] = [
     { href: '/settings/numbering', title: '채번 규칙',
       value: `${c.rules}건 활성`,
       note: blocking.length
@@ -227,13 +240,20 @@ export default async function SettingsHome() {
     { href: '/settings/items', title: '품목',
       value: `${c.items}종`, note: `완제품 형명 ${c.finished}종`, tone: 'quiet' },
     { href: '/settings/suppliers', title: '공급자',
-      value: `${c.suppliers}곳`, note: `승인 ${c.approved}곳`, tone: 'quiet' },
+      value: `${c.suppliers}곳`,
+      note: unapproved > 0 ? `미승인 ${unapproved}곳 · 승인 ${c.approved}곳` : `승인 ${c.approved}곳`,
+      tone: unapproved > 0 ? 'warn' : 'quiet' },
     { href: '/settings/dmr', title: '제품표준서',
       value: `${c.dmr}개정`,
-      note: c.dmr === 0 ? '등록 필요' : `대조 확인 ${c.dmr_verified}건`,
-      tone: c.dmr > 0 && c.dmr_verified === 0 ? 'warn' : 'quiet' },
+      note: c.dmr === 0 ? '등록 필요'
+        : unverified > 0 ? `서면 대조 남음 ${unverified}건 · 확인 ${c.dmr_verified}건`
+        : `대조 확인 ${c.dmr_verified}건`,
+      tone: unverified > 0 ? 'warn' : 'quiet' },
     { href: '/settings/users', title: '사용자',
-      value: `${c.users}명`, note: '계정과 역할', tone: 'quiet' },
+      to: c.no_role > 0 ? '/settings/users?role=none' : undefined,
+      value: `${c.users}명`,
+      note: c.no_role > 0 ? `역할 없는 계정 ${c.no_role}명` : '계정과 역할',
+      tone: c.no_role > 0 ? 'warn' : 'quiet' },
     { href: '/settings/backup', title: '백업',
       value: backup.n > 0 ? `${backup.days}일 전` : '없음',
       note: backup.n > 0
@@ -251,6 +271,15 @@ export default async function SettingsHome() {
     { href: '/settings/audit', title: '감사추적',
       value: `${c.audit}건`, note: '등록 · 변경 · 회수 이력', tone: 'quiet' },
   ];
+
+  /*
+   * 첫 설정 차례를 비어 있는 동안 맨 위에 둔다 (UI/UX 검수 2026-11-11 «첫 설정 차례가
+   * 맨 아래»). 처음 여는 사람이 할 일을 찾으려 배포 정보와 접속 기록 밑까지 내려가야
+   * 했다. 빈 곳이 없어지면 원래 자리(맨 아래)로 내려간다 - 다 채운 표가 늘 맨 위를
+   * 차지하면 그 아래 타일이 밀린다. 차례표는 손을 쓰는 사람의 것이다 (아래 주석).
+   */
+  const mySteps = mine(steps);
+  const stepsFirst = writable && mySteps.some((x) => x.empty);
 
   return (
     <PageShell
@@ -278,9 +307,11 @@ export default async function SettingsHome() {
         </div>
       )}
 
+      {stepsFirst && <SetupSteps steps={mySteps} />}
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {mine(cards).map((x) => (
-          <Link key={x.href} href={x.href}
+          <Link key={x.href} href={x.to ?? x.href}
                 className="qd-panel qd-panel--box card-raised group p-4 transition-colors hover:border-brand-line">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-ink">{x.title}</h3>
@@ -564,7 +595,7 @@ export default async function SettingsHome() {
         * 첫 설정 차례표는 손을 쓰는 사람의 것이다. 읽기 전용 세션에는 내지
         * 않는다 - 누를 수 없는 할 일 목록은 재촉일 뿐이다.
         */}
-      {writable && <SetupSteps steps={mine(steps)} />}
+      {writable && !stepsFirst && <SetupSteps steps={mySteps} />}
     </PageShell>
   );
 }

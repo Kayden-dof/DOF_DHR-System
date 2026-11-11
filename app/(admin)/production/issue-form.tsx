@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useActionState, useEffect, useState, useId } from 'react';
 import type { FormState } from '@/lib/forms';
 import { Msg, Warnings } from '@/components/ui';
@@ -34,28 +35,29 @@ export interface FinOpt { id: string; code: string; name: string }
    장입 장수를 넣으면 자재 구성표로 소요량을 미리 계산해 보여 준다. 이 값이
    작업 지시서에 인쇄된다. 경고는 표시만 하고 발행을 막지 않는다 (§2).
 --------------------------------------------------------------------------- */
-export default function IssueForm({ masters, rawLots, finished, users, today, fixes }: {
+export default function IssueForm({ masters, rawLots, finished, users, today, fixes, me }: {
   masters: DmOpt[]; rawLots: RawLotOpt[]; finished: FinOpt[];
   users: UserOpt[]; today: string;
   /** 발행이 막혔을 때 푸는 자리. 서버가 권한을 보고 정한다 (lib/unblock.ts) */
   fixes?: { dmr: Fix; material: Fix };
+  /** 로그인한 사람. 생산 서명란의 처음 값 (UI/UX 검수 2026-11-11) */
+  me?: string;
 }) {
   /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
   const uid = useId();
 
   const [state, action, pending] = useActionState<FormState, FormData>(issueWorkOrder, {});
   const [open, setOpen] = useState(false);
-  const [dm, setDm] = useState('');
-  const [lot, setLot] = useState('');
+  /*
+   * null 은 «아직 손대지 않음», '' 는 «선택하십시오 를 고름» 이다 (UI/UX 검수
+   * 2026-11-11). 둘을 가르지 않으면 사람이 비운 칸에 처음 값이 다시 들어선다.
+   */
+  const [dm, setDm] = useState<string | null>(null);
+  const [lot, setLot] = useState<string | null>(null);
   const [sheets, setSheets] = useState(20);
-  const [prod, setProd] = useState('');
-  const [qa, setQa] = useState('');
+  const [prod, setProd] = useState<string | null>(null);
+  const [qa, setQa] = useState<string | null>(null);
   const [pv, setPv] = useState<IssuePreview>({});
-
-  /* 고른 제품표준서가 정한 장입 범위. 고르기 전에는 울타리만 안다 (0069) */
-  const chosen = masters.find((m) => m.id === dm);
-  const lo = chosen?.sheet_min ?? 1;
-  const hi = chosen?.sheet_max ?? null;
 
   /*
    * 예정 형명. 한 배치에서 여러 규격이 나온다 (§3 ③). 두께는 원재료가 정하므로
@@ -69,14 +71,41 @@ export default function IssueForm({ masters, rawLots, finished, users, today, fi
   const plannedUnits = Number(units) || 0;
 
   const ready = masters.filter((m) => m.verified_at);
-  const dmSel = ready.find((m) => m.id === dm) ?? ready[0];
-  const lotSel = rawLots.find((l) => l.id === lot) ?? rawLots[0];
+  /*
+   * 고를 것이 하나뿐일 때만 미리 고른다 (UI/UX 검수 2026-11-11). 여럿이면 목록
+   * 첫 줄이 말없이 들어서지 않게 «선택하십시오» 로 둔다.
+   */
+  const dmSel = dm === null
+    ? (ready.length === 1 ? ready[0] : undefined)
+    : ready.find((m) => m.id === dm);
+  /* 고른 제품표준서가 정한 장입 범위. 고르기 전에는 울타리만 안다 (0069) */
+  const lo = dmSel?.sheet_min ?? 1;
+  const hi = dmSel?.sheet_max ?? null;
+
+  /*
+   * 원재료 로트는 유효기한이 이른 것부터 (UI/UX 검수 2026-11-11 · FEFO). 목록은
+   * 서버가 그 차례로 준다. 처음 값은 기한이 지나지 않은 첫 로트이고, 지난 것만
+   * 남았으면 아무것도 고르지 않는다 - 기한 지난 로트가 말없이 들어서지 않게.
+   * 지난 로트를 고르는 것은 막지 않고 그 자리에서 알린다.
+   */
+  const expired = (l: RawLotOpt) => !!l.expiry_date && !!today && l.expiry_date < today;
+  const lotSel = lot === null
+    ? rawLots.find((l) => !expired(l))
+    : rawLots.find((l) => l.id === lot);
 
   // 발행자는 아무나 고를 수 없다. 지시서에는 생산과 품질 두 사람의 서명란이
   // 나가므로, 그 역할을 가진 사람이 먼저 나와야 한다. 다만 목록을 잘라 내지는
   // 않는다. 역할이 아직 부여되지 않은 초기에 발행이 통째로 막히면 곤란하다.
   const prodOpts = byRole(users, ['PROD_MGR', 'SYS_ADMIN']);
   const qaOpts = byRole(users, ['QP']);
+  /*
+   * 생산 서명란은 지금 발행하는 사람이 처음 값이다 (UI/UX 검수 2026-11-11).
+   * 전에는 이름 차례로 첫 생산관리자가 들어서, 남의 이름으로 발행되기 쉬웠다.
+   * 품질 서명란은 품질책임자가 한 명일 때만 미리 고른다.
+   */
+  const prodId = prod ?? (me && users.some((u) => u.id === me) ? me
+    : prodOpts.length === 1 ? prodOpts[0].id : '');
+  const qaId = qa ?? (qaOpts.length === 1 ? qaOpts[0].id : '');
 
   useEffect(() => {
     if (!dmSel || !lotSel) return;
@@ -99,6 +128,13 @@ export default function IssueForm({ masters, rawLots, finished, users, today, fi
                 disabled={ready.length === 0 || rawLots.length === 0}>
           작업 지시 발행
         </button>
+        {/*
+          * 방금 발행한 지시서로 가는 길 (UI/UX 검수 2026-11-11). 여는 것은
+          * 미리보기이고, 인쇄 회차는 그 화면의 인쇄 단추가 남긴다.
+          */}
+        {state.ok && state.href && (
+          <Link href={state.href} className="btn-ghost">작업 지시서 인쇄</Link>
+        )}
       {/*
         * 결과는 화면 오른쪽 위에 띄운다. 여기 아래에 붙이면 뒤 내용이 밀린다
         * (사용자 지시 2026-09-08).
@@ -139,6 +175,7 @@ export default function IssueForm({ masters, rawLots, finished, users, today, fi
           <label className="label" htmlFor={`${uid}-device_master_id`}>제품표준서</label>
           <select id={`${uid}-device_master_id`} name="device_master_id" required value={dmSel?.id ?? ''}
                   onChange={(e) => setDm(e.target.value)} className="input">
+            {ready.length > 1 && <option value="">선택하십시오</option>}
             {ready.map((m) => (
               <option key={m.id} value={m.id}>
                 {m.product_code ?? m.item_code} {m.revision} · 공정 {m.op_count}
@@ -150,13 +187,22 @@ export default function IssueForm({ masters, rawLots, finished, users, today, fi
           <label className="label" htmlFor={`${uid}-material_lot_id`}>원재료 로트</label>
           <select id={`${uid}-material_lot_id`} name="material_lot_id" required value={lotSel?.id ?? ''}
                   onChange={(e) => setLot(e.target.value)} className="input">
+            <option value="">선택하십시오</option>
             {rawLots.map((l) => (
               <option key={l.id} value={l.id}>
                 {l.lot_no} · {l.item_name} · 잔여 {Number(l.qty_available)}
                 {l.thickness_band ? ` · 두께 ${l.thickness_band}` : ''}
+                {l.expiry_date ? ` · 기한 ${l.expiry_date}${expired(l) ? ' (지남)' : ''}` : ''}
               </option>
             ))}
           </select>
+          {/* 기한 지난 로트를 골라도 막지 않는다. 그 사실만 알린다 (§2) */}
+          {lotSel && expired(lotSel) && (
+            <p className="mt-1 text-xs font-semibold text-warn">
+              유효기한이 지난 로트입니다 ({lotSel.expiry_date}). 써도 되는지 서면으로 다시 확인하십시오.
+            </p>
+          )}
+          <p className="mt-1 text-xs text-muted">유효기한이 이른 로트부터 놓았습니다.</p>
         </div>
 
         {/*
@@ -215,15 +261,17 @@ export default function IssueForm({ masters, rawLots, finished, users, today, fi
 
         <div>
           <label className="label" htmlFor={`${uid}-issued_by_prod`}>생산 서명란</label>
-          <select id={`${uid}-issued_by_prod`} name="issued_by_prod" required value={prod || prodOpts[0]?.id}
+          <select id={`${uid}-issued_by_prod`} name="issued_by_prod" required value={prodId}
                   onChange={(e) => setProd(e.target.value)} className="input">
+            <option value="">선택하십시오</option>
             <IssuerOptions users={users} roles={['PROD_MGR', 'SYS_ADMIN']} />
           </select>
         </div>
         <div>
           <label className="label" htmlFor={`${uid}-issued_by_qa`}>품질 서명란</label>
-          <select id={`${uid}-issued_by_qa`} name="issued_by_qa" required value={qa || qaOpts[0]?.id}
+          <select id={`${uid}-issued_by_qa`} name="issued_by_qa" required value={qaId}
                   onChange={(e) => setQa(e.target.value)} className="input">
+            <option value="">선택하십시오</option>
             <IssuerOptions users={users} roles={['QP']} />
           </select>
         </div>
@@ -245,7 +293,7 @@ export default function IssueForm({ masters, rawLots, finished, users, today, fi
         못하며, 이름을 종이에 옮길 뿐입니다.
       </p>
 
-      {(prod || prodOpts[0]?.id) === (qa || qaOpts[0]?.id) && (
+      {prodId !== '' && prodId === qaId && (
         <p className="mt-2 rounded-md bg-danger-bg px-3 py-2 text-xs text-danger">
           생산과 품질 서명란이 같은 사람입니다. 서로 다른 사람이어야 저장됩니다.
         </p>

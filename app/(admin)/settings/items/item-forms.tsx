@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState, useState, useId, useTransition, useEffect } from 'react';
+import Link from 'next/link';
 import type { FormState } from '@/lib/forms';
 import { ITEM_TYPES } from '@/lib/forms';
 import { Msg, Tag } from '@/components/ui';
@@ -272,11 +273,35 @@ export function ItemRowView({ it, suppliers }: {
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="label" htmlFor={`${uid}-shelf_life_months`}>사용기간(개월)</label>
-                <input id={`${uid}-shelf_life_months`} name="shelf_life_months" type="number"
-                       defaultValue={it.shelf_life_months ?? ''} className="input tnum" />
-              </div>
+              {/*
+                * 완제품 사용기간은 여기서 바꾸지 않는다 (UI/UX 검수 2026-11-11). DB 가 완제품의
+                * shelf_life_months 변경을 막는다 (0061) - 칸을 열어 두면 고칠 때마다 저장이
+                * 오류로 끝났다. 값만 보이고, 바꾸는 길(안정성 보고서와 함께 사용기간 이력)로
+                * 그 형명을 골라 둔 채 보낸다. 저장은 이 값을 건드리지 않는다 (actions.ts).
+                */}
+              {it.type === 'FIN' ? (
+                <div>
+                  <p className="label">사용기간(개월)</p>
+                  <p className="pt-2 text-sm text-ink">
+                    {it.shelf_life_months
+                      ? <><span className="tnum">{it.shelf_life_months}</span>개월</>
+                      : <span className="text-muted">없음</span>}
+                    <span className="ml-1.5 text-xs text-faint">형명 기본값</span>
+                  </p>
+                  <Link href={`/settings/suppliers?shelf=${it.id}#shelf-life`} className="qd-text-action">
+                    사용기간 이력으로 바꾸기
+                  </Link>
+                  <p className="mt-1 text-xs leading-relaxed text-faint">
+                    안정성 시험 보고서 번호와 함께 이력으로 등록합니다. 이력이 있으면 그 값이 먼저 쓰입니다.
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <label className="label" htmlFor={`${uid}-shelf_life_months`}>사용기간(개월)</label>
+                  <input id={`${uid}-shelf_life_months`} name="shelf_life_months" type="number"
+                         defaultValue={it.shelf_life_months ?? ''} className="input tnum" />
+                </div>
+              )}
 
               {/*
                 * 단위는 로트가 들어오기 전에만 고친다. 재고 · 불출 · 단가가

@@ -30,9 +30,19 @@ interface WoRow {
   raw_lot_no: string; thickness_band: string | null;
   prod_name: string; qa_name: string;
   lot_count: number; record_count: number; day_count: number;
+  /* 남은 일 (UI/UX 검수 2026-11-11). 배치 화면과 현황이 세는 것과 같은 사실 */
+  open_records: number; unlocked_days: number; split_op: string | null;
 }
 
-type Search = Promise<{ status?: string }>;
+/*
+ * status=OPEN 은 종료 전 셋 (발행 · 진행 중 · 재단 완료) 을 함께 본다.
+ * due=records 는 끝나지 않은 공정이 있는 배치, due=days 는 마감하지 않은 일차가
+ * 있는 배치다. 현황 숫자 띠가 세는 것과 같은 잣대로 거른다 (UI/UX 검수 2026-11-11) -
+ * 전에는 숫자를 눌러도 거르지 않은 목록이 열려 그 숫자가 무엇인지 다시 찾아야 했다.
+ */
+type Search = Promise<{ status?: string; due?: string; q?: string }>;
+
+const OPEN_STATUSES = ['ISSUED', 'IN_PROCESS', 'CUT'];
 
 const TONE: Record<string, string> = {
   ISSUED: 'info', IN_PROCESS: 'brand', CUT: 'ok', DONE: 'quiet', CANCELLED: 'faint',
@@ -56,6 +66,9 @@ export default async function ProductionPage({ searchParams }: { searchParams: S
 
   const sp = await searchParams;
   const status = sp.status || null;
+  const due = sp.due === 'records' || sp.due === 'days' ? sp.due : null;
+  /* 배치번호 · 지시서번호 검색 (UI/UX 검수 2026-11-11). 이백 줄을 눈으로 훑지 않게 */
+  const q = (sp.q || '').trim() || null;
 
   const d = await withUser(user, async (db) => ({
     orders: await db.rows<WoRow>(
@@ -67,15 +80,45 @@ export default async function ProductionPage({ searchParams }: { searchParams: S
               (select count(*)::int from product_lot pl where pl.work_order_id = wo.id) as lot_count,
               (select count(*)::int from process_record pr where pr.work_order_id = wo.id) as record_count,
               (select count(distinct pr.day_no)::int from process_record pr
-                where pr.work_order_id = wo.id) as day_count
+                where pr.work_order_id = wo.id) as day_count,
+              /*
+               * 남은 일 (UI/UX 검수 2026-11-11). 현황의 «마감 안 된 공정» · «미마감
+               * 일차» 와 같은 잣대다 - 일차는 (일차, 작업자) 묶음이 잠겼는지로 센다.
+               */
+              (select count(*)::int from process_record pr
+                where pr.work_order_id = wo.id and pr.ended_at is null) as open_records,
+              (select count(*)::int from (
+                 select distinct pr.day_no, pr.worker_id from process_record pr
+                  where pr.work_order_id = wo.id
+                    and not exists (select 1 from day_lock dl
+                                     where dl.work_order_id = pr.work_order_id
+                                       and dl.day_no = pr.day_no
+                                       and dl.worker_id = pr.worker_id)) s) as unlocked_days,
+              split_op_name(wo.device_master_id) as split_op
          from work_order wo
          join device_master dm on dm.id = wo.device_master_id
          join item i on i.id = dm.item_id
          join material_lot ml on ml.id = wo.material_lot_id
          join app_user up on up.id = wo.issued_by_prod
          join app_user uq on uq.id = wo.issued_by_qa
-        where ($1::text is null or wo.status::text = $1)
-        order by wo.issued_at desc limit 200`, [status]),
+        where ($1::text is null
+               or ($1 = 'OPEN' and wo.status::text = any($4::text[]))
+               or wo.status::text = $1)
+          and ($2::text is null
+               or ($2 = 'records' and exists (
+                     select 1 from process_record pr
+                      where pr.work_order_id = wo.id and pr.ended_at is null))
+               or ($2 = 'days' and exists (
+                     select 1 from process_record pr
+                      where pr.work_order_id = wo.id
+                        and not exists (select 1 from day_lock dl
+                                         where dl.work_order_id = pr.work_order_id
+                                           and dl.day_no = pr.day_no
+                                           and dl.worker_id = pr.worker_id))))
+          and ($3::text is null
+               or wo.batch_no ilike concat('%', $3::text, '%')
+               or wo.wo_no ilike concat('%', $3::text, '%'))
+        order by wo.issued_at desc limit 200`, [status, due, q, OPEN_STATUSES]),
     masters: await db.rows<DmOpt>(
       `select dm.id, dm.revision, dm.verified_at, i.code as item_code, i.name as item_name,
               dm.product_code, dm.product_name, dm.sheet_min, dm.sheet_max,
@@ -92,7 +135,9 @@ export default async function ProductionPage({ searchParams }: { searchParams: S
          join item i on i.id = ml.item_id
          join supplier s on s.id = ml.supplier_id
         where i.type = 'RAW' and ml.status = 'AVAILABLE' and ml.qty_available > 0
-        order by ml.received_at desc`),
+        /* 유효기한이 이른 것부터 (UI/UX 검수 2026-11-11 · FEFO). 전에는 최근 입고
+           순이라 오래 기다린 로트가 늘 뒤로 밀렸다. 기한이 없는 것은 맨 뒤 */
+        order by ml.expiry_date nulls last, ml.received_at, ml.lot_no`),
     users: await db.rows<UserOpt>(
       `select u.id, u.full_name,
               array_remove(array_agg(r.role::text), null)::text[] as roles
@@ -116,6 +161,29 @@ export default async function ProductionPage({ searchParams }: { searchParams: S
 
   const byStatus = new Map(d.counts.map((c) => [c.status, c.n]));
   const total = d.counts.reduce((s, c) => s + c.n, 0);
+  /* 거르개를 바꿔도 검색어는 남긴다. 상태를 고르면 남은 일 거르개는 내린다 */
+  const link = (st?: string) => {
+    const p = new URLSearchParams();
+    if (st) p.set('status', st);
+    if (q) p.set('q', q);
+    const s = p.toString();
+    return s ? `/production?${s}` : '/production';
+  };
+  /*
+   * 현황 숫자 띠에서 들어온 거르개 (UI/UX 검수 2026-11-11). 설비 화면의 «임박 ·
+   * 경과 · 기록 없음» 과 같이, 그 거르개로 왔을 때만 갈래 하나로 선다.
+   */
+  const special = due === 'records' ? '마감 안 된 공정'
+    : due === 'days' ? '미마감 일차'
+    : status === 'OPEN' ? '종료 전' : null;
+  const filtered = Boolean(status || due || q);
+  const here = (() => {
+    const p = new URLSearchParams();
+    if (status) p.set('status', status);
+    if (due) p.set('due', due);
+    if (q) p.set('q', q);
+    return `/production?${p.toString()}`;
+  })();
 
   return (
     <PageShell
@@ -126,7 +194,7 @@ export default async function ProductionPage({ searchParams }: { searchParams: S
         공정 기록 입력은 현장 화면에서 합니다.
       </>}
       action={readOnly ? null : (<IssueForm masters={d.masters} rawLots={d.rawLots} finished={d.finished}
-                         users={d.users} today={d.today ?? ''} fixes={fixes} />)}
+                         users={d.users} today={d.today ?? ''} fixes={fixes} me={user.id} />)}
       nav={<SubNav items={PRODUCTION_NAV} />}
     >
       {/*
@@ -137,20 +205,34 @@ export default async function ProductionPage({ searchParams }: { searchParams: S
         */}
       <FilterBar
         items={[
-          { href: '/production', label: '전체', count: total, on: !status },
+          { href: link(), label: '전체', count: total, on: !status && !due },
           ...Object.entries(WO_STATUS_LABEL).map(([code, label]) => ({
-            href: `/production?status=${code}`,
+            href: link(code),
             label,
             count: byStatus.get(code) ?? 0,
-            on: status === code,
+            on: !due && status === code,
           })),
+          ...(special
+            ? [{ href: here, label: special, count: d.orders.length, on: true }]
+            : []),
         ]}
+        extra={
+          <form className="flex gap-2">
+            {status && <input type="hidden" name="status" value={status} />}
+            {due && <input type="hidden" name="due" value={due} />}
+            <input name="q" defaultValue={q ?? ''} autoComplete="off"
+                   placeholder="배치번호 · 지시서번호" className="input w-64" />
+            <button className="btn-ghost">검색</button>
+          </form>
+        }
       />
 
       <Panel>
         {d.orders.length === 0 ? (
-          <Empty hint="위의 작업 지시 발행에서 시작합니다.">
-            {status ? '이 상태의 작업 지시가 없습니다.' : '발행된 작업 지시가 없습니다.'}
+          <Empty hint={filtered
+            ? '위에서 전체로 돌리거나 검색어를 지워 보십시오.'
+            : '위의 작업 지시 발행에서 시작합니다.'}>
+            {filtered ? '해당하는 작업 지시가 없습니다.' : '발행된 작업 지시가 없습니다.'}
           </Empty>
         ) : (
           <Table>
@@ -163,12 +245,25 @@ export default async function ProductionPage({ searchParams }: { searchParams: S
                 <Th right>로트</Th>
                 <Th right>일차</Th>
                 <Th>상태</Th>
+                <Th>남은 일</Th>
                 <Th>발행</Th>
                 <ActionTh />
               </tr>
             </thead>
             <tbody>
-              {d.orders.map((w) => (
+              {d.orders.map((w) => {
+                /*
+                 * 남은 일 (UI/UX 검수 2026-11-11). 배치를 하나씩 열어 보지 않고도
+                 * 어디에 손이 가야 하는지 보이게 한다. 사실만 센다 - 끝난 배치와
+                 * 취소한 배치에는 적지 않는다.
+                 */
+                const live = w.status !== 'DONE' && w.status !== 'CANCELLED';
+                const left = live ? [
+                  w.open_records > 0 && { tone: 'info', text: `공정 ${w.open_records}건 진행 중` },
+                  w.unlocked_days > 0 && { tone: 'warn', text: `미마감 일차 ${w.unlocked_days}` },
+                  w.lot_count === 0 && { tone: 'quiet', text: `${w.split_op ?? '제조번호'} 전` },
+                ].filter(Boolean) as { tone: string; text: string }[] : [];
+                return (
                 <RowLink key={w.id} href={`/production/${w.id}`}>
                   <IdCell
                     id={w.batch_no}
@@ -191,12 +286,18 @@ export default async function ProductionPage({ searchParams }: { searchParams: S
                       {WO_STATUS_LABEL[w.status] ?? w.status}
                     </Tag>
                   </Td>
+                  <Td>
+                    <div className="flex flex-wrap gap-1">
+                      {left.map((x) => <Tag key={x.text} tone={x.tone}>{x.text}</Tag>)}
+                    </div>
+                  </Td>
                   <Td nowrap className=" text-muted">
                     <div className="tnum">{fmtDate(w.issued_at)}</div>
                     <div className="text-faint">{w.prod_name} · {w.qa_name}</div>
                   </Td>
                 </RowLink>
-              ))}
+                );
+              })}
             </tbody>
           </Table>
         )}

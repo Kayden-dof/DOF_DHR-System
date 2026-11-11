@@ -68,7 +68,9 @@ export function LabourRates({ rows, today, writable = true }: {
                                        sm:grid-cols-2 lg:grid-cols-5">
         <div>
           <label className="label" htmlFor={`${uid}-role`}>역할</label>
-          <select id={`${uid}-role`} name="role" required className="input">
+          {/* 빈 선택지 (UI/UX 검수 2026-11-11). 첫 역할에 단가가 조용히 붙지 않게 한다 */}
+          <select id={`${uid}-role`} name="role" required defaultValue="" className="input">
+            <option value="">선택하십시오</option>
             {ROLE_ORDER.filter((r) => r !== 'VIEWER').map((r) => (
               <option key={r} value={r}>{ROLE_LABEL[r]}</option>
             ))}

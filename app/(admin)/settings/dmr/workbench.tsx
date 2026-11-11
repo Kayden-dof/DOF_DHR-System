@@ -188,7 +188,11 @@ export async function DmrWorkbench({
     <div className="space-y-6">
       {d.masters.length === 0 ? (
         <Panel>
-          <Empty hint="완제품 형명을 먼저 만들고, 오른쪽 위의 제품표준서 개정 추가를 누릅니다."
+          {/*
+            * 다음 걸음을 적는다 (UI/UX 검수 2026-11-11). 설정 > 제품표준서에도 «제품 등록»
+            * 이 생겨 두 화면 모두 오른쪽 위에서 제품 · 대표 형명 · 첫 개정을 한 번에 만든다.
+            */}
+          <Empty hint="오른쪽 위의 제품 등록에서 제품 코드 · 대표 형명 · 첫 개정을 한 번에 만듭니다. 이미 있는 완제품 형명에 붙이려면 제품표준서 개정 추가를 누릅니다."
                  action={fixes?.fin && <Unblock fix={fixes.fin} todo="완제품 형명 만들기" />}>
             등록된 제품표준서가 없습니다.
           </Empty>
@@ -281,6 +285,12 @@ export async function DmrWorkbench({
                     작업 지시를 낼 수 있습니다. 비고 · 장입 범위 · 시료 기준은 고쳐도 풀리지 않습니다.
                   </p>
                 )}
+                {/*
+                  * 저장 단추가 줄마다 하나씩이다 (UI/UX 검수 2026-11-11). 줄마다 저장하는 값이
+                  * 다르고 대조가 풀리는 줄 · 안 풀리는 줄이 갈리므로 폼을 합치지 않는다. 대신
+                  * 다섯 단추가 모두 «저장» 이라 어느 것이 무엇을 쓰는지 몰랐던 것을, 단추 글에
+                  * 그 줄이 저장하는 것을 적어 가른다. 자리는 줄마다 칸 바로 뒤로 같다.
+                  */}
                 {writable && (
                   <>
                     <ProductCodeForm id={dm.id} code={dm.product_code}

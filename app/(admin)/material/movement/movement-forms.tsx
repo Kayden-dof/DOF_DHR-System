@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useActionState, useState, useId } from 'react';
+import { useActionState, useEffect, useState, useId } from 'react';
 import { MOVEMENT_TYPES, MOVEMENT_REASONS, type FormState } from '@/lib/forms';
 import { todayKST } from '@/lib/kst';
 import { Msg } from '@/components/ui';
@@ -34,11 +34,21 @@ export function MovementForm({ lots, orders, fix }: {
   const uid = useId();
 
   const [state, action, pending] = useActionState<FormState, FormData>(moveStock, {});
-  const [type, setType] = useState('RETURN');
+  /*
+   * 로트 · 유형 · 사유 · 작업 지시는 비워 둔 채 연다 (UI/UX 검수 2026-11-11).
+   * 전에는 목록 첫 로트와 «반납» 이 말없이 골라져 있어, 고르지 않은 로트의 재고가
+   * 움직일 수 있었다.
+   */
+  const [type, setType] = useState('');
   const [lotId, setLotId] = useState('');
-  const lot = lots.find((l) => l.id === lotId) ?? lots[0];
+  const lot = lots.find((l) => l.id === lotId);
   const meta = MOVEMENT_TYPES.find((m) => m.code === type);
   const needsWo = type === 'DISPOSAL_WIP';
+
+  /* 기록이 끝나면 다시 비운다. 같은 로트에 두 번 들어가지 않게 (CutForm 과 같은 까닭) */
+  useEffect(() => {
+    if (state.ok) { setLotId(''); setType(''); }
+  }, [state]);
 
   return (
     <form action={action} className="p-4">
@@ -47,6 +57,7 @@ export function MovementForm({ lots, orders, fix }: {
           <label className="label" htmlFor={`${uid}-material_lot_id`}>자재 로트</label>
           <select id={`${uid}-material_lot_id`} name="material_lot_id" required value={lot?.id ?? ''}
                   onChange={(e) => setLotId(e.target.value)} className="input">
+            <option value="">선택하십시오</option>
             {lots.map((l) => (
               <option key={l.id} value={l.id}>
                 {l.lot_no} · {l.item_name} (잔여 {Number(l.qty_available)} {l.usage_uom})
@@ -56,8 +67,9 @@ export function MovementForm({ lots, orders, fix }: {
         </div>
         <div>
           <label className="label" htmlFor={`${uid}-type`}>유형</label>
-          <select id={`${uid}-type`} name="type" value={type} onChange={(e) => setType(e.target.value)}
-                  className="input">
+          <select id={`${uid}-type`} name="type" required value={type}
+                  onChange={(e) => setType(e.target.value)} className="input">
+            <option value="">선택하십시오</option>
             {MOVEMENT_TYPES.map((m) => <option key={m.code} value={m.code}>{m.label}</option>)}
           </select>
         </div>
@@ -70,7 +82,8 @@ export function MovementForm({ lots, orders, fix }: {
 
         <div>
           <label className="label" htmlFor={`${uid}-reason_code`}>사유</label>
-          <select id={`${uid}-reason_code`} name="reason_code" className="input">
+          <select id={`${uid}-reason_code`} name="reason_code" required className="input">
+            <option value="">선택하십시오</option>
             {MOVEMENT_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
           </select>
         </div>
@@ -82,6 +95,7 @@ export function MovementForm({ lots, orders, fix }: {
           <div className="lg:col-span-2">
             <label className="label" htmlFor={`${uid}-work_order_id`}>작업 지시 (공정 폐기는 필수)</label>
             <select id={`${uid}-work_order_id`} name="work_order_id" required className="input">
+              <option value="">선택하십시오</option>
               {orders.map((o) => (
                 <option key={o.id} value={o.id}>{o.batch_no} · {o.wo_no}</option>
               ))}
@@ -91,7 +105,7 @@ export function MovementForm({ lots, orders, fix }: {
       </div>
 
       <p className="mt-3 rounded-md bg-canvas px-3 py-2 text-xs leading-relaxed text-muted">
-        {meta?.note}
+        {meta?.note ?? '유형을 고르면 무엇이 바뀌는지 여기 나옵니다.'}
         {type === 'RETURN' &&
           ' 개봉 후 반납이 안 되는 건은 공정 폐기로 처리하십시오.'}
       </p>

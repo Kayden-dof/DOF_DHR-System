@@ -258,6 +258,8 @@ export default async function CostPage() {
         )}
       </Panel>
 
+      {/* 경영 현황의 «이번 달 자재 지출» 이 여기로 내린다 (UI/UX 검수 2026-11-11) */}
+      <div id="cost-spend" className="scroll-mt-6">
       <Panel title="자재 지출" note="매입 기준">
         {d.spend.length === 0 ? (
           <Empty hint="자재 입고 등록에 매입 단가를 함께 넣으면 달별로 쌓입니다.">
@@ -307,6 +309,7 @@ export default async function CostPage() {
           </div>
         )}
       </Panel>
+      </div>
 
       <section className="card py-4">
         <h3 className="text-xs font-semibold text-ink">계산 방식</h3>

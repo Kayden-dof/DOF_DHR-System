@@ -3,7 +3,15 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-export interface NavItem { href: string; label: string }
+export interface NavItem {
+  href: string; label: string;
+  /*
+   * 묶음 이름 (UI/UX 검수 2026-11-11). 설정 탭이 열셋이라 한 줄로 늘어놓으면 어디가
+   * 무엇인지 읽히지 않았다. 묶음이 있는 차림표만 묶음마다 작은 이름을 위에 얹는다.
+   * 없으면 지금까지와 같은 한 줄이다.
+   */
+  group?: string;
+}
 
 /*
  * 맨 위 차림표는 레일이다 (./rail.tsx · Q-Design 차림표 정본 · 오너 결정 2026-11-07 «A»).
@@ -27,22 +35,50 @@ export function SubNav({ items }: { items: NavItem[] }) {
     return hit && it.href.length > (best?.length ?? 0) ? it.href : best;
   }, null);
 
+  const tab = (it: NavItem) => {
+    const active = it.href === current;
+    return (
+      <Link
+        key={it.href}
+        href={it.href}
+        aria-current={active ? 'page' : undefined}
+        className={`qd-tab${active ? ' qd-tab--active' : ''}`}
+      >
+        {it.label}
+      </Link>
+    );
+  };
+
   /* 모양은 거르개 줄(components/shell.tsx FilterBar)과 같은 정본 2차 탭이다 */
+  if (!items.some((it) => it.group)) {
+    return (
+      <nav className="qd-tabs !mb-0" aria-label="하위 차림표">
+        {items.map(tab)}
+      </nav>
+    );
+  }
+
+  /*
+   * 묶어 낸다 (UI/UX 검수 2026-11-11 «설정 탭 13개 한 줄»). 탭 모양 · 밑줄은 그대로
+   * 두고 묶음 이름만 위에 작게 얹는다 - 한 번에 가는 길은 그대로 하나다. 묶음 칸은
+   * 아래로 붙여(justify-end) 이름이 없는 «개요» 도 밑줄 높이가 같다.
+   */
+  const groups: { name: string; items: NavItem[] }[] = [];
+  for (const it of items) {
+    const name = it.group ?? '';
+    const last = groups[groups.length - 1];
+    if (last && last.name === name) last.items.push(it);
+    else groups.push({ name, items: [it] });
+  }
   return (
-    <nav className="qd-tabs !mb-0" aria-label="하위 차림표">
-      {items.map((it) => {
-        const active = it.href === current;
-        return (
-          <Link
-            key={it.href}
-            href={it.href}
-            aria-current={active ? 'page' : undefined}
-            className={`qd-tab${active ? ' qd-tab--active' : ''}`}
-          >
-            {it.label}
-          </Link>
-        );
-      })}
+    <nav className="qd-tabs !mb-0 gap-x-3" aria-label="하위 차림표">
+      {groups.map((g, i) => (
+        <div key={`${g.name}-${i}`} role="group" aria-label={g.name || undefined}
+             className="flex flex-col justify-end">
+          {g.name && <span className="px-4 pt-1 text-xs text-faint">{g.name}</span>}
+          <div className="flex">{g.items.map(tab)}</div>
+        </div>
+      ))}
     </nav>
   );
 }

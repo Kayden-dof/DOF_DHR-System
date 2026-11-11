@@ -612,6 +612,16 @@ function ShipRowForm({ lot, today, fix }: { lot: PlOpt; today: string; fix?: Fix
       <p className="mt-2 text-xs leading-relaxed text-muted">
         서면 승인이 끝난 요청서의 번호를 옮겨 기재합니다. 번호 없이는 기록되지 않습니다.
       </p>
+      {/*
+        * 출고 단추 옆 안내 (UI/UX 검수 2026-11-11). 전에는 무엇이 줄고 되돌릴 수
+        * 있는지를 말하지 않았다. 출고를 지우는 자리는 없다.
+        */}
+      <div className="mt-2">
+        <Caution>
+          출고를 기록하면 이 제조번호의 출하 가능 수량이 그만큼 줄고 개체 순번이 그 거래처로
+          묶입니다. <b>되돌릴 수 없습니다.</b> 출하 승인이 기록된 로트만 이 목록에 나옵니다.
+        </Caution>
+      </div>
       <Msg state={state} />
     </form>
   );

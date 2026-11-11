@@ -5,6 +5,7 @@ import { withActor, dbMessage } from '@/lib/db';
 import { requireUser, hasRole } from '@/lib/session';
 import { hashPin } from '@/lib/auth';
 import type { FormState } from '@/lib/forms';
+import { ROLE_LABEL, ROLE_ORDER } from '@/lib/roles';
 
 /* ---------------------------------------------------------------------------
    사용자 · 역할 관리 (§4.1)
@@ -66,27 +67,47 @@ export async function createUser(_prev: FormState, form: FormData): Promise<Form
     const pinHash = canLogin ? await hashPin(pin) : null;
 
     /*
+     * 처음 역할 하나를 함께 받는다 (UI/UX 검수 2026-11-11 «새 계정에 역할 못 넣음»).
+     * 전에는 만든 뒤 줄을 다시 열어 역할을 따로 줘야 했고, 그 사이 계정은 로그인해도
+     * 갈 곳이 없었다. 부여와 같은 문턱을 지난다 - 시스템관리자 역할은 시스템관리자만
+     * 주고(guardSysAdminRole), 개발 계정 · 품질책임자 금지는 DB 트리거가 막는다.
+     * 한 트랜잭션이라 역할이 거부되면 계정도 만들어지지 않는다.
+     */
+    const role = String(form.get('role') ?? '').trim();
+    if (role && !(ROLE_ORDER as string[]).includes(role)) return { error: '알 수 없는 역할입니다' };
+    const blocked = role ? guardSysAdminRole(me, role) : null;
+    if (blocked) return { error: blocked };
+
+    /*
      * 만든 사람이 비밀번호를 아는 상태로 남겨 두지 않는다. 그 상태에서 적힌
      * 기록은 누가 적었는지 성립하지 않는다 - 전자서명이 없으므로 귀속은 오직
      * 로그인에 달려 있고, 로그인을 둘이 알면 귀속이 없다. 본인이 처음 들어올
      * 때 스스로 바꾸게 한다 (0052).
      */
-    await withActor(me.id, (db) =>
-      db.rows(
+    await withActor(me.id, async (db) => {
+      const id = await db.val<string>(
         `insert into app_user (login_code, full_name, pin_hash, can_login, is_developer,
                                must_change_pin)
-         values ($1, $2, $3, $4, $5, $4)`,
+         values ($1, $2, $3, $4, $5, $4) returning id`,
         [loginCode, fullName, pinHash, canLogin, isDeveloper],
-      ),
-    );
+      );
+      if (role && id) {
+        await db.rows(
+          `insert into user_role (user_id, role) values ($1, $2::role_code)
+           on conflict do nothing`,
+          [id, role],
+        );
+      }
+    });
 
     revalidatePath('/settings/users');
     revalidatePath('/');
+    const withRole = role ? ` 역할: ${ROLE_LABEL[role as keyof typeof ROLE_LABEL]}.` : ' 역할은 아직 없습니다.';
     return {
       ok: true,
       message: canLogin
-        ? `${fullName} 계정을 등록했습니다.`
-        : `${fullName} 계정을 등록했습니다. 로그인은 사용하지 않으며 인쇄물에 이름만 나옵니다.`,
+        ? `${fullName} 계정을 등록했습니다.${withRole}`
+        : `${fullName} 계정을 등록했습니다. 로그인은 사용하지 않으며 인쇄물에 이름만 나옵니다.${withRole}`,
     };
   } catch (e) {
     return { error: dbMessage(e) };

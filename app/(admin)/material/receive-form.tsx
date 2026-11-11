@@ -1,8 +1,10 @@
 'use client';
 
+import Link from 'next/link';
 import { useActionState, useMemo, useState, useId } from 'react';
 import type { FormState } from '@/lib/forms';
 import { Msg, Warnings } from '@/components/ui';
+import Toasts from '@/components/toast';
 import { Dialog, useDialog } from '@/components/dialog';
 import { receiveMaterial } from './actions';
 
@@ -151,6 +153,15 @@ export default function ReceiveForm({ items, suppliers, orders, today, presetPo,
       <button onClick={start} className={label ? 'qd-text-action' : 'btn-primary'}>
         {label ?? '자재 입고 등록'}
       </button>
+      {/*
+        * 입고 뒤 라벨 인쇄로 가는 길 (UI/UX 검수 2026-11-11). 팝업은 성공하면 닫히므로
+        * 결과 문구는 오른쪽 위에 띄우고, 방금 들어온 로트의 라벨 단추를 옆에 둔다.
+        * 여는 것은 미리보기이고 인쇄 회차는 그 화면의 인쇄 단추가 남긴다.
+        */}
+      {state.ok && state.href && (
+        <Link href={state.href} className={label ? 'qd-text-action' : 'btn-ghost'}>라벨 인쇄</Link>
+      )}
+      <Toasts states={[state]} />
       <Dialog open={open} onClose={() => setOpen(false)} wide title="자재 입고 등록">
         <form action={action}>
       <h3 className="text-sm font-semibold text-ink">자재 입고</h3>

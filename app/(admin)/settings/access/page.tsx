@@ -142,6 +142,20 @@ export default async function AccessPage({ searchParams }: {
         title="권한 매트릭스"
         note="한 계정에 역할이 둘이면 둘 중 열리는 쪽을 따릅니다."
       >
+        {/*
+          * 표 위에 뜻을 글로 적는다 (UI/UX 검수 2026-11-11 «권한 뜻이 title 에만»). 표시에
+          * 마우스를 올려야 뜻이 나와 패드에서는 읽을 길이 없었고, 아래 «표 읽는 법» 은
+          * 서른 줄 표를 다 내려가야 보였다. 아래 판은 그대로 둔다 - 거기는 풀이다.
+          */}
+        <dl className="flex flex-wrap gap-x-5 gap-y-1.5 border-b border-line-soft px-4 py-2.5 text-xs">
+          {(['open', 'blocked', 'away'] as Access[]).map((a) => (
+            <div key={a} className="flex items-center gap-1.5">
+              <Mark a={a} />
+              <dt className="font-semibold text-ink">{ACCESS_LABEL[a]}</dt>
+              <dd className="text-muted">{ACCESS_NOTE[a]}</dd>
+            </div>
+          ))}
+        </dl>
         <TableWrap>
           <table className="qd-table qd-table--hangul min-w-[46rem]">
             <thead>
@@ -262,6 +276,14 @@ export default async function AccessPage({ searchParams }: {
               배정할 사람을 고르십시오. 고르지 않으면 모두 역할 기본값으로 움직입니다.
             </p>
           ) : (
+            <>
+            {/* 세 단추의 뜻을 글로 둔다 (UI/UX 검수 2026-11-11). 전에는 단추의 title 에만 있었다 */}
+            <p className="px-4 pb-3 text-xs leading-relaxed text-muted">
+              <b className="text-ink">열림</b> 이 사람에게 이 화면을 엽니다 ·{' '}
+              <b className="text-ink">닫힘</b> 이 사람에게 이 화면을 닫습니다 ·{' '}
+              <b className="text-ink">기본</b> 역할 기본값을 따릅니다 (괄호 안이 지금 기본값).
+              바꾼 칸은 감사추적에 남습니다.
+            </p>
             <TableWrap>
               <table className="qd-table qd-table--hangul min-w-[34rem]">
                 <thead>
@@ -311,6 +333,7 @@ export default async function AccessPage({ searchParams }: {
                 ))}
               </table>
             </TableWrap>
+            </>
           )}
         </Panel>
       )}

@@ -31,8 +31,12 @@ interface ShelfRow {
   study_report_no: string; study_date: string | null; approved_by_name: string;
 }
 
-export default async function SuppliersPage() {
+export default async function SuppliersPage({ searchParams }: {
+  searchParams: Promise<{ shelf?: string }>;
+}) {
   const user = await requireUser();
+  /* 품목 수정 창에서 «사용기간 이력으로 바꾸기» 로 넘어온 형명 (UI/UX 검수 2026-11-11) */
+  const pick = (await searchParams).shelf;
   /* 열람자에게 열어 둔 화면이 아니다. 주소를 직접 쳐도 들어가지 못한다 */
   if (blocksScreen(user, '/settings/suppliers')) return <Denied what="이 화면" need="생산관리자 또는 시스템관리자" />;
 
@@ -136,8 +140,10 @@ export default async function SuppliersPage() {
           )}
         </Panel>
 
-        <Panel title="사용기간 등록" note="완제품 유효기한의 근거입니다. 안정성 시험 보고서 번호가 필요합니다.">
-          {writable && <ShelfLifeForm items={d.items} today={d.today ?? ''}
+        {/* 품목 화면이 #shelf-life 로 바로 보낸다. 판 높이 맞춤은 그대로 (flex) */}
+        <div id="shelf-life" className="flex min-w-0 flex-col">
+        <Panel className="flex-1" title="사용기간 등록" note="완제품 유효기한의 근거입니다. 안정성 시험 보고서 번호가 필요합니다.">
+          {writable && <ShelfLifeForm items={d.items} today={d.today ?? ''} pick={pick}
                                        fix={fixAt(user, '/settings/items', '?type=FIN')} />}
           {d.shelf.length > 0 && (
             <div className="overflow-x-auto border-t border-line">
@@ -167,6 +173,7 @@ export default async function SuppliersPage() {
             </div>
           )}
         </Panel>
+        </div>
       </div>
     </PageShell>
   );

@@ -187,12 +187,18 @@ export function PriceForm({ items, suppliers, today }: {
   const uid = useId();
 
   const [state, action, pending] = useActionState<FormState, FormData>(savePrice, {});
+  /*
+   * 품목 · 공급자에 빈 선택지를 둔다 (UI/UX 검수 2026-11-11 «공급자 select 빈 선택지
+   * 없음»). 전에는 첫 품목과 첫 공급자가 조용히 골라져, 단가만 적고 누르면 엉뚱한 짝에
+   * 단가가 붙었다. 단가는 이력으로 남아 지워지지 않는다.
+   */
   return (
     <form action={action} className="p-4">
       <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-4">
         <div className="lg:col-span-2">
           <label className="label" htmlFor={`${uid}-item_id`}>품목</label>
-          <select id={`${uid}-item_id`} name="item_id" required className="input">
+          <select id={`${uid}-item_id`} name="item_id" required defaultValue="" className="input">
+            <option value="">선택하십시오</option>
             {items.filter((i) => i.type !== 'FIN').map((i) => (
               <option key={i.id} value={i.id}>{i.code} · {i.name} ({i.usage_uom})</option>
             ))}
@@ -200,7 +206,8 @@ export function PriceForm({ items, suppliers, today }: {
         </div>
         <div>
           <label className="label" htmlFor={`${uid}-supplier_id`}>공급자</label>
-          <select id={`${uid}-supplier_id`} name="supplier_id" required className="input">
+          <select id={`${uid}-supplier_id`} name="supplier_id" required defaultValue="" className="input">
+            <option value="">선택하십시오</option>
             {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
         </div>
@@ -226,10 +233,12 @@ export function PriceForm({ items, suppliers, today }: {
   );
 }
 
-export function ShelfLifeForm({ items, today, fix }: {
+export function ShelfLifeForm({ items, today, fix, pick }: {
   items: ItemOption[]; today: string;
   /** 완제품 형명이 없을 때 만들러 가는 자리 (lib/unblock.ts) */
   fix?: Fix;
+  /** 미리 고를 형명. 품목 수정 창의 «사용기간 이력으로 바꾸기» 가 실어 보낸다 (?shelf=) */
+  pick?: string;
 }) {
   /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
   const uid = useId();
@@ -241,7 +250,13 @@ export function ShelfLifeForm({ items, today, fix }: {
       <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-5">
         <div className="lg:col-span-2">
           <label className="label" htmlFor={`${uid}-item_id`}>완제품 형명</label>
-          <select id={`${uid}-item_id`} name="item_id" required className="input">
+          {/*
+            * 빈 선택지 (UI/UX 검수 2026-11-11). 첫 형명이 조용히 골라지면 보고서 번호와
+            * 함께 엉뚱한 형명의 사용기간이 바뀐다. 품목 화면에서 넘어왔으면 그 형명이 골라져 있다.
+            */}
+          <select id={`${uid}-item_id`} name="item_id" required className="input"
+                  defaultValue={pick && fin.some((i) => i.id === pick) ? pick : ''}>
+            <option value="">선택하십시오</option>
             {fin.map((i) => <option key={i.id} value={i.id}>{i.code} · {i.name}</option>)}
           </select>
         </div>

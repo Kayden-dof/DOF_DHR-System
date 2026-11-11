@@ -23,8 +23,16 @@ export interface SupplierOpt { id: string; name: string; status: string }
 
 // 'use client' 모듈은 함수만 서버 경계를 넘는다. 컴포넌트를 객체로 묶어
 // 내보내면 서버 쪽에서 undefined 가 되어 화면이 통째로 500 으로 죽는다.
-export function NewOrder({ items, suppliers, today }: {
+export function NewOrder({ items, suppliers, today, presetItem, presetQty, label }: {
   items: ItemOpt[]; suppliers: SupplierOpt[]; today: string;
+  /**
+   * 최소 재고선 아래 줄에서 열 때 그 품목과 모자란 양 (UI/UX 검수 2026-11-11).
+   * 입고 폼의 presetPo 와 같은 꼴이다 - 폼을 하나 더 만들지 않는다.
+   */
+  presetItem?: string;
+  presetQty?: number;
+  /** 단추 글씨. 줄에서는 짧게 */
+  label?: string;
 }) {
   /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
   const uid = useId();
@@ -32,7 +40,11 @@ export function NewOrder({ items, suppliers, today }: {
   const [state, action, pending] = useActionState<FormState, FormData>(createOrder, {});
   const { open, setOpen } = useDialog(state);
   const [itemId, setItemId] = useState('');
-  const item = items.find((i) => i.id === itemId) ?? items[0];
+  /*
+   * 품목은 고르기 전까지 비워 둔다 (UI/UX 검수 2026-11-11). 전에는 목록 첫 품목이
+   * 말없이 골라져 있었다. 줄에서 열면 그 줄의 품목으로 시작한다.
+   */
+  const item = items.find((i) => i.id === itemId);
 
   /*
    * 품목을 고르면 그 품목이 정해 둔 공급자로 따라간다 (6차 감사 N7).
@@ -48,9 +60,17 @@ export function NewOrder({ items, suppliers, today }: {
     || (item?.default_supplier_id ?? '')
     || (suppliers.find((x) => x.status === 'APPROVED')?.id ?? suppliers[0]?.id ?? '');
 
+  /* 줄에서 열면 늘 그 품목으로 시작한다 */
+  const start = () => {
+    if (presetItem) { setItemId(presetItem); setSupplierId(''); }
+    setOpen(true);
+  };
+
   return (
     <>
-      <button onClick={() => setOpen(true)} className="btn-primary">발주 등록</button>
+      <button onClick={start} className={label ? 'qd-text-action' : 'btn-primary'}>
+        {label ?? '발주 등록'}
+      </button>
       <Dialog open={open} onClose={() => setOpen(false)} wide title="발주 등록">
         <form action={action}>
       <h3 className="mb-3 text-sm font-semibold text-ink">새 발주</h3>
@@ -65,6 +85,7 @@ export function NewOrder({ items, suppliers, today }: {
           <select id={`${uid}-item_id`} name="item_id" required value={item?.id ?? ''}
                   onChange={(e) => { setItemId(e.target.value); setSupplierId(''); }}
                   className="input">
+            <option value="">선택하십시오</option>
             {items.map((i) => <option key={i.id} value={i.id}>{i.code} · {i.name}</option>)}
           </select>
         </div>
@@ -81,8 +102,10 @@ export function NewOrder({ items, suppliers, today }: {
           </select>
         </div>
         <div>
-          <label className="label" htmlFor={`${uid}-qty`}>수량 ({item?.usage_uom})</label>
-          <input id={`${uid}-qty`} name="qty" type="number" step="any" min="0.0001" required className="input tnum" />
+          <label className="label" htmlFor={`${uid}-qty`}>수량{item ? ` (${item.usage_uom})` : ''}</label>
+          <input id={`${uid}-qty`} name="qty" type="number" step="any" min="0.0001" required
+                 defaultValue={presetQty && presetQty > 0 ? Number(presetQty.toFixed(6)) : undefined}
+                 className="input tnum" />
         </div>
         <div>
           <label className="label" htmlFor={`${uid}-unit_price`}>단가</label>
@@ -99,6 +122,7 @@ export function NewOrder({ items, suppliers, today }: {
       </div>
       <p className="mt-3 text-xs leading-relaxed text-muted">
         수량은 사용 단위 기준입니다. 입고 등록에서 이 발주를 선택하면 자동으로 입고 완료로 넘어갑니다.
+        {presetQty && presetQty > 0 ? ' 수량은 최소 재고선까지 모자란 양으로 채웠습니다.' : ''}
       </p>
       <Msg state={state} />
       <div className="mt-4 flex gap-2">

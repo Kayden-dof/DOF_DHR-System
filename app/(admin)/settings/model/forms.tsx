@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useId, useState } from 'react';
+import { useActionState, useEffect, useId, useState } from 'react';
 import { Msg } from '@/components/ui';
 import type { FormState } from '@/lib/forms';
 import { saveScheme, saveSegment } from './actions';
@@ -71,10 +71,23 @@ export function SchemeForm({ scheme }: { scheme: Scheme | null }) {
   );
 }
 
-export function SegmentForm({ schemeId, next }: { schemeId: string; next: number }) {
+export function SegmentForm({ schemeId, next, taken = [] }: {
+  schemeId: string; next: number;
+  /** 이미 정한 자리. 같은 번호를 적으면 칸 바로 아래에서 덮어쓴다고 알린다 */
+  taken?: { seq: number; label: string }[];
+}) {
   const [state, action, pending] = useActionState<FormState, FormData>(saveSegment, {});
   const [role, setRole] = useState('OTHER');
   const uid = useId();
+  /*
+   * 덮어쓰기 경고를 «자리» 칸 옆에 둔다 (UI/UX 검수 2026-11-11 «형명 자리 덮어쓰기 경고
+   * 위치»). 전에는 단추 옆 긴 글 속에 섞여 있어, 번호를 고치는 사람이 그 칸에서 보지
+   * 못했다. 적은 번호가 이미 있으면 그 자리 이름과 함께 바로 아래에 알린다. 막지 않는다.
+   */
+  const [seq, setSeq] = useState(String(next));
+  /* 자리를 하나 정하면 다음 번호로 넘어간다. 방금 정한 번호에 경고가 남지 않게 */
+  useEffect(() => { setSeq(String(next)); }, [next]);
+  const hit = taken.find((t) => String(t.seq) === seq.trim());
 
   return (
     <form action={action} className="grid gap-3 border-t border-line-soft p-4 sm:grid-cols-6">
@@ -82,7 +95,12 @@ export function SegmentForm({ schemeId, next }: { schemeId: string; next: number
       <div>
         <label className="label" htmlFor={`${uid}-seq`}>자리</label>
         <input id={`${uid}-seq`} name="seq" required inputMode="numeric"
-               defaultValue={String(next)} className="input tnum" />
+               value={seq} onChange={(e) => setSeq(e.target.value)} className="input tnum" />
+        {hit && (
+          <p className="mt-1 text-xs leading-relaxed text-warn">
+            <span className="tnum">{hit.seq}</span>번 자리 «{hit.label}» 를 덮어씁니다.
+          </p>
+        )}
       </div>
       <div>
         <label className="label" htmlFor={`${uid}-digits`}>자릿수</label>
@@ -117,7 +135,7 @@ export function SegmentForm({ schemeId, next }: { schemeId: string; next: number
           {pending ? '저장하는 중' : '자리 정하기'}
         </button>
         <span className="ml-2 text-xs text-muted">
-          같은 자리 번호를 다시 넣으면 덮어씁니다. 나눌 값은 형명의 숫자를 실제 값으로
+          나눌 값은 형명의 숫자를 실제 값으로
           바꿉니다 - 두께 <code>05</code>가 <code>0.5mm</code>가 되려면 10입니다.
         </span>
       </div>

@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { requireUser, hasRole, canWrite, blocksScreen } from '@/lib/session';
 import { fixAt } from '@/lib/unblock';
 import { Unblock } from '@/components/unblock';
@@ -148,8 +149,22 @@ export default async function EquipmentPage({ searchParams }: { searchParams: Se
   const groups: Record<FilterCode, EquipRow[]> = {
     valid, soon, gone: expired, none: exempt, due: [...soon, ...expired],
   };
+  /*
+   * 손볼 설비를 위로 올린다 (UI/UX 검수 2026-11-11 «설비 목록 경과 · 임박 정렬»). 전에는
+   * 코드 순이라 기한이 지난 설비가 목록 가운데 묻혀, 숫자 띠를 보고도 카드를 하나씩
+   * 넘겨 찾았다. 차례는 기한 경과 · 기록 없음 → 만료 임박 → 유효 → 대상 아님 → 내린 설비.
+   * 앞 두 묶음 안에서는 급한 것(남은 날이 적은 것 · 기록 없음)이 먼저, 나머지는 코드 순.
+   */
+  const rank = (e: EquipRow) =>
+    !e.is_active ? 4 : expired.includes(e) ? 0 : soon.includes(e) ? 1 : exempt.includes(e) ? 3 : 2;
+  const urgency = (e: EquipRow) => e.days_left ?? Number.NEGATIVE_INFINITY;
+  const byNeed = (a: EquipRow, b: EquipRow) =>
+    rank(a) - rank(b)
+    || (rank(a) <= 1 ? urgency(a) - urgency(b) || 0 : 0)
+    || a.code.localeCompare(b.code);
   /* 거르개는 쓰는 설비 안에서 고른다. 전체는 내린 설비까지 그대로 보인다 */
-  const shown = f ? d.equipment.filter((e) => groups[f].includes(e)) : d.equipment;
+  const shown = (f ? d.equipment.filter((e) => groups[f].includes(e)) : d.equipment)
+    .slice().sort(byNeed);
   const link = (code?: string) => (code ? `/equipment?f=${code}` : '/equipment');
   const eqRow = (e: EquipRow, right: React.ReactNode) =>
     ({ left: mono(e.code), sub: e.name, right });
@@ -213,7 +228,10 @@ export default async function EquipmentPage({ searchParams }: { searchParams: Se
 
       {d.equipment.length === 0 ? (
         <div className="card">
-          <Empty hint="등록한 설비를 공정에 걸면 현장 화면에 타일로 나옵니다.">
+          {/* 다음 걸음을 적는다 (UI/UX 검수 2026-11-11). 만드는 단추가 어디 있는지부터 */}
+          <Empty hint={writable
+            ? '오른쪽 위 설비 등록에서 넣습니다. 등록한 설비를 공정에 걸면 현장 화면에 타일로 나옵니다.'
+            : '등록한 설비를 공정에 걸면 현장 화면에 타일로 나옵니다.'}>
             등록된 설비가 없습니다.
           </Empty>
         </div>
@@ -221,7 +239,8 @@ export default async function EquipmentPage({ searchParams }: { searchParams: Se
         <div className="space-y-4">
           {shown.length === 0 && (
             <div className="card">
-              <Empty hint="위 거르개에서 전체를 누르면 모든 설비가 보입니다.">
+              <Empty hint="위 거르개에서 전체를 누르면 모든 설비가 보입니다."
+                     action={<Link href={link()} className="btn-ghost">전체 보기</Link>}>
                 이 갈래에 든 설비가 없습니다.
               </Empty>
             </div>

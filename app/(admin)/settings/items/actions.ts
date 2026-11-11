@@ -161,8 +161,14 @@ export async function updateItem(_p: FormState, form: FormData): Promise<FormSta
          * 없었고 아무도 읽지 않았다 - 발주 화면이 공급자를 미리 골라 주지
          * 않아, 살 때마다 어디서 사는지를 사람이 다시 떠올려야 했다.
          */
+        /*
+         * 완제품 사용기간은 건드리지 않는다 (UI/UX 검수 2026-11-11). 0061 이 완제품의
+         * 변경을 막고, 바꾸는 길은 사용기간 이력이다. 화면에서 칸을 뺐으므로 폼에 값이
+         * 없다 - 그대로 $5 를 쓰면 비어 있는 값으로 바꾸려다 거부된다.
+         */
         `update item set name = $2, min_stock = $3, lead_days = $4,
-                         shelf_life_months = $5, is_active = $6,
+                         shelf_life_months = case when type = 'FIN' then shelf_life_months else $5 end,
+                         is_active = $6,
                          default_supplier_id = $7,
                          purchase_uom = coalesce($8, purchase_uom),
                          usage_uom    = coalesce($9, usage_uom),

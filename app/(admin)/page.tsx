@@ -294,33 +294,38 @@ export default async function Dashboard() {
   const dLeft = (n: number | null, none: string) =>
     n === null ? none : n < 0 ? `${-n}일 지남` : `${n}일 남음`;
 
+  /*
+   * 숫자를 누르면 그 숫자가 센 것만 걸러 연다 (UI/UX 검수 2026-11-11). 전에는
+   * 거르지 않은 목록으로 가서, 숫자를 이룬 줄을 다시 찾아야 했다. 받는 화면이
+   * 같은 잣대로 거른다 - 생산 status=OPEN · due, 자재 due=expiry, 출하 승인 기록 판.
+   */
   const stats: StatItem[] = [
-    { label: '진행 중인 배치', value: c.wo_open, unit: '건', href: '/production',
+    { label: '진행 중인 배치', value: c.wo_open, unit: '건', href: '/production?status=OPEN',
       detail: statRows(L.wo_open.map((r) => ({
         left: mono(r.batch_no), sub: r.item_name,
         right: WO_STATUS_LABEL[r.status] ?? r.status,
       })), '진행 중인 배치가 없습니다', c.wo_open) },
 
-    { label: '마감 안 된 공정', value: c.open_records, unit: '건', href: '/production',
+    { label: '마감 안 된 공정', value: c.open_records, unit: '건', href: '/production?due=records',
       tone: c.open_records > 0 ? 'info' : undefined,
       detail: statRows(L.open_records.map((r) => ({
         left: mono(r.batch_no), sub: `${r.op_name} · ${r.worker}`,
         right: `${r.day_no}일차`,
       })), '끝나지 않은 공정이 없습니다', c.open_records) },
 
-    { label: '미마감 일차', value: c.unprinted_days, unit: '건', href: '/production',
+    { label: '미마감 일차', value: c.unprinted_days, unit: '건', href: '/production?due=days',
       tone: c.unprinted_days > 0 ? 'warn' : undefined,
       detail: statRows(L.unprinted_days.map((r) => ({
         left: mono(r.batch_no), sub: r.worker, right: `${r.day_no}일차`,
       })), '마감하지 않은 일차가 없습니다', c.unprinted_days) },
 
-    { label: '출하 승인 대기', value: c.lots_await_release, unit: '로트', href: '/shipping',
+    { label: '출하 승인 대기', value: c.lots_await_release, unit: '로트', href: '/shipping#pending',
       tone: c.lots_await_release > 0 ? 'info' : undefined,
       detail: statRows(L.await_release.map((r) => ({
         left: mono(r.lot_no), sub: r.item_name, right: PL_STATUS_LABEL[r.status] ?? r.status,
       })), '승인을 기다리는 로트가 없습니다', c.lots_await_release) },
 
-    { label: '기한 임박 자재', value: c.expiring + c.expired, unit: '건', href: '/material',
+    { label: '기한 임박 자재', value: c.expiring + c.expired, unit: '건', href: '/material?due=expiry',
       tone: c.expired > 0 ? 'danger' : c.expiring > 0 ? 'warn' : undefined,
       detail: statRows(L.expiring.map((r) => ({
         left: mono(r.lot_no), sub: r.item_name,

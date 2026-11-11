@@ -1,16 +1,23 @@
 'use client';
 
-import { useActionState, useState } from 'react';
+import { useActionState, useState, useEffect } from 'react';
 import { Dialog, useDialog } from '@/components/dialog';
 import { PIN_MIN_LENGTH } from '@/lib/auth-const';
 import type { FormState } from '@/lib/forms';
 import { createUser } from './actions';
 import { Msg } from '@/components/ui';
+import { ROLE_LABEL, ROLE_NOTE, ROLE_ORDER, type RoleCode } from '@/lib/roles';
 
 export default function NewUserForm({ sysAdmin }: { sysAdmin: boolean }) {
   const [state, action, pending] = useActionState<FormState, FormData>(createUser, {});
   const { open, setOpen } = useDialog(state);
   const [canLogin, setCanLogin] = useState(true);
+  /* 처음 줄 역할 (UI/UX 검수 2026-11-11). 비우면 지금처럼 역할 없이 만든다 */
+  const [role, setRole] = useState<RoleCode | ''>('');
+  /* 시스템관리자 역할은 시스템관리자만 준다. 고를 수 없으면 목록에 내지 않는다 (user-row 와 같다) */
+  const roles = ROLE_ORDER.filter((r) => sysAdmin || r !== 'SYS_ADMIN');
+  /* 만든 뒤에는 비운다. 다음 계정에 앞 사람의 역할이 남아 골라져 있으면 안 된다 */
+  useEffect(() => { if (state.ok) setRole(''); }, [state]);
 
   return (
     <>
@@ -74,6 +81,26 @@ export default function NewUserForm({ sysAdmin }: { sysAdmin: boolean }) {
             </label>
           )}
         </div>
+      </div>
+
+      {/*
+        * 역할을 만들 때 함께 준다 (UI/UX 검수 2026-11-11 «새 계정에 역할 못 넣음»). 빈
+        * 선택지가 기본이다 - 첫 역할이 조용히 골라지면 고르지 않은 권한이 붙는다.
+        * 고른 역할이 무엇을 하는지 칸 바로 아래에 글로 적는다 (title 에 숨기지 않는다).
+        * 둘째 역할부터는 만든 뒤 줄을 열어 더한다.
+        */}
+      <div className="mt-3">
+        <label className="label" htmlFor="new-user-role">역할</label>
+        <select id="new-user-role" name="role" value={role}
+                onChange={(e) => setRole(e.target.value as RoleCode | '')} className="input">
+          <option value="">정하지 않음 (나중에 부여)</option>
+          {roles.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
+        </select>
+        <p className="mt-1 text-xs leading-relaxed text-faint">
+          {role
+            ? ROLE_NOTE[role]
+            : '역할이 없는 계정은 로그인해도 열 화면이 없습니다. 둘째 역할부터는 만든 뒤 계정 줄에서 더합니다.'}
+        </p>
       </div>
 
       {!canLogin && (

@@ -83,6 +83,8 @@ export default async function ReleasePage() {
         )}
       </Panel>
 
+      {/* 현황의 «출하 승인 대기» 숫자가 여기로 바로 온다 (UI/UX 검수 2026-11-11) */}
+      <div id="pending">
       <Panel title="승인 기록" note="서면 요청서에 서명받은 내용을 옮겨 기재합니다. 유효기한이 이른 것부터.">
         {pending.length === 0 ? (
           <Empty hint="위에서 요청서를 발행하면 그 로트가 여기 모입니다.">
@@ -130,6 +132,7 @@ export default async function ReleasePage() {
           </div>
         )}
       </Panel>
+      </div>
 
       <Panel title="승인 완료">
         {approved.length === 0 ? (

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import Denied from '@/components/denied';
-import { requireUser, blocksScreen } from '@/lib/session';
+import { requireUser, blocksScreen, canWrite, hasRole } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import { fmtDateTime } from '@/lib/fmt';
 import { KIND_LABEL, dataHash, viewHref } from '@/lib/print';
@@ -9,6 +9,7 @@ import { Panel, Empty, Tag, Field } from '@/components/ui';
 import { PageShell } from '@/components/shell';
 import { SubNav } from '../../nav';
 import { TRACE_NAV } from '../../sections';
+import { RetrieveForm } from '../../production/[id]/batch-forms';
 
 export const dynamic = 'force-dynamic';
 
@@ -59,6 +60,12 @@ export default async function VerifyPage({
 
   const sp = await searchParams;
   const q = (sp.q ?? '').trim().toLowerCase().replace(/[^0-9a-f]/g, '');
+  /*
+   * 종이를 들고 온 자리에서 바로 회수로 적는다 (UI/UX 검수 2026-11-11). 전에는 «회수
+   * 기록은 없습니다» 라고만 하고, 적으려면 배치를 열어 인쇄 이력을 다시 찾아야 했다.
+   * 배치 화면과 같은 폼 · 같은 조건 (뒤에 재출력이 있고 아직 회수 전) 이다.
+   */
+  const canRetrieve = canWrite(user) && hasRole(user, 'SYS_ADMIN', 'PROD_MGR');
 
   const hits = q.length >= 4
     ? await withActor(user.id, (db) =>
@@ -129,7 +136,10 @@ export default async function VerifyPage({
                     {h.newer_count > 0 && (
                       <Tag tone="danger">뒤에 {h.newer_count}회 재출력</Tag>
                     )}
-                    {h.retrieved_at && <Tag tone="ok">회수됨</Tag>}
+                    {/* 회수 여부를 늘 적는다. 재출력이 있는데 회수 전이면 그것이 할 일이다 */}
+                    {h.retrieved_at
+                      ? <Tag tone="ok">회수됨</Tag>
+                      : h.newer_count > 0 && <Tag tone="warn">회수 전</Tag>}
                   </div>
 
                   <div className="grid gap-x-6 gap-y-3 sm:grid-cols-3 lg:grid-cols-4">
@@ -223,21 +233,29 @@ export default async function VerifyPage({
                       뒤에 <b className="tnum">{h.newer_count}</b>회 더 뽑혔습니다
                       (가장 최근 <b className="tnum">{h.latest_seq}회차</b>).
                       {h.retrieved_at
-                        ? <> 이 종이는 {fmtDateTime(h.retrieved_at)}에 회수로 기록되었습니다.</>
-                        : <> 회수 기록은 없습니다.</>}
+                        ? <> 이 종이는 회수로 기록되었습니다.</>
+                        : <> 회수 기록은 없습니다. 이 종이를 거둬들였으면 아래에서 회수로 기록하십시오.</>}
                     </p>
                   )}
 
-                  {h.retrieve_reason && (
-                    <p className="text-xs text-muted">회수 사유: {h.retrieve_reason}</p>
+                  {h.retrieved_at && (
+                    <p className="text-xs text-muted">
+                      회수 <span className="tnum">{fmtDateTime(h.retrieved_at)}</span>
+                      {h.retrieve_reason && <> · {h.retrieve_reason}</>}
+                    </p>
                   )}
 
-                  {h.work_order_id && (
-                    <Link href={`/production/${h.work_order_id}`}
-                          className="btn-ghost">
-                      배치 열기
-                    </Link>
-                  )}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {!h.retrieved_at && h.newer_count > 0 && canRetrieve && (
+                      <RetrieveForm id={h.id} woId={h.work_order_id ?? ''} label={h.short_hash} />
+                    )}
+                    {h.work_order_id && (
+                      <Link href={`/production/${h.work_order_id}`}
+                            className="btn-ghost">
+                        배치 열기
+                      </Link>
+                    )}
+                  </div>
                 </li>
               ))}
             </ul>

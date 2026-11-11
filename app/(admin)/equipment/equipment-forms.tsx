@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useState, useId } from 'react';
+import { useActionState, useState, useId, useEffect } from 'react';
 import type { FormState } from '@/lib/forms';
 import { Msg, Tag } from '@/components/ui';
 import Toasts from '@/components/toast';
@@ -8,7 +8,7 @@ import { Dialog, useDialog } from '@/components/dialog';
 import Link from 'next/link';
 import { fmtDate } from '@/lib/fmt';
 import { saveEquipment, linkOperation, saveValidation, deleteValidation } from './actions';
-import { CHECK_CYCLES, cycleLabel, isNoExpiry } from '@/lib/equipment-check';
+import { CHECK_CYCLES, cycleLabel, isNoExpiry, NO_EXPIRY } from '@/lib/equipment-check';
 
 /** 구입 정보와 감가상각. 원가에만 쓰이고 기록에는 나가지 않는다 */
 export interface EquipBuy {
@@ -436,6 +436,21 @@ export function EquipCard({ e, ops, warnDays, writable = true }: {
   );
 }
 
+/*
+ * 수행일과 검교정 주기로 만료일을 제안한다 (UI/UX 검수 2026-11-11 «만료일 주기로 제안»).
+ * 매년이면 1년 뒤 전날 (2026-07-01 → 2027-06-30, 시연 자료와 같은 셈), 1회면 기한 없음.
+ * 대상 아님이면 제안하지 않는다. 제안일 뿐이다 - 서면 보고서의 날짜가 정본이다.
+ */
+function suggestExpiry(performed: string, cycle: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(performed)) return '';
+  if (cycle === 'ONCE') return NO_EXPIRY;
+  if (cycle !== 'ANNUAL') return '';
+  const [y, m, d] = performed.split('-').map(Number);
+  const t = new Date(Date.UTC(y + 1, m - 1, d));
+  t.setUTCDate(t.getUTCDate() - 1);
+  return t.toISOString().slice(0, 10);
+}
+
 /* ---------------------------------------------------------------------------
    밸리데이션 등록과 이력
 
@@ -448,6 +463,19 @@ function ValidationPanel({ e, writable = true }: { e: EquipRow; writable?: boole
 
   const [state, action, pending] = useActionState<FormState, FormData>(saveValidation, {});
   const { open, setOpen } = useDialog(state);
+  /*
+   * 만료일은 사람이 손대기 전까지 수행일을 따라 채운다. 한 번 고치면 그 값을 지킨다 -
+   * 수행일을 다시 고쳐도 사람이 적은 만료일을 덮지 않는다.
+   */
+  const [performed, setPerformed] = useState('');
+  const [until, setUntil] = useState('');
+  const [untilTouched, setUntilTouched] = useState(false);
+  const suggested = suggestExpiry(performed, e.check_cycle);
+  const shownUntil = untilTouched ? until : suggested;
+  /* 등록한 뒤에는 비운다. 다음 등록에 앞의 날짜가 남지 않게 */
+  useEffect(() => {
+    if (state.ok) { setPerformed(''); setUntil(''); setUntilTouched(false); }
+  }, [state]);
 
   return (
     <div className="border-t border-line-soft">
@@ -483,11 +511,22 @@ function ValidationPanel({ e, writable = true }: { e: EquipRow; writable?: boole
             </div>
             <div>
               <label className="label" htmlFor={`${uid}-performed_on`}>수행일</label>
-              <input id={`${uid}-performed_on`} name="performed_on" type="date" required className="input tnum" />
+              <input id={`${uid}-performed_on`} name="performed_on" type="date" required
+                     value={performed} onChange={(ev) => setPerformed(ev.target.value)}
+                     className="input tnum" />
             </div>
             <div>
               <label className="label" htmlFor={`${uid}-valid_until`}>만료일</label>
-              <input id={`${uid}-valid_until`} name="valid_until" type="date" required className="input tnum" />
+              <input id={`${uid}-valid_until`} name="valid_until" type="date" required
+                     value={shownUntil}
+                     onChange={(ev) => { setUntil(ev.target.value); setUntilTouched(true); }}
+                     className="input tnum" />
+              {!untilTouched && suggested && (
+                <p className="mt-1 text-xs leading-relaxed text-faint">
+                  검교정 주기({cycleLabel(e.check_cycle)})로 채웠습니다.
+                  {suggested === NO_EXPIRY ? ' 기한 없음으로 읽습니다.' : ''} 서면 보고서의 만료일과 다르면 고치십시오.
+                </p>
+              )}
             </div>
             <div>
               <label className="label" htmlFor={`${uid}-report_no`}>보고서 번호 (필수)</label>

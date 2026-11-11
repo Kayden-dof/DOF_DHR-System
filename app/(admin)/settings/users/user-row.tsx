@@ -193,7 +193,12 @@ function RolePanel({ u, isMe, sysAdmin }: {
       {missing.length > 0 && (
         <form action={grantAction} className="flex gap-2">
           <input type="hidden" name="id" value={u.id} />
-          <select name="role" className="input flex-1" defaultValue={missing[0]}>
+          {/*
+            * 빈 선택지를 둔다 (UI/UX 검수 2026-11-11). 전에는 남은 역할의 첫째가 골라져 있어
+            * 고르지 않고 «부여» 를 누르면 작업자 역할이 붙었다.
+            */}
+          <select name="role" required className="input flex-1" defaultValue="">
+            <option value="">부여할 역할 고르기</option>
             {missing.map((r) => (
               <option key={r} value={r}>
                 {ROLE_LABEL[r]} - {ROLE_NOTE[r]}

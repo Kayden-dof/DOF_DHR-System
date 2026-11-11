@@ -334,6 +334,15 @@ export function ForceTimesForm({ recordId, woId, workDate, started, ended }: {
         <input id={`${uid}-why`} name="why" required autoComplete="off"
                placeholder="종이 제조기록서 시각에 맞춤" className="input" />
       </div>
+      {/*
+        * 저장 단추 옆 안내 (UI/UX 검수 2026-11-11). 전에는 칸만 있고 무엇이 바뀌는지,
+        * 남는지, 되돌릴 수 있는지를 말하지 않았다. 잠긴 기록을 고치는 자리다.
+        */}
+      <Caution>
+        잠긴 기록의 작업일 · 시작 · 종료 가운데 적은 칸만 바뀌고, 잠금은 그대로입니다.
+        이전 값 · 새 값 · 사유가 정정 내역으로 이 기록 아래에 남습니다.
+        <b> 저장하면 되돌릴 수 없습니다.</b> 이미 인쇄한 종이는 바뀌지 않습니다.
+      </Caution>
       <Msg state={state} />
       <div className="flex gap-2">
         <button type="submit" disabled={pending} className="btn-primary">저장</button>
@@ -473,8 +482,16 @@ export function FinishForm({ id, remaining = [] }: {
 export function DayPrintLink({
   href, locked,
 }: { href: string; locked: boolean }) {
+  if (!locked) return <Link href={href} className="btn-ghost">인쇄</Link>;
+  /*
+   * 재발행 옆 회수 안내 (UI/UX 검수 2026-11-11). 같은 기록의 종이가 두 장 도는 것이
+   * 가장 위험한데, 재발행 단추는 앞 종이를 거둬들이라는 말을 하지 않았다.
+   */
   return (
-    <Link href={href} className="btn-ghost">{locked ? '재발행' : '인쇄'}</Link>
+    <span className="inline-flex flex-col items-end gap-1">
+      <Link href={href} className="btn-ghost">재발행</Link>
+      <span className="text-xs text-muted">앞 종이는 회수해 아래 인쇄 이력에 적습니다</span>
+    </span>
   );
 }
 

@@ -38,7 +38,7 @@ interface LotRow {
   unit_price: string | null; location: string | null;
 }
 
-type Search = Promise<{ status?: string; q?: string }>;
+type Search = Promise<{ status?: string; q?: string; due?: string }>;
 
 export default async function MaterialLotsPage({ searchParams }: { searchParams: Search }) {
   const user = await requireUser();
@@ -60,6 +60,12 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
   const sp = await searchParams;
   const status = sp.status || null;
   const q = (sp.q || '').trim() || null;
+  /*
+   * due=expiry 는 현황의 «기한 임박 자재» 가 센 것만 본다 (UI/UX 검수 2026-11-11):
+   * 기한 경과로 넘어간 것 + 사용 가능인데 30일 안에 기한이 닿는 것. 현황과 같은
+   * 잣대여야 숫자와 목록이 맞는다. 기한이 이른 것부터 놓는다.
+   */
+  const due = sp.due === 'expiry' ? 'expiry' : null;
 
   const d = await withUser(user, async (db) => ({
     lots: await db.rows<LotRow>(
@@ -82,8 +88,13 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
                or i.name ilike concat('%', $2::text, '%')
                or ml.coa_no ilike concat('%', $2::text, '%')
                or ml.supplier_lot_no ilike concat('%', $2::text, '%'))
-        order by ml.received_at desc, ml.lot_no desc
-        limit 200`, [status, q]),
+          and ($3::text is null
+               or ml.status = 'EXPIRED'
+               or (ml.status = 'AVAILABLE' and ml.expiry_date is not null
+                   and ml.expiry_date < (timezone('Asia/Seoul', now()))::date + 30))
+        order by case when $3::text is not null then ml.expiry_date end nulls last,
+                 ml.received_at desc, ml.lot_no desc
+        limit 200`, [status, q, due]),
     /*
      * 입고 등록에서는 원액을 고를 수 없다. 원액은 입고하지 않고 원료로 만든다
      * (재고 증감 화면의 원액 제조). 넣으려 해도 DB 가 거부하지만, 고를 수 없는
@@ -133,14 +144,20 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
       {/* 작업 지시 · 사용자 화면과 같은 거르개다. 화면마다 다르게 굴면 규칙이 아니다 */}
       <FilterBar
         items={[
-          { href: link(), label: '전체', count: total, on: !status },
+          { href: link(), label: '전체', count: total, on: !status && !due },
           ...Object.entries(MATERIAL_STATUS_LABEL).map(([code, label]) => ({
-            href: link(code), label, count: byStatus.get(code) ?? 0, on: status === code,
+            href: link(code), label, count: byStatus.get(code) ?? 0, on: !due && status === code,
           })),
+          /* 현황에서 들어왔을 때만 서는 갈래 (UI/UX 검수 2026-11-11 · 설비 화면과 같은 꼴) */
+          ...(due
+            ? [{ href: `/material?due=expiry${q ? `&q=${encodeURIComponent(q)}` : ''}`,
+                 label: '기한 임박 · 경과', count: d.lots.length, on: true }]
+            : []),
         ]}
         extra={
           <form className="flex gap-2">
             {status && <input type="hidden" name="status" value={status} />}
+            {due && <input type="hidden" name="due" value={due} />}
             <input name="q" defaultValue={q ?? ''} autoComplete="off"
                    placeholder="로트번호 · 품목 · 성적서" className="input w-64" />
             <button className="btn-ghost">검색</button>
@@ -153,7 +170,7 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
 
       <Panel>
         {d.lots.length === 0 ? (
-          <Empty hint={status || q
+          <Empty hint={status || q || due
             ? '위에서 상태를 전체로 돌리거나 검색어를 지워 보십시오.'
             : '오른쪽 위 자재 입고 등록에서 성적서 번호와 함께 넣습니다.'}>
             해당하는 자재 로트가 없습니다.

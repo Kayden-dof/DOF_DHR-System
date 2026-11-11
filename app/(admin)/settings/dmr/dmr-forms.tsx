@@ -2,6 +2,7 @@
 
 import { useActionState, useState, useId, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter, usePathname } from 'next/navigation';
 import type { FormState } from '@/lib/forms';
 import { Msg, Tag } from '@/components/ui';
 import { Dialog, useDialog } from '@/components/dialog';
@@ -37,21 +38,59 @@ export const tierQty = (t: Pick<Tier, 'qty' | 'qty_max'>) =>
     ? `${Number(t.qty)}~${Number(t.qty_max)}` : `${Number(t.qty)}`;
 export interface ItemOption { id: string; code: string; name: string; usage_uom: string; type: string }
 
+/** 제품마다 가장 나중 개정. 새 개정 칸을 미리 채우는 데 쓴다 (UI/UX 검수 2026-11-11) */
+export interface PrevRevision {
+  /** 제품의 열쇠. 제품 코드가 없으면 대표 형명 (workbench keyOf 와 같다) */
+  key: string;
+  product_code: string | null; product_name: string | null;
+  license_no: string | null; item_id: string; revision: string;
+}
+
+/*
+ * 만든 개정 · 제품을 바로 연다 (UI/UX 검수 2026-11-11 «새 개정 추가 뒤 현행본을 엶»).
+ * 전에는 창이 닫힌 뒤 화면이 그 제품의 현행본을 열어, 방금 만든 개정을 표에서 다시
+ * 찾아 눌러야 했다. 서버가 돌려준 ?dm= 를 지금 화면 주소에 붙인다 - 설정 > 제품표준서와
+ * 생산 > 제품이 같은 폼을 쓰므로 주소를 폼이 정하지 않는다.
+ */
+function useOpenMade(state: FormState, openAt?: string) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const base = openAt ?? pathname;
+  useEffect(() => {
+    if (state.ok && state.href?.startsWith('?dm=')) router.push(`${base}${state.href}`);
+  }, [state, router, base]);
+}
+
 /* -------------------------------------------------------------------------- */
 
-export function NewDeviceMaster({ items, fix, quiet }: {
+export function NewDeviceMaster({ items, fix, quiet, products = [], current }: {
   items: ItemOption[];
   /** 완제품 형명이 없을 때 만들러 가는 자리 (lib/unblock.ts) */
   fix?: Fix;
   /** 화면 머리에 주 동작이 따로 있을 때 (생산 > 제품의 «제품 등록») 보조 단추로 선다 */
   quiet?: boolean;
+  /** 이미 있는 제품과 그 가장 나중 개정. 고르면 제품 칸을 채운다 */
+  products?: PrevRevision[];
+  /** 지금 보고 있는 제품의 열쇠. 창을 열면 그 제품으로 시작한다 */
+  current?: string;
 }) {
   /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
   const uid = useId();
 
   const [state, action, pending] = useActionState<FormState, FormData>(createDeviceMaster, {});
   const { open, setOpen } = useDialog(state);
+  useOpenMade(state);
   const fin = items.filter((i) => i.type === 'FIN');
+
+  /*
+   * 제품 코드 · 제품명을 다시 치지 않게 한다 (UI/UX 검수 2026-11-11). 새 개정은 대개
+   * 이미 있는 제품의 다음 판이다. 제품을 고르면 직전 개정의 제품 코드 · 제품명 ·
+   * 허가 번호 · 대표 형명을 채우고, 고친 값이 있으면 고친 대로 들어간다. 개정 표기는
+   * 서면에서 옮길 값이라 채우지 않고 직전 표기만 옆에 적는다.
+   */
+  const [fromKey, setFromKey] = useState(
+    current && products.some((p) => p.key === current) ? current : '');
+  const from = products.find((p) => p.key === fromKey) ?? null;
 
   return (
     <>
@@ -61,7 +100,12 @@ export function NewDeviceMaster({ items, fix, quiet }: {
         * 달랐다. 막힌 까닭은 단추 왼쪽에 둔다 - 아래에 두면 단추가 위로 올라간다.
         */}
       <div className="flex flex-row-reverse flex-wrap items-end gap-x-4 gap-y-2">
-        <button onClick={() => setOpen(true)} className={quiet ? 'btn-ghost' : 'btn-primary'}
+        <button onClick={() => {
+                  /* 열 때마다 지금 보는 제품으로 다시 시작한다. 화면을 옮겨도 폼은 남아 있다 */
+                  setFromKey(current && products.some((p) => p.key === current) ? current : '');
+                  setOpen(true);
+                }}
+                className={quiet ? 'btn-ghost' : 'btn-primary'}
                 disabled={fin.length === 0}>제품표준서 개정 추가</button>
         {fin.length === 0 && (
           <Unblock fix={fix} why="완제품 형명이 없어 대상 형명을 고를 수 없습니다."
@@ -72,23 +116,47 @@ export function NewDeviceMaster({ items, fix, quiet }: {
         <form action={action}>
       <h3 className="mb-3 text-sm font-semibold text-ink">새 개정</h3>
 
+      {/* 어느 제품의 다음 판인가 (UI/UX 검수 2026-11-11). 고르면 아래 칸이 채워진다 */}
+      {products.length > 0 && (
+        <div className="mb-3">
+          <label className="label" htmlFor={`${uid}-from`}>어느 제품의 개정인가</label>
+          <select id={`${uid}-from`} value={fromKey} onChange={(e) => setFromKey(e.target.value)}
+                  className="input">
+            <option value="">새 제품 (직접 적기)</option>
+            {products.map((p) => (
+              <option key={p.key} value={p.key}>
+                {p.key}{p.product_name ? ` · ${p.product_name}` : ''} (직전 {p.revision})
+              </option>
+            ))}
+          </select>
+          {from && (
+            <p className="mt-1 text-xs leading-relaxed text-faint">
+              직전 개정 <span className="font-mono text-ink">{from.revision}</span> 의 제품 코드 ·
+              제품명 · 허가 번호 · 대표 형명을 채웠습니다. 서면과 다르면 고치십시오.
+            </p>
+          )}
+        </div>
+      )}
+
       {/*
         * 제품이 먼저다.
         *
         * 전에는 "대상 형명"(PD05050510)만 묻고 제품 코드는 만든 뒤 따로 넣게
         * 되어 있었다. 그런데 제품은 DX2401 이고 형명은 그 아래 규격이다
         * (62종). 묻는 순서가 뒤집혀 있었다 (사용자 지적 2026-09-01).
+        *
+        * 고른 제품이 바뀌면 칸을 새로 그려 채운 값을 바꾼다 (key).
         */}
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div key={fromKey} className="grid gap-3 sm:grid-cols-2">
         <div>
           <label className="label" htmlFor={`${uid}-product_code`}>제품 코드</label>
           <input id={`${uid}-product_code`} name="product_code" required autoComplete="off"
-                 className="input font-mono" />
+                 defaultValue={from?.product_code ?? ''} className="input font-mono" />
         </div>
         <div>
           <label className="label" htmlFor={`${uid}-product_name`}>제품명</label>
           <input id={`${uid}-product_name`} name="product_name" autoComplete="off"
-                 className="input" />
+                 defaultValue={from?.product_name ?? ''} className="input" />
         </div>
         {/*
           * 허가(인증 · 신고) 번호 (0095). 서면 허가증에 적힌 번호를 그대로
@@ -100,7 +168,7 @@ export function NewDeviceMaster({ items, fix, quiet }: {
             허가 번호 <span className="text-faint">(인증 · 신고 번호)</span>
           </label>
           <input id={`${uid}-license_no`} name="license_no" autoComplete="off"
-                 className="input font-mono" />
+                 defaultValue={from?.license_no ?? ''} className="input font-mono" />
           <p className="mt-1 text-xs leading-relaxed text-faint">
             서면 허가증에 적힌 번호를 그대로 옮겨 적습니다.{' '}
             <b className="text-ink">라벨요청서와 편철 표지에 인쇄됩니다.</b>{' '}
@@ -120,11 +188,18 @@ export function NewDeviceMaster({ items, fix, quiet }: {
           <label className="label" htmlFor={`${uid}-effective_from`}>시행일</label>
           <input id={`${uid}-effective_from`} name="effective_from" type="date" className="input tnum" />
         </div>
-        <div>
+        <div key={fromKey}>
           <label className="label" htmlFor={`${uid}-item_id`}>
             대표 형명 <span className="text-faint">(채번 · 소요량 기준)</span>
           </label>
-          <select id={`${uid}-item_id`} name="item_id" required className="input">
+          {/*
+            * 빈 선택지를 둔다 (UI/UX 검수 2026-11-11). 전에는 첫 형명이 조용히 골라져,
+            * 고르지 않고 누르면 엉뚱한 형명에 개정이 붙었다. 제품을 고르면 직전 개정의
+            * 대표 형명이 골라진다.
+            */}
+          <select id={`${uid}-item_id`} name="item_id" required className="input"
+                  defaultValue={from && fin.some((i) => i.id === from.item_id) ? from.item_id : ''}>
+            <option value="">선택하십시오</option>
             {fin.map((i) => <option key={i.id} value={i.id}>{i.code} · {i.name}</option>)}
           </select>
         </div>
@@ -391,7 +466,10 @@ export function AddBomForm({ dm, op, items, fix }: {
       <input type="hidden" name="operation_id" value={op.id} />
       <div className="sm:col-span-2">
         <label className="label" htmlFor={`${uid}-component_item_id`}>자재</label>
-        <select id={`${uid}-component_item_id`} name="component_item_id" required className="input">
+        {/* 빈 선택지 (UI/UX 검수 2026-11-11). 첫 자재가 조용히 구성표에 들어가지 않게 한다 */}
+        <select id={`${uid}-component_item_id`} name="component_item_id" required defaultValue=""
+                className="input">
+          <option value="">선택하십시오</option>
           {pool.map((i) => (
             <option key={i.id} value={i.id}>{i.code} · {i.name} ({i.usage_uom})</option>
           ))}
@@ -976,7 +1054,7 @@ export function DmrLimitsForm({
                placeholder="없음" className="input tnum" />
       </div>
       <button type="submit" disabled={pending} className="btn-ghost">
-        저장
+        장입 범위 저장
       </button>
       <span className="pb-2 text-xs leading-relaxed text-faint">
         범위를 벗어난 장수로는 발행되지 않습니다. 상한을 비우면 상한이 없습니다.
@@ -1003,7 +1081,7 @@ export function ExpectedUnitsForm({ id, value }: { id: string; value: number | n
                className="input tnum" />
       </div>
       <button type="submit" disabled={pending} className="btn-ghost">
-        저장
+        예상 수량 저장
       </button>
       <span className="pb-2 text-xs leading-relaxed text-faint">
         실제 수량은 제조번호가 붙을 때 정해집니다. 발행을 제약하지 않습니다.
@@ -1125,7 +1203,7 @@ export function SamplePlanForm({ id, tiers, basis }: {
                  className="input" />
         </div>
         <button type="submit" disabled={bPending} className="btn-ghost">
-          저장
+          근거 저장
         </button>
         <Msg state={bState} className="w-full" />
       </form>
@@ -1176,7 +1254,7 @@ export function EffectiveFromForm({ id, value, verified }: {
                defaultValue={value ?? ''} className="input tnum" />
       </div>
       <button type="submit" disabled={pending} className="btn-ghost">
-        저장
+        시행일 저장
       </button>
       <span className="pb-2 text-xs leading-relaxed text-faint">
         서면 제품표준서의 시행일을 옮겨 적습니다. 그날부터 작업 지시를 낼 수 있고,
@@ -1205,7 +1283,7 @@ export function DmrNoteForm({ id, note }: { id: string; note: string | null }) {
                className="input" />
       </div>
       <button type="submit" disabled={pending} className="btn-ghost">
-        저장
+        사유 저장
       </button>
       <span className="pb-2 text-xs leading-relaxed text-faint">
         서면 제품표준서에 적힌 사유를 그대로 옮깁니다.
@@ -1247,7 +1325,7 @@ export function ProductCodeForm({ id, code, name, itemCode, license }: {
                autoComplete="off" className="input font-mono" />
       </div>
       <button type="submit" disabled={pending} className="btn-ghost">
-        저장
+        제품 표기 저장
       </button>
       <span className="pb-2 text-xs leading-relaxed text-faint">
         최상위 관리 코드입니다. 형명 <span className="font-mono">{itemCode}</span> 은
@@ -1451,17 +1529,21 @@ export function OperationSetForm({
    함께 만든다. 그다음이 공정 흐름이다.
 --------------------------------------------------------------------------- */
 export function NewProduct({
-  finished, today,
+  finished, today, openAt,
 }: {
   /** 이미 있는 완제품 형명. 새 규격이면 직접 적는다 */
   finished: { id: string; code: string; name: string }[];
   today: string;
+  /** 만든 개정을 열 화면. 비우면 지금 화면 (설정 > 제품 세우기는 작업대가 없어 제품표준서로 보낸다) */
+  openAt?: string;
 }) {
   /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
   const uid = useId();
 
   const [state, action, pending] = useActionState<FormState, FormData>(createProduct, {});
   const { open, setOpen } = useDialog(state);
+  /* 만든 제품의 개정을 바로 연다. 다음 걸음이 공정 흐름이다 (UI/UX 검수 2026-11-11) */
+  useOpenMade(state, openAt);
   const [useExisting, setUseExisting] = useState(finished.length > 0);
 
   return (

@@ -46,7 +46,8 @@ export default function AssignCell({ userId, path, state, roleOpen }: {
       <input type="hidden" name="path" value={path} />
       {btn('open', '열림', '이 사람에게 이 화면을 연다')}
       {btn('closed', '닫힘', '이 사람에게 이 화면을 닫는다')}
-      {btn('default', '기본', `역할 기본값을 따른다 (지금 ${roleOpen ? '열림' : '닫힘'})`)}
+      {/* 기본이 무엇이 되는지 글자로도 적는다 (UI/UX 검수 2026-11-11). title 은 마우스에서만 뜬다 */}
+      {btn('default', `기본 (${roleOpen ? '열림' : '닫힘'})`, `역할 기본값을 따른다 (지금 ${roleOpen ? '열림' : '닫힘'})`)}
       {msg.error && <Msg state={msg} />}
     </form>
   );

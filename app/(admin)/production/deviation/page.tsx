@@ -39,7 +39,8 @@ export default async function DeviationPage() {
               report_no, outcome, approved_by, approved_on::text as approved_on,
               closed_on::text as closed_on, registered_by_name, is_open
          from v_deviation
-        order by occurred_on desc, deviation_no desc
+        /* 종결 전이 먼저 (UI/UX 검수 2026-11-11). 손댈 것이 닫힌 것 사이에 묻히지 않게 */
+        order by is_open desc, occurred_on desc, deviation_no desc
         limit 200`),
     batches: await db.rows<{ id: string; batch_no: string }>(
       `select id, batch_no from work_order

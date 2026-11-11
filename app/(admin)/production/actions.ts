@@ -131,6 +131,12 @@ export async function issueWorkOrder(_p: FormState, form: FormData): Promise<For
         `지시서 ${out.woNo} · 배치 ${out.batchNo}를 발행했습니다. ` +
         (out.planned ? `예정 ${out.planned}개. ` : '') +
         '작업 지시서를 인쇄해 현장에 내리십시오.',
+      /*
+       * 발행 뒤 인쇄로 가는 길 (UI/UX 검수 2026-11-11). 전에는 «인쇄해 내리십시오»
+       * 라고만 하고 갈 곳이 없어, 목록에서 배치를 찾아 열어야 했다. 여는 것은
+       * 미리보기이고 남기는 것은 그 화면의 인쇄 단추다.
+       */
+      href: `/print/work-order/${out.id}`,
     };
   } catch (e) {
     return { error: dbMessage(e) };
@@ -355,6 +361,8 @@ export async function retrievePrint(_p: FormState, form: FormData): Promise<Form
       db.rows(`select retrieve_print($1, $2)`, [id, reason]));
 
     bump(String(form.get('work_order_id') ?? ''));
+    /* 인쇄물 조회에서도 회수를 적는다 (UI/UX 검수 2026-11-11). 그 화면도 새로 읽게 */
+    revalidatePath('/trace/verify');
     return { ok: true, message: '회수로 기록했습니다.' };
   } catch (e) {
     return { error: dbMessage(e) };

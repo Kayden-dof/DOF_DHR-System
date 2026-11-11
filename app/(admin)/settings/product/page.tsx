@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { requireUser, blocksScreen } from '@/lib/session';
+import { requireUser, blocksScreen, canWrite } from '@/lib/session';
+import { canOpen } from '@/lib/access';
 import { withActor } from '@/lib/db';
 import { fmtDate } from '@/lib/fmt';
 import Denied from '@/components/denied';
@@ -8,6 +9,7 @@ import { PageShell } from '@/components/shell';
 import { SubNav } from '../../nav';
 import { settingsNav } from '../../sections';
 import { SetupSteps, type SetupStep } from '../setup-steps';
+import { NewProduct } from '../dmr/dmr-forms';
 
 export const dynamic = 'force-dynamic';
 
@@ -147,17 +149,40 @@ export default async function ProductSetupPage() {
       `select count(*)::int from item i
         where i.type = 'FIN' and i.is_active
           and not exists (select 1 from device_master dm where dm.item_id = i.id)`),
+    /* «제품 등록» 이 고를 대표 형명 후보와 오늘. 생산 > 제품과 같은 값이다 */
+    finished: await db.rows<{ id: string; code: string; name: string }>(
+      `select i.id, i.code, i.name from item i
+        where i.type = 'FIN' and i.is_active
+          and not exists (select 1 from device_master dm where dm.item_id = i.id)
+        order by i.code limit 200`),
+    today: (await db.val<string>(
+      `select to_char(timezone('Asia/Seoul', now()),'YYYY-MM-DD')`)) ?? '',
   }));
+  /*
+   * 제품 등록을 이 화면 머리에도 둔다 (UI/UX 검수 2026-11-11 «제품 등록이 생산 쪽에만»).
+   * 넣는 자리는 그대로 하나다 - 같은 폼 · 같은 서버 동작이고, 만든 뒤에는 제품표준서
+   * 작업대가 그 개정을 연다. 다음 걸음(공정 흐름)이 거기 있다.
+   */
+  const canAdd = canWrite(user) && canOpen('/settings/dmr', user.roles, user.screens);
 
   return (
     <PageShell
       section="설정"
       title="제품 세우기"
       lede="제품 하나가 어디까지 섰는지 한 자리에서 봅니다. 넣는 것은 제품표준서 작업대에서 하고, 여기서는 빈 곳을 짚어 그 화면으로 보냅니다."
+      action={canAdd ? <NewProduct finished={d.finished} today={d.today} openAt="/settings/dmr" /> : null}
       nav={<SubNav items={settingsNav(user.roles, user.screens)} />}
     >
+      {/*
+        * 설정 안에서 제품을 세우러 가는 길을 둔다 (UI/UX 검수 2026-11-11). 전에는 «생산 >
+        * 제품» 이라고 글로만 적어, 설정에서 세우던 사람이 생산 구역으로 건너가야 했다.
+        * 설정 > 제품표준서에도 «제품 등록» 이 있다.
+        */}
       {d.rows.length === 0 ? (
-        <Empty hint="생산 > 제품에서 완제품을 만들고 제품표준서 개정을 등록합니다.">
+        <Empty hint="오른쪽 위의 제품 등록에서 제품 코드 · 대표 형명 · 첫 개정을 한 번에 만듭니다. 그다음 공정 흐름은 제품표준서 작업대에서 넣습니다."
+               action={canOpen('/settings/dmr', user.roles, user.screens) && (
+                 <Link href="/settings/dmr" className="btn-ghost">제품표준서 열기</Link>
+               )}>
           등록된 제품표준서가 없습니다.
         </Empty>
       ) : d.rows.map((r) => {
@@ -303,8 +328,8 @@ export default async function ProductSetupPage() {
           제품표준서가 붙지 않은 완제품 품목이 <b className="tnum text-ink">{d.orphans}</b>종
           있습니다. 형명 생성으로 만들어 둔 것이면 그대로 두어도 됩니다 - 제품표준서는
           대표 형명 하나에 붙습니다.{' '}
-          <Link href="/production/setup" className="font-semibold text-brand">생산 &gt; 제품</Link>
-          에서 새 제품을 세웁니다.
+          <Link href="/settings/dmr" className="font-semibold text-brand">제품표준서</Link>
+          에서 개정을 붙이거나, 오른쪽 위 제품 등록에서 새 제품을 세웁니다.
         </p>
       )}
     </PageShell>
