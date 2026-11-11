@@ -23,6 +23,8 @@ export interface BrSheet {
   locked: boolean;
   workDate: string;
   title: string;
+  /** 이 기록에 쓴 설비 (첫 설비부터, 대장 참조). 기기번호 칸의 고르는 창이 읽는다 */
+  equipRefs: string[];
 }
 
 /** 그 제품 · 공정의 현행 제조기록서 양식. 본 기록서가 별첨보다 먼저 (번호가 짧다) */
@@ -37,11 +39,14 @@ export async function currentForm(db: Db, product: string, op: string) {
 export async function brSheet(db: Db, recordId: string): Promise<BrSheet | null> {
   const r = await db.one<{
     id: string; work_date: string; equipment_id: string | null; op_code: string; op_name: string;
+    extra_equipment_ids: string[] | null;
+    equipment_ref: string | null; extra_equipment_refs: string[] | null;
     product_code: string | null; batch_no: string; sheet_count: number; load_unit: string | null;
     raw_lot_no: string; raw_item_code: string; worker_name: string;
     product_lot_no: string | null; product_item_code: string | null; locked: boolean;
   }>(
     `select pr.id, pr.work_date::text as work_date, pr.equipment_id,
+            pr.extra_equipment_ids, pr.equipment_ref, pr.extra_equipment_refs,
             o.code as op_code, o.name as op_name, dm.product_code,
             wo.batch_no, wo.sheet_count, dm.load_unit,
             ml.lot_no as raw_lot_no, ri.code as raw_item_code, u.full_name as worker_name,
@@ -81,7 +86,8 @@ export async function brSheet(db: Db, recordId: string): Promise<BrSheet | null>
     rawItemCode: r.raw_item_code, rawLotNo: r.raw_lot_no,
     sheets: r.sheet_count, loadUnit: r.load_unit,
     worker: r.worker_name, workDate: r.work_date,
-    issues, noLotCodes: noLot, equipment: r.equipment_id, notes: [],
+    issues, noLotCodes: noLot, equipment: r.equipment_id,
+    extraEquipment: r.extra_equipment_ids, notes: [],
     entries,
   });
   const all = fieldsOf(filled.pages);
@@ -92,6 +98,7 @@ export async function brSheet(db: Db, recordId: string): Promise<BrSheet | null>
     total: fields.length, done: fields.filter((c) => c.v).length,
     optTotal: opt.length, optDone: opt.filter((c) => c.v).length,
     locked: r.locked, workDate: r.work_date, title: `${r.op_name} · ${doc.doc_no}`,
+    equipRefs: [r.equipment_ref, ...(r.extra_equipment_refs ?? [])].filter(Boolean) as string[],
   };
 }
 

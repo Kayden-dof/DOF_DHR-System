@@ -67,6 +67,11 @@ export interface RecRow {
   product_sample: number | null;
   started_at: Date | null; ended_at: Date | null;
   equipment_id: string | null; rework_qty: number | null; no_material_reason: string | null;
+  /**
+   * 둘째부터의 설비 (0133). 없으면 이 열쇠 자체가 없다 - 설비를 하나만 쓴 기록의
+   * 자료 식별자가 이 열이 생기기 전과 그대로 맞도록 (br 과 같은 까닭).
+   */
+  extra_equipment?: string[];
   rotation_name: string | null;
   issues: { item_code: string; item_name: string; lot_no: string;
             qty: string; usage_uom: string; amend_reason: string | null }[];
@@ -114,6 +119,7 @@ export async function dayRecordPayload(
               pl.qty_produced as product_qty, pl.qty_sample as product_sample,
               pr.started_at, pr.ended_at,
               pr.equipment_id, pr.rework_qty, pr.no_material_reason,
+              pr.extra_equipment_ids as extra_equipment,
               ru.full_name as rotation_name,
               coalesce((
                 select json_agg(json_build_object(
@@ -174,6 +180,9 @@ export async function dayRecordPayload(
          * 남는 동점은 행 식별자로 끊는다.
          */
         order by o.seq, pr.attempt, pl.lot_no nulls first, pr.id`, [id, dayNo, worker]);
-  for (const r of records) if (r.br == null) delete r.br;
+  for (const r of records) {
+    if (r.br == null) delete r.br;
+    if (r.extra_equipment == null) delete r.extra_equipment;
+  }
   return { head, records };
 }

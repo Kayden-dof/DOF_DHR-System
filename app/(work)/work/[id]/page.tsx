@@ -11,6 +11,7 @@ import WorkPanel, {
   type Op, type Rec, type LotOpt, type PersonOpt, type PlOpt, type FinOpt,
   type SampleTier,
 } from './work-panel';
+import type { EquipOpt } from './br-sheet';
 
 export const dynamic = 'force-dynamic';
 
@@ -93,7 +94,15 @@ export default async function WorkBatchPage({ params }: { params: Promise<{ id: 
                 exists (select 1 from worker_qualification wq
                          where wq.operation_code = o.code) as qual_managed,
                 worker_qualified($3, o.code,
-                                 (timezone('Asia/Seoul', now()))::date) as qualified
+                                 (timezone('Asia/Seoul', now()))::date) as qualified,
+                /*
+                 * 현행 제조기록서 양식이 있는가 (기록서 중심 화면 2026-11-11). 있으면
+                 * 시작하자마자 기록서를 연다. lib/br-sheet currentForm 과 같은 조건이다.
+                 */
+                exists (select 1 from mfg_doc d
+                          join device_master dm on dm.id = o.device_master_id
+                         where d.product_code = dm.product_code and d.op_code = o.code
+                           and d.kind = 'BR' and d.is_current and d.form is not null) as has_form
            from dmr_operation o
           where o.device_master_id = $1 order by o.seq`,
         [wo.device_master_id, wo.sheet_count, user.id]),
@@ -102,6 +111,7 @@ export default async function WorkBatchPage({ params }: { params: Promise<{ id: 
                 pr.work_date::text as work_date,
                 pl.lot_no as product_lot_no, pr.started_at, pr.ended_at,
                 pr.equipment_id, pr.rework_qty, pr.no_material_reason, pr.worker_id,
+                pr.equipment_ref, pr.extra_equipment_refs,
                 u.full_name as worker_name,
                 coalesce((
                   select json_agg(json_build_object(
@@ -130,6 +140,15 @@ export default async function WorkBatchPage({ params }: { params: Promise<{ id: 
            from material_lot ml join item i on i.id = ml.item_id
           where ml.status = 'AVAILABLE' and ml.qty_available > 0 and i.type <> 'RAW'
           order by i.code, ml.expiry_date nulls last, ml.lot_no`),
+      /*
+       * 대장의 쓰는 설비 전부 - 기록서 기기번호 칸의 «전체 설비 보기» (사용자 2026-11-11
+       * «기록에 없는경우라면 버튼 한번 더 눌러서 전체 리스트»).
+       */
+      allEquipment: await db.rows<EquipOpt>(
+        `select e.id, e.code, e.name, e.check_cycle,
+                (select max(ev.valid_until) from equipment_validation ev
+                  where ev.equipment_id = e.id)::text as valid_until
+           from equipment e where e.is_active order by e.code`),
       people: await db.rows<PersonOpt>(
         `select u.id, u.full_name from app_user u
            join user_role r on r.user_id = u.id and r.role = 'WORKER'
@@ -250,6 +269,7 @@ export default async function WorkBatchPage({ params }: { params: Promise<{ id: 
         ops={d.ops}
         records={d.records}
         lots={d.lots}
+        allEquipment={d.allEquipment}
         people={d.people}
         productLots={d.productLots}
         cutOpId={d.cutOpId ?? null}

@@ -53,8 +53,16 @@ export interface FormCell {
   lb?: string;
   /** 지금 적힌 값 */
   v?: string;
+  /** 부여로트번호 칸이 가리키는 자재의 품목 코드 (자재규격 열). 비면 자재명으로 맞댄다 */
+  ic?: string;
 }
-export type FieldKind = 'choice' | 'time' | 'number' | 'text';
+/*
+ * equip · lot 은 br_entry 에 적지 않는다 (기록서 중심 화면 · 사용자 2026-11-11).
+ *   equip  기기번호 칸. 고르면 공정 기록의 설비(equipment_ref · extra_equipment_refs)가 바뀐다
+ *   lot    부여로트번호 칸. 고르면 자재 투입(material_issue)이 한 줄 생긴다
+ * 종이에 찍히는 값은 여전히 그 기록에서 온다 - 칸은 그 기록을 적는 입구일 뿐이다.
+ */
+export type FieldKind = 'choice' | 'time' | 'number' | 'text' | 'equip' | 'lot';
 export interface Entry { value: string; by: string; at: string }
 export interface FormRow { h: number; cells: FormCell[] }
 export interface FormTable { x: number; y: number; w: number; cols: number[]; rows: FormRow[] }
@@ -80,6 +88,8 @@ export interface FillData {
   /** 로트 없이 쓰는 소모품 품목 코드 (0129). 그 줄의 부여로트번호는 공란이다 */
   noLotCodes: string[];
   equipment: string | null;
+  /** 둘째부터의 설비 코드 (0133). 첫 설비와 함께 기기번호 칸의 □ 를 ■ 로 한다 */
+  extraEquipment?: string[] | null;
   /** 특이사항에 적을 줄 (시각 · 설비 · 순환자 · 사유 …) */
   notes: string[];
   /** 현장에서 적은 칸 (0132). 칸 자리 → 값 · 적은 사람 · 날짜(YYYY-MM-DD) */
@@ -178,6 +188,8 @@ export function fillForm(form: BrForm, d: FillData): { pages: FormPage[]; placed
           if (next && !norm(next.t)) {
             next.n = true; noteCell = next;
             Object.assign(next, { id: `p${pi}t${ti}r${ri}c${next.c}`, k: 'text' as const, lb: '특이사항' });
+            /* 특이사항은 있을 때만 적는다 - 빈 칸으로 세지 않는다 (조건부 · 2026-11-11) */
+            if (next.op === undefined) next.op = true;
           }
           return;
         }
@@ -225,11 +237,35 @@ export function fillForm(form: BrForm, d: FillData): { pages: FormPage[]; placed
           if (model && !norm(model.t) && d.productModel) Object.assign(model, { t: d.productModel, f: true, a: 'c' as const, s: sz });
         }
 
-        if (section === 'equip' && d.equipment) {
+        /*
+         * 기기번호 칸 (0133 · 기록서 중심 화면 2026-11-11).
+         * 쓴 설비가 여럿이면 그 칸의 □ 를 모두 ■ 로 한다. 칸을 누르면 설비를 고르는
+         * 창이 뜨도록 칸 자리(id)와 보기(o = 인쇄된 기기번호)를 붙인다.
+         */
+        if (section === 'equip') {
           const no = by('equipno');
-          if (no?.t && no.t.includes('□') && no.t.includes(d.equipment)) {
-            no.t = no.t.replace(`□ ${d.equipment}`, `■ ${d.equipment}`);
-            no.tk = [`■ ${d.equipment}`];
+          const t0 = no?.t ?? '';
+          /*
+           * 인쇄된 기기번호. 고르는 칸(□ M-012 □ M-013)과 박힌 칸(M-008) 둘 다 칸이 된다.
+           * 고르는 칸은 쓴 설비의 □ 를 ■ 로, 박힌 칸은 쓴 설비 번호를 파랗게 한다.
+           */
+          const codes = t0.match(/[A-Z]{1,3}-\d{2,4}[A-Z]?/g) ?? [];
+          if (no && codes.length) {
+            const used = [d.equipment, ...(d.extraEquipment ?? [])].filter(Boolean) as string[];
+            const hit = codes.filter((c) => used.includes(c));
+            if (t0.includes('□')) {
+              /* 기기번호는 영문 · 숫자 · 붙임표뿐이라 (위 match) 정규식에 그대로 넣는다 */
+              for (const h of hit) {
+                no.t = no.t!.replace(new RegExp(`□(\\s*)${h}(?=\\s|$)`), `■$1${h}`);
+              }
+              if (hit.length) no.tk = hit.map((h) => `■ ${h}`);
+            } else if (hit.length) {
+              no.tk = hit;
+            }
+            Object.assign(no, {
+              id: `p${pi}t${ti}r${ri}c${no.c}`, k: 'equip' as const, o: codes,
+              lb: flat(equipName) || '사용설비', v: hit.length ? hit.join(' · ') : undefined,
+            });
           }
         }
 
@@ -257,6 +293,17 @@ export function fillForm(form: BrForm, d: FillData): { pages: FormPage[]; placed
             if (text) {
               Object.assign(lotCell, { t: text, f: true, a: 'c' as const, b: false, s: sz });
               matRow.add(rowKey(ri));
+            }
+            /*
+             * 원재료(지시서가 정함)와 로트 없는 소모품을 뺀 자재 줄은 칸을 눌러 투입을
+             * 적는다 (기록서 중심 화면 2026-11-11). 값은 투입 기록에서 온다.
+             */
+            if (code !== d.rawItemCode && !(code && d.noLotCodes.includes(code))) {
+              Object.assign(lotCell, {
+                id: `p${pi}t${ti}r${ri}c${lotCell.c}`, k: 'lot' as const,
+                ic: code || undefined, lb: flat(name) || code || '자재',
+                v: text ?? undefined,
+              });
             }
           }
         }
@@ -364,6 +411,11 @@ export function fillForm(form: BrForm, d: FillData): { pages: FormPage[]; placed
     else if (!t || UNIT.test(t)) k = 'number';
     if (!k) continue;
     Object.assign(c, { id: x.id, k, lb: x.lb || '칸' });
+    /*
+     * 재단 줄(제조번호 · 모델명 · 수량)은 나온 제품 로트 수만큼만 적는다 - 조건부 칸
+     * (사용자 2026-11-11 «모두 채울 필요 없는 조건» 과 같은 성질). 양식에 따로 적힌 값이 이긴다.
+     */
+    if (x.section === 'cut' && c.op === undefined) c.op = true;
     if (k === 'choice') {
       c.o = t.split('□').slice(1).map((s) => s.replace(/\s+/g, ' ').trim()).filter(Boolean);
     }
@@ -455,6 +507,24 @@ export function applyEntry(c: FormCell, value: string) {
 /** 보기 안에 덧붙여 적을 빈자리가 있는가 (충진시간 : ~ : · ____ 분) */
 export const optionBlank = (o: string): 'time' | 'number' | null =>
   /:\s*~\s*:/.test(o) ? 'time' : /_{2,}/.test(o) ? 'number' : null;
+
+/**
+ * 양식에 박혀 인쇄된 기기번호 (고르는 □ 가 없는 칸). 그 공정을 시작할 때 이 설비를
+ * 미리 넣는다 - 종이에 이미 박혀 있으니 누를 것이 없다 (기록서 중심 화면 2026-11-11).
+ */
+export function fixedEquipCodes(form: BrForm): string[] {
+  const filled = fillForm(form, {
+    batchNo: '', productLotNo: null, productModel: null, rawItemCode: '', rawLotNo: '',
+    sheets: 0, loadUnit: null, worker: '', workDate: '', issues: [], noLotCodes: [],
+    equipment: null, notes: [],
+  });
+  const out: string[] = [];
+  for (const c of fieldsOf(filled.pages)) {
+    if (c.k !== 'equip' || (c.t ?? '').includes('□') || (c.t ?? '').includes('■')) continue;
+    for (const code of c.o ?? []) if (!out.includes(code)) out.push(code);
+  }
+  return out;
+}
 
 /** 사람이 적을 칸 목록 (화면이 몇 칸 적었는지 센다) */
 export function fieldsOf(pages: FormPage[]) {

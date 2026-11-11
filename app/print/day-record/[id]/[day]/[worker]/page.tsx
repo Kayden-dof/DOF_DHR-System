@@ -134,7 +134,9 @@ function RecordTable({ rows, title }: { rows: RecRow[]; title: string }) {
                   * 자료 식별자는 바뀌지 않는다 - 나르는 값이 그대로이고 놓는
                   * 자리만 옮겼다. 이미 인쇄된 종이의 대조가 깨지지 않는다.
                   */}
-                <td className="font-mono">{r.equipment_id ?? ''}</td>
+                <td className="font-mono">
+                  {[r.equipment_id, ...(r.extra_equipment ?? [])].filter(Boolean).join(' · ')}
+                </td>
                 <td>
                   {/*
                     * 정정한 줄에는 그 사실을 함께 적는다. 종이에서 잘못 적은 줄을
@@ -294,7 +296,8 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = fal
     const notes = [
       [`시스템 기록 · 시작 ${hms(r.started_at)} · 종료 ${hms(r.ended_at)}`,
        r.attempt > 1 ? `${r.attempt}회차` : '',
-       r.equipment_id ? `설비 ${r.equipment_id}` : ''].filter(Boolean).join(' · '),
+       r.equipment_id
+         ? `설비 ${[r.equipment_id, ...(r.extra_equipment ?? [])].join(' · ')}` : ''].filter(Boolean).join(' · '),
       r.rotation_name ? `순환자 ${r.rotation_name} (서명하지 않음)` : '',
       r.product_lot_no
         ? `제조번호 ${r.product_lot_no} · ${r.product_item_code ?? ''} · ${r.product_qty ?? ''}개`
@@ -311,7 +314,7 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = fal
       sheets: head.sheet_count, loadUnit: head.load_unit,
       worker: head.worker_name, workDate: fmtDate(head.work_date),
       issues: r.issues, noLotCodes: look.noLot,
-      equipment: r.equipment_id, notes,
+      equipment: r.equipment_id, extraEquipment: r.extra_equipment ?? null, notes,
       /* 현장에서 적은 칸 (0132) - 그 양식에 적힌 것만 */
       entries: Object.fromEntries((r.br ?? [])
         .filter((e) => e.doc === docOf.get(r.operation_code))

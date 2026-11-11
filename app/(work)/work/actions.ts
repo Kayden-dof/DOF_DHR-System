@@ -6,7 +6,8 @@ import { withActor, dbMessage } from '@/lib/db';
 import { requireUser } from '@/lib/session';
 import { isWorker, isAdmin } from '@/lib/roles';
 import type { FormState } from '@/lib/forms';
-import { brSheet, type BrSheet } from '@/lib/br-sheet';
+import { brSheet, currentForm, type BrSheet } from '@/lib/br-sheet';
+import { fixedEquipCodes } from '@/lib/br-form';
 
 async function worker() {
   const user = await requireUser();
@@ -35,13 +36,39 @@ export async function startRecord(_p: FormState, form: FormData): Promise<FormSt
     const wo = String(form.get('work_order_id') ?? '');
     const rotation = String(form.get('rotation_worker_id') ?? '').trim();
     const lot = String(form.get('product_lot_id') ?? '').trim();
+    /* 둘째부터의 설비 (0133). 쉼표로 이어 온다. 겹침 · 대장 확인은 DB 가 한다 */
+    const extra = String(form.get('extra_equipment_refs') ?? '')
+      .split(',').map((s) => s.trim()).filter(Boolean);
 
-    await withActor(me.id, (db) =>
-      db.rows(
+    const opId = String(form.get('operation_id') ?? '');
+    const first = String(form.get('equipment_ref') ?? '').trim();
+    await withActor(me.id, async (db) => {
+      /*
+       * 고른 설비가 없고 그 공정에 제조기록서가 있으면, 양식에 박혀 인쇄된 기기번호
+       * (고르는 □ 가 없는 칸)의 설비를 넣는다 (기록서 중심 화면 2026-11-11). 종이에 이미
+       * 박혀 있어 사람이 누를 것이 없다. 그 공정에 걸린 설비만 넣는다.
+       */
+      let refs = [first, ...extra].filter(Boolean);
+      if (refs.length === 0) {
+        const op = await db.one<{ product_code: string | null; code: string }>(
+          `select dm.product_code, o.code from dmr_operation o
+             join device_master dm on dm.id = o.device_master_id where o.id = $1`, [opId]);
+        const doc = op?.product_code ? await currentForm(db, op.product_code, op.code) : null;
+        const codes = doc ? fixedEquipCodes(doc.form) : [];
+        if (codes.length) {
+          refs = (await db.rows<{ id: string }>(
+            `select e.id from operation_equipment oe join equipment e on e.id = oe.equipment_id
+              where oe.operation_id = $1 and oe.is_active and e.is_active and e.code = any($2::text[])
+              order by array_position($2::text[], e.code)`, [opId, codes])).map((x) => x.id);
+        }
+      }
+      await db.rows(
         `insert into process_record (work_order_id, product_lot_id, operation_id, attempt,
-           day_no, work_date, worker_id, rotation_worker_id, equipment_ref, started_at)
-         values ($1,$2,$3,$4,$5, (timezone('Asia/Seoul', now()))::date, $6,$7,$8::uuid, now())`,
-        [wo, lot || null, String(form.get('operation_id') ?? ''),
+           day_no, work_date, worker_id, rotation_worker_id, equipment_ref, extra_equipment_refs,
+           started_at)
+         values ($1,$2,$3,$4,$5, (timezone('Asia/Seoul', now()))::date, $6,$7,$8::uuid, $9::uuid[],
+                 now())`,
+        [wo, lot || null, opId,
          // 회차는 비워 보낸다. DB 가 (배치, 공정, 제품로트) 기준으로 센다 (0055).
          // 화면이 세면 "오늘 내 기록"만 보게 되어, 어제 한 공정을 오늘 다시
          // 하면 회차가 1 로 돌아간다 (2차 검수 결함 7).
@@ -49,7 +76,9 @@ export async function startRecord(_p: FormState, form: FormData): Promise<FormSt
          me.id, rotation || null,
          // 설비 대장을 가리키는 참조. 종이에 찍힐 코드는 DB 가 그 시점의
          // 대장에서 떠 온다 (0032). 응용이 두 값을 각각 넣으면 언젠가 어긋난다
-         String(form.get('equipment_ref') ?? '').trim() || null]));
+         refs[0] ?? null,
+         refs.length > 1 ? refs.slice(1) : null]);
+    });
 
     bump(wo);
     return { ok: true, message: '공정을 시작했습니다.' };
@@ -279,5 +308,85 @@ export async function saveBrEntry(
     return sheet ?? { error: '제조기록서를 다시 읽지 못했습니다' };
   } catch (e) {
     return { error: dbMessage(e) };
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   기록서 중심 화면 (사용자 2026-11-11 «작업 시작하면 제조기록서가 바로 뜨고 거기에서
+   장비 시약 이런게 다 입력 가능한 형태로»)
+
+   기기번호 칸과 부여로트번호 칸은 br_entry 가 아니라 그 기록 자체를 고친다.
+   종이에 찍히는 값은 늘 공정 기록과 투입 기록에서 오므로, 칸은 입구일 뿐이다.
+   누가 · 언제 · 잠금(S04) · 남의 기록은 DB 가 본다.
+--------------------------------------------------------------------------- */
+
+/** 이 기록에 쓴 설비를 통째로 바꾼다. 첫 설비가 equipment_ref, 나머지가 extra (0133) */
+export async function setRecordEquipment(
+  recordId: string, woId: string, refs: string[],
+): Promise<BrSheet | { error: string }> {
+  try {
+    const me = await worker();
+    const list = [...new Set((refs ?? []).map((x) => String(x).trim()).filter(Boolean))];
+    const sheet = await withActor(me.id, async (db) => {
+      await db.rows(
+        `update process_record set equipment_ref = $2::uuid, extra_equipment_refs = $3::uuid[]
+          where id = $1`,
+        [recordId, list[0] ?? null, list.length > 1 ? list.slice(1) : null]);
+      return brSheet(db, recordId);
+    }, { reason: '공정 기록 설비 고침 (제조기록서 기기번호 칸)' });
+    bump(woId);
+    return sheet ?? { error: '제조기록서를 다시 읽지 못했습니다' };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
+/** 부여로트번호 칸에서 자재 투입을 적는다. issueMaterial 과 같은 길 (S01) */
+export async function issueFromSheet(
+  recordId: string, woId: string, lotId: string, qty: number,
+): Promise<BrSheet | { error: string }> {
+  try {
+    const me = await worker();
+    if (!lotId) return { error: '자재 로트를 고르십시오' };
+    if (!Number.isFinite(qty) || qty <= 0) return { error: '투입 수량을 적으십시오' };
+    const sheet = await withActor(me.id, async (db) => {
+      await db.rows(
+        `insert into material_issue (process_record_id, material_lot_id, qty, issued_by)
+         values ($1,$2,$3,$4)`, [recordId, lotId, qty, me.id]);
+      return brSheet(db, recordId);
+    });
+    bump(woId);
+    return sheet ?? { error: '제조기록서를 다시 읽지 못했습니다' };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
+/**
+ * 일차 마감 전에 기록서 빈 칸을 센다 (UI/UX 검수 2026-11-11). 막지 않는다 - 알린다.
+ * 조건부 칸(해당할 때만)은 세지 않는다.
+ */
+export async function dayGaps(
+  woId: string, day: number,
+): Promise<{ op: string; empty: number }[]> {
+  try {
+    const me = await worker();
+    return await withActor(me.id, async (db) => {
+      const recs = await db.rows<{ id: string; name: string; attempt: number }>(
+        `select pr.id, o.name, pr.attempt from process_record pr
+           join dmr_operation o on o.id = pr.operation_id
+          where pr.work_order_id = $1 and pr.day_no = $2 and pr.worker_id = $3
+          order by o.seq, pr.attempt`, [woId, day, me.id]);
+      const out: { op: string; empty: number }[] = [];
+      for (const r of recs) {
+        const sh = await brSheet(db, r.id);
+        if (sh && sh.total > sh.done) {
+          out.push({ op: r.attempt > 1 ? `${r.name} ${r.attempt}회차` : r.name, empty: sh.total - sh.done });
+        }
+      }
+      return out;
+    });
+  } catch {
+    return [];
   }
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useEffect, useMemo, useState, useId } from 'react';
+import { useActionState, useEffect, useMemo, useRef, useState, useId } from 'react';
 import Link from 'next/link';
 import type { FormState } from '@/lib/forms';
 import { daysUntilKST } from '@/lib/kst';
@@ -9,12 +9,12 @@ import { fmtDateTime } from '@/lib/fmt';
 import { Msg, Tag } from '@/components/ui';
 import NumPad, { PresetPicker } from '@/components/num-pad';
 import { Dialog } from '@/components/dialog';
-import { BrSheetButton } from './br-sheet';
+import { BrSheetView, useBrSheet, emptyOf, type EquipOpt, type SheetCtx } from './br-sheet';
 import { todayKST } from '@/lib/kst';
 import { isNoExpiry } from '@/lib/equipment-check';
 import {
   startRecord, issueMaterial, endRecord, closeDay, cutAtField,
-  amendIssue, returnIssue,
+  amendIssue, returnIssue, dayGaps,
 } from '../actions';
 
 
@@ -43,6 +43,8 @@ export interface Op {
   equipment: { id: string; code: string; name: string; valid_until: string | null;
                /** 검교정 주기 (0126). NONE 이면 짚지 않는다 */
                check_cycle?: string | null }[];
+  /** 이 제품 · 공정에 현행 제조기록서 양식이 있는가. 있으면 시작하자마자 기록서를 연다 */
+  has_form?: boolean;
 }
 export interface Rec {
   id: string; operation_id: string; day_no: number; attempt: number;
@@ -50,6 +52,8 @@ export interface Rec {
   product_lot_id: string | null; product_lot_no: string | null;
   started_at: Date | null; ended_at: Date | null;
   equipment_id: string | null; rework_qty: number | null; no_material_reason: string | null;
+  /** 이 기록에 쓴 설비 (대장 참조). 첫 설비 · 둘째부터 (0133) */
+  equipment_ref?: string | null; extra_equipment_refs?: string[] | null;
   worker_id: string; worker_name: string;
   issues: { id: string; item_id: string; item_code: string; item_name: string;
             lot_no: string; qty: string; usage_uom: string;
@@ -108,8 +112,10 @@ const REASONS = [
 export default function WorkPanel({
   woId, batchNo, sheets, splitOp, loadUnit, expiryWarnDays,
   ops, records, lots, people, productLots, meId, lockedDays,
-  cutOpId, finished, sampleTiers, sampleBasis, band, today,
+  cutOpId, finished, sampleTiers, sampleBasis, band, today, allEquipment = [],
 }: {
+  /** 대장의 쓰는 설비 전부. 기록서 기기번호 칸의 «전체 설비 보기» 가 읽는다 */
+  allEquipment?: EquipOpt[];
   woId: string; batchNo: string; sheets: number;
   /** 갈림 공정 이름. 갈림이 없는 품목이면 null (0101) */
   splitOp: string | null;
@@ -152,6 +158,9 @@ export default function WorkPanel({
     // 내가 마지막으로 손댄 일차를 연다. 없으면 배치의 마지막 일차.
     [...myDays].sort((a, b) => a - b).at(-1) ?? days.at(-1) ?? 1);
   const [opId, setOpId] = useState<string | null>(null);
+  /* 공정 마감 뒤 다음 공정으로 넘어왔는가 - 그때만 그 카드로 화면을 옮긴다 */
+  const [advanced, setAdvanced] = useState(false);
+  const pickOp = (id: string | null) => { setAdvanced(false); setOpId(id); };
   const [showEarlier, setShowEarlier] = useState(false);
 
   /*
@@ -258,6 +267,24 @@ export default function WorkPanel({
   const earlier = ops.filter((o) => stateOf(o) === 'none' && closedElsewhere(o));
 
   const mine = ops.filter((o) => stateOf(o) === 'done').length;
+
+  /*
+   * 공정 마감 뒤 다음 공정으로 (UI/UX 검수 2026-11-11).
+   *
+   * 전에는 마감해도 같은 공정 판이 그대로 있고 그 자리에 «다시 시작하면 2회차» 시작
+   * 양식이 떴다. 다음 손이 재작업 시작 단추로 갔다. 이제 오늘 할 일에서 아직 안 끝난
+   * 다음 공정을 고른 채로 둔다. 재단 이후 공정은 남은 제품 로트가 있으면 그 공정에 남는다.
+   */
+  const goNext = (cur: Op) => {
+    if (cur.after_cutting) {
+      const { done, total } = lotsDone(cur);
+      if (total > 0 && done.size + 1 < total) return;
+    }
+    const at = todo.findIndex((o) => o.id === cur.id);
+    const next = todo.slice(at + 1).find((o) => stateOf(o) !== 'done') ?? null;
+    setAdvanced(true);
+    setOpId(next?.id ?? null);
+  };
 
   return (
     <div className="space-y-5">
@@ -374,7 +401,7 @@ export default function WorkPanel({
                       ? { done: lotsDone(o).done.size, total: lotsDone(o).total }
                       : null}
                     selected={o.id === opId}
-                    onPick={() => setOpId(o.id === opId ? null : o.id)} />
+                    onPick={() => pickOp(o.id === opId ? null : o.id)} />
           ))}
         </div>
 
@@ -402,7 +429,7 @@ export default function WorkPanel({
                 {earlier.map((o) => (
                   <OpTile key={o.id} o={o} state="closed" others={closedElsewhere(o)}
                           selected={o.id === opId}
-                          onPick={() => setOpId(o.id === opId ? null : o.id)} />
+                          onPick={() => pickOp(o.id === opId ? null : o.id)} />
                 ))}
               </div>
             )}
@@ -418,6 +445,13 @@ export default function WorkPanel({
         */}
       {op && (
         <OperationCard
+          key={op.id}
+          allEquipment={allEquipment}
+          onEnded={() => goNext(op)}
+          scrollOnMount={advanced}
+          doneLotIds={op.after_cutting ? [...lotsDone(op).done] : []}
+          lotsLeft={op.after_cutting
+            && lotsDone(op).total > 0 && lotsDone(op).done.size < lotsDone(op).total}
           woId={woId} day={day} op={op} rec={rec} lots={lots} people={people}
           productLots={productLots} locked={locked} sheets={sheets}
           splitOp={splitOp} loadUnit={loadUnit} expiryWarnDays={expiryWarnDays}
@@ -546,7 +580,16 @@ function OperationCard({
   expiryWarnDays,
   attemptCount,
   isCut, finished, sampleTiers, sampleBasis, band, cutDate,
+  allEquipment, onEnded, scrollOnMount, doneLotIds, lotsLeft,
 }: {
+  allEquipment: EquipOpt[];
+  /** 공정을 마감했다. 현장 판이 다음 공정으로 넘긴다 */
+  onEnded: () => void;
+  scrollOnMount: boolean;
+  /** 재단 이후 공정에서 이미 마감한 제품 로트 */
+  doneLotIds: string[];
+  /** 재단 이후 공정에 아직 남은 제품 로트가 있는가 */
+  lotsLeft: boolean;
   woId: string; day: number; op: Op; rec: Rec | null; lots: LotOpt[];
   people: PersonOpt[]; productLots: PlOpt[]; locked: boolean; sheets: number;
   splitOp: string | null; loadUnit: string | null; expiryWarnDays: number;
@@ -556,10 +599,34 @@ function OperationCard({
   /** 이 일차의 작업일. 재단이면 제조일 기본값이 된다 */
   cutDate: string;
 }) {
-  const running = rec && !rec.ended_at;
+  const running = !!rec && !rec.ended_at;
+  const br = useBrSheet(op.has_form && rec && !locked ? rec.id : null);
+  const hasForm = !!op.has_form && !br.noForm;
+  const [open, setOpen] = useState(false);
+  /* 시작하면 기록서를 바로 연다 (사용자 2026-11-11 «작업 시작하면 제조기록서가 바로 뜨고») */
+  const [wantOpen, setWantOpen] = useState(false);
+  const [restart, setRestart] = useState(false);
+  const top = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (scrollOnMount) top.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, []);
+  useEffect(() => {
+    if (wantOpen && running && br.sheet) { setOpen(true); setWantOpen(false); }
+    if (wantOpen && br.noForm) setWantOpen(false);
+  }, [wantOpen, running, br.sheet, br.noForm]);
+
+  const ctx: SheetCtx = {
+    woId, linked: op.equipment, allEquipment, bom: op.bom, lots,
+    issues: rec?.issues ?? [], expiryWarnDays, sheets, loadUnit,
+  };
+  const recorded = new Set((rec?.issues ?? []).map((x) => x.item_id));
+  const missing = op.bom.filter((b) => b.lot_tracked !== false && !recorded.has(b.item_id));
+  /* 마감한 공정이면 시작 양식을 곧장 내지 않는다. 재단 이후 공정에 남은 로트가 있으면 낸다 */
+  const showStart = !rec || (!!rec.ended_at && (restart || lotsLeft));
 
   return (
-    <section className="card overflow-hidden">
+    <section ref={top} className="card scroll-mt-4 overflow-hidden">
       <header className="section-head bg-brand-soft">
         <div>
           <h2 className="text-base font-semibold text-ink">{op.name}</h2>
@@ -576,23 +643,75 @@ function OperationCard({
 
       {locked ? (
         <p className="py-6 text-sm text-muted">마감된 일차입니다.</p>
-      ) : !rec || rec.ended_at ? (
+      ) : showStart ? (
         <StartCard woId={woId} day={day} op={op} people={people}
                    productLots={productLots} attempt={attemptCount + 1}
-                   done={!!rec?.ended_at} splitOp={splitOp} />
-      ) : (
-        <RunningCard woId={woId} op={op} rec={rec} lots={lots} sheets={sheets}
-                     loadUnit={loadUnit} expiryWarnDays={expiryWarnDays} />
-      )}
-
-      {/*
-        * 제조기록서 칸 (0132). 종이 제조기록서의 확인 · 결과 칸을 여기서 적는다.
-        * 공정을 시작한 뒤부터 일차를 마감하기 전까지. 양식이 없는 공정에는 단추가 안 나온다.
-        */}
-      {rec && !locked && (
-        <div className="border-t border-line py-3">
-          <BrSheetButton recordId={rec.id} />
+                   done={!!rec?.ended_at && !op.after_cutting} splitOp={splitOp}
+                   doneLotIds={doneLotIds}
+                   onStarted={() => { setRestart(false); if (op.has_form) setWantOpen(true); }} />
+      ) : rec && rec.ended_at ? (
+        /*
+         * 마감한 공정 (UI/UX 검수 2026-11-11). 전에는 같은 자리에 시작 양식이 다시 떠
+         * 다음 손이 «2회차 시작» 으로 갔다. 재작업은 한 번 더 눌러야 열린다.
+         */
+        <div className="space-y-3 py-4">
+          <p className="rounded-md bg-ok-bg px-3 py-2.5 text-sm leading-relaxed text-ink">
+            <b>{op.name}</b>을 마감했습니다.
+            {' '}시작 <span className="tnum">{fmtDateTime(rec.started_at)}</span>
+            {' '}· 종료 <span className="tnum">{fmtDateTime(rec.ended_at)}</span>
+          </p>
+          {hasForm && br.sheet && (
+            <button type="button" onClick={() => setOpen(true)} className="btn-ghost w-full">
+              제조기록서 보기 · 고치기
+              {emptyOf(br.sheet) > 0 && <span className="chip bg-warn-bg text-warn">빈 칸 {emptyOf(br.sheet)}</span>}
+            </button>
+          )}
+          <button type="button" onClick={() => setRestart(true)} className="btn-quiet w-full">
+            재작업으로 다시 시작 ({attemptCount + 1}회차)
+          </button>
         </div>
+      ) : rec && hasForm ? (
+        /*
+         * 기록서가 있는 공정 (기록서 중심 화면 2026-11-11). 설비 · 자재 · 확인 · 마감을
+         * 기록서 창에서 한다. 양식에 칸이 없는 자재만 아래 접힘에서 넣는다.
+         */
+        <div className="space-y-3 py-4">
+          {op.qual_managed && !op.qualified && (
+            <p className="rounded-md border border-warn/40 bg-warn-bg px-3 py-2.5 text-sm leading-relaxed text-ink">
+              이 공정의 <b>유효한 자격이 없습니다.</b> 기록은 남길 수 있으나 검토에서 짚힙니다.
+              생산관리자에게 알리십시오.
+            </p>
+          )}
+          <button type="button" onClick={() => setOpen(true)} disabled={!br.sheet}
+                  className="btn-primary w-full">
+            {br.sheet ? '제조기록서 열기' : '기록서를 읽는 중'}
+            {br.sheet && emptyOf(br.sheet) > 0 && (
+              <span className="chip bg-white/90 text-warn">빈 칸 {emptyOf(br.sheet)}</span>
+            )}
+          </button>
+          <details className="rounded-md border border-line-soft px-3 py-2">
+            <summary className="cursor-pointer py-1 text-sm font-semibold text-muted">
+              기록서에 칸이 없는 자재 넣기
+            </summary>
+            <MaterialForm woId={woId} rec={rec} op={op} lots={lots} sheets={sheets}
+                          loadUnit={loadUnit} expiryWarnDays={expiryWarnDays} />
+          </details>
+          <EndForm woId={woId} rec={rec} op={op} missing={missing}
+                   empty={br.sheet ? emptyOf(br.sheet) : 0} onEnded={onEnded} />
+        </div>
+      ) : rec ? (
+        <RunningCard woId={woId} op={op} rec={rec} lots={lots} sheets={sheets}
+                     loadUnit={loadUnit} expiryWarnDays={expiryWarnDays} onEnded={onEnded} />
+      ) : null}
+
+      {open && br.sheet && (
+        <BrSheetView sheet={br.sheet} onSheet={br.setSheet} onClose={() => setOpen(false)}
+                     busy={br.pending} ctx={ctx}
+                     endSlot={running && rec ? (cancel) => (
+                       <EndForm woId={woId} rec={rec} op={op} missing={missing} compact
+                                empty={emptyOf(br.sheet!)} onCancel={cancel}
+                                onEnded={() => { setOpen(false); onEnded(); }} />
+                     ) : undefined} />
       )}
 
       {/*
@@ -641,20 +760,30 @@ function OperationCard({
 
 /* -------------------------------------------------------------------------- */
 
-function StartCard({ woId, day, op, people, productLots, attempt, done, splitOp }: {
+function StartCard({ woId, day, op, people, productLots, attempt, done, splitOp, doneLotIds = [], onStarted }: {
   woId: string; day: number; op: Op; people: PersonOpt[]; productLots: PlOpt[];
   attempt: number; done: boolean; splitOp: string | null;
+  /** 재단 이후 공정에서 이미 마감한 제품 로트 */
+  doneLotIds?: string[];
+  /** 시작했다. 기록서가 있는 공정이면 카드가 기록서를 연다 */
+  onStarted?: () => void;
 }) {
   const [state, action, pending] = useActionState<FormState, FormData>(startRecord, {});
+  useEffect(() => { if (state.ok) onStarted?.(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [state]);
   const [rotation, setRotation] = useState('');
-  const [lot, setLot] = useState('');
+  /* 남은 제품 로트가 하나면 미리 고른다 */
+  const leftLots = productLots.filter((p) => !doneLotIds.includes(p.id));
+  const [lot, setLot] = useState(leftLots.length === 1 ? leftLots[0].id : '');
   /*
    * 설비를 하나만 걸어 둔 공정이면 눌러야 할 것이 하나뿐이라 미리 골라 둔다.
    * 장갑 낀 손으로 답이 정해진 타일을 한 번 더 누르게 만들 이유가 없다.
+   *
+   * 여럿을 고를 수 있다 (0133 · 사용자 2026-11-11 «설비 여러개를 한번에 쓰는 경우»).
+   * 첫 설비가 equipment_ref, 나머지가 extra_equipment_refs 로 간다.
    */
   // 대장을 가리키는 참조를 보낸다. 코드는 DB 가 그 시점 대장에서 떠 온다
-  const [equip, setEquip] = useState(
-    op.equipment.length === 1 ? op.equipment[0].id : '');
+  const [equip, setEquip] = useState<string[]>(
+    op.equipment.length === 1 ? [op.equipment[0].id] : []);
 
   return (
     <form action={action} className="space-y-4 py-4">
@@ -664,7 +793,8 @@ function StartCard({ woId, day, op, people, productLots, attempt, done, splitOp 
       <input type="hidden" name="attempt" value={attempt} />
       <input type="hidden" name="rotation_worker_id" value={rotation} />
       <input type="hidden" name="product_lot_id" value={lot} />
-      <input type="hidden" name="equipment_ref" value={equip} />
+      <input type="hidden" name="equipment_ref" value={equip[0] ?? ''} />
+      <input type="hidden" name="extra_equipment_refs" value={equip.slice(1).join(',')} />
 
       {done && (
         <p className="rounded-md bg-warn-bg px-3 py-2.5 text-sm leading-relaxed text-ink">
@@ -686,7 +816,10 @@ function StartCard({ woId, day, op, people, productLots, attempt, done, splitOp 
               {productLots.map((p) => (
                 <button key={p.id} type="button" onClick={() => setLot(p.id)}
                         data-on={lot === p.id} className="tile">
-                  <span className="font-mono text-base font-semibold">{p.lot_no}</span>
+                  <span className="flex items-center gap-2 font-mono text-base font-semibold">
+                    {p.lot_no}
+                    {doneLotIds.includes(p.id) && <Tag tone="ok">마감함</Tag>}
+                  </span>
                   <span className="text-xs text-muted">{p.item_name}</span>
                 </button>
               ))}
@@ -702,9 +835,19 @@ function StartCard({ woId, day, op, people, productLots, attempt, done, splitOp 
         * 설비 미기록은 그중에 없다. 이 공정에 걸린 설비가 없으면 칸 자체가
         * 나오지 않는다.
         */}
-      {op.equipment.length > 0 && (
+      {/*
+        * 기록서가 있는 공정은 설비를 기록서의 기기번호 칸에서 고른다 (기록서 중심 화면).
+        * 여기서는 걸린 설비가 하나면 미리 고른 것을 그대로 보낸다 - 누를 것이 없다.
+        */}
+      {op.has_form && op.equipment.length > 0 && (
+        <p className="text-sm text-muted">
+          설비는 시작하면 뜨는 제조기록서의 <b className="text-ink">기기번호 칸</b>에서 고릅니다.
+          {op.equipment.length === 1 && <> 이 공정에 걸린 설비 <b className="font-mono text-ink">{op.equipment[0].code}</b> 를 미리 골라 둡니다.</>}
+        </p>
+      )}
+      {!op.has_form && op.equipment.length > 0 && (
         <div>
-          <span className="label">설비</span>
+          <span className="label">설비 (여럿 고를 수 있음)</span>
           <div className="grid gap-2 sm:grid-cols-2">
             {/*
               * 밸리데이션 기한이 지난 설비는 타일에 그 사실이 붙는다. 골라도
@@ -717,8 +860,8 @@ function StartCard({ woId, day, op, people, productLots, attempt, done, splitOp 
               const gone = !exempt && (!q.valid_until || q.valid_until < todayKST());
               return (
                 <button key={q.code} type="button"
-                        onClick={() => setEquip((v) => (v === q.id ? '' : q.id))}
-                        data-on={equip === q.id} className="tile">
+                        onClick={() => setEquip((v) => (v.includes(q.id) ? v.filter((x) => x !== q.id) : [...v, q.id]))}
+                        data-on={equip.includes(q.id)} className="tile">
                   <span className="flex items-center gap-2 font-mono text-base font-semibold">
                     {q.code}
                     {gone && (
@@ -792,17 +935,19 @@ function StartCard({ woId, day, op, people, productLots, attempt, done, splitOp 
               className="btn-primary w-full">
         {pending ? '시작하는 중' : `${op.name} 시작`}
       </button>
+      {op.has_form && (
+        <p className="text-center text-xs text-muted">시작하면 이 공정의 제조기록서가 바로 뜹니다.</p>
+      )}
     </form>
   );
 }
 
 /* -------------------------------------------------------------------------- */
 
-function RunningCard({ woId, op, rec, lots, sheets, loadUnit, expiryWarnDays }: {
+function RunningCard({ woId, op, rec, lots, sheets, loadUnit, expiryWarnDays, onEnded }: {
   woId: string; op: Op; rec: Rec; lots: LotOpt[]; sheets: number;
-  loadUnit: string | null; expiryWarnDays: number;
+  loadUnit: string | null; expiryWarnDays: number; onEnded?: () => void;
 }) {
-  const [tab, setTab] = useState<'material' | 'end'>('material');
   const recorded = new Set(rec.issues.map((x) => x.item_id));
   /* 로트 없이 쓰는 소모품은 적을 것이 없다. 남은 자재로 세지 않는다 (0129 · S05 와 같은 규칙) */
   const missing = op.bom.filter((b) => b.lot_tracked !== false && !recorded.has(b.item_id));
@@ -824,33 +969,15 @@ function RunningCard({ woId, op, rec, lots, sheets, loadUnit, expiryWarnDays }: 
           검토에서 짚힙니다. 생산관리자에게 알리십시오.
         </p>
       )}
-      {/* 장갑 낀 손이 누른다. 전환 단추도 조작 대상이므로 --tap 을 그대로 받는다 */}
-      <div className="grid grid-cols-2 gap-1 border-b border-line py-2">
-        {(['material', 'end'] as const).map((t) => (
-          <button key={t} type="button" onClick={() => setTab(t)}
-                  aria-pressed={tab === t}
-                  className={`no-select flex h-[var(--tap)] items-center justify-center gap-2 rounded-md text-base font-semibold transition-colors ${
-                    tab === t
-                      ? 'bg-brand-tint text-brand'
-                      : 'text-muted hover:bg-surface-sub'
-                  }`}>
-            {t === 'material' ? '자재 투입' : '공정 마감'}
-            {t === 'material' && rec.issues.length > 0 && (
-              <span className="chip bg-brand text-white">{rec.issues.length}</span>
-            )}
-            {t === 'end' && missing.length > 0 && (
-              <span className="chip bg-warn-bg text-warn">자재 {missing.length}종 남음</span>
-            )}
-          </button>
-        ))}
+      {/*
+        * 자재 투입과 공정 마감을 위아래로 둔다 (UI/UX 검수 2026-11-11). 전에는 탭으로
+        * 갈려 마감하려면 탭을 한 번 더 눌렀다.
+        */}
+      <MaterialForm woId={woId} rec={rec} op={op} lots={lots} sheets={sheets}
+                    loadUnit={loadUnit} expiryWarnDays={expiryWarnDays} />
+      <div className="border-t border-line">
+        <EndForm woId={woId} rec={rec} op={op} missing={missing} onEnded={onEnded} />
       </div>
-
-      {tab === 'material' ? (
-        <MaterialForm woId={woId} rec={rec} op={op} lots={lots} sheets={sheets}
-                      loadUnit={loadUnit} expiryWarnDays={expiryWarnDays} />
-      ) : (
-        <EndForm woId={woId} rec={rec} op={op} missing={missing} />
-      )}
     </div>
   );
 }
@@ -861,9 +988,16 @@ function MaterialForm({ woId, rec, op, lots, sheets, loadUnit, expiryWarnDays }:
 }) {
   const [state, action, pending] = useActionState<FormState, FormData>(issueMaterial, {});
   const [lotId, setLotId] = useState('');
+  /*
+   * 구성표 밖 로트도 고를 수 있게 한다 (사용자 2026-11-11 «기록에 없는 경우라면 버튼
+   * 한번 더 눌러서 전체 리스트»). 전에는 구성표에 자재가 있으면 그 밖의 로트는 고를
+   * 길이 없었다. 고른 것은 그대로 기록되고 검토가 «표준서 밖» 으로 짚는다 (0135).
+   */
+  const [all, setAll] = useState(false);
 
   const bomItems = new Set(op.bom.map((b) => b.item_id));
-  const pool = lots.filter((l) => bomItems.size === 0 || bomItems.has(l.item_id));
+  const listed = lots.filter((l) => bomItems.size === 0 || bomItems.has(l.item_id));
+  const pool = all ? lots : listed;
   const lot = pool.find((l) => l.id === lotId);
   const bom = op.bom.find((b) => b.item_id === lot?.item_id);
   const need = bom?.required ? Number(bom.required) : null;
@@ -930,6 +1064,12 @@ function MaterialForm({ woId, rec, op, lots, sheets, loadUnit, expiryWarnDays }:
     </div>
   );
 
+  const widen = !all && lots.length > listed.length && (
+    <button type="button" onClick={() => setAll(true)} className="btn-ghost w-full">
+      전체 자재 로트 보기 ({lots.length - listed.length})
+    </button>
+  );
+
   if (pool.length === 0) {
     /* 로트 없이 쓰는 소모품만 걸린 공정이면 적을 것이 없다. 입고를 요청할 일도 아니다 */
     const allNoLot = op.bom.length > 0 && op.bom.every((b) => b.lot_tracked === false);
@@ -941,6 +1081,7 @@ function MaterialForm({ woId, rec, op, lots, sheets, loadUnit, expiryWarnDays }:
             ? '이 공정의 자재는 로트 없이 쓰는 소모품이라 적을 것이 없습니다. 공정 마감으로 넘어가십시오.'
             : '이 공정에 넣을 수 있는 자재 로트가 없습니다. 관리자에게 입고를 요청하십시오.'}
         </p>
+        {widen}
       </div>
     );
   }
@@ -973,7 +1114,12 @@ function MaterialForm({ woId, rec, op, lots, sheets, loadUnit, expiryWarnDays }:
             return (
               <button key={l.id} type="button" onClick={() => setLotId(l.id)}
                       data-on={lotId === l.id} className="tile">
-                <span className="font-mono text-base font-semibold">{l.lot_no}</span>
+                <span className="flex flex-wrap items-center gap-2 font-mono text-base font-semibold">
+                  {l.lot_no}
+                  {bomItems.size > 0 && !bomItems.has(l.item_id) && (
+                    <span className="chip bg-warn-bg text-warn">구성표 밖</span>
+                  )}
+                </span>
                 <span className="text-xs text-muted">
                   {l.item_name} · 잔여 <span className="tnum">{Number(l.qty_available)}</span> {l.usage_uom}
                 </span>
@@ -989,6 +1135,13 @@ function MaterialForm({ woId, rec, op, lots, sheets, loadUnit, expiryWarnDays }:
             );
           })}
         </div>
+        {widen && <div className="mt-2">{widen}</div>}
+        {all && bomItems.size > 0 && (
+          <p className="mt-2 text-xs leading-relaxed text-muted">
+            «구성표 밖» 로트는 이 공정의 자재 구성표에 없는 품목입니다. 넣으면 그대로 기록되고,
+            제품표준서는 바뀌지 않으며, 검토에서 짚습니다.
+          </p>
+        )}
       </div>
 
       {lot && (
@@ -1032,12 +1185,19 @@ function MaterialForm({ woId, rec, op, lots, sheets, loadUnit, expiryWarnDays }:
   );
 }
 
-function EndForm({ woId, rec, op, missing }: {
+function EndForm({ woId, rec, op, missing, compact = false, empty = 0, onCancel, onEnded }: {
   woId: string; rec: Rec; op: Op;
   missing: { item_code: string; item_name: string }[];
+  /** 기록서 창 아래 막대에서 연 것. 막대의 «공정 마감» 이 첫 누름이라 곧장 확인을 보인다 */
+  compact?: boolean;
+  /** 기록서 빈 노란 칸 수. 막지 않고 확인 문구에 적는다 */
+  empty?: number;
+  onCancel?: () => void;
+  onEnded?: () => void;
 }) {
   const [state, action, pending] = useActionState<FormState, FormData>(endRecord, {});
-  const [confirm, setConfirm] = useState(false);
+  const [confirm, setConfirm] = useState(compact);
+  useEffect(() => { if (state.ok) onEnded?.(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [state]);
 
   return (
     <form action={action} className="space-y-4 py-4">
@@ -1078,15 +1238,20 @@ function EndForm({ woId, rec, op, missing }: {
         <div className="space-y-3">
           <p className="rounded-md bg-canvas px-3 py-2.5 text-sm leading-relaxed text-ink">
             <b>{op.name}</b>을 마감합니다. 종료 시각이 지금으로 찍힙니다.
-            마감 후에도 일차를 마감하기 전이면 자재를 더 넣을 수 있습니다.
+            마감 후에도 일차를 마감하기 전이면 기록서 칸과 자재를 더 적을 수 있습니다.
+            {empty > 0 && (
+              <span className="mt-1 block font-semibold text-warn">
+                기록서 빈 노란 칸이 {empty}곳 남아 있습니다. 해당 없는 칸이면 그대로 마감해도 됩니다.
+              </span>
+            )}
           </p>
           <div className="flex gap-2">
             <button type="submit" disabled={pending} className="btn-primary flex-1">
               {pending ? '마감하는 중' : '마감한다'}
             </button>
-            <button type="button" onClick={() => setConfirm(false)}
+            <button type="button" onClick={() => (onCancel ? onCancel() : setConfirm(false))}
                     className="btn-ghost flex-1">
-              취소
+              그만
             </button>
           </div>
         </div>
@@ -1102,6 +1267,16 @@ function CloseDayCard({ woId, day, batchNo, openOps }: {
 }) {
   const [state, action, pending] = useActionState<FormState, FormData>(closeDay, {});
   const [confirm, setConfirm] = useState(false);
+  /*
+   * 기록서 빈 노란 칸 (UI/UX 검수 2026-11-11). 막지 않는다 - 마감 전에 알린다.
+   * 마감하면 그 칸은 영영 빈 채로 종이에 나간다.
+   */
+  const [gaps, setGaps] = useState<{ op: string; empty: number }[]>([]);
+  useEffect(() => {
+    let alive = true;
+    dayGaps(woId, day).then((g) => { if (alive) setGaps(g); });
+    return () => { alive = false; };
+  }, [woId, day, openOps.length]);
   /*
    * 열린 공정이 있으면 마감 자체를 내주지 않는다 (사용자 결정 2026-09-02).
    *
@@ -1132,6 +1307,14 @@ function CloseDayCard({ woId, day, batchNo, openOps }: {
             마감하면 그 칸은 영영 빈 채로 남습니다. 위 공정 판의 <b>공정 마감</b>을 먼저 누르십시오.
             자재를 적을 것이 없으면 해당없음 사유를 적고 마감하면 됩니다.
           </p>
+        </div>
+      )}
+
+      {!blocked && gaps.length > 0 && (
+        <div className="mt-3 rounded-md border border-warn/40 bg-warn-bg px-3 py-3 text-sm leading-relaxed text-ink">
+          <b>제조기록서에 빈 노란 칸이 있습니다.</b>{' '}
+          {gaps.map((g) => `${g.op} ${g.empty}곳`).join(' · ')}
+          <p className="mt-1 text-muted">해당 없는 칸이면 그대로 마감해도 됩니다. 마감하면 빈 칸은 빈 채로 종이에 나갑니다.</p>
         </div>
       )}
 

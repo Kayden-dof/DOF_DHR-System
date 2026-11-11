@@ -200,4 +200,29 @@ export default [
   },
 },
 
+{
+  id: 'RH-09', expect: '확인',
+  name: '공정에 걸리지 않은 설비 · 구성표에 없는 자재를 쓰면 검토가 «표준서 밖» 으로 짚는다 (0135)',
+  async run(t) {
+    const m = await master(t);
+    const wo = await newWorkOrder(t, m);
+    const eq = await t.val(`insert into equipment (code, name) values ('RH-X1','대체 설비') returning id`);
+    const lot = await newMaterialLot(t, m, m.reagent2);   // 03 공정 구성표에는 reagent 만 있다
+    await t.setActor(m.admin);
+    const pr = await t.val(
+      `insert into process_record (work_order_id, operation_id, day_no, work_date, worker_id,
+         started_at, equipment_ref)
+       values ($1, $2, 1, current_date, $3, now(), $4) returning id`,
+      [wo.id, m.ops['WS-DX2401-03'], m.admin, eq]);
+    await t.rows(`insert into material_issue (process_record_id, material_lot_id, qty, issued_by)
+                  values ($1, $2, 1, $3)`, [pr, lot, m.admin]);
+    const flags = await t.rows(
+      `select detail, ref from review_flags($1) where kind = '표준서 밖' order by ref`, [wo.id]);
+    t.eq(flags.length, 2, '설비 하나 · 자재 하나');
+    t.eq(flags.some((f) => f.ref === 'RH-X1' && f.detail.includes('걸리지 않은 설비')), true, '설비');
+    t.eq(flags.some((f) => f.detail.includes('자재 구성표에 없는 자재')), true, '자재');
+    await t.setActor(null);
+  },
+},
+
 ];
