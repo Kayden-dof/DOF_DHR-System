@@ -230,7 +230,16 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             </form>
           </>
         }
-        bar={<><FindUnit />{alert}</>}
+        /*
+         * 좁은 화면(1023px 이하 · 현장 패드)에서도 현장 화면으로 넘어갈 자리 (사용자 2026-11-12
+         * «생산관리자겸 작업자라 작업자 화면 접근도 필요»). 넓은 화면의 본문 띠에만 있어
+         * 패드에서는 겸직 계정이 현장으로 갈 길이 없었다.
+         */
+        bar={<>
+          <FindUnit />
+          {isWorker(user.roles) && <Link href="/work" className="qd-text-action">현장 화면</Link>}
+          {alert}
+        </>}
       />
 
       <div className="flex min-w-0 flex-1 flex-col">
