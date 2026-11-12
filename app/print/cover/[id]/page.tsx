@@ -508,9 +508,13 @@ export default async function CoverSheet({ params, searchParams }: {
                 { name: '출하 승인 요청서 (서면 승인 원본)',
                   fact: requests.length === 0
                     ? '발행 이력 없음'
-                    : <span className="font-mono">
-                        {requests.map((r) => r.doc_no ?? `${r.seq}회차`).join(' · ')}
-                      </span>,
+                    : <>{requests.map((r, i) => (
+                        <span key={i}>
+                          {i > 0 && ' · '}
+                          {r.doc_no ? <span className="font-mono">{r.doc_no}</span>
+                            : <><span className="tnum">{r.seq}</span>회차</>}
+                        </span>
+                      ))}</>,
                   pages: requests.length ? String(requests.length) : '-' },
                 { name: '멸균 성적서 (외부 원본)',
                   fact: certs.length === 0

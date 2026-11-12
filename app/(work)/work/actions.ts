@@ -279,10 +279,16 @@ export async function returnIssue(_p: FormState, form: FormData): Promise<FormSt
    읽기: 양식에 시스템 값과 적은 값을 얹은 모양. 쓰기: 칸 하나에 값 하나.
    누가 · 언제는 DB 가 정하고, 일차가 잠기면 DB 가 막는다 (S04).
 --------------------------------------------------------------------------- */
-export async function loadBrSheet(recordId: string): Promise<BrSheet | { error: string }> {
+/*
+ * 한 공정에 양식이 둘 이상이면(본 기록서 + 별첨, 2026-11-12) docId 로 고른다. 비우면
+ * 본 기록서. 그 공정의 현행 양식이 아닌 docId 는 받지 않는다 - 아래 saveBrEntry 참고.
+ */
+export async function loadBrSheet(
+  recordId: string, docId?: string | null,
+): Promise<BrSheet | { error: string }> {
   try {
     const me = await worker();
-    const sheet = await withActor(me.id, (db) => brSheet(db, recordId), { readOnly: false });
+    const sheet = await withActor(me.id, (db) => brSheet(db, recordId, docId), { readOnly: false });
     return sheet ?? { error: '이 공정에는 등록된 제조기록서 양식이 없습니다' };
   } catch (e) {
     return { error: dbMessage(e) };
@@ -297,13 +303,26 @@ export async function saveBrEntry(
     if (!/^p\d+t\d+r\d+c\d+$/.test(field)) return { error: '칸 자리가 올바르지 않습니다' };
     const v = String(value ?? '').slice(0, 2000);
     const sheet = await withActor(me.id, async (db) => {
+      /*
+       * 그 기록 공정의 현행 양식에만 적는다. 다른 공정 · 지난 판 양식의 칸이 이 기록에
+       * 붙으면 화면에도 종이에도 안 보이는 값이 자료 식별자에만 들어간다.
+       * 트랜잭션 안이라 던지면 아무것도 남지 않는다.
+       */
+      const ok = await db.val<boolean>(
+        `select exists (select 1 from process_record pr
+                          join dmr_operation o on o.id = pr.operation_id
+                          join device_master dm on dm.id = o.device_master_id
+                          join mfg_doc d on d.product_code = dm.product_code and d.op_code = o.code
+                         where pr.id = $1 and d.id = $2 and d.kind = 'BR' and d.is_current
+                           and d.form is not null)`, [recordId, docId]);
+      if (!ok) throw new Error('이 공정의 제조기록서 양식이 아닙니다');
       await db.rows(
         `insert into br_entry (process_record_id, doc_id, field, value, entered_by)
          values ($1, $2, $3, $4, $5)
          on conflict (process_record_id, doc_id, field)
            do update set value = excluded.value`,
         [recordId, docId, field, v, me.id]);
-      return brSheet(db, recordId);
+      return brSheet(db, recordId, docId);
     }, { reason: v ? '제조기록서 칸 적음' : '제조기록서 칸 비움' });
     return sheet ?? { error: '제조기록서를 다시 읽지 못했습니다' };
   } catch (e) {
@@ -322,7 +341,7 @@ export async function saveBrEntry(
 
 /** 이 기록에 쓴 설비를 통째로 바꾼다. 첫 설비가 equipment_ref, 나머지가 extra (0133) */
 export async function setRecordEquipment(
-  recordId: string, woId: string, refs: string[],
+  recordId: string, woId: string, refs: string[], docId?: string | null,
 ): Promise<BrSheet | { error: string }> {
   try {
     const me = await worker();
@@ -332,7 +351,8 @@ export async function setRecordEquipment(
         `update process_record set equipment_ref = $2::uuid, extra_equipment_refs = $3::uuid[]
           where id = $1`,
         [recordId, list[0] ?? null, list.length > 1 ? list.slice(1) : null]);
-      return brSheet(db, recordId);
+      /* 별첨의 기기번호 칸도 같은 공정 기록의 설비다. 고친 양식을 그대로 다시 보인다 */
+      return brSheet(db, recordId, docId);
     }, { reason: '공정 기록 설비 고침 (제조기록서 기기번호 칸)' });
     bump(woId);
     return sheet ?? { error: '제조기록서를 다시 읽지 못했습니다' };
@@ -343,7 +363,7 @@ export async function setRecordEquipment(
 
 /** 부여로트번호 칸에서 자재 투입을 적는다. issueMaterial 과 같은 길 (S01) */
 export async function issueFromSheet(
-  recordId: string, woId: string, lotId: string, qty: number,
+  recordId: string, woId: string, lotId: string, qty: number, docId?: string | null,
 ): Promise<BrSheet | { error: string }> {
   try {
     const me = await worker();
@@ -353,7 +373,7 @@ export async function issueFromSheet(
       await db.rows(
         `insert into material_issue (process_record_id, material_lot_id, qty, issued_by)
          values ($1,$2,$3,$4)`, [recordId, lotId, qty, me.id]);
-      return brSheet(db, recordId);
+      return brSheet(db, recordId, docId);
     });
     bump(woId);
     return sheet ?? { error: '제조기록서를 다시 읽지 못했습니다' };
@@ -364,7 +384,8 @@ export async function issueFromSheet(
 
 /**
  * 일차 마감 전에 기록서 빈 칸을 센다 (UI/UX 검수 2026-11-11). 막지 않는다 - 알린다.
- * 조건부 칸(해당할 때만)은 세지 않는다.
+ * 조건부 칸(해당할 때만)은 세지 않는다. 한 공정에 양식이 둘 이상이면 본 기록서와
+ * 적기 시작한 별첨을 합쳐 센다 (2026-11-12 · lib/br-sheet 머리말).
  */
 export async function dayGaps(
   woId: string, day: number,
@@ -380,8 +401,8 @@ export async function dayGaps(
       const out: { op: string; empty: number }[] = [];
       for (const r of recs) {
         const sh = await brSheet(db, r.id);
-        if (sh && sh.total > sh.done) {
-          out.push({ op: r.attempt > 1 ? `${r.name} ${r.attempt}회차` : r.name, empty: sh.total - sh.done });
+        if (sh && sh.empty > 0) {
+          out.push({ op: r.attempt > 1 ? `${r.name} ${r.attempt}회차` : r.name, empty: sh.empty });
         }
       }
       return out;

@@ -61,8 +61,15 @@ export interface FormCell {
  *   equip  기기번호 칸. 고르면 공정 기록의 설비(equipment_ref · extra_equipment_refs)가 바뀐다
  *   lot    부여로트번호 칸. 고르면 자재 투입(material_issue)이 한 줄 생긴다
  * 종이에 찍히는 값은 여전히 그 기록에서 온다 - 칸은 그 기록을 적는 입구일 뿐이다.
+ *
+ * lotno · date 는 br_entry 에 적는다 (별첨 양식 · 2026-11-12).
+ *   lotno  별첨의 부여로트번호 칸. 로트 번호를 적기만 한다 - 자재 투입이 아니다.
+ *          별첨(F706-DX2401-03-01 20X PBS 제조)의 시약은 원액을 만들 때 이미 재고에서
+ *          빠졌다 (원액 로트의 원료 줄 · 0119). 이 공정 기록에 투입으로 다시 적으면
+ *          재고가 두 번 빠지고 구성표 밖 투입이 배치에 붙는다.
+ *   date   날짜 칸 (별첨 머리의 제조일자). 값은 YYYY-MM-DD
  */
-export type FieldKind = 'choice' | 'time' | 'number' | 'text' | 'equip' | 'lot';
+export type FieldKind = 'choice' | 'time' | 'number' | 'text' | 'equip' | 'lot' | 'lotno' | 'date';
 export interface Entry { value: string; by: string; at: string }
 export interface FormRow { h: number; cells: FormCell[] }
 export interface FormTable { x: number; y: number; w: number; cols: number[]; rows: FormRow[] }
@@ -94,6 +101,12 @@ export interface FillData {
   notes: string[];
   /** 현장에서 적은 칸 (0132). 칸 자리 → 값 · 적은 사람 · 날짜(YYYY-MM-DD) */
   entries?: Record<string, Entry>;
+  /**
+   * 별첨 양식 (한 공정에 양식이 둘 이상일 때 본 기록서 뒤의 것 · 2026-11-12).
+   * 부여로트번호 칸은 투입(lot)이 아니라 적는 칸(lotno)이 된다. 부르는 쪽은 투입 ·
+   * 특이사항 줄을 비워 넘긴다 - 그 기록의 투입과 시스템 기록은 본 기록서에 한 번만 찍힌다.
+   */
+  appendix?: boolean;
 }
 
 const norm = (s: string | undefined) => (s ?? '').replace(/\s+/g, '');
@@ -115,6 +128,8 @@ const ROLE: Record<string, string> = {
   '작업(검사)자': 'worker', '작업(검사자)': 'worker', 일자: 'date',
   세부공정: 'step', 관리항목: 'stepitem', 허용범위: 'range', 결과: 'result',
   공정검사: 'inspect', 제조번호: 'cutlot', 수량: 'qty',
+  /* 별첨 머리 (F706-DX2401-03-01 20X PBS 제조 · 2026-11-12). 다른 양식에는 이 낱말 칸이 없다 */
+  제조용액명: 'solname', 관리번호: 'mgmtno', 제조일자: 'madeon',
 };
 
 type Section = 'head' | 'equip' | 'mat' | 'step' | 'cut' | null;
@@ -151,6 +166,9 @@ export function fillForm(form: BrForm, d: FillData): { pages: FormPage[]; placed
   const signs: { rows: string[]; cell: FormCell; role: 'worker' | 'date'; sz: number }[] = [];
   /* 자재를 채운 줄 (그 줄의 작업자 칸은 투입한 작업자로) */
   const matRow = new Set<string>();
+  const entries = d.entries ?? {};
+  /* 사람이 적은 칸이 있는 줄 → 그 줄의 서명 칸에 들어갈 적은 사람 · 날짜 */
+  const enteredRow = new Map<string, Entry>();
 
   pages.forEach((page, pi) => {
     page.tables.forEach((tb, ti) => {
@@ -176,7 +194,8 @@ export function fillForm(form: BrForm, d: FillData): { pages: FormPage[]; placed
             : set.has('matname') ? 'mat'
             : set.has('cutlot') ? 'cut'
             : set.has('step') || set.has('inspect') || set.has('stepitem') ? 'step'
-            : set.has('batch') || set.has('plot') || set.has('product') ? 'head'
+            : set.has('batch') || set.has('plot') || set.has('product')
+              || set.has('solname') || set.has('mgmtno') ? 'head'
             : section;
           return;
         }
@@ -220,8 +239,11 @@ export function fillForm(form: BrForm, d: FillData): { pages: FormPage[]; placed
           }
           const left = sorted[sorted.indexOf(c) - 1]?.t?.trim();
           const CUT_COL: Record<string, string> = { cutlot: '제조번호', model: '모델명', qty: '수량' };
+          const HEAD_COL: Record<string, string> = { mgmtno: '관리번호', madeon: '제조일자' };
           const lb = role === 'calib' ? [flat(equipName), '검교정일자 확인'].filter(Boolean).join(' · ')
             : section === 'cut' ? `${ri}줄 · ${CUT_COL[role ?? ''] ?? '측정'}`
+            : section === 'head' && role && HEAD_COL[role]
+              ? [flat(by('solname')?.t), HEAD_COL[role]].filter(Boolean).join(' · ')
             : label;
           cand.push({ cell: c, id: `p${pi}t${ti}r${ri}c${c.c}`, role, section, lb, row: rowKey(ri), left });
         }
@@ -278,7 +300,7 @@ export function fillForm(form: BrForm, d: FillData): { pages: FormPage[]; placed
             if (code === d.rawItemCode) {
               text = d.rawLotNo;
               rawName = name;
-            } else if (!(code && d.noLotCodes.includes(code))) {
+            } else if (!d.appendix && !(code && d.noLotCodes.includes(code))) {
               const hit = d.issues
                 .map((x, k) => ({ x, k }))
                 .filter(({ x }) => code
@@ -299,11 +321,24 @@ export function fillForm(form: BrForm, d: FillData): { pages: FormPage[]; placed
              * 적는다 (기록서 중심 화면 2026-11-11). 값은 투입 기록에서 온다.
              */
             if (code !== d.rawItemCode && !(code && d.noLotCodes.includes(code))) {
-              Object.assign(lotCell, {
-                id: `p${pi}t${ti}r${ri}c${lotCell.c}`, k: 'lot' as const,
-                ic: code || undefined, lb: flat(name) || code || '자재',
-                v: text ?? undefined,
-              });
+              const id = `p${pi}t${ti}r${ri}c${lotCell.c}`;
+              if (d.appendix) {
+                /* 별첨: 로트 번호를 적기만 한다 (FieldKind lotno 의 설명) */
+                Object.assign(lotCell, {
+                  id, k: 'lotno' as const, ic: code || undefined, lb: flat(name) || code || '자재',
+                });
+                const e = entries[id];
+                if (e && e.value !== '') {
+                  Object.assign(lotCell, { v: e.value, t: e.value, f: true, a: 'c' as const, b: false, s: sz });
+                  enteredRow.set(rowKey(ri), e);
+                }
+              } else {
+                Object.assign(lotCell, {
+                  id, k: 'lot' as const,
+                  ic: code || undefined, lb: flat(name) || code || '자재',
+                  v: text ?? undefined,
+                });
+              }
             }
           }
         }
@@ -385,17 +420,21 @@ export function fillForm(form: BrForm, d: FillData): { pages: FormPage[]; placed
      작업(검사)자 · 일자는 적는 칸이 아니라 적은 사람이 들어가는 자리다.
   ------------------------------------------------------------------------- */
   const LABEL_ROLES = new Set(['product', 'batch', 'plot', 'model_head', 'checker', 'checkdate', 'equip',
-    'equipno', 'precheck', 'mat', 'matname', 'matcode', 'matlot', 'step', 'stepitem', 'range', 'inspect']);
+    'equipno', 'precheck', 'mat', 'matname', 'matcode', 'matlot', 'step', 'stepitem', 'range', 'inspect',
+    'solname']);
   const UNIT = /^[A-Za-z℃°%µ²₂/.\s]{1,8}$/;
-  const entries = d.entries ?? {};
-  const enteredRow = new Map<string, Entry>();
   for (const x of cand) {
     const c = x.cell;
     if (c.f || c.tk?.length || c.id) continue;
     const t = (c.t ?? '').trim();
     const cutText = x.section === 'cut' && (x.role === 'cutlot' || x.role === 'model');
     if (!cutText && x.role && LABEL_ROLES.has(x.role)) continue;
-    if (x.section === 'head') continue;
+    /*
+     * 머리 칸은 시스템이 채운다. 별첨 머리의 관리번호(앞머리 L 이 인쇄된 글) · 제조일자(날짜)만
+     * 사람이 적는다 (2026-11-12) - 그 원액 로트를 시스템이 이 기록에서 알 수 없다.
+     */
+    const headField = x.section === 'head' && (x.role === 'mgmtno' || x.role === 'madeon');
+    if (x.section === 'head' && !headField) continue;
     let k: FieldKind | null = null;
     /* "합격 [ ] 불합격 [ ]" 처럼 이름 칸 옆의 빈칸은 표시(✓) 하나를 고르는 칸이다 */
     const MARK = /^(합격|불합격|적합|부적합|재포장)$/;
@@ -405,7 +444,8 @@ export function fillForm(form: BrForm, d: FillData): { pages: FormPage[]; placed
       if (e && e.value !== '') { c.v = e.value; Object.assign(c, { t: '✓', f: true, a: 'c' as const }); enteredRow.set(x.row, e); }
       continue;
     }
-    if (t.includes('□')) k = 'choice';
+    if (headField) k = x.role === 'madeon' ? 'date' : 'text';
+    else if (t.includes('□')) k = 'choice';
     else if (/시작/.test(t) && /종료/.test(t)) k = 'time';
     else if (cutText) k = 'text';
     else if (!t || UNIT.test(t)) k = 'number';
@@ -499,6 +539,10 @@ export function applyEntry(c: FormCell, value: string) {
   }
   if (c.k === 'number') {
     Object.assign(c, { t: c.u ? `${value} ${c.u}` : value, f: true, a: 'c' as const, b: false });
+    return;
+  }
+  if (c.k === 'date' || c.k === 'lotno') {
+    Object.assign(c, { t: value, f: true, a: 'c' as const, b: false });
     return;
   }
   Object.assign(c, { t: value, f: true, b: false });

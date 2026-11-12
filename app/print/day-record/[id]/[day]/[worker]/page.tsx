@@ -5,7 +5,8 @@ import { fmtDate, fmtDateTime } from '@/lib/fmt';
 import { logPrint, printGate, viewParam } from '@/lib/print';
 import Denied from '@/components/denied';
 import PrintFrame, { Sheet, SignRow, FormSheet } from '@/components/print-frame';
-import { fillForm, formHasSignRoom, type BrForm, type FormPage } from '@/lib/br-form';
+import { formHasSignRoom, type BrForm, type FormPage } from '@/lib/br-form';
+import { fillOne } from '@/lib/br-sheet';
 import { dayRecordPayload, hashable, type RecRow } from '@/lib/print-payload';
 import { chunkRows } from '@/lib/print-pages';
 
@@ -268,6 +269,14 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = fal
 
      자료 식별자는 바뀌지 않는다 - 담는 자료(payload)는 그대로이고 그리는
      모양만 바뀌었다. 양식 · 로트 없음 품목은 payload 밖에서 읽는다.
+
+     ── 별첨 (2026-11-12) ────────────────────────────────────────────────
+     한 공정에 양식이 둘 이상이면(F706-DX2401-03 + 별첨 F706-DX2401-03-01) 본
+     기록서 뒤에 별첨을 붙인다. **별첨은 현장에서 한 칸이라도 적었을 때만** 붙는다.
+     적은 칸(br)은 처음부터 양식을 가리지 않고 payload 에 들어 있었으므로 자료
+     식별자는 그대로이고, 별첨 칸을 적을 수 없던 때 나간 종이는 별첨 칸이 비어
+     있어 장 수 · 모양도 그대로다. 투입 · 시스템 기록은 본 기록서에만 찍는다
+     (lib/br-sheet fillOne - 현장 화면과 같은 갈래).
   ------------------------------------------------------------------------- */
   const look = await withActor(user.id, async (db) => {
     const product = await db.val<string>(
@@ -276,7 +285,7 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = fal
     const ops = [...new Set(records.map((r) => r.operation_code))];
     const forms = product
       ? await db.rows<{ op_code: string; id: string; doc_no: string; form: BrForm }>(
-          `select distinct on (op_code) op_code, id, doc_no, form
+          `select op_code, id, doc_no, form
              from mfg_doc
             where product_code = $1 and kind = 'BR' and is_current and form is not null
               and op_code = any($2::text[])
@@ -287,12 +296,13 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = fal
       `select code from item where not lot_tracked`)).map((x) => x.code);
     return { forms, noLot };
   });
-  const formOf = new Map(look.forms.map((f) => [f.op_code, f.form]));
-  const docOf = new Map(look.forms.map((f) => [f.op_code, f.id]));
+  /* 공정마다 양식 차례 - 본 기록서가 처음 */
+  const formsOf = new Map<string, typeof look.forms>();
+  for (const f of look.forms) formsOf.set(f.op_code, [...(formsOf.get(f.op_code) ?? []), f]);
   const hms = (v: Date | null) => (v ? fmtDateTime(v).slice(11) : '');
   const plans = records.flatMap((r) => {
-    const form = formOf.get(r.operation_code);
-    if (!form) return [];
+    const docs = formsOf.get(r.operation_code);
+    if (!docs?.length) return [];
     const notes = [
       [`시스템 기록 · 시작 ${hms(r.started_at)} · 종료 ${hms(r.ended_at)}`,
        r.attempt > 1 ? `${r.attempt}회차` : '',
@@ -307,7 +317,7 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = fal
       r.no_material_reason ? `자재 미사용 사유 · ${r.no_material_reason}` : '',
       ...r.steril.map((v) => `위탁 발송 ${v.qty}개 · ${v.batch_no}`),
     ].filter(Boolean);
-    const filled = fillForm(form, {
+    const base = {
       batchNo: head.batch_no,
       productLotNo: r.product_lot_no, productModel: r.product_item_code,
       rawItemCode: head.raw_item_code, rawLotNo: head.raw_lot_no,
@@ -315,14 +325,19 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = fal
       worker: head.worker_name, workDate: fmtDate(head.work_date),
       issues: r.issues, noLotCodes: look.noLot,
       equipment: r.equipment_id, extraEquipment: r.extra_equipment ?? null, notes,
+    };
+    return docs.flatMap((doc, i) => {
       /* 현장에서 적은 칸 (0132) - 그 양식에 적힌 것만 */
-      entries: Object.fromEntries((r.br ?? [])
-        .filter((e) => e.doc === docOf.get(r.operation_code))
-        .map((e) => [e.field, { value: e.value, by: e.by, at: e.at }])),
+      const entries = Object.fromEntries((r.br ?? [])
+        .filter((e) => e.doc === doc.id)
+        .map((e) => [e.field, { value: e.value, by: e.by, at: e.at }]));
+      /* 별첨은 적은 칸이 있을 때만 (위 머리말) */
+      if (i > 0 && Object.keys(entries).length === 0) return [];
+      const filled = fillOne(doc.form, { ...base, entries }, i > 0);
+      return [{ r, size: doc.form.page, pages: filled.pages, lost: filled.lost }];
     });
-    return [{ r, size: form.page, pages: filled.pages, lost: filled.lost }];
   });
-  const plain = records.filter((r) => !formOf.has(r.operation_code));
+  const plain = records.filter((r) => !formsOf.has(r.operation_code));
   const plainPages = plain.length ? chunkRows(plain, ROWS_FIRST, ROWS_NEXT) : [];
   const formPages = plans.reduce((a, p) => a + p.pages.length, 0);
   /* 서명란은 묶음의 마지막 장에 한 번. 뒤에 세로 장이 있으면 그 장이 갖는다 */

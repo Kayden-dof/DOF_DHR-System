@@ -9,7 +9,7 @@ import { fmtDateTime } from '@/lib/fmt';
 import { Msg, Tag } from '@/components/ui';
 import NumPad, { PresetPicker } from '@/components/num-pad';
 import { Dialog } from '@/components/dialog';
-import { BrSheetView, useBrSheet, emptyOf, type EquipOpt, type SheetCtx } from './br-sheet';
+import { BrSheetView, useBrSheet, emptyOf, formEmpty, type EquipOpt, type SheetCtx } from './br-sheet';
 import { todayKST } from '@/lib/kst';
 import { isNoExpiry } from '@/lib/equipment-check';
 import {
@@ -573,6 +573,37 @@ function OpTile({
   );
 }
 
+/* ---------------------------------------------------------------------------
+   공정 판의 기록서 단추 - 양식마다 하나 (본 기록서가 처음 · 2026-11-12)
+
+   한 공정에 양식이 둘 이상이면(본 기록서 + 별첨) 별첨 단추가 아래에 붙는다.
+   안 적은 별첨은 «해당할 때만» 이고 빈 칸으로 세지 않는다 (lib/br-sheet 머리말).
+--------------------------------------------------------------------------- */
+function FormOpeners({ br, first, primary, onOpen }: {
+  br: ReturnType<typeof useBrSheet>; first: string; primary: boolean; onOpen: () => void;
+}) {
+  const forms = br.sheet?.forms ?? [];
+  return (
+    <>
+      {forms.map((f, i) => {
+        const left = formEmpty(f);
+        const lead = i === 0 && primary;
+        return (
+          <button key={f.docId} type="button" disabled={br.pending}
+                  onClick={() => br.pick(f.docId, onOpen)}
+                  className={`${lead ? 'btn-primary' : 'btn-ghost'} w-full`}>
+            {i === 0 ? first : `${f.label} 열기`}
+            {!f.inUse ? <span className="chip bg-surface-sub text-muted">해당할 때만</span>
+              : left > 0 ? <span className={`chip ${lead ? 'bg-white/90' : 'bg-warn-bg'} text-warn`}>빈 칸 {left}</span>
+              : null}
+          </button>
+        );
+      })}
+      {br.error && <p role="alert" className="text-sm font-semibold text-danger">{br.error}</p>}
+    </>
+  );
+}
+
 /* -------------------------------------------------------------------------- */
 
 function OperationCard({
@@ -661,10 +692,7 @@ function OperationCard({
             {' '}· 종료 <span className="tnum">{fmtDateTime(rec.ended_at)}</span>
           </p>
           {hasForm && br.sheet && (
-            <button type="button" onClick={() => setOpen(true)} className="btn-ghost w-full">
-              제조기록서 보기 · 고치기
-              {emptyOf(br.sheet) > 0 && <span className="chip bg-warn-bg text-warn">빈 칸 {emptyOf(br.sheet)}</span>}
-            </button>
+            <FormOpeners br={br} first="제조기록서 보기 · 고치기" primary={false} onOpen={() => setOpen(true)} />
           )}
           <button type="button" onClick={() => setRestart(true)} className="btn-quiet w-full">
             재작업으로 다시 시작 ({attemptCount + 1}회차)
@@ -682,13 +710,11 @@ function OperationCard({
               생산관리자에게 알리십시오.
             </p>
           )}
-          <button type="button" onClick={() => setOpen(true)} disabled={!br.sheet}
-                  className="btn-primary w-full">
-            {br.sheet ? '제조기록서 열기' : '기록서를 읽는 중'}
-            {br.sheet && emptyOf(br.sheet) > 0 && (
-              <span className="chip bg-white/90 text-warn">빈 칸 {emptyOf(br.sheet)}</span>
-            )}
-          </button>
+          {br.sheet ? (
+            <FormOpeners br={br} first="제조기록서 열기" primary onOpen={() => setOpen(true)} />
+          ) : (
+            <button type="button" disabled className="btn-primary w-full">기록서를 읽는 중</button>
+          )}
           <details className="rounded-md border border-line-soft px-3 py-2">
             <summary className="cursor-pointer py-1 text-sm font-semibold text-muted">
               기록서에 칸이 없는 자재 넣기
