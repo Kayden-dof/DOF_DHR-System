@@ -121,12 +121,19 @@ export function formEmpty(f: BrFormTab) { return f.inUse ? Math.max(0, f.total -
 /* ---------------------------------------------------------------------------
    기록서 창
 --------------------------------------------------------------------------- */
-export function BrSheetView({ sheet, onSheet, onClose, busy, ctx, endSlot }: {
+export function BrSheetView({ sheet, onSheet, onClose, busy, ctx, endSlot, readOnly = false }: {
   sheet: BrSheet; onSheet: (s: BrSheet) => void; onClose: () => void; busy: boolean;
   ctx: SheetCtx;
   /** 공정 마감 자리. 진행 중인 기록일 때만 준다. 그만두면 cancel 을 부른다 */
   endSlot?: (cancel: () => void) => React.ReactNode;
+  /**
+   * 보기만 (사용자 2026-11-12 «마감된 공정을 누르면 제조기록서를 다시 한번 살펴 볼수 있도록.
+   * 수정은 당연히 안돼지만 적은 내용은 볼수있게»). 일차가 잠긴 기록은 늘 보기만이다.
+   * 다른 일차 · 다른 사람의 기록도 공정 판에서는 보기만으로 연다.
+   */
+  readOnly?: boolean;
 }) {
+  const ro = readOnly || sheet.locked;
   const wrap = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
   const [cell, setCell] = useState<FormCell | null>(null);
@@ -218,6 +225,7 @@ export function BrSheetView({ sheet, onSheet, onClose, busy, ctx, endSlot }: {
    * 아래 막대의 빈 칸: 이 양식 것과 다른 양식(본 기록서 · 적기 시작한 별첨) 것을 따로.
    * 안 적은 별첨은 해당할 때만 적는 양식이라 세지 않는다.
    */
+  const tabs = ro ? sheet.forms.filter((f) => f.inUse) : sheet.forms;
   const cur = sheet.forms.find((f) => f.docId === sheet.docId);
   const counted = cur?.inUse ?? true;
   const here = counted ? Math.max(0, sheet.total - sheet.done) : 0;
@@ -230,22 +238,27 @@ export function BrSheetView({ sheet, onSheet, onClose, busy, ctx, endSlot }: {
         <div className="min-w-0 flex-1">
           <p className="truncate text-base font-semibold text-ink">{sheet.title}</p>
           <p className="text-sm text-muted">
+            {ro && (
+              <>{sheet.dayNo}일차 · {sheet.worker} · <span className="tnum">{sheet.workDate}</span> · </>
+            )}
             적을 칸 <b className="tnum text-ink">{sheet.total}</b> · 적은 칸{' '}
             <b className="tnum text-brand">{sheet.done}</b>
             {sheet.optTotal > 0 && (
               <> · 해당할 때만 <b className="tnum text-ink">{sheet.optTotal}</b>
                 {sheet.optDone > 0 && <> (적은 칸 <b className="tnum text-brand">{sheet.optDone}</b>)</>}</>
             )}
-            {sheet.locked && <span className="ml-2 font-semibold text-warn">일차가 마감되어 고칠 수 없습니다</span>}
           </p>
         </div>
         <button type="button" onClick={onClose} className="btn-ghost">닫기</button>
       </header>
 
-      {/* 한 공정에 양식이 둘 이상이면 고른다. 본 기록서가 처음 (2026-11-12) */}
-      {sheet.forms.length > 1 && (
+      {/*
+        * 한 공정에 양식이 둘 이상이면 고른다. 본 기록서가 처음 (2026-11-12).
+        * 보기만일 때는 적은 것이 있는 양식만 - 안 적은 별첨은 빈 종이다.
+        */}
+      {tabs.length > 1 && (
         <div className="qd-tabs !mb-0 border-b border-line bg-surface px-4" role="tablist" aria-label="양식">
-          {sheet.forms.map((f) => {
+          {tabs.map((f) => {
             const on = f.docId === sheet.docId;
             const left = formEmpty(f);
             return (
@@ -254,7 +267,8 @@ export function BrSheetView({ sheet, onSheet, onClose, busy, ctx, endSlot }: {
                       className={`qd-tab flex items-center gap-1.5${on ? ' qd-tab--active' : ''}`}>
                 {f.label}
                 <span className="font-mono text-xs text-faint">{f.docNo}</span>
-                {!f.inUse ? <span className="chip bg-surface-sub text-muted">해당할 때만</span>
+                {ro ? null
+                  : !f.inUse ? <span className="chip bg-surface-sub text-muted">해당할 때만</span>
                   : left > 0 ? <span className="chip bg-warn-bg text-warn">빈 칸 {left}</span> : null}
               </button>
             );
@@ -263,14 +277,21 @@ export function BrSheetView({ sheet, onSheet, onClose, busy, ctx, endSlot }: {
       )}
 
       <div ref={wrap} className="flex-1 overflow-auto px-2 py-3">
-        <p className="mb-2 px-1 text-sm text-muted">
-          노란 칸을 누르면 아래에 적는 칸이 나옵니다. 점선 칸은 해당할 때만 적습니다. □ 확인 칸은 누르면 바로
-          체크되고, 다시 누르면 지워집니다. 기기번호 칸은 설비를,{' '}
-          {sheet.appendix ? '부여로트번호 칸은 로트 번호를 적고 재고에서 빼지 않습니다.'
-            : '부여로트번호 칸은 자재 로트와 양을 고릅니다.'}{' '}
-          적은 값은 파란 글씨로 바로 저장됩니다.
-        </p>
-        {sheet.appendix && (
+        {ro ? (
+          <p className="mb-2 px-1 text-sm text-muted">
+            {sheet.locked ? '일차가 마감되어 고칠 수 없습니다.' : '여기서는 볼 수만 있습니다.'}{' '}
+            파란 글씨가 적은 값입니다.
+          </p>
+        ) : (
+          <p className="mb-2 px-1 text-sm text-muted">
+            노란 칸을 누르면 아래에 적는 칸이 나옵니다. 점선 칸은 해당할 때만 적습니다. □ 확인 칸은 누르면 바로
+            체크되고, 다시 누르면 지워집니다. 기기번호 칸은 설비를,{' '}
+            {sheet.appendix ? '부여로트번호 칸은 로트 번호를 적고 재고에서 빼지 않습니다.'
+              : '부여로트번호 칸은 자재 로트와 양을 고릅니다.'}{' '}
+            적은 값은 파란 글씨로 바로 저장됩니다.
+          </p>
+        )}
+        {sheet.appendix && !ro && (
           <p className="mb-2 px-1 text-sm text-muted">
             별첨은 해당할 때만 적습니다. 한 칸이라도 적으면 빈 칸을 함께 세고, 제조기록서 인쇄에 이 양식이
             붙습니다.
@@ -283,7 +304,7 @@ export function BrSheetView({ sheet, onSheet, onClose, busy, ctx, endSlot }: {
                  style={{ width: `${sheet.size.w}pt`, height: `${sheet.size.h}pt`,
                           transform: `scale(${scale})`, transformOrigin: 'top left' }}>
               <FormBody page={pg} size={sheet.size} formPage={{ n: i + 1, of: sheet.pages.length }}
-                        onCell={sheet.locked ? undefined : (c) => {
+                        onCell={ro ? undefined : (c) => {
                           setErr(null);
                           setEnding(false);
                           if (oneTap(c)) toggle(c); else setCell(c);
@@ -297,7 +318,7 @@ export function BrSheetView({ sheet, onSheet, onClose, busy, ctx, endSlot }: {
         )}
       </div>
 
-      {live && !sheet.locked && (live.k === 'equip' ? (
+      {live && !ro && (live.k === 'equip' ? (
         <EquipPicker key={live.id} cell={live} refs={sheet.equipRefs} ctx={ctx}
                      busy={saving || busy} error={err}
                      onSave={(refs) => saveEquip(refs, true)} onClose={() => setCell(null)} />
@@ -317,7 +338,13 @@ export function BrSheetView({ sheet, onSheet, onClose, busy, ctx, endSlot }: {
         * 아래 막대 - 빈 칸 수 · 닫기 · 공정 마감 (기록서 중심 화면 2026-11-11).
         * 공정 마감까지 이 창에서 끝낸다. 빈 칸이 있어도 막지 않는다 - 알린다.
         */}
-      {!live && !sheet.locked && (
+      {ro && (
+        <footer className="flex flex-wrap items-center gap-2 border-t border-line bg-surface px-4 py-3">
+          <span className="min-w-0 flex-1 text-sm text-muted">볼 수만 있습니다</span>
+          <button type="button" onClick={onClose} className="btn-ghost">닫기</button>
+        </footer>
+      )}
+      {!live && !ro && (
         ending && endSlot ? (
           <section className="max-h-[60vh] overflow-auto border-t-2 border-brand bg-surface px-4 py-3 shadow-lg">
             {endSlot(() => setEnding(false))}
@@ -336,6 +363,30 @@ export function BrSheetView({ sheet, onSheet, onClose, busy, ctx, endSlot }: {
           </footer>
         )
       )}
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   마감한 기록 보기 - 기록 하나의 기록서를 읽어 보기만으로 연다
+   (사용자 2026-11-12 «마감된 공정을 누르면 제조기록서를 다시 한번 살펴 볼수 있도록»)
+
+   공정 판의 «앞서 마감한 기록» 이 부른다 - 다른 일차 · 다른 사람의 기록이다.
+--------------------------------------------------------------------------- */
+export function SheetViewer({ recordId, ctx, onClose }: {
+  recordId: string; ctx: SheetCtx; onClose: () => void;
+}) {
+  const br = useBrSheet(recordId);
+  if (br.sheet) {
+    return <BrSheetView sheet={br.sheet} onSheet={br.setSheet} onClose={onClose} busy={br.pending}
+                        ctx={ctx} readOnly />;
+  }
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-canvas">
+      <p className="text-sm text-muted">
+        {br.noForm ? '이 공정에는 등록된 제조기록서 양식이 없습니다' : '기록서를 읽는 중'}
+      </p>
+      <button type="button" onClick={onClose} className="btn-ghost">닫기</button>
     </div>
   );
 }

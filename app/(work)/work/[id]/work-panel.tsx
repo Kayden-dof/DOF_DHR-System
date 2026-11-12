@@ -9,7 +9,9 @@ import { fmtDateTime } from '@/lib/fmt';
 import { Msg, Tag } from '@/components/ui';
 import NumPad, { PresetPicker } from '@/components/num-pad';
 import { Dialog } from '@/components/dialog';
-import { BrSheetView, useBrSheet, emptyOf, formEmpty, type EquipOpt, type SheetCtx } from './br-sheet';
+import {
+  BrSheetView, SheetViewer, useBrSheet, emptyOf, formEmpty, type EquipOpt, type SheetCtx,
+} from './br-sheet';
 import { todayKST } from '@/lib/kst';
 import { isNoExpiry } from '@/lib/equipment-check';
 import {
@@ -420,7 +422,7 @@ export default function WorkPanel({
                 앞 일차에 마감한 공정 <b className="tnum text-ink">{earlier.length}</b>
               </span>
               <span className="text-xs text-faint">
-                {showEarlier ? '접기' : '재작업이면 펼치십시오'}
+                {showEarlier ? '접기' : '기록 보기 · 재작업은 펼치십시오'}
               </span>
             </button>
 
@@ -452,6 +454,10 @@ export default function WorkPanel({
           doneLotIds={op.after_cutting ? [...lotsDone(op).done] : []}
           lotsLeft={op.after_cutting
             && lotsDone(op).total > 0 && lotsDone(op).done.size < lotsDone(op).total}
+          /* 이 화면의 내 일차 기록(rec 쪽) 밖에서 마감한 기록 - 다른 일차 · 다른 사람 */
+          pastRecs={records
+            .filter((r) => r.operation_id === op.id && r.ended_at && !dayRecords.includes(r))
+            .sort((a, b) => b.day_no - a.day_no || b.attempt - a.attempt)}
           woId={woId} day={day} op={op} rec={rec} lots={lots} people={people}
           productLots={productLots} locked={locked} sheets={sheets}
           splitOp={splitOp} loadUnit={loadUnit} expiryWarnDays={expiryWarnDays}
@@ -579,10 +585,12 @@ function OpTile({
    한 공정에 양식이 둘 이상이면(본 기록서 + 별첨) 별첨 단추가 아래에 붙는다.
    안 적은 별첨은 «해당할 때만» 이고 빈 칸으로 세지 않는다 (lib/br-sheet 머리말).
 --------------------------------------------------------------------------- */
-function FormOpeners({ br, first, primary, onOpen }: {
+function FormOpeners({ br, first, primary, onOpen, view = false }: {
   br: ReturnType<typeof useBrSheet>; first: string; primary: boolean; onOpen: () => void;
+  /** 보기만 - 적은 것이 있는 양식만 내고 빈 칸을 세지 않는다 (마감된 일차) */
+  view?: boolean;
 }) {
-  const forms = br.sheet?.forms ?? [];
+  const forms = (br.sheet?.forms ?? []).filter((f) => !view || f.inUse);
   return (
     <>
       {forms.map((f, i) => {
@@ -592,8 +600,9 @@ function FormOpeners({ br, first, primary, onOpen }: {
           <button key={f.docId} type="button" disabled={br.pending}
                   onClick={() => br.pick(f.docId, onOpen)}
                   className={`${lead ? 'btn-primary' : 'btn-ghost'} w-full`}>
-            {i === 0 ? first : `${f.label} 열기`}
-            {!f.inUse ? <span className="chip bg-surface-sub text-muted">해당할 때만</span>
+            {i === 0 ? first : `${f.label} ${view ? '보기' : '열기'}`}
+            {view ? null
+              : !f.inUse ? <span className="chip bg-surface-sub text-muted">해당할 때만</span>
               : left > 0 ? <span className={`chip ${lead ? 'bg-white/90' : 'bg-warn-bg'} text-warn`}>빈 칸 {left}</span>
               : null}
           </button>
@@ -611,9 +620,11 @@ function OperationCard({
   expiryWarnDays,
   attemptCount,
   isCut, finished, sampleTiers, sampleBasis, band, cutDate,
-  allEquipment, onEnded, scrollOnMount, doneLotIds, lotsLeft,
+  allEquipment, onEnded, scrollOnMount, doneLotIds, lotsLeft, pastRecs,
 }: {
   allEquipment: EquipOpt[];
+  /** 이 공정을 다른 일차 · 다른 사람이 마감한 기록 (최근 것부터). 기록서를 보기만으로 연다 */
+  pastRecs: Rec[];
   /** 공정을 마감했다. 현장 판이 다음 공정으로 넘긴다 */
   onEnded: () => void;
   scrollOnMount: boolean;
@@ -631,9 +642,12 @@ function OperationCard({
   cutDate: string;
 }) {
   const running = !!rec && !rec.ended_at;
-  const br = useBrSheet(op.has_form && rec && !locked ? rec.id : null);
+  /* 마감된 일차여도 읽는다 - 적은 것을 보기만으로 연다 (사용자 2026-11-12) */
+  const br = useBrSheet(op.has_form && rec ? rec.id : null);
   const hasForm = !!op.has_form && !br.noForm;
   const [open, setOpen] = useState(false);
+  /* «앞서 마감한 기록» 에서 고른 기록 - 보기만 */
+  const [viewId, setViewId] = useState<string | null>(null);
   /* 시작하면 기록서를 바로 연다 (사용자 2026-11-11 «작업 시작하면 제조기록서가 바로 뜨고») */
   const [wantOpen, setWantOpen] = useState(false);
   const [restart, setRestart] = useState(false);
@@ -656,6 +670,34 @@ function OperationCard({
   /* 마감한 공정이면 시작 양식을 곧장 내지 않는다. 재단 이후 공정에 남은 로트가 있으면 낸다 */
   const showStart = !rec || (!!rec.ended_at && (restart || lotsLeft));
 
+  /*
+   * 앞서 마감한 기록 (사용자 2026-11-12 «마감된 공정을 누르면 제조기록서를 다시 한번 살펴
+   * 볼수 있도록. 수정은 당연히 안돼지만 적은 내용은 볼수있게»). 다른 일차 · 다른 사람의
+   * 기록이라 여기서는 보기만이다. 재단 이후 공정은 로트마다 기록이 있어 셋이 넘으면 접는다.
+   */
+  const pastButton = (r: Rec) => (
+    <button key={r.id} type="button" onClick={() => setViewId(r.id)} className="btn-ghost w-full">
+      {r.day_no}일차 · {r.worker_name}
+      {r.attempt > 1 && ` · ${r.attempt}회차`}
+      {r.product_lot_no && <> · <span className="font-mono">{r.product_lot_no}</span></>}
+      {' '}제조기록서 보기
+    </button>
+  );
+  const pastBlock = op.has_form && pastRecs.length > 0 ? (
+    <div className={`space-y-2 ${rec ? 'border-t border-line-soft pt-3' : 'pt-4'}`}>
+      <p className="text-xs text-muted">앞서 마감한 기록</p>
+      {pastRecs.slice(0, 3).map(pastButton)}
+      {pastRecs.length > 3 && (
+        <details>
+          <summary className="cursor-pointer py-1 text-sm font-semibold text-muted">
+            나머지 <b className="tnum">{pastRecs.length - 3}</b>건
+          </summary>
+          <div className="mt-2 space-y-2">{pastRecs.slice(3).map(pastButton)}</div>
+        </details>
+      )}
+    </div>
+  ) : null;
+
   return (
     <section ref={top} className="card scroll-mt-4 overflow-hidden">
       <header className="section-head bg-brand-soft">
@@ -672,8 +714,17 @@ function OperationCard({
         )}
       </header>
 
+      {!rec && pastBlock}
+
       {locked ? (
-        <p className="py-6 text-sm text-muted">마감된 일차입니다.</p>
+        <div className="space-y-3 py-4">
+          <p className="text-sm text-muted">마감된 일차입니다.</p>
+          {rec && hasForm && (br.sheet ? (
+            <FormOpeners br={br} first="제조기록서 보기" primary={false} view onOpen={() => setOpen(true)} />
+          ) : (
+            <button type="button" disabled className="btn-ghost w-full">기록서를 읽는 중</button>
+          ))}
+        </div>
       ) : showStart ? (
         <StartCard woId={woId} day={day} op={op} people={people}
                    productLots={productLots} attempt={attemptCount + 1}
@@ -730,15 +781,18 @@ function OperationCard({
                      loadUnit={loadUnit} expiryWarnDays={expiryWarnDays} onEnded={onEnded} />
       ) : null}
 
+      {rec && pastBlock}
+
       {open && br.sheet && (
         <BrSheetView sheet={br.sheet} onSheet={br.setSheet} onClose={() => setOpen(false)}
-                     busy={br.pending} ctx={ctx}
+                     busy={br.pending} ctx={ctx} readOnly={locked}
                      endSlot={running && rec ? (cancel) => (
                        <EndForm woId={woId} rec={rec} op={op} missing={missing} compact
                                 empty={emptyOf(br.sheet!)} onCancel={cancel}
                                 onEnded={() => { setOpen(false); onEnded(); }} />
                      ) : undefined} />
       )}
+      {viewId && <SheetViewer recordId={viewId} ctx={ctx} onClose={() => setViewId(null)} />}
 
       {/*
         * 재단 결과는 재단한 사람이 재단한 자리에서 적는다 (사용자 지적).

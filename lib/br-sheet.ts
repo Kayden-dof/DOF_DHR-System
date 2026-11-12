@@ -49,6 +49,9 @@ export interface BrSheet {
   optDone: number;
   locked: boolean;
   workDate: string;
+  /** 그 기록의 일차 · 작업자 - 지난 기록을 볼 때 머리에 적는다 */
+  dayNo: number;
+  worker: string;
   title: string;
   /** 이 기록에 쓴 설비 (첫 설비부터, 대장 참조). 기기번호 칸의 고르는 창이 읽는다 */
   equipRefs: string[];
@@ -100,14 +103,14 @@ export function fillOne(form: BrForm, base: FillData, appendix: boolean) {
 
 export async function brSheet(db: Db, recordId: string, docId?: string | null): Promise<BrSheet | null> {
   const r = await db.one<{
-    id: string; work_date: string; equipment_id: string | null; op_code: string; op_name: string;
+    id: string; work_date: string; day_no: number; equipment_id: string | null; op_code: string; op_name: string;
     extra_equipment_ids: string[] | null;
     equipment_ref: string | null; extra_equipment_refs: string[] | null;
     product_code: string | null; batch_no: string; sheet_count: number; load_unit: string | null;
     raw_lot_no: string; raw_item_code: string; worker_name: string;
     product_lot_no: string | null; product_item_code: string | null; locked: boolean;
   }>(
-    `select pr.id, pr.work_date::text as work_date, pr.equipment_id,
+    `select pr.id, pr.work_date::text as work_date, pr.day_no, pr.equipment_id,
             pr.extra_equipment_ids, pr.equipment_ref, pr.extra_equipment_refs,
             o.code as op_code, o.name as op_name, dm.product_code,
             wo.batch_no, wo.sheet_count, dm.load_unit,
@@ -178,7 +181,8 @@ export async function brSheet(db: Db, recordId: string, docId?: string | null): 
   return {
     recordId, docId: doc.id, docNo: doc.doc_no, size: doc.form.page, pages: shown,
     total: cur.total, done: cur.done, optTotal: opt.total, optDone: opt.done,
-    locked: r.locked, workDate: r.work_date, title: `${r.op_name} · ${doc.doc_no}`,
+    locked: r.locked, workDate: r.work_date, dayNo: r.day_no, worker: r.worker_name,
+    title: `${r.op_name} · ${doc.doc_no}`,
     equipRefs: [r.equipment_ref, ...(r.extra_equipment_refs ?? [])].filter(Boolean) as string[],
     appendix: at > 0, forms, empty: emptyOfForms(forms),
   };
