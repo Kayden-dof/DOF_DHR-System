@@ -64,6 +64,34 @@ async function account(code, name, roles) {
   return id;
 }
 
+/* ── 0. 판정 함수 ──────────────────────────────────────────────────────
+ *
+ * 첫 화면과 고른 역할 해석은 순수 함수다 (lib/roles.ts). 화면을 거치지 않고
+ * 바로 불러 본다 - 로그인 · 역할 고르기 · 비밀번호 바꾸기가 가는 곳이 이것이라
+ * 쿠키로 화면을 두드려서는 닿지 않는다.
+ */
+console.log('\n역할 고르기가 서는가 (2026-11-20)\n');
+console.log('[0] 판정 함수');
+{
+  const { homePath, seatOf } = await import(new URL('../lib/roles.ts', import.meta.url).href);
+  for (const [roles, want] of [
+    [['SYS_ADMIN'], '/'], [['PROD_MGR'], '/'], [['WORKER'], '/work'],
+    [['VIEWER'], '/board'], [['QP'], '/production'], [[], '/no-role'],
+    [['WORKER', 'PROD_MGR'], '/'],
+  ]) {
+    const got = homePath(roles);
+    ok(got === want, `첫 화면 · ${roles.join('+') || '역할 없음'} → ${want}`, got);
+  }
+  const W = ['WORKER', 'PROD_MGR'];
+  ok(!seatOf(W, undefined).pick && seatOf(W, undefined).seat.join() === W.join(),
+     '겸직 · 고르지 않는 세션 → 가진 역할 전부');
+  ok(seatOf(W, '').pick, '겸직 · 고르기 전 → 고른다');
+  ok(seatOf(W, 'WORKER').seat.join() === 'WORKER' && !seatOf(W, 'WORKER').pick, '겸직 · 작업자로');
+  ok(seatOf(W, 'QP').pick, '겸직 · 가진 적 없는 역할 → 다시 고른다');
+  ok(seatOf(['WORKER'], 'PROD_MGR').seat.join() === 'WORKER'
+     && !seatOf(['WORKER'], 'PROD_MGR').pick, '홑 역할 · 쿠키에 무엇이 있어도 가진 역할 그대로');
+}
+
 const both = await account('990101', '겸직 확인용', ['WORKER', 'PROD_MGR']);
 const one = await v(
   `select u.id from app_user u join user_role r on r.user_id = u.id
@@ -83,10 +111,8 @@ const where = (x) => (x.to ?? '그렸다').replace(BASE, '');
 
 const SWITCH = '역할 바꾸기';
 
-console.log('\n역할 고르기가 서는가 (2026-11-20)\n');
-
 /* ── 1. 고르기 전 ──────────────────────────────────────────────────── */
-console.log('[1] 고르기 전에는 고르는 창으로 보낸다');
+console.log('\n[1] 고르기 전에는 고르는 창으로 보낸다');
 {
   const k = sessionCookie(both, '');
   for (const p of ['/', '/work', '/production', '/settings']) {

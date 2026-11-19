@@ -123,5 +123,10 @@ export function homePath(roles: RoleCode[]): string {
   if (isWorker(roles)) return '/work';
   /* 열람자는 경영 현황으로. 볼 것이 거기 다 있다 */
   if (isViewer(roles)) return '/board';
+  /*
+   * 품질책임자는 생산으로. 차림표의 첫 칸이다 (사용자 결정 2026-11-20). 전에는 이
+   * 갈래가 없어 품질책임자 계정이 로그인하면 «역할 없음» 화면에 떨어졌다.
+   */
+  if (roles.includes('QP')) return '/production';
   return '/no-role';
 }
