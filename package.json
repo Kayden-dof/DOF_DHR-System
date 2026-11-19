@@ -34,6 +34,7 @@
     "settings": "node scripts/settings-cover.mjs",
     "save": "node --env-file=.env.local scripts/save-check.mjs",
     "screen": "node --env-file=.env.local scripts/screen-check.mjs",
+    "seat": "node --env-file=.env.local scripts/seat-check.mjs",
     "font": "node scripts/font-check.mjs",
     "size": "node scripts/size-check.mjs",
     "net": "node scripts/net-check.mjs",

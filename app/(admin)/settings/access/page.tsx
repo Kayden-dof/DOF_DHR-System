@@ -136,7 +136,7 @@ export default async function AccessPage({ searchParams }: {
       title="역할이 여는 문"
       lede={`역할 ${krCount(ACCESS_ROLES.length)}이 화면 ${krCount(ACCESS_ROWS.length)}에 각각 어떻게 닿는지 한 장에 둔 것입니다. `
             + '계정에 역할을 붙이기 전에 무엇이 열리는지 여기서 봅니다.'}
-      nav={<SubNav items={settingsNav(user.roles, user.screens)} />}
+      nav={<SubNav items={settingsNav(user.seat, user.screens)} />}
     >
       <Panel
         title="권한 매트릭스"

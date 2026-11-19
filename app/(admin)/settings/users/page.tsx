@@ -140,7 +140,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Search
       title="사용자 · 역할"
       lede="계정은 삭제하지 않고 비활성화합니다. 역할 부여와 회수는 모두 감사추적에 남습니다."
       action={writable ? <NewUserForm sysAdmin={hasRole(me, 'SYS_ADMIN')} /> : null}
-      nav={<SubNav items={settingsNav(me.roles, me.screens)} />}
+      nav={<SubNav items={settingsNav(me.seat, me.screens)} />}
     >
 
       <FilterBar

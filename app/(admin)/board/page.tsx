@@ -197,9 +197,9 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
    * 자재 지출은 따로 목록이 있는 화면으로 보내되, 그 사람이 열 수 없는 화면이면
    * 이 화면의 판으로 대신 보낸다 - 눌러서 막히는 링크를 만들지 않는다.
    */
-  const canShip = canOpen('/shipping/ship', user.roles, user.screens);
+  const canShip = canOpen('/shipping/ship', user.seat, user.screens);
   const canCost = hasRole(user, 'SYS_ADMIN', 'PROD_MGR', 'VIEWER')
-    && canOpen('/board/cost', user.roles, user.screens);
+    && canOpen('/board/cost', user.seat, user.screens);
 
   const stats: StatItem[] = [
     { label: '오늘 생산', value: day?.produced ?? 0, unit: '개', href: '#board-today',

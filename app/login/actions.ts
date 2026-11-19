@@ -3,9 +3,9 @@
 import { redirect } from 'next/navigation';
 import { withActor } from '@/lib/db';
 import { verifyPin } from '@/lib/auth';
-import { startSession } from '@/lib/session';
+import { startSession, currentUser, chooseSeat } from '@/lib/session';
 import { withActor as _w } from '@/lib/db';
-import { homePath, type RoleCode } from '@/lib/roles';
+import { homePath, ROLE_ORDER, type RoleCode } from '@/lib/roles';
 
 export interface LoginState { error?: string }
 
@@ -120,8 +120,16 @@ export async function login(_prev: LoginState, form: FormData): Promise<LoginSta
     console.error('[login] 실패 기록 정리 실패', e);
   }
 
+  /*
+   * 역할이 둘 이상이면 어느 역할로 들어갈지 고르게 한다 (사용자 요청 2026-11-20).
+   * 세션은 "아직 고르지 않음" 으로 연다 - 고르기 전에는 requireUser 가 어느
+   * 화면으로도 들이지 않고 이 화면의 고르는 창으로 돌려보낸다.
+   */
+  const roles = row.roles ?? [];
+  const many = roles.length > 1;
+
   try {
-    await startSession(row.id);
+    await startSession(row.id, many ? '' : undefined);
   } catch (e) {
     console.error('[login] 세션 생성 실패', e);
     const err = e as { message?: string };
@@ -133,5 +141,26 @@ export async function login(_prev: LoginState, form: FormData): Promise<LoginSta
   // 남이 정해 준 비밀번호로 들어온 사람은 자기 값을 정하는 자리로 먼저 보낸다.
   // 두 화면 묶음의 layout 도 같은 것을 보지만, 여기서 보내면 한 번 덜 튄다.
   // redirect는 예외를 던진다. try 안에 넣지 말 것.
-  redirect(row.must_change_pin ? '/password' : homePath(row.roles ?? []));
+  redirect(row.must_change_pin ? '/password' : many ? '/login' : homePath(roles));
+}
+
+/* ---------------------------------------------------------------------------
+   역할 고르기 (사용자 요청 2026-11-20)
+
+   로그인 직후의 고르는 창과 이름 옆 «역할 바꾸기» 가 같이 쓴다. 비밀번호를
+   다시 묻지 않는다 - 같은 사람이 같은 세션에서 자리를 바꾸는 것이고, 고른
+   역할은 보이는 범위만 정한다 (lib/roles.ts seatOf).
+
+   가진 역할인지는 방금 DB 에서 읽은 계정으로 본다. 그 사이 관리자가 역할을
+   거둬 갔으면 고르는 창으로 돌아간다.
+--------------------------------------------------------------------------- */
+export async function pickRole(form: FormData): Promise<void> {
+  const role = String(form.get('role') ?? '') as RoleCode;
+  const me = await currentUser();
+  if (!me) redirect('/login');
+
+  const ok = ROLE_ORDER.includes(role) && await chooseSeat(me, role);
+  if (!ok) redirect('/login');
+
+  redirect(me.must_change_pin ? '/password' : homePath([role]));
 }

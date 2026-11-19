@@ -77,7 +77,7 @@ export default async function DmrPage({
                          products={d.products} current={d.viewing ?? sp.p} />
         <NewProduct finished={d.finished} today={d.today} />
       </>}
-      nav={<SubNav items={settingsNav(user.roles, user.screens)} />}
+      nav={<SubNav items={settingsNav(user.seat, user.screens)} />}
     >
       <DmrWorkbench userId={user.id} dmParam={sp.dm} productParam={sp.p} base="/settings/dmr" writable={writable}
                     fixes={fixes} />

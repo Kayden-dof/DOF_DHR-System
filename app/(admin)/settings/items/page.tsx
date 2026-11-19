@@ -99,7 +99,7 @@ export default async function ItemsPage({ searchParams }: { searchParams: Search
           <NewItemForm />
         </div>
       }
-      nav={<SubNav items={settingsNav(user.roles, user.screens)} />}
+      nav={<SubNav items={settingsNav(user.seat, user.screens)} />}
     >
 
       <div className="card flex flex-wrap items-center gap-2 py-3">

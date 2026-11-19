@@ -220,7 +220,7 @@ export default async function SettingsHome() {
    * 손으로 하나 더 들고 있었고, 역할이 늘 때마다 세 곳을 따로 고쳐야 했다.
    */
   const mine = <T extends { href: string }>(xs: T[]) =>
-    xs.filter((x) => canOpen(x.href, user.roles, user.screens));
+    xs.filter((x) => canOpen(x.href, user.seat, user.screens));
 
   /*
    * 타일이 남은 일을 센다 (UI/UX 검수 2026-11-11 «타일이 할 일을 세지 않음»). 이 화면이
@@ -286,7 +286,7 @@ export default async function SettingsHome() {
       section="설정"
       title="기준정보와 계정"
       lede="여기서 정한 것이 생산 화면의 선택지가 됩니다."
-      nav={<SubNav items={settingsNav(user.roles, user.screens)} />}
+      nav={<SubNav items={settingsNav(user.seat, user.screens)} />}
     >
       {writable && blocking.length > 0 && (
         <div className="card border-warn/40 bg-warn-bg p-4">

@@ -3,7 +3,7 @@ import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { withActor } from './db';
 import type { RoleCode } from './roles';
-import { isViewerOnly, isReadOnly, homePath } from './roles';
+import { isViewerOnly, isReadOnly, homePath, seatOf } from './roles';
 import { screenAccess } from './access';
 import { SESSION_COOKIE as COOKIE, PATH_HEADER } from './auth-const';
 import { canOpen } from './access';
@@ -30,7 +30,17 @@ export interface SessionUser {
   is_developer: boolean;
   /** 만든 사람이 비밀번호를 아는 상태. 본인이 바꾸기 전에는 다른 화면으로 가지 않는다 */
   must_change_pin: boolean;
+  /** 가진 역할 전부. 저장하는 동작의 권한은 이것으로 본다 */
   roles: RoleCode[];
+  /**
+   * 화면을 가리는 역할 (lib/roles.ts seatOf · 사용자 요청 2026-11-20).
+   *
+   * 역할이 둘 이상인 계정이 로그인할 때 고른 역할 하나다. 그 밖에는 roles 와
+   * 같다. 첫 화면 · 차림표 · 화면 문이 이것을 쓰고, 저장 권한은 roles 를 쓴다.
+   */
+  seat: RoleCode[];
+  /** 역할을 아직 고르지 않았다. requireUser 가 고르는 창(/login)으로 보낸다 */
+  pick: boolean;
   /**
    * 관리자가 이 사람에게 따로 정한 화면 (user_screen · 0116).
    *
@@ -66,15 +76,21 @@ function sign(payload: string): string {
  * 옛 쿠키에는 i 가 없다. 그때는 e 에서 유효 시간을 빼 발급 시각으로 삼는다 -
  * 이 변경으로 지금 일하는 사람이 튕겨 나가면 안 된다.
  */
-function seal(userId: string): string {
-  const now = Date.now();
-  const payload = b64(
-    Buffer.from(JSON.stringify({ v: 1, u: userId, i: now, e: now + MAX_AGE_SEC * 1000 })),
-  );
+/*
+ * r(고른 역할)도 함께 봉한다 (사용자 요청 2026-11-20). 서명 안에 두므로 손으로
+ * 고칠 수 없고, 고쳐 봐야 가진 역할 밖으로는 넓어지지 않는다 (seatOf).
+ * 역할을 고르지 않는 세션에는 r 를 싣지 않는다 - 옛 쿠키와 같은 모양이다.
+ */
+interface Seal { userId: string; issuedAt: number; expiresAt: number; role?: string }
+
+function seal({ userId, issuedAt, expiresAt, role }: Seal): string {
+  const body: Record<string, unknown> = { v: 1, u: userId, i: issuedAt, e: expiresAt };
+  if (role !== undefined) body.r = role;
+  const payload = b64(Buffer.from(JSON.stringify(body)));
   return `${payload}.${sign(payload)}`;
 }
 
-interface Claim { userId: string; issuedAt: number }
+interface Claim { userId: string; issuedAt: number; expiresAt: number; role?: string }
 
 function unseal(token: string | undefined): Claim | null {
   if (!token) return null;
@@ -87,13 +103,16 @@ function unseal(token: string | undefined): Claim | null {
 
   try {
     const data = JSON.parse(Buffer.from(payload, 'base64url').toString()) as {
-      v: number; u: string; e: number; i?: number;
+      v: number; u: string; e: number; i?: number; r?: unknown;
     };
     if (data.v !== 1 || typeof data.u !== 'string') return null;
     if (!Number.isFinite(data.e) || data.e < Date.now()) return null;
     const issuedAt = Number.isFinite(data.i) ? (data.i as number)
       : data.e - MAX_AGE_SEC * 1000;
-    return { userId: data.u, issuedAt };
+    return {
+      userId: data.u, issuedAt, expiresAt: data.e,
+      role: typeof data.r === 'string' ? data.r : undefined,
+    };
   } catch {
     return null;
   }
@@ -122,7 +141,37 @@ export function peekSessionUser(token: string | undefined): string | null {
   }
 }
 
-export async function startSession(userId: string): Promise<void> {
+/**
+ * role: 역할이 둘 이상인 계정이면 빈 글자를 넘긴다 - "아직 고르지 않음" 이다.
+ * 하나뿐이면 넘기지 않는다. 그 세션은 이 기능 전과 똑같다.
+ */
+export async function startSession(userId: string, role?: ''): Promise<void> {
+  const now = Date.now();
+  await putCookie(seal({ userId, issuedAt: now, expiresAt: now + MAX_AGE_SEC * 1000, role }),
+                  MAX_AGE_SEC);
+}
+
+/**
+ * 이 세션의 역할을 고른다 (로그인 직후 · 이름 옆 «역할 바꾸기»).
+ *
+ * 새 세션을 열지 않는다. 발급 시각과 만료를 그대로 두고 r 만 바꿔 다시 봉한다 -
+ * 역할을 바꾼다고 여덟 시간이 다시 시작되면 안 되고, 자리 비움 잠금도 같은
+ * 세션으로 알아야 한다 (issued_at).
+ *
+ * 가진 역할인지는 부르는 쪽이 방금 DB 에서 읽은 계정으로 확인한다.
+ */
+export async function chooseSeat(user: SessionUser, role: RoleCode): Promise<boolean> {
+  if (!user.roles.includes(role)) return false;
+  const jar = await cookies();
+  const claim = unseal(jar.get(COOKIE)?.value);
+  if (!claim || claim.userId !== user.id) return false;
+  const left = Math.floor((claim.expiresAt - Date.now()) / 1000);
+  if (left <= 0) return false;
+  await putCookie(seal({ ...claim, role }), left);
+  return true;
+}
+
+async function putCookie(value: string, maxAge: number): Promise<void> {
   const jar = await cookies();
   /*
    * sameSite 를 'strict' 로 둔다 (망 경계 2026-09-11).
@@ -134,12 +183,12 @@ export async function startSession(userId: string): Promise<void> {
    * 이 프로그램은 밖에서 들어오는 고리가 없다. 즐겨찾기와 홈 화면에서 여는
    * 것은 브라우저가 시작한 이동이라 'strict' 에서도 쿠키가 간다.
    */
-  jar.set(COOKIE, seal(userId), {
+  jar.set(COOKIE, value, {
     httpOnly: true,
     sameSite: 'strict',
     secure: process.env.NODE_ENV === 'production',
     path: '/',
-    maxAge: MAX_AGE_SEC,
+    maxAge,
   });
 }
 
@@ -190,10 +239,12 @@ export async function currentUser(): Promise<SessionUser | null> {
      */
     if (row.pin_changed_at && claim.issuedAt < row.pin_changed_at.getTime()) return null;
 
+    const roles = row.roles ?? [];
     return {
       ...row,
       issued_at: claim.issuedAt,
-      roles: row.roles ?? [],
+      roles,
+      ...seatOf(roles, claim.role),
       screens: new Map(Object.entries(row.screens ?? {})),
     };
   });
@@ -217,6 +268,12 @@ export async function requireUser(): Promise<SessionUser> {
   const user = await currentUser();
   if (!user) redirect('/login');
   if (user.must_change_pin) redirect('/password');
+
+  /*
+   * 역할이 둘 이상인데 아직 고르지 않았다 (사용자 요청 2026-11-20). 고르는 창은
+   * 로그인 화면 위에 뜬다. 주소를 바로 쳐서 그 창을 건너뛸 수 없게 여기서 보낸다.
+   */
+  if (user.pick) redirect('/login');
 
   /* -------------------------------------------------------------------------
      관리자가 닫아 둔 화면인가 (0116)
@@ -366,9 +423,12 @@ export function canWrite(user: SessionUser): boolean {
    저장하는 동작은 저마다 제 문을 갖고 있고(각 actions.ts), 읽기 전용 세션은
    app_readonly 로 돌아 DB 가 쓰기를 거부하며, S01~S05 와 §2.1 불변식은 권한과
    무관하게 선다. 관리자가 화면을 열어 준다고 할 수 있는 일이 늘지 않는다.
+
+   판정은 고른 역할(seat)로 한다 - 차림표(canOpen)와 같은 값이어야 차림표에
+   없는 화면이 주소로는 열리는 일이 없다 (§4.12).
 --------------------------------------------------------------------------- */
 export function blocksScreen(user: SessionUser, path: string): boolean {
-  const a = screenAccess(path, user.roles, user.screens);
-  if (a === 'away') redirect(homePath(user.roles));
+  const a = screenAccess(path, user.seat, user.screens);
+  if (a === 'away') redirect(homePath(user.seat));
   return a !== 'open';
 }

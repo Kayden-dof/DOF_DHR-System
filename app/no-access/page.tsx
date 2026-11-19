@@ -25,14 +25,14 @@ export const metadata = { title: '열리지 않는 화면' };
 --------------------------------------------------------------------------- */
 export default async function NoAccess() {
   const user = await currentUser();
-  if (!user) redirect('/login');
+  if (!user || user.pick) redirect('/login');
 
   /*
    * 돌아갈 곳. 그 사람의 홈도 닫혀 있으면 열려 있는 첫 자리로 보낸다 -
    * "돌아가기" 가 다시 여기로 오면 나갈 길이 없다.
    */
-  const home = homePath(user.roles);
-  const back = canOpen(home, user.roles, user.screens) ? home : null;
+  const home = homePath(user.seat);
+  const back = canOpen(home, user.seat, user.screens) ? home : null;
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-lg flex-col justify-center px-6 py-16">

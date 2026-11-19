@@ -39,7 +39,7 @@ export default async function TimelinePage({ searchParams }: { searchParams: Pro
       lede={<>공정 아래 작업의 차례와 시간을 막대로 놓습니다. 계획이라 서면 대조 확인과 무관하고, 생산 &gt; 일정이 이 시간표를 날짜에 얹습니다.
         {d?.tl?.updated_at && <> 마지막 저장 {d.tl.updated_at}{d.tl.updated_by_name ? ` · ${d.tl.updated_by_name}` : ''}{d.tl.basis ? ` · 근거 ${d.tl.basis}` : ''}.</>}</>}
       action={<Link href={back} className="btn-ghost">제품표준서로</Link>}
-      nav={<SubNav items={settingsNav(user.roles, user.screens)} />}
+      nav={<SubNav items={settingsNav(user.seat, user.screens)} />}
     >
       {!d ? (
         <Panel><Empty hint="제품표준서 화면에서 판을 고른 뒤 «공정 시간표» 로 들어옵니다.">고른 제품표준서가 없습니다</Empty></Panel>

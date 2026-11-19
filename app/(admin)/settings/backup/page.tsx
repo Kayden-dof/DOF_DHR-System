@@ -104,7 +104,7 @@ export default async function BackupPage() {
           사내 규정대로 보관하십시오.
         </>
       }
-      nav={<SubNav items={settingsNav(me.roles, me.screens)} />}
+      nav={<SubNav items={settingsNav(me.seat, me.screens)} />}
     >
       {/*
         * 뜨는 것과 넣는 것을 나란히 세운다 (사용자 요청 2026-09-01).

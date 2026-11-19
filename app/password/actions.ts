@@ -74,7 +74,8 @@ export async function changeMyPin(_prev: FormState, form: FormData): Promise<For
       db.rows(`update app_user set pin_hash = $2, must_change_pin = false where id = $1`,
               [me.id, hash]));
 
-    go = homePath(me.roles);
+    /* 역할을 아직 고르지 않았으면 고르는 창으로 (사용자 요청 2026-11-20) */
+    go = me.pick ? '/login' : homePath(me.seat);
   } catch (e) {
     return { error: dbMessage(e) };
   }

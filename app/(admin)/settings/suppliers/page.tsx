@@ -82,7 +82,7 @@ export default async function SuppliersPage({ searchParams }: {
       title="공급자 · 단가 · 사용기간"
       lede="승인 상태는 경고 표시에만 쓰입니다. 미승인 공급자의 자재도 등록과 사용을 막지 않습니다."
       action={writable ? <NewSupplierForm /> : null}
-      nav={<SubNav items={settingsNav(user.roles, user.screens)} />}
+      nav={<SubNav items={settingsNav(user.seat, user.screens)} />}
     >
 
       <Panel>

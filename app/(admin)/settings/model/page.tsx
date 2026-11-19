@@ -61,7 +61,7 @@ export default async function ModelSchemePage() {
           라벨요청서와 출하 승인 요청서에 그대로 나갑니다.
         </>
       }
-      nav={<SubNav items={settingsNav(user.roles, user.screens)} />}
+      nav={<SubNav items={settingsNav(user.seat, user.screens)} />}
     >
       {d.schemes.length === 0 && (
         <div className="card border-warn/40 bg-warn-bg p-4">

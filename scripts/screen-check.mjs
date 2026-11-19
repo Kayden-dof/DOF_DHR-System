@@ -122,8 +122,15 @@ for (const [label, role, path] of [
   ['작업자', 'WORKER', '/board'],            // 기본 내보냄
   ['경영열람', 'VIEWER', '/material'],       // 기본 막힘 · 구역 레이아웃이 있다
 ]) {
+  /*
+   * 그 역할 **하나만** 가진 계정을 고른다. 겸직 계정을 집으면 다른 역할이 화면을
+   * 열어 "처음에는 못 연다" 가 거짓으로 틀린다 (2026-11-20 · 역할 고르기 시험의
+   * 겸직 확인용 계정을 집었다). access-matrix 도 같은 까닭으로 홑 역할만 고른다.
+   */
   const who = await v(`select u.id from app_user u join user_role r on r.user_id = u.id
-                        where r.role = $1 and u.can_login limit 1`, [role]);
+                        where u.can_login and u.is_active
+                        group by u.id having array_agg(r.role::text) = array[$1::text]
+                        limit 1`, [role]);
   if (!who) { console.log(`  건너뜀  ${label} 계정이 없습니다`); continue; }
 
   const shut = await probe(who, path);

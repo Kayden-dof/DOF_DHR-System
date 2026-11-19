@@ -26,9 +26,9 @@ export const ROLE_ORDER: RoleCode[] = ['WORKER', 'PROD_MGR', 'QP', 'SYS_ADMIN', 
    관리자(시스템관리자·생산관리자)  키보드와 마우스를 쓰는 사무 화면
    작업자                           장갑 낀 손으로 쓰는 현장 패드 화면
 
-   둘을 겸하는 계정은 관리 화면으로 들어가고, 상단에서 현장 화면으로 넘어갈 수
-   있다. 기본값을 관리 화면으로 두는 이유는 그쪽에 되돌릴 수 없는 조작
-   (작업 지시 발행, 규칙 등록)이 있어 의도치 않게 열리면 곤란하기 때문이다.
+   둘을 겸하는 계정은 로그인할 때 어느 역할로 들어갈지 고른다 (아래 seatOf ·
+   사용자 요청 2026-11-20). 전에는 늘 관리 화면으로 들어가고 상단에서 현장
+   화면으로 넘어갔다.
 --------------------------------------------------------------------------- */
 export const ADMIN_ROLES: RoleCode[] = ['SYS_ADMIN', 'PROD_MGR'];
 
@@ -84,6 +84,38 @@ export const isQpOnly = (roles: RoleCode[]) =>
 /** 쓰기 역할이 하나도 없는가. 이 세션은 DB 에서도 읽기 전용이 된다 */
 export const isReadOnly = (roles: RoleCode[]) =>
   roles.length > 0 && roles.every((r) => r === 'VIEWER' || r === 'QP');
+
+/* ---------------------------------------------------------------------------
+   이번에 앉은 자리 (사용자 요청 2026-11-20)
+
+   역할이 둘 이상인 계정은 로그인할 때 어느 역할로 일할지 고른다. 전에는 관리
+   역할이 늘 이겨서, 생산관리자 겸 작업자가 현장 패드에서 로그인해도 관리 화면이
+   먼저 떴다.
+
+   ── 고른 역할이 정하는 것은 보이는 범위뿐이다 (사용자 결정 2026-11-20) ────
+   첫 화면 · 차림표 · 화면 문(canOpen · requireUser · blocksScreen)이 이 값을
+   쓴다. 저장하는 동작은 지금처럼 **가진 역할 전부**로 확인한다 - 계정별 화면
+   배정(0116)과 같은 성격이다. 언제든 역할을 바꿀 수 있으므로 저장까지 좁혀도
+   막아 주는 것이 없다.
+
+   chosen 은 세션 쿠키에 봉한 값이다.
+     없음        고르지 않는 세션 (역할이 하나이거나, 이 기능 전에 연 세션)
+     빈 글자     고르기 전 (로그인 직후)
+     역할 코드   고른 역할
+   고른 역할을 그 사이 관리자가 거둬 갔으면 다시 고른다.
+--------------------------------------------------------------------------- */
+export interface Seat {
+  /** 화면을 가리는 역할들. 고른 역할 하나, 아니면 가진 역할 전부 */
+  seat: RoleCode[];
+  /** 아직 고르지 않았다. 고르기 전에는 어느 화면으로도 들이지 않는다 */
+  pick: boolean;
+}
+
+export function seatOf(held: RoleCode[], chosen: string | undefined): Seat {
+  if (chosen === undefined || held.length < 2) return { seat: held, pick: false };
+  if ((held as string[]).includes(chosen)) return { seat: [chosen as RoleCode], pick: false };
+  return { seat: held, pick: true };
+}
 
 /** 로그인 직후 갈 곳. */
 export function homePath(roles: RoleCode[]): string {

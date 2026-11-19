@@ -6,6 +6,7 @@ import { getBrand } from '@/lib/brand';
 import { yearKST } from '@/lib/kst';
 import { APP_VERSION } from '@/lib/version';
 import LoginForm from './login-form';
+import { RolePickerLogin } from '@/components/role-picker';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,7 +27,13 @@ export const dynamic = 'force-dynamic';
 --------------------------------------------------------------------------- */
 
 export default async function LoginPage() {
-  if (await currentUser()) redirect('/');
+  /*
+   * 들어와 있는 사람은 첫 화면으로 보낸다. 다만 역할을 아직 고르지 않았으면
+   * 여기서 고르는 창을 띄운다 (사용자 요청 2026-11-20) - 로그인 직후에도,
+   * 고르기 전에 다른 주소를 쳐서 돌려보내졌을 때도 같은 자리다.
+   */
+  const me = await currentUser();
+  if (me && (!me.pick || me.must_change_pin)) redirect('/');
 
   const brand = await getBrand();
 
@@ -166,7 +173,13 @@ export default async function LoginPage() {
                    'linear-gradient(90deg, var(--color-brand), var(--color-brand-mid))',
                }} />
 
-          <LoginForm owners={owners} />
+          {/*
+            * 고르는 창이 떠 있는 동안에는 입력판을 그리지 않는다. 입력판은 창 전체의
+            * 숫자 · Enter 키를 듣고 있어, 뒤에 남겨 두면 고르는 사이 로그인이 한 번 더 나간다.
+            */}
+          {me?.pick
+            ? <RolePickerLogin name={me.full_name} roles={me.roles} />
+            : <LoginForm owners={owners} />}
         </div>
 
         <footer className="mt-10 w-full max-w-[25rem] border-t border-line pt-4 text-center text-xs leading-relaxed text-faint">

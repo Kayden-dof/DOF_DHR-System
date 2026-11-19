@@ -138,7 +138,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Search
       title="감사추적"
       lede="등록 · 변경 · 삭제가 모두 이전 값과 함께 남습니다. 기록 한 줄을 고치거나 골라 지울 수는 없고, 시스템관리자만 전체를 한꺼번에 비울 수 있습니다."
       /* 열람자에게는 설정 하위 메뉴를 보이지 않는다. 들어갈 수 없는 곳이다 */
-      nav={isViewerOnly(user.roles) ? undefined : <SubNav items={settingsNav(user.roles, user.screens)} />}
+      nav={isViewerOnly(user.seat) ? undefined : <SubNav items={settingsNav(user.seat, user.screens)} />}
     >
 
       {/* ---------------------------------------------------------------------

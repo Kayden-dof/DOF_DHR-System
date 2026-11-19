@@ -19,6 +19,7 @@ import Clock from '@/components/clock';
 import Rail from './rail';
 import { RAIL_COOKIE_PREFIX } from '@/lib/rail';
 import { APP_VERSION } from '@/lib/version';
+import { RoleSwitch } from '@/components/role-picker';
 
 /* ---------------------------------------------------------------------------
    관리 화면
@@ -68,13 +69,17 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   /*
    * 작업자 전용 계정은 현장 화면으로 보낸다. 열람자는 여기 남는다 - 볼 것이
    * 이 화면들에 있고, 쓰는 단추는 화면마다 감춘다.
+   *
+   * 문과 차림표는 고른 역할(seat)로 가린다 (사용자 요청 2026-11-20). 역할이 둘
+   * 이상인 계정이 작업자로 들어왔으면 작업자 전용 계정과 똑같이 현장으로 간다.
    */
-  const viewer = isViewerOnly(user.roles);
+  const seat = user.seat;
+  const viewer = isViewerOnly(seat);
   /*
    * 품질책임자도 들인다 (사용자 결정 2026-09-01). 판정하려면 지금 무엇을
    * 기준으로 돌고 있는지를 봐야 한다. 세션은 읽기 전용이다 (lib/roles.ts).
    */
-  const qp = isQpOnly(user.roles);
+  const qp = isQpOnly(seat);
 
   /*
    * 관리 화면 그룹 전체의 문이다.
@@ -87,8 +92,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
    */
   const here = (await headers()).get(PATH_HEADER);
   const opened = here ? user.screens.get(here) === true : false;
-  if (!isAdmin(user.roles) && !viewer && !qp && !opened) {
-    redirect(isWorker(user.roles) ? '/work' : '/no-role');
+  if (!isAdmin(seat) && !viewer && !qp && !opened) {
+    redirect(isWorker(seat) ? '/work' : '/no-role');
   }
 
   /*
@@ -163,15 +168,27 @@ export default async function AdminLayout({ children }: { children: React.ReactN
    * 걸러 낸다 - 못 여는 자리를 내놓고 눌렀을 때 막는 것보다 아예 보이지
    * 않는 편이 낫다. 문은 requireUser 가 한 번 더 지킨다 (lib/session.ts).
    */
-  const menu = items.filter((n) => canOpen(n.href, user.roles, user.screens));
+  const menu = items.filter((n) => canOpen(n.href, seat, user.screens));
 
   const initial = user.full_name.slice(0, 1);
 
   /* 레일을 접어 두었는가. 계정별로 기억한다 (./rail.tsx) */
   const railCollapsed = (await cookies()).get(RAIL_COOKIE_PREFIX + user.id)?.value === '1';
-  const roleLine = user.roles.length
-    ? user.roles.map((r) => ROLE_LABEL[r]).join(' · ')
+  /* 이름 아래에는 지금 앉은 역할을 적는다. 고르지 않는 계정이면 가진 역할 전부다 */
+  const roleLine = seat.length
+    ? seat.map((r) => ROLE_LABEL[r]).join(' · ')
     : '역할 없음';
+
+  /*
+   * 역할 바꾸기 (사용자 요청 2026-11-20). 역할이 둘 이상인 계정에만 낸다.
+   * 전에 겸직 계정이 쓰던 «현장 화면» 은 이것이 대신한다 - 현장으로 가는 것이
+   * 곧 작업자로 앉는 것이다.
+   */
+  const many = user.roles.length > 1;
+  const chosen = many && seat.length === 1 ? seat[0] : undefined;
+  const toField = isWorker(seat) && <Link href="/work" className="qd-text-action">현장 화면</Link>;
+  const switchRole = (cls: string, mini = false) =>
+    many && <RoleSwitch roles={user.roles} current={chosen} className={cls} mini={mini} />;
 
   /*
    * 지정 자리 밖에서 두드렸다 (사용자 지시 2026-09-11).
@@ -221,23 +238,30 @@ export default async function AdminLayout({ children }: { children: React.ReactN
                 </span>
               </span>
             </div>
-            <form action={logout}>
-              {/* 접힌 레일에서는 글귀 대신 표식 하나 (원본 접힘의 로그아웃과 같다) */}
-              <button type="submit" className="qd-rail-logout" aria-label="로그아웃" title="로그아웃">
-                <span className="dof-rail-full">로그아웃</span>
-                <span className="dof-rail-mini" aria-hidden>⎋</span>
-              </button>
-            </form>
+            <div className="flex flex-wrap items-center gap-x-3 in-[.qd-rail--collapsed]:flex-col">
+              {switchRole('qd-rail-logout', true)}
+              <form action={logout}>
+                {/* 접힌 레일에서는 글귀 대신 표식 하나 (원본 접힘의 로그아웃과 같다) */}
+                <button type="submit" className="qd-rail-logout" aria-label="로그아웃" title="로그아웃">
+                  <span className="dof-rail-full">로그아웃</span>
+                  <span className="dof-rail-mini" aria-hidden>⎋</span>
+                </button>
+              </form>
+            </div>
           </>
         }
         /*
          * 좁은 화면(1023px 이하 · 현장 패드)에서도 현장 화면으로 넘어갈 자리 (사용자 2026-11-12
          * «생산관리자겸 작업자라 작업자 화면 접근도 필요»). 넓은 화면의 본문 띠에만 있어
          * 패드에서는 겸직 계정이 현장으로 갈 길이 없었다.
+         *
+         * 겸직 계정은 이제 역할 바꾸기로 간다 (사용자 요청 2026-11-20). 좁은 화면에서는
+         * 이름이 서랍 안에 있으므로 머리 줄에도 같은 단추를 둔다.
          */
         bar={<>
           <FindUnit />
-          {isWorker(user.roles) && <Link href="/work" className="qd-text-action">현장 화면</Link>}
+          {toField}
+          {switchRole('qd-text-action')}
           {alert}
         </>}
       />
@@ -253,9 +277,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <div className="hidden items-center justify-end gap-3 px-10 pt-5 lg:flex">
           <Clock withDate className="text-xs text-faint" />
           <FindUnit />
-          {isWorker(user.roles) && (
-            <Link href="/work" className="qd-text-action">현장 화면</Link>
-          )}
+          {toField}
           {alert}
         </div>
 

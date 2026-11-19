@@ -12,6 +12,7 @@ import DemoBanner from '@/components/demo-banner';
 import { logout } from './actions';
 import IdleLock from '@/components/idle-lock';
 import Clock from '@/components/clock';
+import { RoleSwitch } from '@/components/role-picker';
 
 /* ---------------------------------------------------------------------------
    현장 화면
@@ -38,7 +39,16 @@ export default async function WorkLayout({ children }: { children: React.ReactNo
     db.val<string>(`select seeded_at::text from demo_marker limit 1`));
 
 
-  if (!isWorker(user.roles) && !isAdmin(user.roles)) redirect('/no-role');
+  /*
+   * 문은 고른 역할(seat)로 가린다 (사용자 요청 2026-11-20). 역할이 하나인
+   * 계정은 seat 가 곧 가진 역할이라 전과 같다.
+   */
+  const seat = user.seat;
+  if (!isWorker(seat) && !isAdmin(seat)) redirect('/no-role');
+
+  /* 역할이 둘 이상이면 이름 옆에 역할 바꾸기를 둔다. 관리 화면으로 가는 길도 이것이다 */
+  const many = user.roles.length > 1;
+  const chosen = many && seat.length === 1 ? seat[0] : undefined;
 
   return (
     <div className="touch flex min-h-screen flex-col bg-canvas">
@@ -76,12 +86,13 @@ export default async function WorkLayout({ children }: { children: React.ReactNo
               <div className="leading-tight">
                 <div className="text-base font-semibold text-ink">{user.full_name}</div>
                 <div className="text-xs text-muted">
-                  {isAdmin(user.roles) ? '관리자' : '작업자'}
+                  {isAdmin(seat) ? '관리자' : '작업자'}
                 </div>
               </div>
             </div>
 
-            {isAdmin(user.roles) && (
+            {many && <RoleSwitch roles={user.roles} current={chosen} className="btn-ghost" />}
+            {isAdmin(seat) && (
               <Link href="/"
                     className="btn-ghost">
                 관리 화면

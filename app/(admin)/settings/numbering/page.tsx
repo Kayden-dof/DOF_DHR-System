@@ -88,7 +88,7 @@ export default async function NumberingPage() {
           지시서를 취소해도 그 번호는 소멸합니다.
         </>
       }
-      nav={<SubNav items={settingsNav(user.roles, user.screens)} />}
+      nav={<SubNav items={settingsNav(user.seat, user.screens)} />}
     >
 
       <div className="card py-4">

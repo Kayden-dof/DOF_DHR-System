@@ -122,7 +122,7 @@ export default async function DocsCheckPage({ searchParams }: { searchParams: Se
           <Link href={`/print/revision-requests/${d.product}`} className="btn-primary">개정 제안서 인쇄</Link>
         </>
       ) : null}
-      nav={<SubNav items={settingsNav(user.roles, user.screens)} />}
+      nav={<SubNav items={settingsNav(user.seat, user.screens)} />}
       stats={d.product ? <StatStrip items={stats} /> : undefined}
     >
       {d.products.length > 1 && (

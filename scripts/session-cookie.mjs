@@ -8,11 +8,17 @@ import { createHmac } from 'node:crypto';
    우리 것이므로 여기서 맞춰 두는 편이 오래간다. 규칙이 바뀌면 이 파일을 쓰는
    시험이 바로 실패하는데, 그게 맞는 동작이다.
 --------------------------------------------------------------------------- */
-export function sessionCookie(userId) {
+/**
+ * role 을 주면 고른 역할(r)을 함께 봉한다 (lib/session.ts · 2026-11-20).
+ * 빈 글자는 "아직 고르지 않음", 주지 않으면 고르지 않는 세션이다.
+ */
+export function sessionCookie(userId, role) {
   const s = process.env.SESSION_SECRET;
   if (!s || s.length < 32) throw new Error('SESSION_SECRET이 없거나 너무 짧습니다');
+  const body = { v: 1, u: userId, e: Date.now() + 8 * 3600 * 1000 };
+  if (role !== undefined) body.r = role;
   const payload = Buffer
-    .from(JSON.stringify({ v: 1, u: userId, e: Date.now() + 8 * 3600 * 1000 }))
+    .from(JSON.stringify(body))
     .toString('base64url');
   const sig = createHmac('sha256', Buffer.from(s, 'utf8')).update(payload).digest('base64url');
   return `dhr_session=${payload}.${sig}`;

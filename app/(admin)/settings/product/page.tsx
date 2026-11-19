@@ -163,7 +163,7 @@ export default async function ProductSetupPage() {
    * 넣는 자리는 그대로 하나다 - 같은 폼 · 같은 서버 동작이고, 만든 뒤에는 제품표준서
    * 작업대가 그 개정을 연다. 다음 걸음(공정 흐름)이 거기 있다.
    */
-  const canAdd = canWrite(user) && canOpen('/settings/dmr', user.roles, user.screens);
+  const canAdd = canWrite(user) && canOpen('/settings/dmr', user.seat, user.screens);
 
   return (
     <PageShell
@@ -171,7 +171,7 @@ export default async function ProductSetupPage() {
       title="제품 세우기"
       lede="제품 하나가 어디까지 섰는지 한 자리에서 봅니다. 넣는 것은 제품표준서 작업대에서 하고, 여기서는 빈 곳을 짚어 그 화면으로 보냅니다."
       action={canAdd ? <NewProduct finished={d.finished} today={d.today} openAt="/settings/dmr" /> : null}
-      nav={<SubNav items={settingsNav(user.roles, user.screens)} />}
+      nav={<SubNav items={settingsNav(user.seat, user.screens)} />}
     >
       {/*
         * 설정 안에서 제품을 세우러 가는 길을 둔다 (UI/UX 검수 2026-11-11). 전에는 «생산 >
@@ -180,7 +180,7 @@ export default async function ProductSetupPage() {
         */}
       {d.rows.length === 0 ? (
         <Empty hint="오른쪽 위의 제품 등록에서 제품 코드 · 대표 형명 · 첫 개정을 한 번에 만듭니다. 그다음 공정 흐름은 제품표준서 작업대에서 넣습니다."
-               action={canOpen('/settings/dmr', user.roles, user.screens) && (
+               action={canOpen('/settings/dmr', user.seat, user.screens) && (
                  <Link href="/settings/dmr" className="btn-ghost">제품표준서 열기</Link>
                )}>
           등록된 제품표준서가 없습니다.

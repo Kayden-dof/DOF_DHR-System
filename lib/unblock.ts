@@ -29,13 +29,14 @@ export interface Fix {
 }
 
 export function fixAt(
-  user: { roles: RoleCode[]; screens: ReadonlyMap<string, boolean> },
+  /* 갈 수 있는지는 고른 역할로 본다 - 차림표와 같은 값 (SessionUser.seat) */
+  user: { seat: RoleCode[]; screens: ReadonlyMap<string, boolean> },
   path: string,
   query = '',
 ): Fix {
   const row = ACCESS_ROWS.find((r) => r.path === path);
   return {
-    href: canOpen(path, user.roles, user.screens) ? path + query : null,
+    href: canOpen(path, user.seat, user.screens) ? path + query : null,
     place: row ? `${row.group} › ${row.label}` : path,
     who: row ? openTo(row) : '',
   };
