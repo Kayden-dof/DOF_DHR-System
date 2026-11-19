@@ -43,11 +43,22 @@ export default function FlowDiagram({
    * 마지막" 으로 찾는다. 같은 것을 두 곳이 다르게 정하면 둘 다 못 믿는다.
    *
    * 여기서도 같은 셈을 쓴다. 이름은 보지 않는다.
+   *
+   * 갈림을 공정에 따로 표시할 수 있다 (0138). DX2402 는 01 에서 형명별로
+   * 자르지만 기록은 그 뒤에도 배치 한 장이다 - 갈림과 기록 단위가 바뀌는 자리가
+   * 다르다. 표시가 있으면 그 공정이 갈림이고, 없으면 전처럼 셈한다.
    */
+  const marked = operations.findIndex((o) => o.splits_models);
   const hasAfter = operations.some((o) => o.after_cutting);
-  const cutIndex = hasAfter
-    ? operations.map((o) => o.after_cutting).lastIndexOf(false)
+  const cutIndex = marked >= 0 ? marked
+    : hasAfter ? operations.map((o) => o.after_cutting).lastIndexOf(false)
     : -1;
+  /* 기록이 제품 로트로 넘어가는 첫 공정. 갈림 바로 뒤가 아니면 그 자리에 따로 알린다 */
+  const firstAfter = operations.findIndex((o) => o.after_cutting);
+  const lotRightAfter = cutIndex >= 0 && firstAfter === cutIndex + 1;
+  /* 갈림 뒤에도 배치 단위로 남는 공정이 있는가 */
+  const batchAfterCut = cutIndex >= 0
+    && operations.slice(cutIndex + 1).some((o) => !o.after_cutting);
 
   return (
     <div className="px-4 py-4">
@@ -63,7 +74,14 @@ export default function FlowDiagram({
               {/* 재단 뒤에서 단위가 바뀐다. 그 사실을 한 줄로 알린다 */}
               {isCut && (
                 <p className="mb-1.5 mt-1 text-xs font-semibold tracking-wide text-brand">
-                  여기서 형명별로 갈립니다 · 이후 기록은 제품 로트에 붙습니다
+                  {lotRightAfter
+                    ? '여기서 형명별로 갈립니다 · 이후 기록은 제품 로트에 붙습니다'
+                    : '여기서 형명별로 갈립니다'}
+                </p>
+              )}
+              {i === firstAfter && !lotRightAfter && cutIndex >= 0 && (
+                <p className="mb-1.5 mt-1 text-xs font-semibold tracking-wide text-brand">
+                  여기부터 기록이 제품 로트에 붙습니다
                 </p>
               )}
 
@@ -128,7 +146,14 @@ export default function FlowDiagram({
         * 갈림이 없는 품목이면 이 문장 자체가 뜻이 없으므로 쓰지 않는다 (§12).
         */}
       <p className="mt-1 text-xs leading-relaxed text-muted">
-        {cutIndex >= 0 ? (
+        {cutIndex >= 0 && batchAfterCut ? (
+          <>
+            <b className="text-ink">{operations[cutIndex].name}</b>에서 형명별로 나뉩니다.
+            나뉜 뒤에도 들여쓰지 않은 공정은 기록이 <b className="text-ink">배치</b> 한 장에
+            붙고 형명은 그 안에 적습니다. 들여쓴 공정은 기록이
+            <b className="text-ink"> 제품 로트</b>에 붙습니다.
+          </>
+        ) : cutIndex >= 0 ? (
           <>
             <b className="text-ink">{operations[cutIndex].name}</b> 이전 공정은 기록이{' '}
             <b className="text-ink">배치</b>에, 이후 공정은

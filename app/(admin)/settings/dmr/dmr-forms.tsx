@@ -18,6 +18,8 @@ import { linkOperation } from '../../equipment/actions';
 
 export interface OperationRow {
   id: string; seq: number; code: string; name: string; after_cutting: boolean;
+  /** 형명이 갈리는 공정 (0138). 표시가 없으면 제품 로트 단위 공정 바로 앞 */
+  splits_models: boolean;
   /** 이 공정에서 재작업(재포장) 수량을 적는가 (6차 감사 N6) */
   takes_rework: boolean;
   typical_day: number | null;
@@ -376,6 +378,7 @@ function verifyRows(s: VerifySheet) {
       key: `op-${op.id}`, group: `공정 ${op.seq}`,
       label: `${op.name} · 순서 · 코드 · 기록 단위 · 설비가 서면과 같습니까?`,
       value: [op.code, op.after_cutting ? '제품 로트 단위' : '배치 단위',
+              ...(op.splits_models ? ['형명 갈림'] : []),
               eq.length ? eq.join(' · ') : '설비 없음'].join(' · '),
     });
     for (const b of op.bom) {
@@ -429,6 +432,10 @@ export function AddOperationForm({ dm, nextSeq }: { dm: string; nextSeq: number 
           제품 로트 단위 공정
         </label>
         <label className="flex items-center gap-2 text-sm text-ink">
+          <input type="checkbox" name="splits_models" className="size-4 accent-brand" />
+          형명이 갈리는 공정
+        </label>
+        <label className="flex items-center gap-2 text-sm text-ink">
           <input type="checkbox" name="takes_rework" className="size-4 accent-brand" />
           재작업 수량을 적는다
         </label>
@@ -436,7 +443,9 @@ export function AddOperationForm({ dm, nextSeq }: { dm: string; nextSeq: number 
       <p className="mt-2 text-xs leading-relaxed text-muted">
         제품 로트 단위 공정은 기록이 <b className="text-ink">제품 로트</b>에 붙고, 그 앞은
         <b className="text-ink"> 배치</b>에 붙습니다. <b className="text-ink">갈라지는 공정
-        자체는 이전</b>입니다 - 자르는 일은 아직 배치 하나로 일어납니다.
+        자체는 배치 단위</b>입니다 - 자르는 일은 아직 배치 하나로 일어납니다.
+        형명이 갈리는 공정을 표시하면 현장이 그 공정에서 형명별 수량을 적습니다. 표시하지
+        않으면 제품 로트 단위 공정 바로 앞 공정이 갈림입니다.
         보통 일차는 참고값이며 실제 기록 일차를 제약하지 않습니다.
       </p>
       <Msg state={state} />
@@ -612,6 +621,10 @@ export function EditOperationForm({ dm, op, extra }: {
           제품 로트 단위
         </label>
         <label className="flex h-[var(--tap)] items-center gap-1.5 text-sm text-ink">
+          <input type="checkbox" name="splits_models" defaultChecked={op.splits_models} />
+          형명 갈림
+        </label>
+        <label className="flex h-[var(--tap)] items-center gap-1.5 text-sm text-ink">
           <input type="checkbox" name="takes_rework" defaultChecked={op.takes_rework} />
           재작업 수량
         </label>
@@ -623,7 +636,9 @@ export function EditOperationForm({ dm, op, extra }: {
       </div>
       <p className="mt-1.5 text-xs leading-relaxed text-faint">
         공정 코드와 이름, 보통 일차는 작업 지시서에 인쇄됩니다. 제품 로트 단위로 바꾸면
-        그 공정의 기록이 제품 로트에 붙습니다. <b className="text-ink">재작업 수량</b>을
+        그 공정의 기록이 제품 로트에 붙습니다. <b className="text-ink">형명 갈림</b>을 켜면
+        현장이 이 공정에서 형명별 수량을 적고, 다른 공정의 표시는 꺼집니다.
+        <b className="text-ink"> 재작업 수량</b>을
         켜면 현장 마감 화면에 그 칸이 납니다 - 제조기록서에 인쇄됩니다.
       </p>
       <Msg state={state} />
@@ -899,6 +914,7 @@ export function OperationCard({ dm, op, items, editable, rangeable = false, equi
         <Tag tone={op.after_cutting ? 'brand' : 'quiet'}>
           {op.after_cutting ? '제품 로트 단위' : '배치 단위'}
         </Tag>
+        {op.splits_models && <Tag tone="brand">형명 갈림</Tag>}
         {/* 참고값이라 조용히 둔다. 적히지 않았으면 아무것도 나오지 않는다 */}
         {op.typical_day !== null && (
           <span className="tnum text-sm text-faint">보통 {op.typical_day}일차</span>

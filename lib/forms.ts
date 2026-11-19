@@ -240,6 +240,7 @@ export const FIELD_LABEL: Record<string, string> = {
   verified_by:            '대조 확인자',
   verified_at:            '대조 확인 일시',
   after_cutting:          '재단 이후 공정',
+  splits_models:          '형명 갈림 공정',
   operation_id:           '공정',
   component_item_id:      '자재',
   basis:                  '소요 기준',

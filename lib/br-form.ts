@@ -307,12 +307,21 @@ export function fillForm(form: BrForm, d: FillData): { pages: FormPage[]; placed
 
         if (section === 'mat') {
           const name = by('matname')?.t ?? '';
-          const code = norm(by('matcode')?.t);
+          /*
+           * 자재규격 칸의 품목 코드. 코드 뒤에 덧말이 붙은 양식이 있다 (DX2402 «RM-016 (월령
+           * 12개월 이내)»). 코드 모양이 없는 글(«PM-[    ]» · «위탁 멸균처»)이나 자재명 «-»
+           * 줄은 재고 자재가 아니다 - 로트를 고르는 칸으로 두지 않는다 (2026-11-12 제안 ·
+           * 2026-11-20 반영).
+           */
+          const spec = by('matcode')?.t ?? '';
+          const itemCode = spec.match(/[A-Z]{2,3}-\d{3}/)?.[0];
+          const code = itemCode ?? norm(spec);
+          const notItem = (!itemCode && !!norm(spec)) || norm(name) === '-';
           const lotCell = by('matlot');
           /* 개정안 08 파우치 라벨: 칸에 «로트 ____ (라벨인쇄기록지 … □)» 가 인쇄돼 있다 - 밑줄 자리에 적는다 */
           const BLANK_LOT = /로트\s*_{3,}/;
           const printedBlank = !!lotCell && BLANK_LOT.test(lotCell.t ?? '');
-          if (lotCell && (!norm(lotCell.t) || printedBlank) && (name || code)) {
+          if (lotCell && (!norm(lotCell.t) || printedBlank) && (name || code) && !notItem) {
             let text: string | null = null;
             if (code === d.rawItemCode) {
               text = d.rawLotNo;

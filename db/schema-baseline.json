@@ -32,6 +32,7 @@
     "cut_product_lot_field",
     "delete_dmr_operation",
     "delete_unused_user",
+    "dm_models",
     "dmr_unverify",
     "equipment_hourly_cost",
     "expire_material_lots",

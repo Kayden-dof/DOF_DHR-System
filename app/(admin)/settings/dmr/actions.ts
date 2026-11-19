@@ -321,21 +321,34 @@ export async function deleteOperation(_p: FormState, form: FormData): Promise<Fo
   }
 }
 
+/* 갈림 공정은 배치 단위다 (0138 dmr_operation_split_is_batch) */
+const SPLIT_IS_BATCH =
+  '형명이 갈리는 공정은 배치 단위입니다. 제품 로트 단위를 끄고 다시 저장하십시오';
+
 export async function addOperation(_p: FormState, form: FormData): Promise<FormState> {
   try {
     const me = await admin();
     const dm = String(form.get('device_master_id') ?? '');
     const code = String(form.get('code') ?? '').trim();
-    await withActor(me.id, (db) =>
-      db.rows(
+    const splits = form.get('splits_models') === 'on';
+    if (splits && form.get('after_cutting') === 'on') return { error: SPLIT_IS_BATCH };
+    await withActor(me.id, async (db) => {
+      /* 갈림은 판마다 하나다 (0138). 새로 고른 공정으로 옮긴다 */
+      if (splits) {
+        await db.rows(
+          `update dmr_operation set splits_models = false
+            where device_master_id = $1 and splits_models`, [dm]);
+      }
+      await db.rows(
         `insert into dmr_operation (device_master_id, seq, code, name, after_cutting,
-                                    typical_day, takes_rework)
-         values ($1,$2,$3,$4,$5,$6,$7)`,
+                                    typical_day, takes_rework, splits_models)
+         values ($1,$2,$3,$4,$5,$6,$7,$8)`,
         [dm, Number(form.get('seq') ?? 0), code,
          String(form.get('name') ?? '').trim(),
          form.get('after_cutting') === 'on',
          Number(form.get('typical_day') ?? 0) || null,
-         form.get('takes_rework') === 'on']));
+         form.get('takes_rework') === 'on', splits]);
+    });
     path(dm);
     return { ok: true, message: `${code} 공정을 추가했습니다.` };
   } catch (e) {
@@ -498,16 +511,26 @@ export async function updateOperation(_p: FormState, form: FormData): Promise<Fo
     if (!name) return { error: '공정 이름을 입력하십시오' };
     if (!Number.isInteger(seq) || seq < 1) return { error: '순번은 1 이상의 정수입니다' };
 
-    await withActor(me.id, (db) =>
-      db.rows(
+    const splits = form.get('splits_models') === 'on';
+    if (splits && form.get('after_cutting') === 'on') return { error: SPLIT_IS_BATCH };
+
+    await withActor(me.id, async (db) => {
+      /* 갈림은 판마다 하나다 (0138). 이 공정으로 옮기면 다른 공정의 표시는 꺼진다 */
+      if (splits) {
+        await db.rows(
+          `update dmr_operation set splits_models = false
+            where device_master_id = (select device_master_id from dmr_operation where id = $1)
+              and splits_models and id <> $1`, [id]);
+      }
+      await db.rows(
         `update dmr_operation
             set code = $2, name = $3, seq = $4, after_cutting = $5, typical_day = $6,
-                takes_rework = $7
+                takes_rework = $7, splits_models = $8
           where id = $1`,
         [id, code, name, seq, form.get('after_cutting') === 'on',
          Number(form.get('typical_day') ?? 0) || null,
-         form.get('takes_rework') === 'on']),
-      { reason: '제품표준서 공정 정정' });
+         form.get('takes_rework') === 'on', splits]);
+    }, { reason: '제품표준서 공정 정정' });
 
     path(dm);
     return { ok: true, message: `${code} 공정을 고쳤습니다.` };

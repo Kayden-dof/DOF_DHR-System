@@ -171,12 +171,15 @@ export default async function WorkBatchPage({ params }: { params: Promise<{ id: 
           where device_master_id = $1 order by min_qty`, [wo.device_master_id]),
       sampleBasis: await db.val<string | null>(
         `select sample_basis from device_master where id = $1`, [wo.device_master_id]),
-      /* 두께는 원재료가 정하므로 이 배치에서 나올 형명은 그 두께의 것뿐이다 (§3 ③) */
+      /*
+       * 두께는 원재료가 정하므로 이 배치에서 나올 형명은 그 두께의 것뿐이다 (§3 ③).
+       * 고를 형명은 이 제품의 것만이다 (0138 dm_models) - 늑연골 배치에 진피 형명이
+       * 섞이지 않는다.
+       */
       finished: await db.rows<FinOpt>(
-        `select i.id, i.code, i.name from item i
-          where i.type = 'FIN' and i.is_active
-            and ($1::text is null or right(i.code, 4) = $1)
-          order by i.code`, [wo.thickness_band]),
+        `select m.id, m.code, m.name from dm_models($2) m
+          where ($1::text is null or right(m.code, 4) = $1)
+          order by m.code`, [wo.thickness_band, wo.device_master_id]),
       lockedDays: await db.rows<{ day_no: number }>(
         `select day_no from day_lock where work_order_id = $1 and worker_id = $2`,
         [id, user.id]),
