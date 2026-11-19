@@ -17,8 +17,9 @@ export const metadata = { title: '배치 작업 일정표' };
    배치 작업 일정표 (0137 · 사용자 2026-11-19)
 
    «DX2401 공정 타임라인» 아티팩트의 일정표 PDF 를 옮겼다. 표지 한 장(전체 흐름 ·
-   작업일 목록) + 손작업이 있는 날마다 시트(그날 작은 간트 · 할 일 표). 실제 시작 ·
-   종료 · 작업자 · 특이사항 칸은 비워 둔다.
+   작업일 목록 · 승인 칸) + 손작업이 있는 날마다 시트(그날 작은 간트 · 할 일 표). 할 일
+   표는 메모 한 칸과 맨 끝 확인 □ 를 비워 둔다 - 실제 시각 · 작업자는 제조기록서에 적는다
+   (아티팩트 2026-11-19 개정).
 
    계획표다. 제조기록서가 아니므로 인쇄 대장에 남지 않고 아무것도 잠그지 않는다.
    몇 번을 뽑아도 바뀌는 것이 없다.
@@ -77,7 +78,7 @@ export default async function BatchPlanPrint({ params }: { params: Promise<{ id:
   pages.push(
     <>
       {top}
-      <div className={b.sg}><div>작성</div><div>검토</div><div>승인</div></div>
+      <div className={b.sg}><div>승인</div></div>
       <div className={b.h1}>{p.label}</div>
       <div className={b.st}>배치 작업 일정표 · {head.label} 공정 시간표 기준{d.tl?.basis ? ` (${d.tl.basis})` : ''}</div>
       <div className={b.kp}>
@@ -139,7 +140,7 @@ export default async function BatchPlanPrint({ params }: { params: Promise<{ id:
     const waitish = r.x.k === 'wait' || r.x.k === 'ext';
     return (
       <tr key={r.x.id} className={waitish ? b.wt : ''}>
-        <td className={b.c0}><i className={b.stripe} style={{ background: procColor(r.x.p) }} /><div className={b.bx2} /></td>
+        <td className={b.c0}><i className={b.stripe} style={{ background: procColor(r.x.p) }} /></td>
         <td className={b.tm}><b>{hhmm(r.s)}</b><span>~ {eK === k ? hhmm(r.e) : `${md(dateOf(eK))} ${hhmm(r.e)}`}</span></td>
         <td className={b.pc} style={{ color: procColor(r.x.p) }}>{r.x.p}</td>
         <td className={b.nm}>
@@ -151,18 +152,19 @@ export default async function BatchPlanPrint({ params }: { params: Promise<{ id:
           {r.flags.length ? <span className={b.fl}>! {r.flags.map((f) => f.text).join(' / ')}</span> : <span>{r.x.m}</span>}
         </td>
         <td className={b.cr}>{dur(r.eff)}{rangeText(r.x) && <span>기준 {rangeText(r.x)}</span>}</td>
-        <td className={b.wr} /><td className={b.wr} /><td className={b.wr} /><td className={b.wr} />
+        <td className={b.wr} />
+        <td className={b.ce}><div className={b.bx2} /></td>
       </tr>
     );
   };
   const thead = (
     <>
       <colgroup>
-        <col style={{ width: 30 }} /><col style={{ width: 96 }} /><col style={{ width: 46 }} /><col />
-        <col style={{ width: 120 }} /><col style={{ width: 74 }} /><col style={{ width: 74 }} /><col style={{ width: 74 }} /><col style={{ width: 130 }} />
+        <col style={{ width: 12 }} /><col style={{ width: 96 }} /><col style={{ width: 46 }} /><col />
+        <col style={{ width: 140 }} /><col style={{ width: 190 }} /><col style={{ width: 46 }} />
       </colgroup>
       <thead><tr>
-        <th /><th>예정 시각</th><th>공정</th><th>작업</th><th>소요 · 기준</th><th>실제 시작</th><th>실제 종료</th><th>작업자</th><th>특이사항</th>
+        <th /><th>예정 시각</th><th>공정</th><th>작업</th><th>소요 · 기준</th><th>메모</th><th style={{ textAlign: 'center' }}>확인</th>
       </tr></thead>
     </>
   );
