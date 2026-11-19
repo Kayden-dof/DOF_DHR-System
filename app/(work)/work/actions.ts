@@ -50,10 +50,10 @@ export async function startRecord(_p: FormState, form: FormData): Promise<FormSt
        */
       let refs = [first, ...extra].filter(Boolean);
       if (refs.length === 0) {
-        const op = await db.one<{ product_code: string | null; code: string }>(
-          `select dm.product_code, o.code from dmr_operation o
+        const op = await db.one<{ product_code: string | null; code: string; dm: string }>(
+          `select dm.product_code, o.code, dm.id as dm from dmr_operation o
              join device_master dm on dm.id = o.device_master_id where o.id = $1`, [opId]);
-        const doc = op?.product_code ? await currentForm(db, op.product_code, op.code) : null;
+        const doc = op?.product_code ? await currentForm(db, op.product_code, op.code, op.dm) : null;
         const codes = doc ? fixedEquipCodes(doc.form) : [];
         if (codes.length) {
           refs = (await db.rows<{ id: string }>(

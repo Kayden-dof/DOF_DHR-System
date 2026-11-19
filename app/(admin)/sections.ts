@@ -14,6 +14,7 @@ import { canOpen } from '@/lib/access';
 
 export const PRODUCTION_NAV: NavItem[] = [
   { href: '/production', label: '작업 지시' },
+  { href: '/production/plan', label: '일정' },
   { href: '/production/setup', label: '제품' },
   { href: '/production/deviation', label: '일탈' },
 ];

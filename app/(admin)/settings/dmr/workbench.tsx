@@ -164,6 +164,13 @@ export async function DmrWorkbench({
       items: await db.rows<ItemOption>(
         `select id, code, name, usage_uom, type::text as type from item
           where is_active order by type, code`),
+      /* 공정 시간표 (0137) - 작업 수 · 마지막 저장 */
+      timeline: selected
+        ? await db.one<{ n: number; updated_at: string; basis: string }>(
+            `select jsonb_array_length(steps) as n, basis,
+                    to_char(timezone('Asia/Seoul', updated_at), 'YYYY-MM-DD HH24:MI') as updated_at
+               from dmr_timeline where device_master_id = $1`, [selected])
+        : undefined,
     };
   });
 
@@ -409,6 +416,24 @@ export async function DmrWorkbench({
                 </Panel>
               )}
               </div>
+
+              {/*
+                * 공정 시간표 (0137 · 사용자 2026-11-19). 계획이라 대조 항목이 아니다 -
+                * 판 머리의 «대조가 풀린다» 안내와 따로 둔다.
+                */}
+              {d.operations.length > 0 && (
+                <Panel title="공정 시간표"
+                       note="공정 아래 작업의 차례 · 시간 · 허용범위. 계획이라 고쳐도 서면 대조 확인이 풀리지 않습니다"
+                       action={<Link href={`/settings/dmr/timeline?dm=${dm.id}`} className="btn-ghost">
+                         {d.timeline ? '시간표 열기' : '시간표 만들기'}</Link>}>
+                  <p className="px-4 py-3 text-sm text-muted">
+                    {d.timeline
+                      ? <>작업 {d.timeline.n}개 · 마지막 저장 <span className="tnum">{d.timeline.updated_at}</span>
+                          {d.timeline.basis && <> · 근거 {d.timeline.basis}</>}. 생산 &gt; 일정에서 날짜에 얹습니다.</>
+                      : '아직 시간표가 없습니다. 만들면 생산 > 일정에서 배치마다 날짜별 일정표로 씁니다.'}
+                  </p>
+                </Panel>
+              )}
 
               <section className="card py-4">
                 <h3 className="text-xs font-semibold text-ink">소요량 기준</h3>

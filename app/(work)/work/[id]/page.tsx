@@ -102,7 +102,8 @@ export default async function WorkBatchPage({ params }: { params: Promise<{ id: 
                 exists (select 1 from mfg_doc d
                           join device_master dm on dm.id = o.device_master_id
                          where d.product_code = dm.product_code and d.op_code = o.code
-                           and d.kind = 'BR' and d.is_current and d.form is not null) as has_form
+                           and d.kind = 'BR' and d.form is not null
+                           and br_form_in_scope(d.device_master_id, d.is_current, o.device_master_id)) as has_form
            from dmr_operation o
           where o.device_master_id = $1 order by o.seq`,
         [wo.device_master_id, wo.sheet_count, user.id]),

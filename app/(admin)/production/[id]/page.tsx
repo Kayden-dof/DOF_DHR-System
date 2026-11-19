@@ -128,6 +128,9 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
 
     return {
       wo,
+      /* 이 지시에 이은 배치 계획 (0137). 일정표는 계획이라 언제 열어도 된다 */
+      plan: await db.one<{ id: string; label: string }>(
+        `select id, label from batch_plan where work_order_id = $1`, [id]),
       lots: await db.rows<LotRow>(
         `select pl.id, pl.lot_no, i.code as item_code, i.name as item_name,
                 pl.qty_produced, pl.qty_sample, pl.qty_available,
@@ -302,6 +305,11 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
           * 있는 일이라 조용한 단추, 배치 종료는 되돌릴 수 없는 일이라 테두리 단추다.
           */}
         <div className="flex flex-wrap items-center gap-2 pt-1">
+          {d.plan && (
+            <Link href={`/production/plan?id=${d.plan.id}`} className="btn-quiet">
+              배치 일정
+            </Link>
+          )}
           {!readOnly && (
             <Link href={`/print/work-order/${wo.id}`} className="btn-quiet">
               작업 지시서 인쇄

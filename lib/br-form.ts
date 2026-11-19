@@ -83,6 +83,8 @@ export interface FillIssue {
 }
 export interface FillData {
   batchNo: string;
+  /** 작업지시번호 (개정안 양식 머리표, 0137). 없으면 채우지 않는다 */
+  woNo?: string | null;
   productLotNo: string | null;
   productModel: string | null;
   rawItemCode: string;
@@ -130,6 +132,8 @@ const ROLE: Record<string, string> = {
   공정검사: 'inspect', 제조번호: 'cutlot', 수량: 'qty',
   /* 별첨 머리 (F706-DX2401-03-01 20X PBS 제조 · 2026-11-12). 다른 양식에는 이 낱말 칸이 없다 */
   제조용액명: 'solname', 관리번호: 'mgmtno', 제조일자: 'madeon',
+  /* 개정안 양식 (Rev.01 · 2026-11-19): 머리표의 작업지시번호, 검교정 칸 이름, 포장 · 멸균의 제조번호(로트번호) */
+  작업지시번호: 'wo', 검교정유효확인: 'calib', '제조번호(로트번호)': 'plot',
 };
 
 type Section = 'head' | 'equip' | 'mat' | 'step' | 'cut' | null;
@@ -253,8 +257,18 @@ export function fillForm(form: BrForm, d: FillData): { pages: FormPage[]; placed
           if (batch && (!norm(batch.t) || norm(batch.t) === 'B')) {
             Object.assign(batch, { t: d.batchNo, f: true, a: 'c' as const, b: false, s: sz });
           }
+          /* 개정안 머리표의 작업지시번호 (인쇄된 앞머리 «WO-» 만 있는 칸) */
+          const wo = by('wo');
+          if (wo && d.woNo && (!norm(wo.t) || norm(wo.t) === 'WO-')) {
+            Object.assign(wo, { t: d.woNo, f: true, a: 'c' as const, b: false, s: sz });
+          }
           const plot = by('plot');
           if (plot && !norm(plot.t) && d.productLotNo) Object.assign(plot, { t: d.productLotNo, f: true, a: 'c' as const, s: sz });
+          /* 개정안 포장 · 멸균 머리표: «GM- (배치번호 B    )» 가 인쇄된 칸에 제조번호와 배치번호를 넣는다 */
+          if (plot && /^GM-/.test(norm(plot.t)) && /배치번호/.test(plot.t ?? '')) {
+            Object.assign(plot, { t: `${d.productLotNo ?? 'GM-'}
+(배치번호 ${d.batchNo})`, f: true, a: 'c' as const, s: sz });
+          }
           const model = by('model');
           if (model && !norm(model.t) && d.productModel) Object.assign(model, { t: d.productModel, f: true, a: 'c' as const, s: sz });
         }
@@ -295,7 +309,10 @@ export function fillForm(form: BrForm, d: FillData): { pages: FormPage[]; placed
           const name = by('matname')?.t ?? '';
           const code = norm(by('matcode')?.t);
           const lotCell = by('matlot');
-          if (lotCell && !norm(lotCell.t) && (name || code)) {
+          /* 개정안 08 파우치 라벨: 칸에 «로트 ____ (라벨인쇄기록지 … □)» 가 인쇄돼 있다 - 밑줄 자리에 적는다 */
+          const BLANK_LOT = /로트\s*_{3,}/;
+          const printedBlank = !!lotCell && BLANK_LOT.test(lotCell.t ?? '');
+          if (lotCell && (!norm(lotCell.t) || printedBlank) && (name || code)) {
             let text: string | null = null;
             if (code === d.rawItemCode) {
               text = d.rawLotNo;
@@ -312,7 +329,11 @@ export function fillForm(form: BrForm, d: FillData): { pages: FormPage[]; placed
                 hit.forEach(({ k }) => { placed.add(k); matOf.set(k, name); });
               }
             }
-            if (text) {
+            if (text && printedBlank) {
+              const lots = text.split('\n').join(', ');
+              Object.assign(lotCell, { t: (lotCell.t ?? '').replace(BLANK_LOT, `로트 ${lots}`), tk: [lots] });
+              matRow.add(rowKey(ri));
+            } else if (text) {
               Object.assign(lotCell, { t: text, f: true, a: 'c' as const, b: false, s: sz });
               matRow.add(rowKey(ri));
             }

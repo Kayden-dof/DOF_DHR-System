@@ -56,9 +56,17 @@ export default async function DocsCheckPage({ searchParams }: { searchParams: Se
        union select distinct product_code from mfg_doc where is_current
        order by 1`)).map((r) => r.product_code);
     const product = sp.p && products.includes(sp.p) ? sp.p : products[0] ?? null;
-    if (!product) return { products, product, docs: [], checks: [], reqs: [] };
+    if (!product) return { products, product, docs: [], checks: [], reqs: [], bound: [] };
     return {
       products, product,
+      /* 제품표준서 판에 묶인 문서 (개정안 · 0137). 현행이 아니라 대조 표에는 들지 않는다 */
+      bound: await db.rows<{ id: string; kind: 'WS' | 'BR'; doc_no: string; revision: string; pages: number | null;
+                             note: string | null; dm_label: string; has_form: boolean }>(
+        `select d.id, d.kind, d.doc_no, d.revision, d.pages, d.note,
+                coalesce(dm.product_code, i.code) || ' ' || dm.revision as dm_label, d.form is not null as has_form
+           from mfg_doc d join device_master dm on dm.id = d.device_master_id join item i on i.id = dm.item_id
+          where d.product_code = $1
+          order by dm.revision desc, d.kind desc, d.doc_no`, [product]),
       docs: await db.rows<DocRow>(
         `select op_code, kind, doc_no, title, revision, issued_on::text, pages, note
            from mfg_doc where product_code = $1 and is_current
@@ -134,6 +142,30 @@ export default async function DocsCheckPage({ searchParams }: { searchParams: Se
         </Panel>
       ) : (
         <>
+          {/*
+            * 개정안 문서 (0137 · 사용자 2026-11-19 «개정안을 Rev.01 지시에만»). 그 판의 제품표준서로 낸
+            * 지시만 이 양식으로 적고 찍는다. 지시가 나가기 전에도 모양을 볼 수 있게 빈 양식을 연다.
+            */}
+          {d.bound.length > 0 && (
+            <Panel title="개정안 문서 (판에 묶임)"
+                   note="이 판의 제품표준서로 낸 작업 지시만 이 양식을 씁니다. 다른 판의 지시는 아래 현행 양식 그대로입니다. 빈 양식 보기는 기록이 아니라 인쇄 대장에 남지 않습니다.">
+              <Table grow={4}>
+                <thead><tr><Th>문서</Th><Th>개정</Th><Th>딸린 판</Th><Th>쪽</Th><Th>근거</Th><Th>양식</Th></tr></thead>
+                <tbody>
+                  {d.bound.map((x) => (
+                    <tr key={x.id}>
+                      <Td><span className="font-mono">{x.doc_no}</span></Td>
+                      <Td>{x.revision}</Td>
+                      <Td>{x.dm_label}</Td>
+                      <Td right>{x.pages ?? ''}</Td>
+                      <Td>{x.note ?? ''}</Td>
+                      <Td nowrap>{x.has_form ? <Link href={`/print/br-form/${x.id}`} className="qd-text-action">빈 양식 보기</Link> : ''}</Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </Panel>
+          )}
           {numDiff.length > 0 && (
             <Panel
               title="수치가 다른 항목"

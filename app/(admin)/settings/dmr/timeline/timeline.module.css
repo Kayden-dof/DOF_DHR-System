@@ -1,0 +1,66 @@
+/* 공정 시간표 간트 (0137). 아티팩트 «DX2401 공정 타임라인» 의 모양을 DOF Design 색으로 옮겼다 */
+
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 10px 0; }
+.chk { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: var(--color-ink); }
+.status { margin-left: auto; font-size: 12px; color: var(--color-muted); }
+
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; color: var(--color-muted); padding: 2px 0 10px; }
+.sw { display: inline-block; width: 22px; height: 11px; border-radius: 3px; vertical-align: -1px; margin-right: 5px; }
+
+.body { display: grid; grid-template-columns: minmax(0, 1fr) 320px; border: 1px solid var(--color-line); border-radius: 8px; overflow: hidden; background: var(--color-surface); }
+@media (max-width: 1100px) { .body { grid-template-columns: minmax(0, 1fr); } }
+
+.gantt { overflow: auto; max-height: calc(100vh - 260px); position: relative; }
+.grid { position: relative; width: max-content; min-width: 100%; }
+
+.row { display: flex; height: 42px; border-bottom: 1px solid var(--color-line-soft); position: relative; z-index: 1; }
+.grp { height: 38px; background: var(--color-surface-sub); }
+.lab { flex: none; position: sticky; left: 0; z-index: 12; background: var(--color-surface); width: 280px;
+  border-right: 1px solid var(--color-line); font-size: 13px; padding: 0 10px; display: flex; flex-direction: column;
+  justify-content: center; white-space: nowrap; overflow: hidden; }
+.grp .lab { background: var(--color-surface-sub); font-size: 14px; font-weight: 600; }
+.nm { overflow: hidden; text-overflow: ellipsis; color: var(--color-ink); }
+.tm { font-size: 12px; color: var(--color-muted); font-variant-numeric: tabular-nums; }
+.track { position: relative; flex: none; }
+
+.head { position: sticky; top: 0; z-index: 20; background: var(--color-surface); }
+.head .row { height: 28px; }
+.head .lab { font-weight: 600; justify-content: center; font-size: 12px; color: var(--color-muted); }
+.dayb { position: absolute; top: 0; bottom: 0; border-left: 2px solid var(--color-ink); font-size: 13px; font-weight: 600; padding: 5px 8px; white-space: nowrap; }
+.tick { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--color-line); font-size: 12px; color: var(--color-muted); padding: 5px 0 0 4px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+.bg { position: absolute; bottom: 0; pointer-events: none; z-index: 0; }
+.shade { position: absolute; top: 0; bottom: 0; }
+.night { background: repeating-linear-gradient(90deg, var(--color-line) 0 2px, var(--color-surface-sub) 2px 6px); border-inline: 1px solid var(--color-line-strong); }
+.off { background: var(--color-surface-sub); }
+.lunch { background: var(--color-warn-bg); opacity: .7; }
+.vline { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--color-line-soft); }
+
+.task { position: absolute; top: 8px; height: 26px; border-radius: 6px; font-size: 12px; line-height: 26px; padding: 0 8px;
+  white-space: nowrap; overflow: hidden; cursor: grab; color: #fff; touch-action: none; user-select: none; font-weight: 500;
+  font-variant-numeric: tabular-nums; }
+.ro { cursor: pointer; }
+.wait { color: var(--color-ink); background-image: repeating-linear-gradient(135deg, rgba(255,255,255,.62) 0 6px, rgba(255,255,255,.78) 6px 12px); }
+.prep { background: var(--color-surface) !important; color: var(--color-ink); border: 2px solid; line-height: 22px; }
+.ext { opacity: .55; }
+.sel { outline: 2px solid var(--color-info); outline-offset: 1px; }
+.bad { box-shadow: 0 0 0 2px var(--color-danger); }
+.late { box-shadow: 0 0 0 2px var(--color-warn); }
+.handle { position: absolute; right: 0; top: 0; bottom: 0; width: 8px; cursor: ew-resize; }
+.out { position: absolute; top: 8px; line-height: 26px; font-size: 12px; color: var(--color-muted); white-space: nowrap; pointer-events: none; font-variant-numeric: tabular-nums; }
+.range { position: absolute; top: 36px; height: 3px; border-radius: 2px; opacity: .45; pointer-events: none; }
+.span { position: absolute; top: 16px; height: 6px; border-radius: 3px; opacity: .55; pointer-events: none; }
+
+.side { border-left: 1px solid var(--color-line); padding: 14px 16px; max-height: calc(100vh - 260px); overflow: auto; font-size: 13px; }
+@media (max-width: 1100px) { .side { border-left: 0; border-top: 1px solid var(--color-line); max-height: none; } }
+.side h3 { font-size: 15px; font-weight: 600; margin: 0 0 8px; color: var(--color-ink); }
+.f { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 6px 8px; align-items: center; }
+.two { display: flex; gap: 6px; }
+.two > * { flex: 1; min-width: 0; }
+.note { font-size: 12px; color: var(--color-muted); margin-top: 8px; line-height: 1.5; }
+.warns { margin-top: 14px; font-size: 12px; }
+.warns ul { padding-left: 18px; margin: 6px 0; }
+.warns li { margin: 3px 0; }
+.r { color: var(--color-danger); }
+.a { color: var(--color-warn); }
+.linkish { color: inherit; text-decoration: underline; text-underline-offset: 2px; background: none; border: 0; padding: 0; cursor: pointer; font: inherit; text-align: left; }

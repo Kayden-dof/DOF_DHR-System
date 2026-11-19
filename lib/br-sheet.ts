@@ -65,17 +65,23 @@ export interface BrSheet {
 
 interface FormRow { id: string; doc_no: string; title: string | null; form: BrForm }
 
-/** 그 제품 · 공정의 현행 제조기록서 양식 전부. 본 기록서가 별첨보다 먼저 (번호가 짧다) */
-export async function currentForms(db: Db, product: string, op: string): Promise<FormRow[]> {
+/**
+ * 그 제품표준서 판 · 공정이 쓰는 제조기록서 양식 전부. 본 기록서가 별첨보다 먼저 (번호가 짧다).
+ *
+ * 판에 묶인 양식(개정안, 0137)이 있으면 그 판의 지시는 묶인 양식만 쓰고, 없으면 현행
+ * 양식을 쓴다 - br_form_in_scope 하나가 가른다 (현장 화면 · 일차 인쇄와 같은 규칙).
+ */
+export async function currentForms(db: Db, product: string, op: string, dm: string): Promise<FormRow[]> {
   return db.rows<FormRow>(
     `select id, doc_no, title, form from mfg_doc
-      where product_code = $1 and op_code = $2 and kind = 'BR' and is_current and form is not null
-      order by length(doc_no), doc_no, revision desc`, [product, op]);
+      where product_code = $1 and op_code = $2 and kind = 'BR' and form is not null
+        and br_form_in_scope(device_master_id, is_current, $3::uuid)
+      order by length(doc_no), doc_no, revision desc`, [product, op, dm]);
 }
 
 /** 본 기록서 (처음 양식) */
-export async function currentForm(db: Db, product: string, op: string) {
-  return (await currentForms(db, product, op))[0] ?? null;
+export async function currentForm(db: Db, product: string, op: string, dm: string) {
+  return (await currentForms(db, product, op, dm))[0] ?? null;
 }
 
 /**
@@ -104,6 +110,7 @@ export function fillOne(form: BrForm, base: FillData, appendix: boolean) {
 export async function brSheet(db: Db, recordId: string, docId?: string | null): Promise<BrSheet | null> {
   const r = await db.one<{
     id: string; work_date: string; day_no: number; equipment_id: string | null; op_code: string; op_name: string;
+    dm: string; wo_no: string;
     extra_equipment_ids: string[] | null;
     equipment_ref: string | null; extra_equipment_refs: string[] | null;
     product_code: string | null; batch_no: string; sheet_count: number; load_unit: string | null;
@@ -112,8 +119,8 @@ export async function brSheet(db: Db, recordId: string, docId?: string | null): 
   }>(
     `select pr.id, pr.work_date::text as work_date, pr.day_no, pr.equipment_id,
             pr.extra_equipment_ids, pr.equipment_ref, pr.extra_equipment_refs,
-            o.code as op_code, o.name as op_name, dm.product_code,
-            wo.batch_no, wo.sheet_count, dm.load_unit,
+            o.code as op_code, o.name as op_name, dm.product_code, wo.device_master_id as dm,
+            wo.wo_no, wo.batch_no, wo.sheet_count, dm.load_unit,
             ml.lot_no as raw_lot_no, ri.code as raw_item_code, u.full_name as worker_name,
             pl.lot_no as product_lot_no, pi.code as product_item_code,
             is_locked(pr.work_order_id, pr.day_no, pr.worker_id) as locked
@@ -128,7 +135,7 @@ export async function brSheet(db: Db, recordId: string, docId?: string | null): 
        left join item pi on pi.id = pl.item_id
       where pr.id = $1`, [recordId]);
   if (!r || !r.product_code) return null;
-  const docs = await currentForms(db, r.product_code, r.op_code);
+  const docs = await currentForms(db, r.product_code, r.op_code, r.dm);
   if (docs.length === 0) return null;
   const at = docId ? docs.findIndex((x) => x.id === docId) : 0;
   if (at < 0) return null;
@@ -149,7 +156,7 @@ export async function brSheet(db: Db, recordId: string, docId?: string | null): 
   const byDoc = await entriesByDoc(db, recordId);
 
   const base: FillData = {
-    batchNo: r.batch_no, productLotNo: r.product_lot_no, productModel: r.product_item_code,
+    batchNo: r.batch_no, woNo: r.wo_no, productLotNo: r.product_lot_no, productModel: r.product_item_code,
     rawItemCode: r.raw_item_code, rawLotNo: r.raw_lot_no,
     sheets: r.sheet_count, loadUnit: r.load_unit,
     worker: r.worker_name, workDate: r.work_date,

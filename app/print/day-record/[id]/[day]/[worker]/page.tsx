@@ -279,22 +279,25 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = fal
      (lib/br-sheet fillOne - 현장 화면과 같은 갈래).
   ------------------------------------------------------------------------- */
   const look = await withActor(user.id, async (db) => {
-    const product = await db.val<string>(
-      `select dm.product_code from work_order wo
+    const wdm = await db.one<{ product: string | null; dm: string; wo_no: string }>(
+      `select dm.product_code as product, dm.id as dm, wo.wo_no from work_order wo
          join device_master dm on dm.id = wo.device_master_id where wo.id = $1`, [id]);
+    const product = wdm?.product ?? null;
     const ops = [...new Set(records.map((r) => r.operation_code))];
-    const forms = product
+    /* 그 지시의 제품표준서 판이 쓰는 양식 (0137 br_form_in_scope - 현장 화면과 같은 규칙) */
+    const forms = product && wdm
       ? await db.rows<{ op_code: string; id: string; doc_no: string; form: BrForm }>(
           `select op_code, id, doc_no, form
              from mfg_doc
-            where product_code = $1 and kind = 'BR' and is_current and form is not null
+            where product_code = $1 and kind = 'BR' and form is not null
+              and br_form_in_scope(device_master_id, is_current, $3::uuid)
               and op_code = any($2::text[])
             /* 공정 본 기록서가 먼저다 - 별첨(F706-…-03-01)은 번호가 길다 */
-            order by op_code, length(doc_no), doc_no, revision desc`, [product, ops])
+            order by op_code, length(doc_no), doc_no, revision desc`, [product, ops, wdm.dm])
       : [];
     const noLot = (await db.rows<{ code: string }>(
       `select code from item where not lot_tracked`)).map((x) => x.code);
-    return { forms, noLot };
+    return { forms, noLot, woNo: wdm?.wo_no ?? null };
   });
   /* 공정마다 양식 차례 - 본 기록서가 처음 */
   const formsOf = new Map<string, typeof look.forms>();
@@ -319,6 +322,8 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = fal
     ].filter(Boolean);
     const base = {
       batchNo: head.batch_no,
+      /* 개정안 양식 머리표 (0137). 자료 식별자(payload)에는 넣지 않는다 - 지시서 번호는 이미 지시서에 찍힌다 */
+      woNo: look.woNo,
       productLotNo: r.product_lot_no, productModel: r.product_item_code,
       rawItemCode: head.raw_item_code, rawLotNo: head.raw_lot_no,
       sheets: head.sheet_count, loadUnit: head.load_unit,
