@@ -12,11 +12,11 @@ import { Dialog } from '@/components/dialog';
 import {
   BrSheetView, SheetViewer, useBrSheet, emptyOf, formEmpty, type EquipOpt, type SheetCtx,
 } from './br-sheet';
-import { todayKST } from '@/lib/kst';
+import { todayKST, nowLocalKST } from '@/lib/kst';
 import { isNoExpiry } from '@/lib/equipment-check';
 import {
   startRecord, issueMaterial, endRecord, closeDay, cutAtField,
-  amendIssue, returnIssue, dayGaps,
+  amendIssue, returnIssue, dayGaps, fixRecord,
 } from '../actions';
 
 
@@ -104,6 +104,26 @@ const REASONS = [
   '이전 일차에 투입 완료',
   '설비 점검으로 미실시',
 ];
+
+/* 일차 · 작업일 · 시각을 고치는 흔한 까닭 (0139). 눌러 채우고 고쳐 적을 수 있다 */
+const FIX_REASONS = [
+  '종이 기록서에 맞춤',
+  '일차를 잘못 고름',
+  '날짜 · 시각을 잘못 넣음',
+];
+
+/*
+ * 한국 시각으로 지금. 사람이 칸을 고치기 전까지 30초마다 따라간다 - 열어 둔 화면의
+ * 기본값이 낡지 않게 한다 (0139). 고른 공정에서만 그려지므로 서버 렌더와 어긋나지 않는다.
+ */
+function useNowLocal(): string {
+  const [now, setNow] = useState(() => nowLocalKST());
+  useEffect(() => {
+    const t = setInterval(() => setNow(nowLocalKST()), 30_000);
+    return () => clearInterval(t);
+  }, []);
+  return now;
+}
 
 /* ---------------------------------------------------------------------------
    현장 공정 기록
@@ -462,6 +482,11 @@ export default function WorkPanel({
           productLots={productLots} locked={locked} sheets={sheets}
           splitOp={splitOp} loadUnit={loadUnit} expiryWarnDays={expiryWarnDays}
           cutDate={pickedDate ?? today}
+          dayDate={pickedDate ?? null}
+          /* 고치기에서 고를 일차: 지금 있는 일차와 그다음 하나. 마감한 내 일차는 뺀다 */
+          dayChoices={[...days, nextDay].filter((n, i, a) => a.indexOf(n) === i
+            && (n === day || !lockedDays.includes(n)))}
+          onMoved={(n) => { if (n !== day) setDay(n); }}
           /*
            * 회차는 (공정, 제품 로트) 로 센다 (4차 감사 E2 · 0055 와 같은 기준).
            * 로트를 가리지 않고 세면 두 번째 형명을 시작할 때 2회차라고 안내한다.
@@ -619,7 +644,7 @@ function OperationCard({
   woId, day, op, rec, lots, people, productLots, locked, sheets, splitOp, loadUnit,
   expiryWarnDays,
   attemptCount,
-  isCut, finished, sampleTiers, sampleBasis, band, cutDate,
+  isCut, finished, sampleTiers, sampleBasis, band, cutDate, dayDate, dayChoices, onMoved,
   allEquipment, onEnded, scrollOnMount, doneLotIds, lotsLeft, pastRecs,
 }: {
   allEquipment: EquipOpt[];
@@ -640,8 +665,16 @@ function OperationCard({
   sampleTiers: SampleTier[]; sampleBasis: string | null;
   /** 이 일차의 작업일. 재단이면 제조일 기본값이 된다 */
   cutDate: string;
+  /** 이 일차에 이미 적힌 작업일 (없으면 null). 시작 칸이 다른 날을 고르면 알린다 */
+  dayDate: string | null;
+  /** 기록을 옮길 수 있는 일차 */
+  dayChoices: number[];
+  /** 기록을 다른 일차로 옮겼다. 현장 판이 그 일차를 연다 */
+  onMoved: (day: number) => void;
 }) {
   const running = !!rec && !rec.ended_at;
+  /* 일차 · 작업일 · 시각 고치기 (0139). 마감 전 기록만 */
+  const [fixing, setFixing] = useState(false);
   /* 마감된 일차여도 읽는다 - 적은 것을 보기만으로 연다 (사용자 2026-11-12) */
   const br = useBrSheet(op.has_form && rec ? rec.id : null);
   const hasForm = !!op.has_form && !br.noForm;
@@ -707,12 +740,30 @@ function OperationCard({
         </div>
         {rec && (
           <div className="ml-auto text-right text-xs text-muted">
+            <div>{rec.day_no}일차 · <span className="tnum">{fmtDate(rec.work_date)}</span></div>
             <div>시작 <span className="tnum">{fmtDateTime(rec.started_at)}</span></div>
             {rec.ended_at && <div>종료 <span className="tnum">{fmtDateTime(rec.ended_at)}</span></div>}
             {rec.attempt > 1 && <div className="text-warn">{rec.attempt}회차</div>}
           </div>
         )}
       </header>
+
+      {/*
+        * 일차 · 작업일 · 시각 고치기 (0139 · 사용자 2026-11-20 «작성 일차(작업일)를 고칠 수
+        * 있는 권한»). 마감 전 내 기록만 - 잠긴 묶음은 열지 않는다. 남의 기록은 배치 화면에서
+        * 생산관리자가 고친다. 누가 고칠 수 있는지는 DB 가 본다.
+        */}
+      {rec && !locked && (fixing ? (
+        <RecordFixForm woId={woId} rec={rec} dayChoices={dayChoices}
+                       onCancel={() => setFixing(false)}
+                       onDone={(n) => { setFixing(false); onMoved(n); }} />
+      ) : (
+        <div className="border-b border-line-soft py-2 text-right">
+          <button type="button" onClick={() => setFixing(true)} className="btn-quiet">
+            일차 · 작업일 · 시각 고치기
+          </button>
+        </div>
+      ))}
 
       {!rec && pastBlock}
 
@@ -726,7 +777,7 @@ function OperationCard({
           ))}
         </div>
       ) : showStart ? (
-        <StartCard woId={woId} day={day} op={op} people={people}
+        <StartCard woId={woId} day={day} dayDate={dayDate} op={op} people={people}
                    productLots={productLots} attempt={attemptCount + 1}
                    done={!!rec?.ended_at && !op.after_cutting} splitOp={splitOp}
                    doneLotIds={doneLotIds}
@@ -840,8 +891,10 @@ function OperationCard({
 
 /* -------------------------------------------------------------------------- */
 
-function StartCard({ woId, day, op, people, productLots, attempt, done, splitOp, doneLotIds = [], onStarted }: {
+function StartCard({ woId, day, dayDate, op, people, productLots, attempt, done, splitOp, doneLotIds = [], onStarted }: {
   woId: string; day: number; op: Op; people: PersonOpt[]; productLots: PlOpt[];
+  /** 이 일차에 이미 적힌 작업일 (없으면 null) */
+  dayDate: string | null;
   attempt: number; done: boolean; splitOp: string | null;
   /** 재단 이후 공정에서 이미 마감한 제품 로트 */
   doneLotIds?: string[];
@@ -864,6 +917,17 @@ function StartCard({ woId, day, op, people, productLots, attempt, done, splitOp,
   // 대장을 가리키는 참조를 보낸다. 코드는 DB 가 그 시점 대장에서 떠 온다
   const [equip, setEquip] = useState<string[]>(
     op.equipment.length === 1 ? [op.equipment[0].id] : []);
+  /*
+   * 작업일 · 시작 시각은 사람이 적는다 (0139 · 사용자 2026-11-20 «일자가 자동으로 들어가면
+   * 안 됩니다»). 지금으로 채워 두고, 손대기 전까지는 지금을 따라간다. 종이를 옮겨 적는
+   * 날에는 종이의 날짜와 시각으로 바꾼다.
+   */
+  const now = useNowLocal();
+  const [wd, setWd] = useState<string | null>(null);
+  const [tm, setTm] = useState<string | null>(null);
+  const dateVal = wd ?? now.slice(0, 10);
+  const timeVal = tm ?? now.slice(11, 16);
+  const uid = useId();
 
   return (
     <form action={action} className="space-y-4 py-4">
@@ -880,6 +944,26 @@ function StartCard({ woId, day, op, people, productLots, attempt, done, splitOp,
         <p className="rounded-md bg-warn-bg px-3 py-2.5 text-sm leading-relaxed text-ink">
           이 공정은 이미 마감했습니다. 다시 시작하면 <b>{attempt}회차</b>로 기록됩니다.
           재작업이나 재세척일 때만 쓰십시오.
+        </p>
+      )}
+
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="label" htmlFor={`${uid}-wd`}>{day}일차 작업일</label>
+          <input id={`${uid}-wd`} name="work_date" type="date" required value={dateVal}
+                 max={now.slice(0, 10)} onChange={(e) => setWd(e.target.value)}
+                 className="input tnum text-base" />
+        </div>
+        <div>
+          <label className="label" htmlFor={`${uid}-tm`}>시작 시각</label>
+          <input id={`${uid}-tm`} name="start_time" type="time" required value={timeVal}
+                 onChange={(e) => setTm(e.target.value)} className="input tnum text-base" />
+        </div>
+      </div>
+      {dayDate && dateVal !== dayDate && (
+        <p className="rounded-md bg-warn-bg px-3 py-2.5 text-sm leading-relaxed text-ink">
+          {day}일차의 다른 기록은 <b className="tnum">{dayDate}</b>에 했습니다.
+          다른 날 한 작업이면 위에서 새 일차를 고르십시오.
         </p>
       )}
 
@@ -1278,6 +1362,10 @@ function EndForm({ woId, rec, op, missing, compact = false, empty = 0, onCancel,
   const [state, action, pending] = useActionState<FormState, FormData>(endRecord, {});
   const [confirm, setConfirm] = useState(compact);
   useEffect(() => { if (state.ok) onEnded?.(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [state]);
+  /* 종료 시각도 사람이 적는다 (0139). 지금으로 채워 두고 손대기 전까지 따라간다 */
+  const now = useNowLocal();
+  const [end, setEnd] = useState<string | null>(null);
+  const uid = useId();
 
   return (
     <form action={action} className="space-y-4 py-4">
@@ -1316,8 +1404,14 @@ function EndForm({ woId, rec, op, missing, compact = false, empty = 0, onCancel,
         </button>
       ) : (
         <div className="space-y-3">
+          <div>
+            <label className="label" htmlFor={`${uid}-end`}>종료 일시</label>
+            <input id={`${uid}-end`} name="ended_at" type="datetime-local" required
+                   value={end ?? now} max={now} onChange={(e) => setEnd(e.target.value)}
+                   className="input tnum text-base" />
+          </div>
           <p className="rounded-md bg-canvas px-3 py-2.5 text-sm leading-relaxed text-ink">
-            <b>{op.name}</b>을 마감합니다. 종료 시각이 지금으로 찍힙니다.
+            <b>{op.name}</b>을 위 종료 일시로 마감합니다.
             마감 후에도 일차를 마감하기 전이면 기록서 칸과 자재를 더 적을 수 있습니다.
             {empty > 0 && (
               <span className="mt-1 block font-semibold text-warn">
@@ -1336,6 +1430,98 @@ function EndForm({ woId, rec, op, missing, compact = false, empty = 0, onCancel,
           </div>
         </div>
       )}
+    </form>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   일차 · 작업일 · 시각 고치기 (0139 · 사용자 2026-11-20)
+
+   마감 전 기록의 일차와 작업일 · 시작 · 종료를 사유와 함께 고친다. 손댄 칸만
+   보낸다 - 손대지 않은 시각을 분 단위로 다시 보내면 초가 지워져 고친 것으로 남는다.
+   마감한 일차로는 옮기지 못하고, 발행일 앞 · 미래 날짜는 DB 가 거부한다.
+--------------------------------------------------------------------------- */
+function RecordFixForm({ woId, rec, dayChoices, onCancel, onDone }: {
+  woId: string; rec: Rec; dayChoices: number[];
+  onCancel: () => void;
+  onDone: (day: number) => void;
+}) {
+  const [state, action, pending] = useActionState<FormState, FormData>(fixRecord, {});
+  const uid = useId();
+  const st0 = rec.started_at ? nowLocalKST(rec.started_at) : '';
+  const en0 = rec.ended_at ? nowLocalKST(rec.ended_at) : '';
+  const [day, setDay] = useState(rec.day_no);
+  const [wd, setWd] = useState(rec.work_date);
+  const [st, setSt] = useState(st0);
+  const [en, setEn] = useState(en0);
+  const [why, setWhy] = useState('');
+  useEffect(() => { if (state.ok) onDone(day); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [state]);
+  const max = todayKST();
+  const changed = day !== rec.day_no || wd !== rec.work_date || st !== st0 || en !== en0;
+
+  return (
+    <form action={action} className="space-y-3 border-b border-line-soft bg-surface-sub px-4 py-4">
+      <input type="hidden" name="process_record_id" value={rec.id} />
+      <input type="hidden" name="work_order_id" value={woId} />
+      <input type="hidden" name="day_no" value={day !== rec.day_no ? day : ''} />
+      <input type="hidden" name="work_date" value={wd !== rec.work_date ? wd : ''} />
+      <input type="hidden" name="started_at" value={st !== st0 ? st : ''} />
+      <input type="hidden" name="ended_at" value={en !== en0 ? en : ''} />
+      <input type="hidden" name="why" value={why} />
+
+      <div>
+        <span className="label">일차</span>
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+          {dayChoices.map((n) => (
+            <button key={n} type="button" onClick={() => setDay(n)}
+                    data-on={day === n} className="tile items-center text-center">
+              <span className="text-base font-semibold tnum">{n}일차</span>
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-3">
+        <div>
+          <label className="label" htmlFor={`${uid}-wd`}>작업일</label>
+          <input id={`${uid}-wd`} type="date" value={wd} max={max} required
+                 onChange={(e) => setWd(e.target.value)} className="input tnum text-base" />
+        </div>
+        <div>
+          <label className="label" htmlFor={`${uid}-st`}>시작</label>
+          <input id={`${uid}-st`} type="datetime-local" value={st}
+                 onChange={(e) => setSt(e.target.value)} className="input tnum text-base" />
+        </div>
+        {rec.ended_at && (
+          <div>
+            <label className="label" htmlFor={`${uid}-en`}>종료</label>
+            <input id={`${uid}-en`} type="datetime-local" value={en}
+                   onChange={(e) => setEn(e.target.value)} className="input tnum text-base" />
+          </div>
+        )}
+      </div>
+      <div>
+        <label className="label" htmlFor={`${uid}-why`}>고치는 사유</label>
+        <div className="mb-2 grid gap-2 sm:grid-cols-3">
+          {FIX_REASONS.map((r) => (
+            <button key={r} type="button" onClick={() => setWhy(r)}
+                    data-on={why === r} className="tile">
+              <span className="text-sm font-semibold">{r}</span>
+            </button>
+          ))}
+        </div>
+        <input id={`${uid}-why`} value={why} onChange={(e) => setWhy(e.target.value)}
+               autoComplete="off" placeholder="눌러 고르거나 적으십시오" className="input text-base" />
+      </div>
+      <p className="text-sm leading-relaxed text-muted">
+        바꾼 칸마다 이전 값 · 새 값 · 사유가 남고 지워지지 않습니다. 마감한 일차로는 옮길 수 없습니다.
+      </p>
+      <Msg state={state} />
+      <div className="flex gap-2">
+        <button type="submit" disabled={pending || !changed || !why.trim()} className="btn-primary flex-1">
+          {pending ? '고치는 중' : '고친다'}
+        </button>
+        <button type="button" onClick={onCancel} className="btn-ghost flex-1">그만</button>
+      </div>
     </form>
   );
 }

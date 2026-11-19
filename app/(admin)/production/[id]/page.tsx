@@ -11,12 +11,12 @@ import { Panel, Empty, Tag, Field, Caution } from '@/components/ui';
 import WorkRequestForm, { type ReqValue } from './request-form';
 import {
   CutForm, LotStatusForm, CancelForm, WoNoForm, ForceReasonForm, FinishForm, RetrieveForm, EndForWorkerForm, DayPrintLink,
-  BatchNoForm, ForceTimesForm,
+  BatchNoForm, ForceTimesForm, FixRecordForm,
   NonconformityForm, WipNonconformityForm, type OpOpt,
   type LotRow, type FinOpt,
 } from './batch-forms';
 
-const FIELD_LABEL: Record<string, string> = { work_date: '작업일', started_at: '시작', ended_at: '종료' };
+const FIELD_LABEL: Record<string, string> = { day_no: '일차', work_date: '작업일', started_at: '시작', ended_at: '종료' };
 
 export const dynamic = 'force-dynamic';
 
@@ -74,6 +74,8 @@ interface RecRow {
   locked: boolean;
   work_date_text: string; started_local: string | null; ended_local: string | null;
   corrections: { field?: string; old_value: string | null; new_value: string | null; why: string;
+                 /** 마감 전에 고친 줄 (0139). 아니면 잠긴 기록의 강제 정정 */
+                 before_close?: boolean | null;
                  by_name: string; at: string }[];
   product_lot_no: string | null; issues: number;
 }
@@ -175,6 +177,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                 coalesce((
                   select json_agg(json_build_object(
                            'field', rc.field, 'old_value', rc.old_value, 'new_value', rc.new_value, 'why', rc.why,
+                           'before_close', rc.before_close,
                            'by_name', cu.full_name,
                            'at', to_char(timezone('Asia/Seoul', rc.corrected_at), 'YYYY-MM-DD HH24:MI'))
                          order by rc.corrected_at)
@@ -686,9 +689,20 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                       )}
                       {r.corrections.map((c, i) => (
                         <div key={i} className="mt-1 text-xs leading-relaxed text-faint">
-                          강제 정정 {c.at} · {c.by_name}{c.field && c.field !== 'no_material_reason' ? ` · ${FIELD_LABEL[c.field] ?? c.field}` : ''}: «{c.old_value}» → «{c.new_value}» · {c.why}
+                          {c.before_close ? '고침' : '강제 정정'} {c.at} · {c.by_name}{c.field && c.field !== 'no_material_reason' ? ` · ${FIELD_LABEL[c.field] ?? c.field}` : ''}: «{c.old_value}» → «{c.new_value}» · {c.why}
                         </div>
                       ))}
+                      {/*
+                        * 마감 전 기록의 일차 · 작업일 · 시각 (0139 · 사용자 2026-11-20). 누구의
+                        * 기록이든 생산관리자 · 시스템관리자가 고친다. 잠긴 기록은 아래 강제 정정이다.
+                        */}
+                      {!r.locked && !readOnly && hasRole(user, 'SYS_ADMIN', 'PROD_MGR') && (
+                        <div>
+                          <FixRecordForm recordId={r.id} woId={wo.id} dayNo={r.day_no}
+                                         workDate={r.work_date_text}
+                                         started={r.started_local ?? ''} ended={r.ended_local ?? ''} />
+                        </div>
+                      )}
                       {r.locked && r.no_material_reason && hasRole(user, 'SYS_ADMIN') && (
                         <ForceReasonForm recordId={r.id} woId={wo.id} current={r.no_material_reason} />
                       )}

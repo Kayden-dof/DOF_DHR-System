@@ -296,6 +296,9 @@ const WRITE_FUNCS = [
   /* 0122 · 감사추적 비우기 · 쓰지 않은 계정 지우기 */
   'purge_logs()',
   'delete_unused_user(uuid)',
+  /* 0139 · 마감 전 기록의 일차 · 작업일 · 시각 고치기 · 적은 시각으로 공정 마감 */
+  'fix_record_day(uuid, int, date, timestamptz, timestamptz, text)',
+  'complete_process_at(uuid, timestamptz)',
 ];
 const leaky = [];
 for (const f of WRITE_FUNCS) {

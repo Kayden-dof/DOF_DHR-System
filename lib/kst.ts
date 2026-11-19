@@ -27,6 +27,31 @@ export function todayKST(): string {
   return new Intl.DateTimeFormat('sv-SE', { timeZone: KST }).format(new Date());
 }
 
+/**
+ * 한국 시각으로 지금 (또는 준 시각). 'YYYY-MM-DDTHH:MM' - datetime-local 칸의 값
+ * 꼴이다. 사람이 고칠 수 있게 채워 두는 기본값에 쓴다 (0139).
+ */
+export function nowLocalKST(at?: Date | string | null): string {
+  const d = at ? new Date(at) : new Date();
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+    timeZone: KST, year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).formatToParts(d).map((x) => [x.type, x.value]));
+  return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
+}
+
+/**
+ * 화면에서 받은 한국 벽시계 값을 timestamptz 로 넣을 글자로. 시간대 없는 값을
+ * 그대로 넣으면 서버 시간대(UTC)로 읽혀 9시간 밀린다 (§10).
+ * 'YYYY-MM-DDTHH:MM' 또는 날짜 · 시각을 따로 받는다. 꼴이 틀리면 null.
+ */
+export function kstStamp(dateOrLocal: string | null | undefined, time?: string | null): string | null {
+  const v = (dateOrLocal ?? '').trim();
+  const local = time != null ? `${v}T${time.trim()}` : v;
+  const m = local.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})(:\d{2})?$/);
+  return m ? `${m[1]}T${m[2]}${m[3] ?? ':00'}+09:00` : null;
+}
+
 /** 한국 시각으로 지금 연도. 바닥글 저작권 표기처럼 해가 걸린 자리에 쓴다 */
 export function yearKST(): number {
   return Number(new Intl.DateTimeFormat('en-CA', {

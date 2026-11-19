@@ -8,6 +8,7 @@ import { isWorker, isAdmin } from '@/lib/roles';
 import type { FormState } from '@/lib/forms';
 import { brSheet, currentForm, type BrSheet } from '@/lib/br-sheet';
 import { fixedEquipCodes } from '@/lib/br-form';
+import { kstStamp } from '@/lib/kst';
 
 async function worker() {
   const user = await requireUser();
@@ -28,7 +29,9 @@ const bump = (wo?: string) => {
    공정 기록 시작
 
    현장 화면에서 오는 요청이다. 자유 입력이 없다.
-   일차는 화면에서 고르고, 시각은 지금으로 찍는다.
+   일차는 화면에서 고르고, 작업일과 시작 시각은 사람이 적는다 - 화면이 지금으로
+   채워 두고 바꿀 수 있다 (0139 · 사용자 2026-11-20 «일자가 자동으로 들어가면
+   안 됩니다»). 둘 다 비어 오면 지금이다. 작업일 규칙(발행일 앞 · 미래)은 DB 가 본다.
 --------------------------------------------------------------------------- */
 export async function startRecord(_p: FormState, form: FormData): Promise<FormState> {
   try {
@@ -42,6 +45,14 @@ export async function startRecord(_p: FormState, form: FormData): Promise<FormSt
 
     const opId = String(form.get('operation_id') ?? '');
     const first = String(form.get('equipment_ref') ?? '').trim();
+    const wd = String(form.get('work_date') ?? '').trim();
+    const tm = String(form.get('start_time') ?? '').trim();
+    if (wd && !/^\d{4}-\d{2}-\d{2}$/.test(wd)) return { error: '작업일을 다시 고르십시오' };
+    const started = wd && tm ? kstStamp(wd, tm) : null;
+    if (wd && tm && !started) return { error: '시작 시각을 다시 적으십시오' };
+    if (started && Date.parse(started) > Date.now() + 60_000) {
+      return { error: '아직 오지 않은 시각입니다' };
+    }
     await withActor(me.id, async (db) => {
       /*
        * 고른 설비가 없고 그 공정에 제조기록서가 있으면, 양식에 박혀 인쇄된 기기번호
@@ -66,8 +77,10 @@ export async function startRecord(_p: FormState, form: FormData): Promise<FormSt
         `insert into process_record (work_order_id, product_lot_id, operation_id, attempt,
            day_no, work_date, worker_id, rotation_worker_id, equipment_ref, extra_equipment_refs,
            started_at)
-         values ($1,$2,$3,$4,$5, (timezone('Asia/Seoul', now()))::date, $6,$7,$8::uuid, $9::uuid[],
-                 now())`,
+         values ($1,$2,$3,$4,$5,
+                 coalesce($10::date, (timezone('Asia/Seoul', now()))::date),
+                 $6,$7,$8::uuid, $9::uuid[],
+                 coalesce($11::timestamptz, now()))`,
         [wo, lot || null, opId,
          // 회차는 비워 보낸다. DB 가 (배치, 공정, 제품로트) 기준으로 센다 (0055).
          // 화면이 세면 "오늘 내 기록"만 보게 되어, 어제 한 공정을 오늘 다시
@@ -77,7 +90,8 @@ export async function startRecord(_p: FormState, form: FormData): Promise<FormSt
          // 설비 대장을 가리키는 참조. 종이에 찍힐 코드는 DB 가 그 시점의
          // 대장에서 떠 온다 (0032). 응용이 두 값을 각각 넣으면 언젠가 어긋난다
          refs[0] ?? null,
-         refs.length > 1 ? refs.slice(1) : null]);
+         refs.length > 1 ? refs.slice(1) : null,
+         wd || null, started]);
     });
 
     bump(wo);
@@ -109,6 +123,7 @@ export async function issueMaterial(_p: FormState, form: FormData): Promise<Form
 /**
  * 공정 마감 (S05).
  * 자재 구성표의 자재가 기록되지 않았으면 거부된다. 해당없음 사유를 넣으면 통과한다.
+ * 종료 시각은 사람이 적은 값이다 - 비어 오면 지금 (0139 complete_process_at).
  */
 export async function endRecord(_p: FormState, form: FormData): Promise<FormState> {
   try {
@@ -117,6 +132,9 @@ export async function endRecord(_p: FormState, form: FormData): Promise<FormStat
     const pr = String(form.get('process_record_id') ?? '');
     const reason = String(form.get('no_material_reason') ?? '').trim();
     const rework = String(form.get('rework_qty') ?? '').trim();
+    const endRaw = String(form.get('ended_at') ?? '').trim();
+    const ended = endRaw ? kstStamp(endRaw) : null;
+    if (endRaw && !ended) return { error: '종료 시각을 다시 적으십시오' };
 
     await withActor(me.id, async (db) => {
       if (reason) {
@@ -127,11 +145,49 @@ export async function endRecord(_p: FormState, form: FormData): Promise<FormStat
         await db.rows(`update process_record set rework_qty = $2 where id = $1`,
                       [pr, Number(rework)]);
       }
-      await db.rows(`select complete_process($1)`, [pr]);
+      await db.rows(`select complete_process_at($1, $2::timestamptz)`, [pr, ended]);
     });
 
     bump(wo);
     return { ok: true, message: '공정을 마감했습니다.' };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
+/**
+ * 마감 전 기록의 일차 · 작업일 · 시작 · 종료 고치기 (0139 · 사용자 2026-11-20).
+ *
+ * 기록한 작업자 본인 · 생산관리자 · 시스템관리자. 판정은 DB 함수가 한다 - 누구인가,
+ * 마감 전인가(옮길 일차도), 발행일 앞 · 미래 날짜인가. 비운 칸은 그대로 둔다.
+ * 칸마다 정정 내역이 남고 감사추적에 사유가 남는다. 현장 화면과 배치 화면이 함께 쓴다.
+ */
+export async function fixRecord(_p: FormState, form: FormData): Promise<FormState> {
+  try {
+    const me = await worker();
+    const pr = String(form.get('process_record_id') ?? '');
+    const wo = String(form.get('work_order_id') ?? '');
+    const dayRaw = String(form.get('day_no') ?? '').trim();
+    const day = dayRaw ? Number(dayRaw) : null;
+    if (day !== null && (!Number.isInteger(day) || day < 1)) return { error: '일차를 다시 고르십시오' };
+    const wd = String(form.get('work_date') ?? '').trim() || null;
+    if (wd && !/^\d{4}-\d{2}-\d{2}$/.test(wd)) return { error: '작업일을 다시 고르십시오' };
+    const stRaw = String(form.get('started_at') ?? '').trim();
+    const enRaw = String(form.get('ended_at') ?? '').trim();
+    const st = stRaw ? kstStamp(stRaw) : null;
+    const en = enRaw ? kstStamp(enRaw) : null;
+    if ((stRaw && !st) || (enRaw && !en)) return { error: '시각을 다시 적으십시오' };
+    const why = String(form.get('why') ?? '').trim();
+    if (!why) return { error: '왜 고치는지 적으십시오' };
+
+    const n = await withActor(me.id, (db) =>
+      db.val<number>(
+        `select fix_record_day($1, $2::int, $3::date, $4::timestamptz, $5::timestamptz, $6)`,
+        [pr, day, wd, st, en, why]),
+      { reason: `고침 · ${why}` });
+
+    bump(wo);
+    return { ok: true, message: `${n}칸을 고쳤습니다. 고친 내역은 배치 화면의 공정 기록에 남습니다.` };
   } catch (e) {
     return { error: dbMessage(e) };
   }

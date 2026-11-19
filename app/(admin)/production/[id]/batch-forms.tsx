@@ -13,6 +13,7 @@ import {
   setBatchNo, forceCorrectTimes,
   recordNonconformity, recordWipNonconformity, endRecordForWorker,
 } from '../actions';
+import { fixRecord } from '@/app/(work)/work/actions';
 
 export interface LotRow {
   id: string; lot_no: string; item_code: string; item_name: string;
@@ -342,6 +343,77 @@ export function ForceTimesForm({ recordId, woId, workDate, started, ended }: {
         잠긴 기록의 작업일 · 시작 · 종료 가운데 적은 칸만 바뀌고, 잠금은 그대로입니다.
         이전 값 · 새 값 · 사유가 정정 내역으로 이 기록 아래에 남습니다.
         <b> 저장하면 되돌릴 수 없습니다.</b> 이미 인쇄한 종이는 바뀌지 않습니다.
+      </Caution>
+      <Msg state={state} />
+      <div className="flex gap-2">
+        <button type="submit" disabled={pending} className="btn-primary">저장</button>
+        <button type="button" onClick={() => setOpen(false)} className="btn-ghost">취소</button>
+      </div>
+    </form>
+  );
+}
+
+/*
+ * 마감 전 기록의 일차 · 작업일 · 시각 고치기 (0139 · 사용자 2026-11-20).
+ * 생산관리자 · 시스템관리자가 누구의 기록이든 고친다 (현장 화면은 본인 것만).
+ * 손댄 칸만 보낸다 - 손대지 않은 시각을 분 단위로 다시 보내면 초가 지워져 고친 것으로 남는다.
+ */
+export function FixRecordForm({ recordId, woId, dayNo, workDate, started, ended }: {
+  recordId: string; woId: string; dayNo: number; workDate: string; started: string; ended: string;
+}) {
+  const uid = useId();
+  const [state, action, pending] = useActionState<FormState, FormData>(fixRecord, {});
+  const [open, setOpen] = useState(false);
+  const [day, setDay] = useState(String(dayNo));
+  const [wd, setWd] = useState(workDate);
+  const [st, setSt] = useState(started);
+  const [en, setEn] = useState(ended);
+
+  if (!open || state.ok) {
+    return (
+      <>
+        <button type="button" onClick={() => setOpen(true)} className="qd-text-action">일차 · 시각 고치기</button>
+        {state.ok && <Msg state={state} />}
+      </>
+    );
+  }
+  return (
+    <form action={action} className="mt-2 space-y-2">
+      <input type="hidden" name="process_record_id" value={recordId} />
+      <input type="hidden" name="work_order_id" value={woId} />
+      <input type="hidden" name="day_no" value={day !== String(dayNo) ? day : ''} />
+      <input type="hidden" name="work_date" value={wd !== workDate ? wd : ''} />
+      <input type="hidden" name="started_at" value={st !== started ? st : ''} />
+      <input type="hidden" name="ended_at" value={en !== ended ? en : ''} />
+      <div className="grid gap-2 sm:grid-cols-4">
+        <div>
+          <label className="label" htmlFor={`${uid}-day`}>일차</label>
+          <input id={`${uid}-day`} type="number" min={1} step={1} value={day}
+                 onChange={(e) => setDay(e.target.value)} className="input tnum" />
+        </div>
+        <div>
+          <label className="label" htmlFor={`${uid}-wd`}>작업일</label>
+          <input id={`${uid}-wd`} type="date" value={wd} onChange={(e) => setWd(e.target.value)} className="input tnum" />
+        </div>
+        <div>
+          <label className="label" htmlFor={`${uid}-st`}>시작</label>
+          <input id={`${uid}-st`} type="datetime-local" value={st} onChange={(e) => setSt(e.target.value)} className="input tnum" />
+        </div>
+        {ended && (
+          <div>
+            <label className="label" htmlFor={`${uid}-en`}>종료</label>
+            <input id={`${uid}-en`} type="datetime-local" value={en} onChange={(e) => setEn(e.target.value)} className="input tnum" />
+          </div>
+        )}
+      </div>
+      <div>
+        <label className="label" htmlFor={`${uid}-why`}>사유</label>
+        <input id={`${uid}-why`} name="why" required autoComplete="off"
+               placeholder="종이 기록서에 맞춤" className="input" />
+      </div>
+      <Caution>
+        바꾼 칸마다 이전 값 · 새 값 · 사유가 이 기록 아래에 남고 지워지지 않습니다.
+        마감한 일차로는 옮길 수 없고, 작업 지시 발행일보다 앞선 날짜는 받지 않습니다.
       </Caution>
       <Msg state={state} />
       <div className="flex gap-2">
