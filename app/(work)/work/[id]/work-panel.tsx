@@ -1636,6 +1636,16 @@ function EndForm({ woId, rec, op, missing, unused = [], compact = false, empty =
                    value={end ?? now} max={now} onChange={(e) => setEnd(e.target.value)}
                    className="input tnum text-base" />
           </div>
+          {/*
+            * 종료 날이 작업일보다 뒤면 마감이 끝나는 일차로 옮긴다 (0148). 종이를 뒤에 옮겨 적을 때
+            * 종료 칸이 «지금» 인 채로 마감하면 엉뚱한 일차로 간다 (사용자 2026-11-20 포장 11-20 → 17일차).
+            */}
+          {(end ?? now).slice(0, 10) > rec.work_date && (
+            <p className="rounded-md border border-warn/40 bg-warn-bg px-3 py-2.5 text-sm leading-relaxed text-ink">
+              종료 날(<b className="tnum">{(end ?? now).slice(0, 10)}</b>)이 작업일(<b className="tnum">{rec.work_date}</b>)보다
+              뒤입니다. 마감하면 <b>끝난 날의 일차</b>로 옮겨집니다. 종이를 옮겨 적는 중이면 종료 일시를 종이대로 고치십시오.
+            </p>
+          )}
           <p className="rounded-md bg-canvas px-3 py-2.5 text-sm leading-relaxed text-ink">
             <b>{op.name}</b>을 위 종료 일시로 마감합니다.
             마감 후에도 일차를 마감하기 전이면 기록서 칸과 자재를 더 적을 수 있습니다.

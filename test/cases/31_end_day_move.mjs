@@ -89,6 +89,24 @@ export default [
 },
 
 {
+  id: 'ED-05', expect: '통과',
+  name: '종료를 잘못 넣어 뒤 일차로 갔으면 종료를 고칠 때 일차 · 작업일도 돌아온다 (0150)',
+  async run(t) {
+    const { m, wo } = await prep(t);
+    /* 3일 전에 한 공정을 종료 칸 «지금» 그대로 마감 → 4일차 · 오늘 */
+    const pr = await open(t, m, wo, { op: 'WS-DX2401-03', daysAgo: 3 });
+    await close(t, m, pr, 0);
+    t.eq(await t.val(`select day_no from process_record where id = $1`, [pr]), 4, '잘못 넣은 종료로 4일차');
+    /* 종료만 고친다 - 일차 · 작업일은 고르지 않는다 */
+    await asUser(t, m.worker, () => t.val(
+      `select fix_record_day($1, null, null, null, now() - interval '3 days' + interval '1 hour', '날짜 · 시각을 잘못 넣음')`,
+      [pr]));
+    t.eq(await t.rows(`select day_no, (work_date = current_date - 3) as wd from process_record where id = $1`, [pr]),
+      [{ day_no: 1, wd: true }], '1일차 · 그 날로 돌아온다');
+  },
+},
+
+{
   id: 'ED-04', expect: '통과',
   name: '옮길 일차가 이미 마감되었으면 옮기지 않는다 (잠금은 풀지 않는다)',
   async run(t) {
