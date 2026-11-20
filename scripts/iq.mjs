@@ -299,6 +299,8 @@ const WRITE_FUNCS = [
   /* 0139 · 마감 전 기록의 일차 · 작업일 · 시각 고치기 · 적은 시각으로 공정 마감 */
   'fix_record_day(uuid, int, date, timestamptz, timestamptz, text)',
   'complete_process_at(uuid, timestamptz)',
+  /* 0146 · 여러 날 공정을 다음 일차로 넘긴다 */
+  'carry_open_records(uuid, int, uuid, date)',
 ];
 const leaky = [];
 for (const f of WRITE_FUNCS) {

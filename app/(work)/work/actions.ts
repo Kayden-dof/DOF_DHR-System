@@ -216,11 +216,28 @@ export async function closeDay(_p: FormState, form: FormData): Promise<FormState
     const me = await worker();
     const wo = String(form.get('work_order_id') ?? '');
     const day = Number(form.get('day_no') ?? 1);
+    /*
+     * 여러 날 공정 (0146 · 사용자 2026-11-20 «끝나는 일차로»). 진행 중 공정이 있으면 다음
+     * 일차 · 그 작업일로 넘긴 뒤 마감한다. 한 트랜잭션이라 넘기기만 되고 마감이 안 되는 일은 없다.
+     */
+    const carry = String(form.get('carry_date') ?? '').trim();
 
-    await withActor(me.id, (db) =>
-      db.rows(`select lock_day($1,$2,$3)`, [wo, day, me.id]));
+    const moved = await withActor(me.id, async (db) => {
+      const n = carry
+        ? (await db.val<number>(`select carry_open_records($1,$2,$3,$4::date)`, [wo, day, me.id, carry])) ?? 0
+        : 0;
+      /* 이 일차에 넘긴 공정뿐이었으면 남은 기록이 없다 - 마감 · 발행할 것이 없으니 넘기기만 한다 */
+      const left = await db.val<number>(
+        `select count(*)::int from process_record
+          where work_order_id = $1 and day_no = $2 and worker_id = $3`, [wo, day, me.id]);
+      if (left) await db.rows(`select lock_day($1,$2,$3)`, [wo, day, me.id]);
+      return { n, left };
+    });
 
     bump(wo);
+    if (!moved.left) {
+      return { ok: true, message: `진행 중 공정 ${moved.n}건을 ${day + 1}일차로 넘겼습니다. ${day}일차에는 마감할 기록이 남지 않았습니다.` };
+    }
     go = `/print/day-record/${wo}/${day}/${me.id}`;
   } catch (e) {
     return { error: dbMessage(e) };

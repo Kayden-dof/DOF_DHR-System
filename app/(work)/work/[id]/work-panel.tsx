@@ -505,7 +505,7 @@ export default function WorkPanel({
 
       {/* 일차 마감 ----------------------------------------------------------- */}
       {!locked && dayRecords.length > 0 && (
-        <CloseDayCard woId={woId} day={day} batchNo={batchNo}
+        <CloseDayCard woId={woId} day={day} batchNo={batchNo} dayDate={dayDate.get(day) ?? ''}
                       openOps={dayRecords
                         .filter((r) => !r.ended_at)
                         .map((r) => {
@@ -1532,11 +1532,27 @@ function RecordFixForm({ woId, rec, dayChoices, onCancel, onDone }: {
 
 /* -------------------------------------------------------------------------- */
 
-function CloseDayCard({ woId, day, batchNo, openOps }: {
+/* YYYY-MM-DD 에 n 일을 더한다 (달력 날짜 그대로, 시간대 없이) */
+const plusDays = (iso: string, n: number) => {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+};
+
+function CloseDayCard({ woId, day, batchNo, openOps, dayDate }: {
   woId: string; day: number; batchNo: string; openOps: string[];
+  /** 이 일차의 작업일. 다음 일차로 넘길 때 작업일의 처음 값(다음 날)을 셈한다 */
+  dayDate: string;
 }) {
   const [state, action, pending] = useActionState<FormState, FormData>(closeDay, {});
   const [confirm, setConfirm] = useState(false);
+  /*
+   * 여러 날 공정 (0146 · 사용자 2026-11-20 «끝나는 일차로»). 진행 중 공정은 다음 일차로 넘기고
+   * 이 일차를 마감한다. 다음 일차의 작업일은 처음에 다음 날, 오늘을 넘지 않는다.
+   */
+  const today = todayKST();
+  const nextDefault = dayDate ? (plusDays(dayDate, 1) > today ? today : plusDays(dayDate, 1)) : today;
+  const [carryDate, setCarryDate] = useState(nextDefault);
   /*
    * 기록서 빈 노란 칸 (UI/UX 검수 2026-11-11). 막지 않는다 - 마감 전에 알린다.
    * 마감하면 그 칸은 영영 빈 채로 종이에 나간다.
@@ -1548,14 +1564,11 @@ function CloseDayCard({ woId, day, batchNo, openOps }: {
     return () => { alive = false; };
   }, [woId, day, openOps.length]);
   /*
-   * 열린 공정이 있으면 마감 자체를 내주지 않는다 (사용자 결정 2026-09-02).
+   * 열린 공정을 그대로 잠그지 않는다 (사용자 결정 2026-09-02 · DB 0085). 잠금 해제가 없어
+   * 그 종료 칸이 영구히 빈다 - 실제로 그렇게 나간 종이가 하나 있다.
    *
-   * 전에는 노란 경고를 띄우고 단추를 그대로 뒀다. 지나갈 수 있는 경고였고,
-   * 지나가면 잠금 해제가 없어 그 종료 칸이 영구히 빈다. 실제로 그렇게 나간
-   * 종이가 하나 있다.
-   *
-   * DB 가 같은 것을 막는다 (0085). 여기서 막는 것은 손이 헛되지 않게 하려는
-   * 것이지 그것이 검증인 것은 아니다 (§1-2).
+   * 대신 다음 일차로 넘기고 마감한다 (0146 · 사용자 2026-11-20 «끝나는 일차로»). 여러 날에
+   * 걸친 공정(세척 · 동결)은 끝나는 일차에 기록서가 다 채워진 채로 한 번 발행된다.
    */
   const blocked = openOps.length > 0;
 
@@ -1568,15 +1581,19 @@ function CloseDayCard({ woId, day, batchNo, openOps }: {
       </p>
 
       {blocked && (
-        <div className="mt-3 rounded-md border border-danger/25 bg-danger-bg px-3 py-3 text-sm leading-relaxed text-ink">
-          <b>종료 시각이 없는 공정이 {openOps.length}건 있습니다.</b>
+        <div className="mt-3 rounded-md border border-warn/40 bg-warn-bg px-3 py-3 text-sm leading-relaxed text-ink">
+          <b>아직 끝나지 않은 공정이 {openOps.length}건 있습니다.</b>
           <ul className="mt-1.5 list-disc space-y-0.5 pl-5">
             {openOps.map((n, i) => <li key={i}>{n}</li>)}
           </ul>
           <p className="mt-2">
-            마감하면 그 칸은 영영 빈 채로 남습니다. 위 공정 판의 <b>공정 마감</b>을 먼저 누르십시오.
-            자재를 적을 것이 없으면 해당없음 사유를 적고 마감하면 됩니다.
+            오늘 끝난 공정이면 위 공정 판의 <b>공정 마감</b>을 먼저 누르십시오.
+            다음 날까지 이어지는 공정이면 <b>{day + 1}일차로 넘기고</b> {day}일차를 마감합니다.
+            넘긴 공정은 끝나는 일차에 기록서가 다 채워진 채로 발행됩니다.
           </p>
+          <label className="label mt-2" htmlFor={`carry-${day}`}>{day + 1}일차 작업일</label>
+          <input id={`carry-${day}`} type="date" value={carryDate} max={today}
+                 onChange={(e) => setCarryDate(e.target.value)} className="input w-44 tnum" />
         </div>
       )}
 
@@ -1595,19 +1612,20 @@ function CloseDayCard({ woId, day, batchNo, openOps }: {
         * 마감 버튼은 비활성화»). 전에는 단추를 아예 숨겨, 바로 위 공정 판의 «공정 마감» 이
         * 일차 마감 단추처럼 읽혔다.
         */}
-      {blocked ? (
-        <button type="button" disabled className="btn-ghost mt-4 w-full">
-          {day}일차 마감하고 기록서 발행
-        </button>
-      ) : !confirm ? (
-        <button onClick={() => setConfirm(true)} className="btn-ghost mt-4 w-full">
-          {day}일차 마감하고 기록서 발행
+      {!confirm ? (
+        <button onClick={() => setConfirm(true)} disabled={blocked && !carryDate}
+                className="btn-ghost mt-4 w-full">
+          {blocked ? `${day + 1}일차로 넘기고 ${day}일차 마감` : `${day}일차 마감하고 기록서 발행`}
         </button>
       ) : (
         <form action={action} className="mt-4 space-y-3">
           <input type="hidden" name="work_order_id" value={woId} />
           <input type="hidden" name="day_no" value={day} />
+          {blocked && <input type="hidden" name="carry_date" value={carryDate} />}
           <p className="rounded-md border border-danger/25 bg-danger-bg px-3 py-2.5 text-sm leading-relaxed text-ink">
+            {blocked && (
+              <>끝나지 않은 공정 {openOps.length}건을 <b>{day + 1}일차({carryDate})</b>로 넘기고{' '}</>
+            )}
             배치 <b className="font-mono">{batchNo}</b>의 <b>{day}일차</b>를 마감합니다.
             되돌릴 수 없습니다.
           </p>

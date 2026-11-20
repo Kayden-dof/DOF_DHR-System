@@ -23,6 +23,7 @@
     "audit_redact",
     "audit_secret_columns",
     "br_form_in_scope",
+    "carry_open_records",
     "cm_label",
     "complete_process",
     "complete_process_at",
