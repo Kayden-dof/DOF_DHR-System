@@ -305,7 +305,9 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
     if (r.day_no === null) return r.kind === '수량 불일치' ? '#lots' : null;
     const worker = d.records.find((x) => x.day_no === r.day_no && x.operation_code === r.ref)?.worker_id
       ?? d.days.find((x) => x.day_no === r.day_no)?.worker_id;
-    return worker ? `/print/day-record/${wo.id}/${r.day_no}/${worker}?view=1` : null;
+    return worker
+      ? `/print/day-record/${wo.id}/${r.day_no}/${worker}?view=1&hl=${encodeURIComponent(`${r.kind}|${r.ref}`)}`
+      : null;
   };
 
   return (

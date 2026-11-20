@@ -9,6 +9,8 @@ import { formHasSignRoom, type BrForm, type FillReturn, type FormPage } from '@/
 import { fillOne, linkedSolution, type SolutionLink } from '@/lib/br-sheet';
 import { dayRecordPayload, hashable, type RecRow } from '@/lib/print-payload';
 import { chunkRows } from '@/lib/print-pages';
+import { markFlags, flagOps, type FlagRow } from '@/lib/flag-mark';
+import MarkScroll from '@/components/mark-scroll';
 
 export const dynamic = 'force-dynamic';
 
@@ -178,10 +180,11 @@ function RecordTable({ rows, title }: { rows: RecRow[]; title: string }) {
 
 export default async function DayRecordSheet({ params, searchParams }: {
   params: Promise<{ id: string; day: string; worker: string }>;
-  searchParams: Promise<{ view?: string }>;
+  searchParams: Promise<{ view?: string; hl?: string }>;
 }) {
   const { id, day, worker } = await params;
-  const view = viewParam((await searchParams).view);
+  const sp = await searchParams;
+  const view = viewParam(sp.view);
   const { denied } = await printGate(!!view);
   if (denied) {
     return (
@@ -190,7 +193,9 @@ export default async function DayRecordSheet({ params, searchParams }: {
       </Denied>
     );
   }
-  return <DayRecordDoc id={id} dayNo={Number(day)} worker={worker} view={view} />;
+  /* 확인해 볼 항목에서 열었으면 그 항목이 가리키는 칸을 표시한다 (열람에서만 · «종류|ref») */
+  return <DayRecordDoc id={id} dayNo={Number(day)} worker={worker} view={view}
+                       hl={view && typeof sp.hl === 'string' ? sp.hl : undefined} />;
 }
 
 /* ---------------------------------------------------------------------------
@@ -205,8 +210,10 @@ export default async function DayRecordSheet({ params, searchParams }: {
    줄**이 남아야 회차가 성립한다 (§7). 열 일차를 한 번에 뽑으면 열 줄이 남고
    각자 제 회차를 갖는다.
 --------------------------------------------------------------------------- */
-export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = false }: {
+export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = false, hl }: {
   id: string; dayNo: number; worker: string; bare?: boolean;
+  /** 확인해 볼 항목 «종류|ref» - 그 항목이 가리키는 칸을 표시한다 (열람에서만) */
+  hl?: string;
   /*
    * 열람. 묶음 발행(bare)은 받지 않는다 - 열람은 회차 하나를 여는 자리이고
    * 묶음은 여러 묶음을 한 문서로 내는 자리라 회차가 하나로 서지 않는다.
@@ -220,6 +227,11 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = fal
    * 자료 식별자를 다시 계산하므로, 두 곳이 갈라지면 안 된다.
    */
   const d = await withActor(user.id, (db) => dayRecordPayload(db, id, dayNo, worker));
+  /* 배치 화면의 확인해 볼 항목에서 열었으면 그 항목 (같은 종류 · ref · 이 일차) */
+  const [hlKind, hlRef] = hl ? hl.split('|') : [];
+  const hlFlags: FlagRow[] = hl ? (await withActor(user.id, (db) => db.rows<FlagRow>(
+    `select kind, detail, day_no, ref from review_flags($1)`, [id])))
+    .filter((f) => f.kind === hlKind && f.ref === hlRef && (f.day_no === null || f.day_no === dayNo)) : [];
 
   if (!d || d.records.length === 0) notFound();
   const { head, records } = d;
@@ -362,6 +374,7 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = fal
   const formsOf = new Map<string, typeof look.forms>();
   for (const f of look.forms) formsOf.set(f.op_code, [...(formsOf.get(f.op_code) ?? []), f]);
   const hms = (v: Date | null) => (v ? fmtDateTime(v).slice(11) : '');
+  let marked = 0;
   const plans = records.flatMap((r, ri) => {
     const docs = formsOf.get(r.operation_code);
     if (!docs?.length) return [];
@@ -405,6 +418,7 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = fal
       /* 별첨은 적은 칸이 있거나 따르는 원액 로트가 있을 때만 (위 머리말 · PBS 제조기록서 연동) */
       if (i > 0 && Object.keys(entries).length === 0 && !sol) return [];
       const filled = i === 0 ? main : fillOne(doc.form, { ...base, entries }, true, sol);
+      if (hlFlags.length) marked += markFlags(filled.pages, r.operation_code, hlFlags);
       return [{ r, size: doc.form.page, pages: filled.pages, lost: filled.lost }];
     });
   });
@@ -593,6 +607,23 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = fal
         subtitle={caption}
         back={`/production/${id}`}
       >
+        {/* 확인해 볼 항목에서 열었을 때 - 그 항목과 표시한 칸 (화면에서만) */}
+        {hlFlags.length > 0 && (
+          <div className="no-print mx-auto mb-5 max-w-[210mm] rounded-lg border border-danger/40 bg-danger-bg px-4 py-3">
+            <p className="text-sm font-semibold text-ink">확인해 볼 항목</p>
+            <ul className="mt-1 space-y-0.5 text-sm leading-relaxed text-ink">
+              {hlFlags.map((f, i) => <li key={i}><b>{f.kind}</b> · {f.detail}</li>)}
+            </ul>
+            <p className="mt-1.5 text-xs leading-relaxed text-muted">
+              {marked > 0
+                ? <>기록서에서 이 항목이 가리키는 칸 <b className="text-ink">{marked}</b>곳을 붉게 표시했습니다.</>
+                : plans.some((p) => hlFlags.some((f) => flagOps(f).has(p.r.operation_code)))
+                  ? '기록서에서 짚을 칸을 찾지 못했습니다. 각 장 아래의 시스템 기록 줄을 보십시오.'
+                  : '이 항목의 공정은 이 기록서에 없습니다.'}
+            </p>
+            <MarkScroll />
+          </div>
+        )}
         {plans.flatMap((p, k) => p.pages.map((pg, i) => {
           n += 1;
           const last = k === plans.length - 1 && i === p.pages.length - 1;

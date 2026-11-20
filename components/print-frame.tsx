@@ -927,6 +927,8 @@ export function FormBody({ page, size, formPage, onCell, active }: {
                 {r.cells.map((c) => (
                   <td key={c.c} colSpan={c.cs} rowSpan={c.rs}
                       data-fill={c.f || c.tk?.length ? '' : undefined} data-note={c.n ? '' : undefined}
+                      /* 확인해 볼 항목이 가리키는 칸 (열람에서만 · 종이에는 나가지 않는다) */
+                      data-hl={c.hl ? '' : undefined}
                       data-field={onCell && c.id
                         /* 시스템 값이 있는 칸(sv)은 고칠 수 있을 뿐 빈 칸이 아니다 */
                         /* 비어 있는 서명 · 확인자 칸은 해당할 때 적는 칸처럼 점선으로 */
