@@ -165,6 +165,42 @@ export async function endRecord(_p: FormState, form: FormData): Promise<FormStat
 }
 
 /**
+ * 제품 로트의 재단 이후 공정 건너뛰기 · 취소 (0149 · 사용자 2026-11-20 «멸균 선량 샘플같은건
+ * 멸균을 따로 안하니까 멸균 제조기록은 스킵 가능하도록»). 판정은 DB 함수가 한다.
+ */
+export async function skipLot(_p: FormState, form: FormData): Promise<FormState> {
+  try {
+    const me = await worker();
+    const wo = String(form.get('work_order_id') ?? '');
+    const op = String(form.get('operation_id') ?? '');
+    const lot = String(form.get('product_lot_id') ?? '');
+    const why = String(form.get('reason') ?? '').trim();
+    if (!why) return { error: '왜 건너뛰는지 고르십시오' };
+    await withActor(me.id, (db) =>
+      db.rows(`select skip_operation($1, $2, $3, $4)`, [wo, op, lot, why]));
+    bump(wo);
+    return { ok: true, message: '건너뛰었습니다.' };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
+export async function unskipLot(_p: FormState, form: FormData): Promise<FormState> {
+  try {
+    const me = await worker();
+    const wo = String(form.get('work_order_id') ?? '');
+    const skip = String(form.get('skip_id') ?? '');
+    const why = String(form.get('reason') ?? '').trim();
+    if (!why) return { error: '왜 취소하는지 고르십시오' };
+    await withActor(me.id, (db) => db.rows(`select unskip_operation($1, $2)`, [skip, why]));
+    bump(wo);
+    return { ok: true, message: '건너뛰기를 취소했습니다.' };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
+/**
  * 마감 전 기록의 일차 · 작업일 · 시작 · 종료 고치기 (0139 · 사용자 2026-11-20).
  *
  * 기록한 작업자 본인 · 생산관리자 · 시스템관리자. 판정은 DB 함수가 한다 - 누구인가,

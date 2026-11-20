@@ -611,11 +611,21 @@ export function fillForm(form: BrForm, given: FillData): {
                   enteredRow.set(rowKey(ri), e);
                 }
               } else {
+                /*
+                 * «-» 사용 안 함 (사용자 2026-11-20 «파우치 라벨이랑 인디케이터는 사용 안할수도있어서
+                 * - 체크 가능하도록»). 투입이 없을 때만 칸에 «-» 를 찍는다. 투입이 있으면 투입이 이긴다.
+                 */
+                const e = entries[id];
+                const none = !text && e?.value === '-';
                 Object.assign(lotCell, {
                   id, k: 'lot' as const,
                   ic: code || undefined, lb: flat(name) || code || '자재',
-                  v: text ?? undefined,
+                  v: text || (none ? '-' : undefined),
                 });
+                if (none && e) {
+                  Object.assign(lotCell, { t: '-', f: true, a: 'c' as const, b: false, s: sz });
+                  enteredRow.set(rowKey(ri), e);
+                }
               }
             }
           }

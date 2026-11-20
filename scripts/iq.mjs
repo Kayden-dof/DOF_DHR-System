@@ -301,6 +301,9 @@ const WRITE_FUNCS = [
   'complete_process_at(uuid, timestamptz)',
   /* 0146 · 여러 날 공정을 다음 일차로 넘긴다 */
   'carry_open_records(uuid, int, uuid, date)',
+  /* 0149 · 제품 로트의 재단 이후 공정 건너뛰기 · 취소 */
+  'skip_operation(uuid, uuid, uuid, text)',
+  'unskip_operation(uuid, text)',
 ];
 const leaky = [];
 for (const f of WRITE_FUNCS) {

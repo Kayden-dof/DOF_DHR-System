@@ -9,7 +9,7 @@ import { Tag } from '@/components/ui';
 import { WO_STATUS_LABEL } from '@/lib/forms';
 import WorkPanel, {
   type Op, type Rec, type LotOpt, type PersonOpt, type PlOpt, type FinOpt,
-  type SampleTier,
+  type SampleTier, type Skip,
 } from './work-panel';
 import type { EquipOpt } from './br-sheet';
 
@@ -184,6 +184,13 @@ export default async function WorkBatchPage({ params }: { params: Promise<{ id: 
       lockedDays: await db.rows<{ day_no: number }>(
         `select day_no from day_lock where work_order_id = $1 and worker_id = $2`,
         [id, user.id]),
+      /* 재단 이후 공정을 건너뛴 제품 로트 (0149 · 멸균 선량 샘플의 멸균 등) */
+      skips: await db.rows<Skip>(
+        `select s.id, s.operation_id, s.product_lot_id, s.reason, u.full_name as by_name,
+                to_char(timezone('Asia/Seoul', s.skipped_at), 'YYYY-MM-DD HH24:MI') as at
+           from process_skip s join app_user u on u.id = s.skipped_by
+          where s.work_order_id = $1 and s.cancelled_at is null
+          order by s.skipped_at`, [id]),
     };
   });
 
@@ -284,6 +291,7 @@ export default async function WorkBatchPage({ params }: { params: Promise<{ id: 
         band={wo.thickness_band}
         meId={user.id}
         lockedDays={d.lockedDays.map((r) => r.day_no)}
+        skips={d.skips}
         expiryWarnDays={expiryWarnDays}
             today={todayKST()}
     />

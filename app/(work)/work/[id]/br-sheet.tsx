@@ -361,7 +361,7 @@ export function BrSheetView({ sheet, onSheet, onClose, busy, ctx, endSlot, readO
                      onSave={(refs) => saveEquip(refs, true)} onClose={() => setCell(null)} />
       ) : live.k === 'lot' ? (
         <LotPicker key={live.id} cell={live} ctx={ctx} busy={saving || busy} error={err}
-                   onSave={saveLot} onClose={() => setCell(null)} />
+                   onSave={saveLot} onNone={(v) => save(v)} onClose={() => setCell(null)} />
       ) : live.k === 'lotno' ? (
         <LotNoPicker key={live.id} cell={live} ctx={ctx} busy={saving || busy} error={err}
                      onSave={save} onClose={() => setCell(null)} />
@@ -511,9 +511,15 @@ function EquipPicker({ cell, refs, ctx, busy, error, onSave, onClose }: {
    소요량을 미리 채운다. 그 품목 로트가 없거나 다른 것을 넣었으면
    «전체 자재 로트 보기». 막지 않는다 - 기한이 지난 로트도 고를 수 있다 (§2).
 --------------------------------------------------------------------------- */
-function LotPicker({ cell, ctx, busy, error, onSave, onClose }: {
+/* 쓰지 않을 수도 있는 자재 - 칸에 «-» 를 적을 수 있다 (사용자 2026-11-20 «파우치 라벨이랑 인디케이터») */
+const MAY_SKIP = /라벨|인디케이터/;
+
+function LotPicker({ cell, ctx, busy, error, onSave, onNone, onClose }: {
   cell: FormCell; ctx: SheetCtx; busy: boolean; error: string | null;
-  onSave: (lotId: string, qty: number) => void; onClose: () => void;
+  onSave: (lotId: string, qty: number) => void;
+  /** «-» 사용 안 함을 적거나('-') 지운다('') */
+  onNone?: (v: string) => void;
+  onClose: () => void;
 }) {
   const bom = ctx.bom.find((b) => cell.ic && b.item_code === cell.ic)
     ?? ctx.bom.find((b) => same(b.item_name, cell.lb));
@@ -538,6 +544,17 @@ function LotPicker({ cell, ctx, busy, error, onSave, onClose }: {
       <p className="text-sm text-muted">부여로트번호 · 로트를 고르고 넣은 양을 적습니다</p>
       <p className="text-base font-semibold text-ink">{cell.lb ?? '자재'}
         {cell.ic && <span className="ml-2 font-mono text-sm text-faint">{cell.ic}</span>}</p>
+
+      {onNone && already.length === 0 && (cell.v === '-' ? (
+        <div className="mt-2 flex items-center gap-2 rounded-md bg-surface-sub px-3 py-2 text-sm text-ink">
+          <span className="flex-1">사용 안 함(-)으로 적었습니다. 공정 마감 때 사유로 남습니다.</span>
+          <button type="button" disabled={busy} onClick={() => onNone('')} className="btn-ghost">되돌리기</button>
+        </div>
+      ) : MAY_SKIP.test(cell.lb ?? '') && (
+        <button type="button" disabled={busy} onClick={() => onNone('-')} className="btn-ghost mt-2 w-full">
+          이번에는 사용 안 함 (-)
+        </button>
+      ))}
 
       {already.length > 0 && (
         <p className="mt-2 rounded-md bg-surface-sub px-3 py-2 text-sm text-ink">

@@ -17,7 +17,7 @@ import { isNoExpiry } from '@/lib/equipment-check';
 import { altSuffix } from '@/lib/units';
 import {
   startRecord, issueMaterial, endRecord, closeDay, cutAtField,
-  amendIssue, returnIssue, dayGaps, fixRecord,
+  amendIssue, returnIssue, dayGaps, fixRecord, skipLot, unskipLot,
 } from '../actions';
 
 
@@ -74,6 +74,12 @@ export interface PlOpt {
   qty_produced?: number; qty_sample?: number;
 }
 export interface FinOpt { id: string; code: string; name: string }
+/** 재단 이후 공정을 건너뛴 제품 로트 (0149) */
+export interface Skip {
+  id: string; operation_id: string; product_lot_id: string; reason: string; by_name: string; at: string;
+}
+/** 건너뛰기를 받는 공정 - 지금은 멸균 (사용자 2026-11-20 «멸균 선량 샘플») */
+const skippable = (o: { after_cutting: boolean; name: string }) => o.after_cutting && /멸균/.test(o.name);
 export interface SampleTier { min_qty: number; max_qty: number | null; sample_qty: number }
 
 /*
@@ -137,10 +143,12 @@ function useNowLocal(): string {
 export default function WorkPanel({
   woId, batchNo, sheets, splitOp, loadUnit, expiryWarnDays,
   ops, records, lots, people, productLots, meId, lockedDays,
-  cutOpId, finished, sampleTiers, sampleBasis, band, today, allEquipment = [],
+  cutOpId, finished, sampleTiers, sampleBasis, band, today, allEquipment = [], skips = [],
 }: {
   /** 대장의 쓰는 설비 전부. 기록서 기기번호 칸의 «전체 설비 보기» 가 읽는다 */
   allEquipment?: EquipOpt[];
+  /** 재단 이후 공정을 건너뛴 제품 로트 (0149) */
+  skips?: Skip[];
   woId: string; batchNo: string; sheets: number;
   /** 갈림 공정 이름. 갈림이 없는 품목이면 null (0101) */
   splitOp: string | null;
@@ -269,9 +277,11 @@ export default function WorkPanel({
   const lotsDone = (o: Op) => {
     const mine = dayRecords.filter((r) => r.operation_id === o.id);
     const all = records.filter((r) => r.operation_id === o.id);
-    const done = new Set(all.filter((r) => r.ended_at && r.product_lot_id)
-      .map((r) => r.product_lot_id as string));
-    return { mine, done, total: productLots.length };
+    /* 건너뛴 로트(0149)도 끝난 로트로 센다 - 그 공정을 거치지 않는다 */
+    const skipped = new Set(skips.filter((s) => s.operation_id === o.id).map((s) => s.product_lot_id));
+    const done = new Set([...all.filter((r) => r.ended_at && r.product_lot_id)
+      .map((r) => r.product_lot_id as string), ...skipped]);
+    return { mine, done, total: productLots.length, skipped };
   };
 
   const stateOf = (o: Op) => {
@@ -312,13 +322,16 @@ export default function WorkPanel({
      * 재단 이후 공정은 로트가 다 끝나야 지난 것이다 (4차 감사 E2).
      * 하나만 끝났는데 접어 두면 남은 로트가 오늘 할 일에서 사라진다.
      */
+    let allSkipped = false;
     if (o.after_cutting) {
-      const { done, total } = lotsDone(o);
+      const { done, total, skipped } = lotsDone(o);
       if (total > 0 && done.size < total) return null;
+      allSkipped = total > 0 && skipped.size > 0;
     }
     const rs = records.filter(
       (r) => r.operation_id === o.id && r.ended_at && r.day_no !== day);
-    if (rs.length === 0) return null;
+    /* 로트를 모두 건너뛰었으면(0149) 기록이 없어도 지난 공정이다 */
+    if (rs.length === 0 && !(allSkipped && !records.some((r) => r.operation_id === o.id))) return null;
     return {
       days: [...new Set(rs.map((r) => r.day_no))].sort((a, b) => a - b),
       names: [...new Set(rs.map((r) => r.worker_name))].join(' · '),
@@ -557,6 +570,9 @@ export default function WorkPanel({
           onEnded={(d) => goNext(op, d)}
           scrollOnMount={advanced}
           doneLotIds={op.after_cutting ? [...lotsDone(op).done] : []}
+          skips={skips.filter((s) => s.operation_id === op.id)}
+          recordedLotIds={records.filter((r) => r.operation_id === op.id && r.product_lot_id)
+            .map((r) => r.product_lot_id as string)}
           lotsLeft={op.after_cutting
             && lotsDone(op).total > 0 && lotsDone(op).done.size < lotsDone(op).total}
           /* 이 화면의 내 일차 기록(rec 쪽) 밖에서 마감한 기록 - 다른 일차 · 다른 사람 */
@@ -642,7 +658,7 @@ function OpTile({
         {state === 'open' && <Tag tone="warn">진행 중</Tag>}
         {state === 'done' && <Tag tone="ok">마감</Tag>}
         {state === 'closed' && others && (
-          <Tag tone="quiet">{others.days.join(' · ')}일차 마감</Tag>
+          <Tag tone="quiet">{others.days.length ? `${others.days.join(' · ')}일차 마감` : '건너뜀'}</Tag>
         )}
       </div>
 
@@ -732,7 +748,12 @@ function OperationCard({
   attemptCount,
   isCut, finished, sampleTiers, sampleBasis, band, cutDate, dayDate, suggestDate, dayChoices, onMoved,
   allEquipment, onEnded, scrollOnMount, doneLotIds, lotsLeft, pastRecs,
+  skips = [], recordedLotIds = [],
 }: {
+  /** 이 공정을 건너뛴 제품 로트 (0149) */
+  skips?: Skip[];
+  /** 이 공정을 기록한(진행 중 포함) 제품 로트 - 건너뛸 수 없다 */
+  recordedLotIds?: string[];
   /** 건너뛰어 연 새 일차의 날짜 - 시작 칸의 작업일을 이 날로 채운다 */
   suggestDate?: string | null;
   allEquipment: EquipOpt[];
@@ -787,7 +808,17 @@ function OperationCard({
     issues: rec?.issues ?? [], expiryWarnDays, sheets, loadUnit,
   };
   const recorded = new Set((rec?.issues ?? []).map((x) => x.item_id));
-  const missing = op.bom.filter((b) => b.lot_tracked !== false && !recorded.has(b.item_id));
+  /*
+   * 기록서 자재 칸에 «-»(사용 안 함)로 적은 자재 (사용자 2026-11-20 «파우치 라벨이랑 인디케이터는
+   * 사용 안할수도»). 빠진 자재로 세지 않고, 공정 마감 때 사유(«사용 안 함 · 파우치 라벨»)로 남긴다.
+   */
+  const unusedCodes = new Set((br.sheet?.pages ?? [])
+    .flatMap((p) => p.tables.flatMap((t) => t.rows.flatMap((r) => r.cells)))
+    .filter((c) => c.k === 'lot' && c.v === '-' && c.ic).map((c) => c.ic as string));
+  const unused = op.bom.filter((b) => unusedCodes.has(b.item_code) && !recorded.has(b.item_id))
+    .map((b) => b.item_name);
+  const missing = op.bom.filter((b) =>
+    b.lot_tracked !== false && !recorded.has(b.item_id) && !unusedCodes.has(b.item_code));
   /* 마감한 공정이면 시작 양식을 곧장 내지 않는다. 재단 이후 공정에 남은 로트가 있으면 낸다 */
   const showStart = !rec || (!!rec.ended_at && (restart || lotsLeft));
 
@@ -855,6 +886,10 @@ function OperationCard({
 
       {!rec && pastBlock}
 
+      {skippable(op) && !locked && (
+        <SkipCard woId={woId} op={op} productLots={productLots} skips={skips} recordedLotIds={recordedLotIds} />
+      )}
+
       {locked ? (
         <div className="space-y-3 py-4">
           <p className="text-sm text-muted">마감된 일차입니다.</p>
@@ -868,7 +903,7 @@ function OperationCard({
         <StartCard woId={woId} day={day} dayDate={dayDate} suggestDate={suggestDate} op={op} people={people}
                    productLots={productLots} attempt={attemptCount + 1}
                    done={!!rec?.ended_at && !op.after_cutting} splitOp={splitOp}
-                   doneLotIds={doneLotIds}
+                   doneLotIds={doneLotIds} skippedLotIds={skips.map((s) => s.product_lot_id)}
                    onStarted={() => { setRestart(false); if (op.has_form) setWantOpen(true); }} />
       ) : rec && rec.ended_at ? (
         /*
@@ -912,7 +947,7 @@ function OperationCard({
             <MaterialForm woId={woId} rec={rec} op={op} lots={lots} sheets={sheets}
                           loadUnit={loadUnit} expiryWarnDays={expiryWarnDays} />
           </details>
-          <EndForm woId={woId} rec={rec} op={op} missing={missing}
+          <EndForm woId={woId} rec={rec} op={op} missing={missing} unused={unused}
                    empty={br.sheet ? emptyOf(br.sheet) : 0} onEnded={onEnded} />
         </div>
       ) : rec ? (
@@ -926,7 +961,7 @@ function OperationCard({
         <BrSheetView sheet={br.sheet} onSheet={br.setSheet} onClose={() => setOpen(false)}
                      busy={br.pending} ctx={ctx} readOnly={locked}
                      endSlot={running && rec ? (cancel) => (
-                       <EndForm woId={woId} rec={rec} op={op} missing={missing} compact
+                       <EndForm woId={woId} rec={rec} op={op} missing={missing} unused={unused} compact
                                 empty={emptyOf(br.sheet!)} onCancel={cancel}
                                 onEnded={(d) => { setOpen(false); onEnded(d); }} />
                      ) : undefined} />
@@ -977,9 +1012,93 @@ function OperationCard({
   );
 }
 
+/* ---------------------------------------------------------------------------
+   제품 로트의 공정 건너뛰기 (0149 · 사용자 2026-11-20 «멸균 선량 샘플같은건 멸균을 따로
+   안하니까 멸균 제조기록은 스킵 가능하도록»). 아직 기록하지 않은 로트만 건너뛴다. 건너뛴
+   로트에는 그 공정 기록이 생기지 않는다. 잘못 건너뛰었으면 취소하고 기록한다.
+--------------------------------------------------------------------------- */
+const SKIP_WHY = ['멸균 선량 샘플', '멸균하지 않는 시험 샘플'];
+const UNSKIP_WHY = ['잘못 건너뜀', '멸균하기로 함'];
+
+function SkipCard({ woId, op, productLots, skips, recordedLotIds }: {
+  woId: string; op: Op; productLots: PlOpt[]; skips: Skip[]; recordedLotIds: string[];
+}) {
+  const [state, action, pending] = useActionState<FormState, FormData>(skipLot, {});
+  const [undoState, undoAction, undoPending] = useActionState<FormState, FormData>(unskipLot, {});
+  const [pick, setPick] = useState<string | null>(null);
+  const [undo, setUndo] = useState<string | null>(null);
+  useEffect(() => { if (state.ok) setPick(null); }, [state]);
+  useEffect(() => { if (undoState.ok) setUndo(null); }, [undoState]);
+  const open = productLots.filter((p) =>
+    !recordedLotIds.includes(p.id) && !skips.some((s) => s.product_lot_id === p.id));
+  if (open.length === 0 && skips.length === 0) return null;
+  const lotNo = (id: string) => productLots.find((p) => p.id === id)?.lot_no ?? '';
+
+  return (
+    <div className="space-y-3 border-b border-line-soft py-4">
+      <div>
+        <p className="text-sm font-semibold text-ink">{op.name} 건너뛰기</p>
+        <p className="mt-0.5 text-sm leading-relaxed text-muted">
+          멸균 선량 샘플처럼 {op.name}을 거치지 않는 제품 로트는 건너뜁니다.
+          건너뛴 로트에는 {op.name} 제조기록이 생기지 않습니다.
+        </p>
+      </div>
+
+      {skips.map((s) => (
+        <div key={s.id} className="rounded-md bg-canvas px-3 py-2.5 text-sm text-ink">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-mono font-semibold">{lotNo(s.product_lot_id)}</span>
+            <Tag tone="quiet">건너뜀</Tag>
+            <span className="text-muted">{s.reason} · {s.by_name} · <span className="tnum">{s.at}</span></span>
+            {undo !== s.id && (
+              <button type="button" onClick={() => setUndo(s.id)} className="btn-quiet ml-auto">취소</button>
+            )}
+          </div>
+          {undo === s.id && (
+            <form action={undoAction} className="mt-2 space-y-2">
+              <input type="hidden" name="work_order_id" value={woId} />
+              <input type="hidden" name="skip_id" value={s.id} />
+              <PresetPicker name="reason" label="취소하는 까닭" presets={UNSKIP_WHY} allowNone={false} />
+              <Msg state={undoState} />
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setUndo(null)} className="btn-ghost">닫기</button>
+                <button type="submit" disabled={undoPending} className="btn-primary flex-1">건너뛰기 취소</button>
+              </div>
+            </form>
+          )}
+        </div>
+      ))}
+
+      {open.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {open.map((p) => (
+            <button key={p.id} type="button" onClick={() => setPick(pick === p.id ? null : p.id)}
+                    data-on={pick === p.id} className="tile">
+              <span className="font-mono text-base font-semibold">{p.lot_no}</span>
+              <span className="text-xs text-muted">건너뛰기</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {pick && (
+        <form action={action} className="space-y-2">
+          <input type="hidden" name="work_order_id" value={woId} />
+          <input type="hidden" name="operation_id" value={op.id} />
+          <input type="hidden" name="product_lot_id" value={pick} />
+          <PresetPicker name="reason" label="건너뛰는 까닭" presets={SKIP_WHY} allowNone={false} />
+          <Msg state={state} />
+          <button type="submit" disabled={pending} className="btn-primary w-full">
+            <span className="font-mono">{lotNo(pick)}</span> {op.name} 건너뛰기
+          </button>
+        </form>
+      )}
+    </div>
+  );
+}
+
 /* -------------------------------------------------------------------------- */
 
-function StartCard({ woId, day, dayDate, suggestDate, op, people, productLots, attempt, done, splitOp, doneLotIds = [], onStarted }: {
+function StartCard({ woId, day, dayDate, suggestDate, op, people, productLots, attempt, done, splitOp, doneLotIds = [], skippedLotIds = [], onStarted }: {
   woId: string; day: number; op: Op; people: PersonOpt[]; productLots: PlOpt[];
   /** 이 일차에 이미 적힌 작업일 (없으면 null) */
   dayDate: string | null;
@@ -988,6 +1107,8 @@ function StartCard({ woId, day, dayDate, suggestDate, op, people, productLots, a
   attempt: number; done: boolean; splitOp: string | null;
   /** 재단 이후 공정에서 이미 마감한 제품 로트 */
   doneLotIds?: string[];
+  /** 이 공정을 건너뛴 제품 로트 (0149) - 고를 수 없다 */
+  skippedLotIds?: string[];
   /** 시작했다. 기록서가 있는 공정이면 카드가 기록서를 연다 */
   onStarted?: () => void;
 }) {
@@ -1070,10 +1191,12 @@ function StartCard({ woId, day, dayDate, suggestDate, op, people, productLots, a
             <div className="grid gap-2 sm:grid-cols-2">
               {productLots.map((p) => (
                 <button key={p.id} type="button" onClick={() => setLot(p.id)}
+                        disabled={skippedLotIds.includes(p.id)}
                         data-on={lot === p.id} className="tile">
                   <span className="flex items-center gap-2 font-mono text-base font-semibold">
                     {p.lot_no}
-                    {doneLotIds.includes(p.id) && <Tag tone="ok">마감함</Tag>}
+                    {skippedLotIds.includes(p.id) ? <Tag tone="quiet">건너뜀</Tag>
+                      : doneLotIds.includes(p.id) && <Tag tone="ok">마감함</Tag>}
                   </span>
                   <span className="text-xs text-muted">{p.item_name}</span>
                 </button>
@@ -1440,9 +1563,11 @@ function MaterialForm({ woId, rec, op, lots, sheets, loadUnit, expiryWarnDays }:
   );
 }
 
-function EndForm({ woId, rec, op, missing, compact = false, empty = 0, onCancel, onEnded }: {
+function EndForm({ woId, rec, op, missing, unused = [], compact = false, empty = 0, onCancel, onEnded }: {
   woId: string; rec: Rec; op: Op;
   missing: { item_code: string; item_name: string }[];
+  /** 기록서에 «-»(사용 안 함)로 적은 자재 이름. 다른 빠진 자재가 없으면 이것이 사유가 된다 */
+  unused?: string[];
   /** 기록서 창 아래 막대에서 연 것. 막대의 «공정 마감» 이 첫 누름이라 곧장 확인을 보인다 */
   compact?: boolean;
   /** 기록서 빈 노란 칸 수. 막지 않고 확인 문구에 적는다 */
@@ -1479,6 +1604,16 @@ function EndForm({ woId, rec, op, missing, compact = false, empty = 0, onCancel,
 
       {missing.length > 0 && (
         <PresetPicker name="no_material_reason" label="해당 없음 사유" presets={REASONS} />
+      )}
+
+      {/* «-» 로 적은 자재 - 다른 빠진 자재가 없으면 그대로 사유로 남긴다 (사용자 2026-11-20) */}
+      {unused.length > 0 && (
+        <p className="text-sm leading-relaxed text-muted">
+          기록서에 «-» 로 적은 <b className="text-ink">{unused.join(' · ')}</b>은 사용 안 함으로 남깁니다.
+        </p>
+      )}
+      {unused.length > 0 && missing.length === 0 && (
+        <input type="hidden" name="no_material_reason" value={`사용 안 함 · ${unused.join(' · ')}`} />
       )}
 
       {op.takes_rework && (
