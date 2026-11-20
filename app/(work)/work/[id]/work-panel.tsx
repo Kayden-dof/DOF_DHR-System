@@ -171,8 +171,15 @@ export default function WorkPanel({
    * 있는지는 따로 표시한다.
    */
   const days = useMemo(() => {
-    const s = new Set(records.map((r) => r.day_no));
-    return [...s].sort((a, b) => a - b);
+    const s = [...new Set(records.map((r) => r.day_no))].sort((a, b) => a - b);
+    /*
+     * 여러 날 공정이 지나간 날도 일차다 (0147 · 사용자 2026-11-20 «4일차까지 한 제조기록서에서
+     * 쓰게 되면 이부분도 반영»). 11-05 에 시작해 11-07 에 끝난 세척이 4일차로 가면 3일차(11-06)에는
+     * 따로 적힌 기록이 없다 - 그래도 카드를 세운다.
+     */
+    const out: number[] = [];
+    for (let d = s[0] ?? 1; d <= (s.at(-1) ?? 0); d++) out.push(d);
+    return out;
   }, [records]);
   const nextDay = (days.at(-1) ?? 0) + 1;
 
@@ -197,6 +204,14 @@ export default function WorkPanel({
     const cur = dayDate.get(r.day_no);
     if (!cur || r.work_date < cur) dayDate.set(r.day_no, r.work_date);
   }
+  /* 기록이 없는 일차(여러 날 공정이 지나간 날)의 날짜: 앞 일차의 날짜에서 그만큼 뒤 (0147) */
+  const gapDate = (n: number) => {
+    for (let p = n - 1; p >= 1; p--) {
+      const d = dayDate.get(p);
+      if (d) return plusDays(d, n - p);
+    }
+    return '';
+  };
 
   /*
    * 오늘 것을 적는다면 어느 일차인가.
@@ -355,7 +370,7 @@ export default function WorkPanel({
                   * 종이에 앞선 날짜만 찍히고 오늘 작업이 시각만 남은 채 들어간다.
                   */}
                 {/* 날짜가 «2026-11-» / «20» 으로 갈라지지 않게 (사용자 2026-11-20 «줄바꿈 저게 맞니») */}
-                <span className="whitespace-nowrap text-xs tnum text-faint">{dayDate.get(n) ?? ''}</span>
+                <span className="whitespace-nowrap text-xs tnum text-faint">{dayDate.get(n) ?? gapDate(n)}</span>
                 <span className={`text-xs ${
                   lockedDays.includes(n) ? 'text-ok' : mineHere > 0 ? 'text-muted' : 'text-faint'
                 }`}>
@@ -363,7 +378,7 @@ export default function WorkPanel({
                     ? '내 기록 마감'
                     : mineHere > 0
                       ? `내 기록 ${mineHere}건`
-                      : '다른 작업자'}
+                      : records.some((r) => r.day_no === n) ? '다른 작업자' : '이어진 공정'}
                 </span>
               </button>
             );

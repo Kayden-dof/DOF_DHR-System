@@ -80,4 +80,23 @@ export default [
   },
 },
 
+{
+  id: 'CR-03', expect: '통과',
+  name: '여러 날에 걸쳐 끝난 공정은 걸친 날 수만큼 뒤 일차로 옮긴다 · 그 너머는 막는다 (0147)',
+  async run(t) {
+    const m = await master(t);
+    const wo = await newWorkOrder(t, m);
+    await t.rows(`update work_order set issued_at = now() - interval '10 days' where id = $1`, [wo.id]);
+    /* 작업일 3일 전 시작, 1일 전 끝 → 걸친 날 2 → 1일차에서 3일차까지 */
+    const pr = await rec(t, m, wo, { op: 'WS-DX2401-03', daysAgo: 3, ended: false });
+    await asUser(t, m.worker, () => t.rows(`select complete_process_at($1, now() - interval '1 day')`, [pr]));
+    const fix = (day, wd) => asUser(t, m.worker, () => t.val(
+      `select fix_record_day($1, $2::int, $3::date, null, null, '여러 날 공정 · 끝나는 일차로')`, [pr, day, wd]));
+    await t.rejects(async () => fix(4, await t.val(`select (current_date - 1)::text`)), { message: '옮길 수 없습니다' });
+    await fix(3, await t.val(`select (current_date - 1)::text`));
+    t.eq(await t.rows(`select day_no, (work_date = current_date - 1) as wd from process_record where id = $1`, [pr]),
+      [{ day_no: 3, wd: true }], '3일차 · 끝난 날');
+  },
+},
+
 ];
