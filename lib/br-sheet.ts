@@ -36,6 +36,13 @@ export interface BrFormTab {
   /** 꼭 적을 칸 · 적은 칸 (조건부 칸 빼고) */
   total: number;
   done: number;
+  /**
+   * 아직 적지 않은 꼭 적을 칸의 이름 (사용자 2026-11-20 «어디가 작성이 안되었는지도 알려줬어야»).
+   * 일차 마감 확인이 읽는다. 원액 로트를 따르는 별첨이면 그 로트 기록서의 빈 칸이다.
+   */
+  missing?: string[];
+  /** 원액 로트를 따르는 별첨이면 그 로트 (0145) - 그 로트 화면에서 적는다 */
+  lot?: { id: string; no: string };
 }
 
 export interface BrSheet {
@@ -77,6 +84,8 @@ export interface BrSheet {
   solutionLot?: string | null;
   /** 배치 화면에서 지금 보이는 별첨이 원액 로트를 따르는가 - 그러면 여기서는 보기만 */
   linked?: boolean;
+  /** 그 원액 로트 id - 적는 화면(/material/solution/[id])으로 가는 길 */
+  solutionLotId?: string | null;
 }
 
 interface FormRow { id: string; doc_no: string; title: string | null; form: BrForm }
@@ -342,6 +351,8 @@ export async function brSheet(db: Db, recordId: string, docId?: string | null): 
     const filled = i === 0 ? mainFilled : fillOne(doc.form, { ...base, entries }, true, sol);
     const all = linked ? [] : fieldsOf(filled.pages);
     const need = all.filter((c) => !c.op);
+    /* 아직 적지 않은 꼭 적을 칸 - 원액 로트를 따르는 별첨이면 그 로트 기록서의 것 */
+    const pend = fieldsOf(filled.pages).filter((c) => !c.op && !c.v).map((c) => c.lb ?? '칸');
     if (i === at) {
       shown = filled.pages;
       changes = filled.changes;
@@ -353,6 +364,8 @@ export async function brSheet(db: Db, recordId: string, docId?: string | null): 
       /* 별첨은 적은 칸이 있거나 따르는 원액 로트가 있을 때 쓰인다 */
       inUse: i === 0 || Object.keys(entries).length > 0 || !!sol,
       total: need.length, done: need.filter((c) => c.v).length,
+      missing: pend,
+      lot: linked && sol?.lotId ? { id: sol.lotId, no: sol.info.lot_no } : undefined,
     };
   });
   const doc = docs[at];
@@ -370,7 +383,7 @@ export async function brSheet(db: Db, recordId: string, docId?: string | null): 
     appendix: at > 0, forms, empty: emptyOfForms(forms),
     changes, people: [...new Set(people)], mine: r.mine === true,
     /* 보이는 별첨이 원액 로트를 따르면 여기서는 보기만 (0145) */
-    linked: at > 0 && !!sol, solutionLot: sol?.info.lot_no ?? null,
+    linked: at > 0 && !!sol, solutionLot: sol?.info.lot_no ?? null, solutionLotId: sol?.lotId ?? null,
   };
 }
 

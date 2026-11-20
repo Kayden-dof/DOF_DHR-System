@@ -521,9 +521,18 @@ export async function issueFromSheet(
  * 조건부 칸(해당할 때만)은 세지 않는다. 한 공정에 양식이 둘 이상이면 본 기록서와
  * 적기 시작한 별첨을 합쳐 센다 (2026-11-12 · lib/br-sheet 머리말).
  */
+/**
+ * 일차 마감 전에 보일 빈 칸 (사용자 2026-11-20 «해당 제조기록서 어디가 작성이 안되었는지도 알려줬어야»).
+ * 공정마다 · 양식마다 아직 적지 않은 꼭 적을 칸의 이름. 원액 로트를 따르는 별첨(PBS 제조기록서)도
+ * 함께 - 그 별첨은 이 배치가 아니라 그 원액 로트 화면에서 적으므로 로트를 같이 알린다.
+ */
+export interface DayGap {
+  op: string;
+  forms: { label: string; missing: string[]; lot?: { id: string; no: string } }[];
+}
 export async function dayGaps(
   woId: string, day: number,
-): Promise<{ op: string; empty: number }[]> {
+): Promise<DayGap[]> {
   try {
     const me = await worker();
     return await withActor(me.id, async (db) => {
@@ -532,12 +541,14 @@ export async function dayGaps(
            join dmr_operation o on o.id = pr.operation_id
           where pr.work_order_id = $1 and pr.day_no = $2 and pr.worker_id = $3
           order by o.seq, pr.attempt`, [woId, day, me.id]);
-      const out: { op: string; empty: number }[] = [];
+      const out: DayGap[] = [];
       for (const r of recs) {
         const sh = await brSheet(db, r.id);
-        if (sh && sh.empty > 0) {
-          out.push({ op: r.attempt > 1 ? `${r.name} ${r.attempt}회차` : r.name, empty: sh.empty });
-        }
+        if (!sh) continue;
+        const forms = sh.forms
+          .filter((f) => (f.inUse || f.lot) && (f.missing?.length ?? 0) > 0)
+          .map((f) => ({ label: f.label, missing: f.missing ?? [], lot: f.lot }));
+        if (forms.length) out.push({ op: r.attempt > 1 ? `${r.name} ${r.attempt}회차` : r.name, forms });
       }
       return out;
     });

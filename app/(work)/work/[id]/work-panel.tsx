@@ -17,7 +17,7 @@ import { isNoExpiry } from '@/lib/equipment-check';
 import { altSuffix } from '@/lib/units';
 import {
   startRecord, issueMaterial, endRecord, closeDay, cutAtField,
-  amendIssue, returnIssue, dayGaps, fixRecord, skipLot, unskipLot,
+  amendIssue, returnIssue, dayGaps, fixRecord, skipLot, unskipLot, type DayGap,
 } from '../actions';
 
 
@@ -1816,7 +1816,7 @@ function CloseDayCard({ woId, day, batchNo, openOps, dayDate }: {
    * 기록서 빈 노란 칸 (UI/UX 검수 2026-11-11). 막지 않는다 - 마감 전에 알린다.
    * 마감하면 그 칸은 영영 빈 채로 종이에 나간다.
    */
-  const [gaps, setGaps] = useState<{ op: string; empty: number }[]>([]);
+  const [gaps, setGaps] = useState<DayGap[]>([]);
   useEffect(() => {
     let alive = true;
     dayGaps(woId, day).then((g) => { if (alive) setGaps(g); });
@@ -1858,9 +1858,29 @@ function CloseDayCard({ woId, day, batchNo, openOps, dayDate }: {
 
       {!blocked && gaps.length > 0 && (
         <div className="mt-3 rounded-md border border-warn/40 bg-warn-bg px-3 py-3 text-sm leading-relaxed text-ink">
-          <b>제조기록서에 빈 노란 칸이 있습니다.</b>{' '}
-          {gaps.map((g) => `${g.op} ${g.empty}곳`).join(' · ')}
-          <p className="mt-1 text-muted">해당 없는 칸이면 그대로 마감해도 됩니다. 마감하면 빈 칸은 빈 채로 종이에 나갑니다.</p>
+          <b>제조기록서에 아직 적지 않은 칸이 있습니다.</b>
+          {/* 공정 · 양식마다 어느 칸인지 (사용자 2026-11-20 «어디가 작성이 안되었는지도 알려줬어야») */}
+          <ul className="mt-1.5 space-y-1.5">
+            {gaps.flatMap((g) => g.forms.map((f) => (
+              <li key={`${g.op}-${f.label}`}>
+                <b>{g.op}</b> · {f.label} · <span className="tnum">{f.missing.length}</span>곳
+                <span className="block text-xs text-muted">
+                  {f.missing.slice(0, 4).join(' / ')}{f.missing.length > 4 ? ` 외 ${f.missing.length - 4}곳` : ''}
+                </span>
+                {f.lot && (
+                  <span className="block text-xs">
+                    이 별첨은 원액 로트 <b className="font-mono">{f.lot.no}</b> 의 제조기록서입니다. 원액을 만든
+                    생산관리자가{' '}
+                    <a href={`/material/solution/${f.lot.id}`} className="font-semibold text-brand underline">
+                      원액 로트 제조기록서
+                    </a>
+                    에서 적습니다.
+                  </span>
+                )}
+              </li>
+            )))}
+          </ul>
+          <p className="mt-1.5 text-muted">해당 없는 칸이면 그대로 마감해도 됩니다. 마감하면 빈 칸은 빈 채로 종이에 나갑니다.</p>
         </div>
       )}
 

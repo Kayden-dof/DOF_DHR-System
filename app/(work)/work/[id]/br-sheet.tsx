@@ -310,9 +310,17 @@ export function BrSheetView({ sheet, onSheet, onClose, busy, ctx, endSlot, readO
       <div ref={wrap} className="flex-1 overflow-auto px-2 py-3">
         {ro ? (
           <p className="mb-2 px-1 text-sm text-muted">
-            {sheet.linked
-              ? `이 별첨은 원액 로트 ${sheet.solutionLot ?? ''} 의 PBS 제조기록서입니다. 재고 증감 화면의 원액 로트에서 적습니다.`
-              : sheet.locked ? '일차가 마감되어 고칠 수 없습니다.' : '여기서는 볼 수만 있습니다.'}{' '}
+            {sheet.linked ? (
+              <>
+                이 별첨은 원액 로트 {sheet.solutionLot ?? ''} 의 PBS 제조기록서입니다. 원액을 만든 생산관리자가{' '}
+                {sheet.solutionLotId ? (
+                  <a href={`/material/solution/${sheet.solutionLotId}`} className="font-semibold text-brand underline">
+                    원액 로트 제조기록서
+                  </a>
+                ) : '재고 증감 화면의 원액 로트'}
+                에서 적습니다.
+              </>
+            ) : sheet.locked ? '일차가 마감되어 고칠 수 없습니다.' : '여기서는 볼 수만 있습니다.'}{' '}
             파란 글씨가 적은 값입니다.
           </p>
         ) : (
