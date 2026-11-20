@@ -306,6 +306,8 @@ const WRITE_FUNCS = [
   'unskip_operation(uuid, text)',
   /* 0151 · 쓰지 않은 제조번호 지우기 */
   'delete_unused_product_lot(uuid, text)',
+  /* 0155 · 관리자 기록서 정정 */
+  'force_br_entry(uuid, uuid, text, text, text, text)',
 ];
 const leaky = [];
 for (const f of WRITE_FUNCS) {

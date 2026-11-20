@@ -18,7 +18,11 @@ import {
   type LotRow, type FinOpt,
 } from './batch-forms';
 
-const FIELD_LABEL: Record<string, string> = { day_no: '일차', work_date: '작업일', started_at: '시작', ended_at: '종료' };
+const FIELD_LABEL: Record<string, string> = {
+  day_no: '일차', work_date: '작업일', started_at: '시작', ended_at: '종료',
+  /* 관리자 기록서 정정 (0155). 이전 값 앞에 칸 이름이 붙어 있다 */
+  br_entry: '기록서 칸',
+};
 
 export const dynamic = 'force-dynamic';
 
@@ -770,6 +774,14 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                         * 마감 전 기록의 일차 · 작업일 · 시각 (0139 · 사용자 2026-11-20). 누구의
                         * 기록이든 생산관리자 · 시스템관리자가 고친다. 잠긴 기록은 아래 강제 정정이다.
                         */}
+                      {/* 관리자 기록서 정정 (0155) - 잠긴 일차여도 칸마다 사유와 함께 */}
+                      {!readOnly && hasRole(user, 'SYS_ADMIN', 'PROD_MGR') && (
+                        <div>
+                          <Link href={`/production/${wo.id}/record/${r.id}`} className="qd-text-action">
+                            기록서 고치기
+                          </Link>
+                        </div>
+                      )}
                       {!r.locked && !readOnly && hasRole(user, 'SYS_ADMIN', 'PROD_MGR') && (
                         <div>
                           <FixRecordForm recordId={r.id} woId={wo.id} dayNo={r.day_no}

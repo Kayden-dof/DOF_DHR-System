@@ -121,7 +121,11 @@ export interface SignChange {
  */
 export type FieldKind = 'choice' | 'time' | 'number' | 'text' | 'equip' | 'lot' | 'lotno' | 'date' | 'signer';
 /** why: 서명 칸을 고친 사유 (0140). 보통 칸은 없다 */
-export interface Entry { value: string; by: string; at: string; why?: string | null }
+export interface Entry {
+  value: string; by: string; at: string; why?: string | null;
+  /** 관리자 정정 (0155). 칸 값은 이것이 이기되, 그 줄의 작업자 · 일자는 바꾸지 않는다 */
+  forced?: boolean;
+}
 export interface FormRow { h: number; cells: FormCell[] }
 export interface FormTable { x: number; y: number; w: number; cols: number[]; rows: FormRow[] }
 export interface FormText { t: string; x0: number; x1: number; y: number; s: number; b: boolean; color: string | null }
@@ -301,6 +305,8 @@ export function fillForm(form: BrForm, given: FillData): {
   const entries = d.entries ?? {};
   /* 사람이 적은 칸이 있는 줄 → 그 줄의 서명 칸에 들어갈 적은 사람 · 날짜 */
   const enteredRow = new Map<string, Entry>();
+  /* 관리자 정정(forced · 0155)은 그 줄의 작업자 · 일자를 바꾸지 않는다 - 정정한 사람이 작업자로 찍히면 안 된다 */
+  const rowEntered = (row: string, e: Entry) => { if (!e.forced) enteredRow.set(row, e); };
   /* 시스템 값을 사람이 고친 칸 (서명 · 결과). 칸에는 고친 값만 보이고 내역은 여기로 */
   const changes: SignChange[] = [];
   const flatLabel = (s?: string) => (s ?? '').replace(/\s*\n\s*/g, ' ').trim();
@@ -610,7 +616,7 @@ export function fillForm(form: BrForm, given: FillData): {
                 const e = entries[id];
                 if (e && e.value !== '') {
                   Object.assign(lotCell, { v: e.value, t: e.value, f: true, a: 'c' as const, b: false, s: sz });
-                  enteredRow.set(rowKey(ri), e);
+                  rowEntered(rowKey(ri), e);
                 }
               } else {
                 /*
@@ -626,7 +632,7 @@ export function fillForm(form: BrForm, given: FillData): {
                 });
                 if (none && e) {
                   Object.assign(lotCell, { t: '-', f: true, a: 'c' as const, b: false, s: sz });
-                  enteredRow.set(rowKey(ri), e);
+                  rowEntered(rowKey(ri), e);
                 }
               }
             }
@@ -760,14 +766,14 @@ export function fillForm(form: BrForm, given: FillData): {
     if (!t && x.role === 'precheck_result') {
       Object.assign(c, { id: x.id, k: 'choice' as const, o: ['✓'], lb: `${x.lb || '사용 전 기기 확인'} · 확인결과` });
       const e = entries[x.id];
-      if (e && e.value !== '') { c.v = e.value; Object.assign(c, { t: '✓', f: true, a: 'c' as const }); enteredRow.set(x.row, e); }
+      if (e && e.value !== '') { c.v = e.value; Object.assign(c, { t: '✓', f: true, a: 'c' as const }); rowEntered(x.row, e); }
       continue;
     }
     const MARK = /^(합격|불합격|적합|부적합|재포장)$/;
     if (!t && x.left && MARK.test(x.left)) {
       Object.assign(c, { id: x.id, k: 'choice' as const, o: ['✓'], lb: `${x.lb || '칸'} · ${x.left}` });
       const e = entries[x.id];
-      if (e && e.value !== '') { c.v = e.value; Object.assign(c, { t: '✓', f: true, a: 'c' as const }); enteredRow.set(x.row, e); }
+      if (e && e.value !== '') { c.v = e.value; Object.assign(c, { t: '✓', f: true, a: 'c' as const }); rowEntered(x.row, e); }
       marks.set(x.row, [...(marks.get(x.row) ?? []), c]);
       continue;
     }
@@ -813,7 +819,7 @@ export function fillForm(form: BrForm, given: FillData): {
     if (e && e.value !== '') {
       c.v = e.value;
       applyEntry(c, e.value);
-      enteredRow.set(x.row, e);
+      rowEntered(x.row, e);
     }
   }
 
@@ -859,8 +865,14 @@ export function fillForm(form: BrForm, given: FillData): {
      * 전에는 그 줄에 값이 없으면 칸이 되지 않아 «재단 · 치수» 처럼 결과가 인쇄 글인 줄은 서명을
      * 적을 수 없었다. 시스템 값이 없으면 처음 값은 비어 있다. 확인자 칸은 미리 채우지 않는다.
      */
+    /*
+     * 일자는 적은 날과 작업일 가운데 이른 날 (사용자 2026-11-20 «이부분 날짜 11월 5일로»). 종이를 뒤에
+     * 옮겨 적으면 적은 날(11-20)이 찍혔다. 일자는 작업일보다 늦을 수 없다. 여러 날 공정을 그날그날 적었으면
+     * 그 앞선 날은 그대로 남는다.
+     */
+    const day = e?.at && d.workDate && e.at > d.workDate ? d.workDate : (e?.at ?? d.workDate);
     const base = s.check || (!e && !sys) ? ''
-      : s.role === 'worker' ? (e?.by ?? d.worker) : (e?.at ?? d.workDate);
+      : s.role === 'worker' ? (e?.by ?? d.worker) : day;
     const text = own?.value || base;
     const what = s.check ? (s.role === 'worker' ? '확인자' : '확인일자')
       : (s.role === 'worker' ? '작업(검사)자' : '일자');

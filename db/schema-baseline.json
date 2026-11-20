@@ -41,6 +41,7 @@
     "expire_material_lots",
     "find_unit",
     "fix_record_day",
+    "force_br_entry",
     "force_correct_lot_supplier",
     "force_correct_reason",
     "force_correct_times",

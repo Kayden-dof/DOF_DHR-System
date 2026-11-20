@@ -227,6 +227,22 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = fal
    * 자료 식별자를 다시 계산하므로, 두 곳이 갈라지면 안 된다.
    */
   const d = await withActor(user.id, (db) => dayRecordPayload(db, id, dayNo, worker));
+  /*
+   * 관리자 정정한 칸 (0155). 칸 값은 이기되 그 줄의 작업자 · 일자를 바꾸지 않는다. 자료 식별자(payload)
+   * 밖에서 읽는다 - 나간 종이의 식별자를 흔들지 않는다.
+   */
+  const forcedKeys = new Set((await withActor(user.id, (db) => db.rows<{ k: string }>(
+    `select o.code || ':' || pr.attempt || ':' || e.doc_id || ':' || e.field as k
+       from br_entry e join process_record pr on pr.id = e.process_record_id
+       join dmr_operation o on o.id = pr.operation_id
+      where e.forced and pr.work_order_id = $1 and pr.day_no = $2 and pr.worker_id = $3`,
+    [id, dayNo, worker]))).map((x) => x.k));
+  /* 확인해 볼 항목에서 열었을 때 관리자에게 그 공정 기록서를 고치는 길 (0155) */
+  const canFix = !!hl && user.roles.some((x) => x === 'SYS_ADMIN' || x === 'PROD_MGR');
+  const recIds = canFix ? await withActor(user.id, (db) => db.rows<{ code: string; id: string; name: string }>(
+    `select o.code, pr.id, o.name from process_record pr join dmr_operation o on o.id = pr.operation_id
+      where pr.work_order_id = $1 and pr.day_no = $2 and pr.worker_id = $3 order by o.seq, pr.attempt`,
+    [id, dayNo, worker])) : [];
   /* 배치 화면의 확인해 볼 항목에서 열었으면 그 항목 (같은 종류 · ref · 이 일차) */
   const [hlKind, hlRef] = hl ? hl.split('|') : [];
   const hlFlags: FlagRow[] = hl ? (await withActor(user.id, (db) => db.rows<FlagRow>(
@@ -407,7 +423,8 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = fal
     /* 현장에서 적은 칸 (0132) - 그 양식에 적힌 것만 */
     const entriesOf = (docId: string) => Object.fromEntries((r.br ?? [])
       .filter((e) => e.doc === docId)
-      .map((e) => [e.field, { value: e.value, by: e.by, at: e.at }]));
+      .map((e) => [e.field, { value: e.value, by: e.by, at: e.at,
+        forced: forcedKeys.has(`${r.operation_code}:${r.attempt}:${docId}:${e.field}`) || undefined }]));
     /* 본 기록서를 먼저 채워 «관리번호 부여» 칸이 가리키는 원액 로트를 안다 (현장 화면과 같은 갈래) */
     const main = fillOne(docs[0].form, { ...base, entries: entriesOf(docs[0].id) }, false);
     const linked = linkedSolution(main.pages);
@@ -624,6 +641,11 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = fal
                   ? '기록서에서 짚을 칸을 찾지 못했습니다. 각 장 아래의 시스템 기록 줄을 보십시오.'
                   : '이 항목의 공정은 이 기록서에 없습니다.'}
             </p>
+            {recIds.filter((x) => hlFlags.some((f) => flagOps(f).has(x.code))).map((x) => (
+              <a key={x.id} href={`/production/${id}/record/${x.id}`} className="btn-ghost mt-2 mr-2">
+                {x.name} 기록서 고치기
+              </a>
+            ))}
             <MarkScroll />
           </div>
         )}

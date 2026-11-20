@@ -376,15 +376,16 @@ export async function brSheet(db: Db, recordId: string, docId?: string | null): 
 
 /** 그 기록에 적힌 칸을 양식별로. 빈 값(비운 칸)은 뺀다 */
 async function entriesByDoc(db: Db, recordId: string): Promise<Map<string, Record<string, Entry>>> {
-  const rows = await db.rows<{ doc_id: string; field: string; value: string; by: string; at: string; why: string | null }>(
-    `select e.doc_id, e.field, e.value, u.full_name as by, e.why,
+  const rows = await db.rows<{ doc_id: string; field: string; value: string; by: string; at: string; why: string | null; forced: boolean }>(
+    `select e.doc_id, e.field, e.value, u.full_name as by, e.why, e.forced,
             to_char(timezone('Asia/Seoul', e.entered_at), 'YYYY-MM-DD') as at
        from br_entry e join app_user u on u.id = e.entered_by
       where e.process_record_id = $1 and e.value <> ''`, [recordId]);
   const out = new Map<string, Record<string, Entry>>();
   for (const x of rows) {
     const m = out.get(x.doc_id) ?? {};
-    m[x.field] = { value: x.value, by: x.by, at: x.at, why: x.why };
+    /* 관리자 정정(0155)은 칸 값만 - 그 줄의 작업자 · 일자를 바꾸지 않는다 */
+    m[x.field] = { value: x.value, by: x.by, at: x.at, why: x.why, forced: x.forced || undefined };
     out.set(x.doc_id, m);
   }
   return out;
