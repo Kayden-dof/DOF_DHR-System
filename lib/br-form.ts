@@ -194,7 +194,7 @@ export function fillForm(form: BrForm, d: FillData): {
   /* 투입한 자재가 양식의 어느 자재 줄에 붙었는가 (그 줄의 자재명) */
   const matOf = new Map<number, string>();
   /* 세부공정 줄 - 투입량은 부여로트번호가 아니라 여기 결과 칸에 적는다 */
-  const stepRows: { item: string; result: FormCell; sz: number; id: string }[] = [];
+  const stepRows: { item: string; result: FormCell; sz: number; id: string; row: string }[] = [];
 
   /*
    * 열이 무엇인지는 머리 줄의 **가로 자리(pt)**로 기억한다. 다음 쪽의 표가 머리
@@ -216,6 +216,12 @@ export function fillForm(form: BrForm, d: FillData): {
   const signs: { rows: string[]; cell: FormCell; role: 'worker' | 'date'; sz: number; id: string; lb: string }[] = [];
   /* 자재를 채운 줄 (그 줄의 작업자 칸은 투입한 작업자로) */
   const matRow = new Set<string>();
+  /*
+   * 시스템이 결과를 채운 줄 (원재료 장입 수 · 투입량 · 고른 양). 그 줄의 작업(검사)자 · 일자도
+   * 투입자재 줄처럼 기록한 작업자 · 작업일로 채우고 고칠 수 있게 연다 (사용자 2026-11-20
+   * «여기 칸도 입력 활성화가 되어야 할거 같고..오른쪽 작업자 일자»). 전에는 빈 채로 막혀 있었다.
+   */
+  const resultRow = new Set<string>();
   const entries = d.entries ?? {};
   /* 사람이 적은 칸이 있는 줄 → 그 줄의 서명 칸에 들어갈 적은 사람 · 날짜 */
   const enteredRow = new Map<string, Entry>();
@@ -230,7 +236,8 @@ export function fillForm(form: BrForm, d: FillData): {
    * 덮어쓴다. 덮어쓴 값은 그 칸 자리로 br_entry 에 있고, 비우면 시스템 셈으로 돌아간다.
    * 투입 기록(재고 차감) 자체는 바뀌지 않는다 - 그것은 투입 수량 정정(0041)이 고친다.
    */
-  const sysResult = (cell: FormCell, id: string, qty: string, uom: string, sz: number, lb: string) => {
+  const sysResult = (cell: FormCell, id: string, qty: string, uom: string, sz: number, lb: string, row: string) => {
+    resultRow.add(row);
     const sys = `${qty} ${uom}`.trim();
     const own = entries[id];
     const val = own && own.value !== '' ? own.value : '';
@@ -461,9 +468,9 @@ export function fillForm(form: BrForm, d: FillData): {
           const resultId = result ? `p${pi}t${ti}r${ri}c${result.c}` : '';
           if (item && result && rawRow && !norm(result.t)) {
             sysResult(result, resultId, String(d.sheets), d.loadUnit ?? '장', sz,
-              `${flatLabel(norm(item.t) === '수량' ? stepGroup : item.t)} · 결과`);
+              `${flatLabel(norm(item.t) === '수량' ? stepGroup : item.t)} · 결과`, rowKey(ri));
           } else if (item?.t && result) {
-            stepRows.push({ item: item.t, result, sz, id: resultId });
+            stepRows.push({ item: item.t, result, sz, id: resultId, row: rowKey(ri) });
           }
         }
       });
@@ -493,10 +500,10 @@ export function fillForm(form: BrForm, d: FillData): {
     const rows = stepRows.filter((r) => sameThing(r.item, m.name));
     let done = false;
     if (m.ok && rows.length === 1) {
-      const { result, sz, id } = rows[0];
+      const { result, sz, id, row } = rows[0];
       /* 빈 칸이거나 단위만 인쇄된 칸 ("g") - 양을 적는다. 사람이 덮어쓸 수 있다 */
       if (!norm(result.t) || key(result.t) === key(m.uom)) {
-        sysResult(result, id, String(+m.qty.toFixed(6)), m.uom, sz, `${flatLabel(m.name)} · 결과`);
+        sysResult(result, id, String(+m.qty.toFixed(6)), m.uom, sz, `${flatLabel(m.name)} · 결과`, row);
         done = true;
       } else if (result.t?.includes('□')) {
         const opts = result.t.split('\n');
@@ -504,6 +511,7 @@ export function fillForm(form: BrForm, d: FillData): {
         if (at >= 0) {
           opts[at] = opts[at].replace('□', '■');
           Object.assign(result, { t: opts.join('\n'), tk: [opts[at].trim()] });
+          resultRow.add(row);
           done = true;
         }
       }
@@ -593,7 +601,7 @@ export function fillForm(form: BrForm, d: FillData): {
   for (const s of signs) {
     const e = s.rows.map((r) => enteredRow.get(r)).filter(Boolean)
       .sort((a, b) => (a!.at < b!.at ? 1 : -1))[0];
-    const sys = s.rows.some((r) => matRow.has(r));
+    const sys = s.rows.some((r) => matRow.has(r) || resultRow.has(r));
     const own = entries[s.id];
     if (!e && !sys && !own) continue;
     const base = s.role === 'worker' ? (e?.by ?? d.worker) : (e?.at ?? d.workDate);
