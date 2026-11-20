@@ -503,7 +503,8 @@ html:not(.dark):not([data-theme='dark']) .qd-workspace[data-product='maison'] { 
   --qd-accent: var(--qa-champagne);
   --qd-danger: var(--qa-red);
   --qd-font-ui: var(--qa-font-pretendard), Pretendard, sans-serif;
-  --qd-font-mono: 'JetBrains Mono', monospace;
+  /* 값에 든 한글은 본문과 같은 Pretendard 로 (사용자 2026-11-20 «글꼴 혼자 왜 달라») */
+  --qd-font-mono: 'JetBrains Mono', 'Pretendard Variable', Pretendard, monospace;
 }
 .qd-workspace, .qd-workspace * { box-sizing: border-box; }
 .qd-workspace [hidden] { display: none !important; }

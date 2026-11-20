@@ -90,8 +90,11 @@
   --qd-radius-lg: 0.5rem;
   --qd-radius-xl: 0.75rem;
   --qd-radius-2xl: 1rem;
-  /* 번호(로트 · 제조번호)의 글꼴도 종이에서는 옛 사슬 그대로. 글자 폭이 칸 폭을 정한다 */
-  --qd-font-family-mono: 'Cascadia Mono', 'IBM Plex Mono', Consolas, 'D2Coding', ui-monospace, monospace;
+  /* 번호(로트 · 제조번호)의 글꼴도 종이에서는 옛 사슬 그대로. 글자 폭이 칸 폭을 정한다.
+     한글은 본문과 같은 Pretendard 가 맡는다 - 성적서 번호 «시험샘플» 처럼 값에 한글이 들면 사슬 끝의
+     monospace(굴림체)로 떨어져 그 칸만 글꼴이 달랐다 (사용자 2026-11-20 «이거 글꼴 혼자 왜 달라»).
+     라틴 · 숫자는 앞의 글꼴이 그대로 맡으므로 칸 폭은 바뀌지 않는다 */
+  --qd-font-family-mono: 'Cascadia Mono', 'IBM Plex Mono', Consolas, 'Pretendard Variable', Pretendard, 'D2Coding', ui-monospace, monospace;
 }
 /* 기록서 판(.sheet)에 정본이 거는 글자 크기 · 줄 간격을 비킨다. 층 밖 규칙이라 종이마다 붙인
    text-[12px] · leading-relaxed 를 이기던 것을, 층 안(유틸리티 · 물려받기)으로 돌려보낸다 */
