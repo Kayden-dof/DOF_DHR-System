@@ -122,9 +122,19 @@ export function formEmpty(f: BrFormTab) { return f.inUse ? Math.max(0, f.total -
 /* ---------------------------------------------------------------------------
    기록서 창
 --------------------------------------------------------------------------- */
-export function BrSheetView({ sheet, onSheet, onClose, busy, ctx, endSlot, readOnly = false }: {
+/**
+ * 저장 · 불러오기를 바꿔 끼운다 (0145). 원액 로트의 PBS 제조기록서는 공정 기록이 아니라
+ * 원액 로트에 적는다 - 화면은 같고 가는 곳만 다르다. 기기번호 칸은 공정 기록의 설비라 쓰지 않는다.
+ */
+export interface SheetApi {
+  save: (docId: string, field: string, value: string, why?: string) => Promise<BrSheet | { error: string }>;
+  load: (docId: string) => Promise<BrSheet | { error: string }>;
+}
+
+export function BrSheetView({ sheet, onSheet, onClose, busy, ctx, endSlot, readOnly = false, api }: {
   sheet: BrSheet; onSheet: (s: BrSheet) => void; onClose: () => void; busy: boolean;
   ctx: SheetCtx;
+  api?: SheetApi;
   /** 공정 마감 자리. 진행 중인 기록일 때만 준다. 그만두면 cancel 을 부른다 */
   endSlot?: (cancel: () => void) => React.ReactNode;
   /**
@@ -134,7 +144,10 @@ export function BrSheetView({ sheet, onSheet, onClose, busy, ctx, endSlot, readO
    */
   readOnly?: boolean;
 }) {
-  const ro = readOnly || sheet.locked;
+  /* 원액 로트를 따르는 별첨은 배치에서 보기만 - 원액 로트 화면에서 적는다 (0145) */
+  const ro = readOnly || sheet.locked || !!sheet.linked;
+  const putEntry = (field: string, value: string, why?: string) =>
+    api ? api.save(sheet.docId, field, value, why) : saveBrEntry(sheet.recordId, sheet.docId, field, value, why);
   const wrap = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
   const [cell, setCell] = useState<FormCell | null>(null);
@@ -171,7 +184,7 @@ export function BrSheetView({ sheet, onSheet, onClose, busy, ctx, endSlot, readO
   const save = (value: string, why?: string) => {
     if (!cell?.id) return;
     const id = cell.id;
-    start(async () => { take(await saveBrEntry(sheet.recordId, sheet.docId, id, value, why)); });
+    start(async () => { take(await putEntry(id, value, why)); });
   };
 
   /* 설비: 고른 설비 묶음을 통째로 보낸다 (첫 설비부터) */
@@ -190,7 +203,7 @@ export function BrSheetView({ sheet, onSheet, onClose, busy, ctx, endSlot, readO
     setEnding(false);
     setErr(null);
     start(async () => {
-      if (take(await loadBrSheet(sheet.recordId, docId))) wrap.current?.scrollTo({ top: 0 });
+      if (take(await (api ? api.load(docId) : loadBrSheet(sheet.recordId, docId)))) wrap.current?.scrollTo({ top: 0 });
     });
   };
 
@@ -220,11 +233,11 @@ export function BrSheetView({ sheet, onSheet, onClose, busy, ctx, endSlot, readO
       if (next && c.grp?.length) {
         for (const sid of c.grp) {
           if (!find(sid)?.v) continue;
-          const r0 = await saveBrEntry(sheet.recordId, sheet.docId, sid, '');
+          const r0 = await putEntry(sid, '');
           if ('error' in r0) { setErr(r0.error); setCell(c); return; }
         }
       }
-      const r = await saveBrEntry(sheet.recordId, sheet.docId, id, next);
+      const r = await putEntry(id, next);
       if ('error' in r) { setErr(r.error); setCell(c); return; }
       setErr(null);
       onSheet(r);
@@ -297,7 +310,9 @@ export function BrSheetView({ sheet, onSheet, onClose, busy, ctx, endSlot, readO
       <div ref={wrap} className="flex-1 overflow-auto px-2 py-3">
         {ro ? (
           <p className="mb-2 px-1 text-sm text-muted">
-            {sheet.locked ? '일차가 마감되어 고칠 수 없습니다.' : '여기서는 볼 수만 있습니다.'}{' '}
+            {sheet.linked
+              ? `이 별첨은 원액 로트 ${sheet.solutionLot ?? ''} 의 PBS 제조기록서입니다. 재고 증감 화면의 원액 로트에서 적습니다.`
+              : sheet.locked ? '일차가 마감되어 고칠 수 없습니다.' : '여기서는 볼 수만 있습니다.'}{' '}
             파란 글씨가 적은 값입니다.
           </p>
         ) : (
@@ -309,7 +324,7 @@ export function BrSheetView({ sheet, onSheet, onClose, busy, ctx, endSlot, readO
             적은 값은 파란 글씨로 바로 저장됩니다. 작업(검사)자 · 일자 칸도 눌러 고칠 수 있습니다.
           </p>
         )}
-        {sheet.appendix && !ro && (
+        {sheet.appendix && !ro && !api && (
           <p className="mb-2 px-1 text-sm text-muted">
             별첨은 해당할 때만 적습니다. 한 칸이라도 적으면 빈 칸을 함께 세고, 제조기록서 인쇄에 이 양식이
             붙습니다.
@@ -323,6 +338,7 @@ export function BrSheetView({ sheet, onSheet, onClose, busy, ctx, endSlot, readO
                           transform: `scale(${scale})`, transformOrigin: 'top left' }}>
               <FormBody page={pg} size={sheet.size} formPage={{ n: i + 1, of: sheet.pages.length }}
                         onCell={ro ? undefined : (c) => {
+                          if (api && c.k === 'equip') return;
                           setErr(null);
                           setEnding(false);
                           if (oneTap(c)) toggle(c); else setCell(c);

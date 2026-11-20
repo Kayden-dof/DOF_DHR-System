@@ -5,7 +5,8 @@ import { withActor } from '@/lib/db';
 import { PageShell } from '@/components/shell';
 import { SubNav } from '../../nav';
 import { MATERIAL_NAV } from '../../sections';
-import { fmtDateTime } from '@/lib/fmt';
+import { fmtDate, fmtDateTime } from '@/lib/fmt';
+import Link from 'next/link';
 import { MOVEMENT_TYPE_LABEL } from '@/lib/forms';
 import { Panel, Empty, Tag } from '@/components/ui';
 import {
@@ -44,6 +45,19 @@ export default async function MovementPage() {
     solutions: await db.rows<SolutionItemOpt>(
       `select id, code, name, usage_uom, shelf_life_months
          from item where type = 'SOLUTION' and is_active order by code`),
+    /*
+     * 원액 로트와 그 PBS 제조기록서 (0145 · 사용자 2026-11-20 «원액 제조 때»). 적은 칸 수만 센다 -
+     * 빈 칸은 양식을 채워 봐야 알므로 로트 화면에서 본다.
+     */
+    solutionLots: await db.rows<{ id: string; lot_no: string; item_name: string; made_on: string;
+                                  qty_available: string; usage_uom: string; entries: number }>(
+      `select ml.id, ml.lot_no, i.name as item_name, ml.made_on::text as made_on,
+              ml.qty_available::text as qty_available, i.usage_uom,
+              (select count(*)::int from solution_br_entry e
+                where e.material_lot_id = ml.id and e.value <> '') as entries
+         from material_lot ml join item i on i.id = ml.item_id
+        where ml.made_on is not null
+        order by ml.made_on desc, ml.lot_no desc limit 30`),
     orders: await db.rows<WoOpt>(
       `select id, batch_no, wo_no from work_order
         where status in ('ISSUED','IN_PROCESS','CUT') order by issued_at desc`),
@@ -77,6 +91,26 @@ export default async function MovementPage() {
           <SolutionLotForm items={d.solutions} lots={d.lots} fix={fixAt(user, '/material')} />
         </Panel>
       </div>
+
+      <Panel title="원액 로트 · 제조기록서" note="로트마다 한 번 적습니다">
+        {d.solutionLots.length === 0 ? (
+          <Empty hint="위 원액 제조로 로트를 세우면 여기 나옵니다.">원액 로트가 없습니다.</Empty>
+        ) : (
+          <ul className="divide-y divide-line-soft">
+            {d.solutionLots.map((l) => (
+              <li key={l.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2.5">
+                <span className="font-mono text-sm font-semibold text-ink">{l.lot_no}</span>
+                <span className="text-sm text-muted">{l.item_name}</span>
+                <span className="tnum text-xs text-faint">제조 {fmtDate(l.made_on)} · 남은 {Number(l.qty_available)} {l.usage_uom}</span>
+                <span className="ml-auto flex items-center gap-3">
+                  <span className="text-xs text-muted">{l.entries > 0 ? `적은 칸 ${l.entries}` : '아직 적지 않음'}</span>
+                  <Link href={`/material/solution/${l.id}`} className="qd-text-action">제조기록서</Link>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Panel>
 
       <Panel title="최근 기록">
         {d.moves.length === 0 ? (

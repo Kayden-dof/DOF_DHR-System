@@ -330,9 +330,20 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = fal
          left join product_lot pl on pl.id = pr.product_lot_id
         where pr.work_order_id = $1 and pr.day_no = $2 and pr.worker_id = $3
         order by o.seq, pr.attempt, pl.lot_no nulls first, pr.id`, [id, dayNo, worker])).map((x) => x.lots);
+    /* 원액 로트에 적은 PBS 제조기록서 칸 (0145). 로트 → 양식 → 칸 자리 */
+    const solEntries = new Map<string, Record<string, Record<string, { value: string; by: string; at: string }>>>();
+    for (const e of await db.rows<{ lot: string; doc_id: string; field: string; value: string; by: string; at: string }>(
+      `select e.material_lot_id as lot, e.doc_id, e.field, e.value, u.full_name as by,
+              to_char(timezone('Asia/Seoul', e.entered_at), 'YYYY-MM-DD') as at
+         from solution_br_entry e join app_user u on u.id = e.entered_by
+        where e.value <> ''`)) {
+      const byDoc = solEntries.get(e.lot) ?? {};
+      (byDoc[e.doc_id] ??= {})[e.field] = { value: e.value, by: e.by, at: e.at };
+      solEntries.set(e.lot, byDoc);
+    }
     const solutions = new Map<string, SolutionLink>();
-    for (const x of await db.rows<SolutionLink['info'] & { inputs: SolutionLink['inputs'] }>(
-      `select ml.lot_no, ml.made_on::text as made_on, u.full_name as maker,
+    for (const x of await db.rows<SolutionLink['info'] & { id: string; inputs: SolutionLink['inputs'] }>(
+      `select ml.id, ml.lot_no, ml.made_on::text as made_on, u.full_name as maker,
               coalesce((select json_agg(json_build_object(
                          'item_code', v.item_code, 'item_name', v.item_name, 'lot_no', v.material_lot_no,
                          'qty', v.qty::text, 'usage_uom', v.usage_uom, 'amend_reason', null)
@@ -340,7 +351,10 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = fal
                           from v_solution_input v where v.solution_lot_id = ml.id), '[]'::json) as inputs
          from material_lot ml left join app_user u on u.id = ml.registered_by
         where ml.made_on is not null`)) {
-      solutions.set(x.lot_no, { info: { lot_no: x.lot_no, made_on: x.made_on, maker: x.maker }, inputs: x.inputs });
+      solutions.set(x.lot_no, {
+        info: { lot_no: x.lot_no, made_on: x.made_on, maker: x.maker }, inputs: x.inputs,
+        lotId: x.id, entries: solEntries.get(x.id) ?? {},
+      });
     }
     return { forms, noLot, woNo: wdm?.wo_no ?? null, returns, solLots, solutions };
   });
@@ -386,7 +400,8 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = fal
     const linked = linkedSolution(main.pages);
     const sol = linked ? look.solutions.get(linked) ?? null : null;
     return docs.flatMap((doc, i) => {
-      const entries = entriesOf(doc.id);
+      /* 별첨이 원액 로트를 따르면 그 로트에 적은 칸 (0145 · PBS 제조기록서는 원액 로트에 적는다) */
+      const entries = i > 0 && sol ? (sol.entries?.[doc.id] ?? {}) : entriesOf(doc.id);
       /* 별첨은 적은 칸이 있거나 따르는 원액 로트가 있을 때만 (위 머리말 · PBS 제조기록서 연동) */
       if (i > 0 && Object.keys(entries).length === 0 && !sol) return [];
       const filled = i === 0 ? main : fillOne(doc.form, { ...base, entries }, true, sol);
