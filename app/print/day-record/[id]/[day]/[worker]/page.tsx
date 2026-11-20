@@ -5,7 +5,7 @@ import { fmtDate, fmtDateTime } from '@/lib/fmt';
 import { logPrint, printGate, viewParam } from '@/lib/print';
 import Denied from '@/components/denied';
 import PrintFrame, { Sheet, SignRow, FormSheet } from '@/components/print-frame';
-import { formHasSignRoom, type BrForm, type FormPage } from '@/lib/br-form';
+import { formHasSignRoom, type BrForm, type FillReturn, type FormPage } from '@/lib/br-form';
 import { fillOne } from '@/lib/br-sheet';
 import { dayRecordPayload, hashable, type RecRow } from '@/lib/print-payload';
 import { chunkRows } from '@/lib/print-pages';
@@ -297,13 +297,33 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = fal
       : [];
     const noLot = (await db.rows<{ code: string }>(
       `select code from item where not lot_tracked`)).map((x) => x.code);
-    return { forms, noLot, woNo: wdm?.wo_no ?? null };
+    /*
+     * 기록마다 반납한 양 (기록서 셈에서 뺀다 · 사용자 2026-11-20 «자동으로 빼기»). 자료 식별자
+     * (payload) 밖에서 읽어 이미 나간 종이의 식별자는 그대로다. 차례는 payload 의 기록 차례와
+     * 같게 둔다 (o.seq, attempt, 제조번호, pr.id) - 칸 하나하나가 같은 기록을 가리켜야 한다.
+     */
+    const returns = (await db.rows<{ returns: FillReturn[] }>(
+      `select coalesce((
+                select json_agg(json_build_object(
+                  'item_code', i.code, 'item_name', i.name, 'lot_no', ml.lot_no,
+                  'qty', sm.qty::text, 'usage_uom', i.usage_uom) order by i.code, ml.lot_no, sm.qty)
+                  from stock_movement sm
+                  join material_issue mi on mi.id = sm.material_issue_id
+                  join material_lot ml on ml.id = mi.material_lot_id
+                  join item i on i.id = ml.item_id
+                 where mi.process_record_id = pr.id and sm.type = 'RETURN'), '[]'::json) as returns
+         from process_record pr
+         join dmr_operation o on o.id = pr.operation_id
+         left join product_lot pl on pl.id = pr.product_lot_id
+        where pr.work_order_id = $1 and pr.day_no = $2 and pr.worker_id = $3
+        order by o.seq, pr.attempt, pl.lot_no nulls first, pr.id`, [id, dayNo, worker])).map((x) => x.returns);
+    return { forms, noLot, woNo: wdm?.wo_no ?? null, returns };
   });
   /* 공정마다 양식 차례 - 본 기록서가 처음 */
   const formsOf = new Map<string, typeof look.forms>();
   for (const f of look.forms) formsOf.set(f.op_code, [...(formsOf.get(f.op_code) ?? []), f]);
   const hms = (v: Date | null) => (v ? fmtDateTime(v).slice(11) : '');
-  const plans = records.flatMap((r) => {
+  const plans = records.flatMap((r, ri) => {
     const docs = formsOf.get(r.operation_code);
     if (!docs?.length) return [];
     const notes = [
@@ -328,7 +348,7 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = fal
       rawItemCode: head.raw_item_code, rawLotNo: head.raw_lot_no,
       sheets: head.sheet_count, loadUnit: head.load_unit,
       worker: head.worker_name, workDate: fmtDate(head.work_date),
-      issues: r.issues, noLotCodes: look.noLot,
+      issues: r.issues, returns: look.returns[ri] ?? [], noLotCodes: look.noLot,
       equipment: r.equipment_id, extraEquipment: r.extra_equipment ?? null, notes,
     };
     return docs.flatMap((doc, i) => {

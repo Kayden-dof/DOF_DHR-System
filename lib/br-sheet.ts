@@ -18,7 +18,9 @@
    부여로트번호 칸은 투입이 아니라 적는 칸이다 (lib/br-form.ts FieldKind lotno).
 --------------------------------------------------------------------------- */
 import type { Db } from './db';
-import { fillForm, fieldsOf, type BrForm, type Entry, type FillData, type FormPage, type SignChange } from './br-form';
+import {
+  fillForm, fieldsOf, type BrForm, type Entry, type FillData, type FillReturn, type FormPage, type SignChange,
+} from './br-form';
 
 /** 한 공정의 양식 하나 - 고르는 단추 · 빈 칸 수에 쓴다 */
 export interface BrFormTab {
@@ -159,6 +161,15 @@ export async function brSheet(db: Db, recordId: string, docId?: string | null): 
        join item i on i.id = ml.item_id
       where mi.process_record_id = $1
       order by i.code, ml.lot_no`, [recordId]);
+  /* 이 기록의 투입에서 원 로트로 되돌린 양. 기록서 셈에서 뺀다 (fillForm · netIssues) */
+  const returns = await db.rows<FillReturn>(
+    `select i.code as item_code, i.name as item_name, ml.lot_no, sm.qty::text as qty, i.usage_uom
+       from stock_movement sm
+       join material_issue mi on mi.id = sm.material_issue_id
+       join material_lot ml on ml.id = mi.material_lot_id
+       join item i on i.id = ml.item_id
+      where mi.process_record_id = $1 and sm.type = 'RETURN'
+      order by i.code, ml.lot_no, sm.qty`, [recordId]);
   const noLot = (await db.rows<{ code: string }>(`select code from item where not lot_tracked`))
     .map((x) => x.code);
   const byDoc = await entriesByDoc(db, recordId);
@@ -168,7 +179,7 @@ export async function brSheet(db: Db, recordId: string, docId?: string | null): 
     rawItemCode: r.raw_item_code, rawLotNo: r.raw_lot_no,
     sheets: r.sheet_count, loadUnit: r.load_unit,
     worker: r.worker_name, workDate: r.work_date,
-    issues, noLotCodes: noLot, equipment: r.equipment_id,
+    issues, returns, noLotCodes: noLot, equipment: r.equipment_id,
     extraEquipment: r.extra_equipment_ids, notes: [],
   };
 

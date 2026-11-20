@@ -105,6 +105,36 @@ export interface FillIssue {
   item_code: string; item_name: string; lot_no: string; qty: string; usage_uom: string;
   amend_reason: string | null;
 }
+/** 그 기록의 투입에서 원 로트로 되돌린 양 (반납 · return_material_issue) */
+export interface FillReturn {
+  item_code: string; item_name: string; lot_no: string; qty: string; usage_uom: string;
+}
+
+/*
+ * 반납한 양을 투입에서 뺀다 (사용자 2026-11-20 «자동으로 빼기»). 잘못 넣은 투입은 지우지
+ * 못하고 반납으로 무르므로(0041), 빼지 않으면 기록서 결과 칸이 무른 양까지 더해 적었다
+ * (B261104-01 염화나트륨 292.2 + 293 → 585.2 g, 292.2 g 반납).
+ * 같은 품목 · 로트의 투입 줄에서 빼고, 반납한 양과 같은 줄을 먼저 비운다 - 한 줄을 통째로
+ * 무른 경우다. 다 빠진 줄은 기록서에 오르지 않는다.
+ */
+export function netIssues(list: FillIssue[], returns: FillReturn[]): FillIssue[] {
+  const out = list.map((x) => ({ ...x }));
+  for (const r of returns) {
+    let left = Number(r.qty);
+    if (!Number.isFinite(left) || left <= 0) continue;
+    const same = out.filter((x) => x.item_code === r.item_code && x.lot_no === r.lot_no);
+    same.sort((a, b) => Number(Number(b.qty) === left) - Number(Number(a.qty) === left));
+    for (const x of same) {
+      if (left <= 0) break;
+      const n = Number(x.qty);
+      if (!Number.isFinite(n) || n <= 0) continue;
+      const take = Math.min(n, left);
+      x.qty = String(+(n - take).toFixed(6));
+      left = +(left - take).toFixed(6);
+    }
+  }
+  return out.filter((x) => !(Number(x.qty) <= 0));
+}
 export interface FillData {
   batchNo: string;
   /** 작업지시번호 (개정안 양식 머리표, 0137). 없으면 채우지 않는다 */
@@ -118,6 +148,8 @@ export interface FillData {
   worker: string;
   workDate: string;
   issues: FillIssue[];
+  /** 그 기록의 반납. 투입에서 빼고 특이사항에 적는다. 없으면 빼지 않는다 */
+  returns?: FillReturn[];
   /** 로트 없이 쓰는 소모품 품목 코드 (0129). 그 줄의 부여로트번호는 공란이다 */
   noLotCodes: string[];
   equipment: string | null;
@@ -184,9 +216,12 @@ function rowUnit(texts: string[]): string | null {
 }
 
 /** 양식 한 벌을 채운 사본. 원본은 건드리지 않는다 */
-export function fillForm(form: BrForm, d: FillData): {
+export function fillForm(form: BrForm, given: FillData): {
   pages: FormPage[]; placed: Set<number>; lost: string[]; changes: SignChange[];
 } {
+  /* 반납한 양을 뺀 투입 (netIssues). 아래의 투입은 모두 이것이다 */
+  const d: FillData = given.returns?.length
+    ? { ...given, issues: netIssues(given.issues, given.returns) } : given;
   const placed = new Set<number>();
   const pages: FormPage[] = JSON.parse(JSON.stringify(form.pages));
   let rawName: string | null = null;
@@ -627,7 +662,10 @@ export function fillForm(form: BrForm, d: FillData): {
   const amend = d.issues
     .filter((x) => x.amend_reason)
     .map((x) => `정정 ${x.item_name} ${x.lot_no} · ${x.amend_reason}`);
-  const lines = [...d.notes, ...qtyNotes, ...extra, ...amend];
+  /* 반납은 투입에서 뺐다. 무른 사실은 특이사항에 남는다 */
+  const back = (given.returns ?? [])
+    .map((x) => `반납 ${x.item_name} ${x.lot_no} · ${fmtQty(x.qty)} ${x.usage_uom}`);
+  const lines = [...d.notes, ...qtyNotes, ...extra, ...amend, ...back];
   if (noteCell) {
     const nc = noteCell as FormCell;
     /* 현장에서 적은 특이사항이 먼저, 시스템 기록이 뒤에 */
