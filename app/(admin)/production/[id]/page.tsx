@@ -7,6 +7,7 @@ import { fmtDate, fmtDateTime } from '@/lib/fmt';
 import { WO_STATUS_LABEL, PL_STATUS_LABEL } from '@/lib/forms';
 import { KIND_LABEL, viewHref } from '@/lib/print';
 import Denied from '@/components/denied';
+import { ChangeNote } from '@/components/change-note';
 import { Panel, Empty, Tag, Field, Caution } from '@/components/ui';
 import WorkRequestForm, { type ReqValue } from './request-form';
 import {
@@ -77,6 +78,8 @@ interface RecRow {
                  /** 마감 전에 고친 줄 (0139). 아니면 잠긴 기록의 강제 정정 */
                  before_close?: boolean | null;
                  by_name: string; at: string }[];
+  /** 고친 서명 칸 (0140). 지금 값만 - 지난 값은 감사추적에 있다 */
+  signs: { sign: 'worker' | 'date'; value: string; why: string | null; by_name: string; at: string }[];
   product_lot_no: string | null; issues: number;
 }
 
@@ -182,7 +185,14 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                            'at', to_char(timezone('Asia/Seoul', rc.corrected_at), 'YYYY-MM-DD HH24:MI'))
                          order by rc.corrected_at)
                     from record_correction rc join app_user cu on cu.id = rc.corrected_by
-                   where rc.process_record_id = pr.id), '[]'::json) as corrections
+                   where rc.process_record_id = pr.id), '[]'::json) as corrections,
+                coalesce((
+                  select json_agg(json_build_object(
+                           'sign', e.sign, 'value', e.value, 'why', e.why, 'by_name', eu.full_name,
+                           'at', to_char(timezone('Asia/Seoul', e.entered_at), 'YYYY-MM-DD HH24:MI'))
+                         order by e.entered_at)
+                    from br_entry e join app_user eu on eu.id = e.entered_by
+                   where e.process_record_id = pr.id and e.sign is not null and e.value <> ''), '[]'::json) as signs
            from process_record pr
            join dmr_operation o on o.id = pr.operation_id
            join app_user u on u.id = pr.worker_id
@@ -687,11 +697,27 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                       {r.no_material_reason && (
                         <div className="text-warn">{r.no_material_reason}</div>
                       )}
-                      {r.corrections.map((c, i) => (
-                        <div key={i} className="mt-1 text-xs leading-relaxed text-faint">
-                          {c.before_close ? '고침' : '강제 정정'} {c.at} · {c.by_name}{c.field && c.field !== 'no_material_reason' ? ` · ${FIELD_LABEL[c.field] ?? c.field}` : ''}: «{c.old_value}» → «{c.new_value}» · {c.why}
+                      {/*
+                        * 고친 내역은 «수정 사항 N건» 하나로 접는다 (사용자 2026-11-20 «이렇게까지
+                        * 대놓고 표기» 하지 말고 올리면 뜨게). 정정 · 서명 고침을 함께 센다.
+                        */}
+                      {r.corrections.length + r.signs.length > 0 && (
+                        <div className="mt-1">
+                          <ChangeNote lines={[
+                            ...r.corrections.map((c) => ({
+                              tag: c.before_close ? '고침' : '강제 정정',
+                              what: c.field && c.field !== 'no_material_reason'
+                                ? FIELD_LABEL[c.field] ?? c.field : '해당 없음 사유',
+                              from: c.old_value ?? '', to: c.new_value ?? '',
+                              by: c.by_name, at: c.at, why: c.why,
+                            })),
+                            ...r.signs.map((g) => ({
+                              tag: '서명 고침', what: g.sign === 'worker' ? '작업(검사)자' : '일자',
+                              to: g.value, by: g.by_name, at: g.at, why: g.why,
+                            })),
+                          ]} />
                         </div>
-                      ))}
+                      )}
                       {/*
                         * 마감 전 기록의 일차 · 작업일 · 시각 (0139 · 사용자 2026-11-20). 누구의
                         * 기록이든 생산관리자 · 시스템관리자가 고친다. 잠긴 기록은 아래 강제 정정이다.

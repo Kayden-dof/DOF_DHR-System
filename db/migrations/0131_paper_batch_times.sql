@@ -82,9 +82,15 @@ end $fn$;
 
 
 /* === 3. 정정 내역이 받는 칸 ============================================== */
+/*
+ * not valid: 이관은 처음부터 다시 돈다 (scripts/deploy-db.mjs). 뒤의 0139 가 칸을 늘린
+ * 뒤 그 칸(day_no)의 줄이 생기면, 여기서 좁은 목록을 검사하며 세우다 멈춘다 - 실제로
+ * 2026-11-20 운영 이관이 여기서 섰다. 있는 줄은 다시 검사하지 않고, 0139 가 곧이어
+ * 넓은 목록으로 검사해 다시 세운다.
+ */
 alter table record_correction drop constraint if exists record_correction_field_check;
 alter table record_correction add constraint record_correction_field_check
-  check (field in ('no_material_reason', 'work_date', 'started_at', 'ended_at'));
+  check (field in ('no_material_reason', 'work_date', 'started_at', 'ended_at')) not valid;
 
 
 /* === 4. 작업일 · 시각 강제 정정 ========================================== */

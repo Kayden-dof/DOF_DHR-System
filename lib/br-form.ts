@@ -55,6 +55,24 @@ export interface FormCell {
   v?: string;
   /** 부여로트번호 칸이 가리키는 자재의 품목 코드 (자재규격 열). 비면 자재명으로 맞댄다 */
   ic?: string;
+  /**
+   * 서명 칸 (0140 · 사용자 2026-11-20). 작업(검사)자(worker) · 일자(date).
+   * 적을 칸이 아니라 고칠 수 있는 칸이라 빈 칸 수에 세지 않는다 (fieldsOf).
+   */
+  sg?: 'worker' | 'date';
+  /** 서명 칸에 시스템이 채우는 값 (적은 사람 · 날). 고친 값이 있으면 v 와 다르다 */
+  sv?: string;
+}
+
+/** 서명 칸을 고친 내역 하나 (0140). 화면의 «수정 사항» 안내가 띄운다 */
+export interface SignChange {
+  label: string;
+  kind: 'worker' | 'date';
+  from: string;
+  to: string;
+  by: string;
+  at: string;
+  why: string | null;
 }
 /*
  * equip · lot 은 br_entry 에 적지 않는다 (기록서 중심 화면 · 사용자 2026-11-11).
@@ -69,8 +87,9 @@ export interface FormCell {
  *          재고가 두 번 빠지고 구성표 밖 투입이 배치에 붙는다.
  *   date   날짜 칸 (별첨 머리의 제조일자). 값은 YYYY-MM-DD
  */
-export type FieldKind = 'choice' | 'time' | 'number' | 'text' | 'equip' | 'lot' | 'lotno' | 'date';
-export interface Entry { value: string; by: string; at: string }
+export type FieldKind = 'choice' | 'time' | 'number' | 'text' | 'equip' | 'lot' | 'lotno' | 'date' | 'signer';
+/** why: 서명 칸을 고친 사유 (0140). 보통 칸은 없다 */
+export interface Entry { value: string; by: string; at: string; why?: string | null }
 export interface FormRow { h: number; cells: FormCell[] }
 export interface FormTable { x: number; y: number; w: number; cols: number[]; rows: FormRow[] }
 export interface FormText { t: string; x0: number; x1: number; y: number; s: number; b: boolean; color: string | null }
@@ -144,7 +163,9 @@ const fmtQty = (q: string) => {
 };
 
 /** 양식 한 벌을 채운 사본. 원본은 건드리지 않는다 */
-export function fillForm(form: BrForm, d: FillData): { pages: FormPage[]; placed: Set<number>; lost: string[] } {
+export function fillForm(form: BrForm, d: FillData): {
+  pages: FormPage[]; placed: Set<number>; lost: string[]; changes: SignChange[];
+} {
   const placed = new Set<number>();
   const pages: FormPage[] = JSON.parse(JSON.stringify(form.pages));
   let rawName: string | null = null;
@@ -167,7 +188,7 @@ export function fillForm(form: BrForm, d: FillData): { pages: FormPage[]; placed
   let equipName = '';
   /* 사람이 적을 수 있는 칸 후보와 서명(작업자 · 일자) 칸. 칸 판정은 시스템 채움이 끝난 뒤에 한다 */
   const cand: { cell: FormCell; id: string; role?: string; section: Section; lb: string; row: string; left?: string }[] = [];
-  const signs: { rows: string[]; cell: FormCell; role: 'worker' | 'date'; sz: number }[] = [];
+  const signs: { rows: string[]; cell: FormCell; role: 'worker' | 'date'; sz: number; id: string; lb: string }[] = [];
   /* 자재를 채운 줄 (그 줄의 작업자 칸은 투입한 작업자로) */
   const matRow = new Set<string>();
   const entries = d.entries ?? {};
@@ -237,7 +258,7 @@ export function fillForm(form: BrForm, d: FillData): { pages: FormPage[]; placed
             if (!norm(c.t)) {
               const span: string[] = [];
               for (let k = ri; k < ri + (c.rs ?? 1); k++) span.push(rowKey(k));
-              signs.push({ rows: span, cell: c, role, sz });
+              signs.push({ rows: span, cell: c, role, sz, id: `p${pi}t${ti}r${ri}c${c.c}`, lb: label });
             }
             continue;
           }
@@ -500,14 +521,33 @@ export function fillForm(form: BrForm, d: FillData): { pages: FormPage[]; placed
     }
   }
 
-  /* 서명 칸: 자재를 채운 줄은 투입한 작업자, 사람이 적은 줄은 적은 사람 (모두 파랗다) */
+  /*
+   * 서명 칸: 자재를 채운 줄은 투입한 작업자, 사람이 적은 줄은 적은 사람 (모두 파랗다).
+   *
+   * 고칠 수 있다 (0140 · 사용자 2026-11-20). 고친 값은 그 칸 자리로 br_entry 에 있고
+   * 시스템 값을 덮는다. 고친 내역은 칸에 드러내지 않고 changes 로 넘긴다 - 화면이
+   * «수정 사항» 안내 하나로 접어 둔다 (사용자 «이렇게까지 대놓고 표기» 하지 말 것).
+   */
+  const changes: SignChange[] = [];
   for (const s of signs) {
     const e = s.rows.map((r) => enteredRow.get(r)).filter(Boolean)
       .sort((a, b) => (a!.at < b!.at ? 1 : -1))[0];
     const sys = s.rows.some((r) => matRow.has(r));
-    if (!e && !sys) continue;
-    const text = s.role === 'worker' ? (e?.by ?? d.worker) : (e?.at ?? d.workDate);
-    Object.assign(s.cell, { t: text, f: true, a: 'c' as const, b: false, s: s.sz });
+    const own = entries[s.id];
+    if (!e && !sys && !own) continue;
+    const base = s.role === 'worker' ? (e?.by ?? d.worker) : (e?.at ?? d.workDate);
+    const text = own?.value || base;
+    Object.assign(s.cell, {
+      t: text, f: true, a: 'c' as const, b: false, s: s.sz,
+      id: s.id, k: s.role === 'worker' ? 'signer' as const : 'date' as const, sg: s.role, sv: base, v: text,
+      lb: `${s.lb || '서명'} · ${s.role === 'worker' ? '작업(검사)자' : '일자'}`,
+    });
+    if (own?.value && own.value !== base) {
+      changes.push({
+        label: s.lb || '서명', kind: s.role, from: base, to: own.value,
+        by: own.by, at: own.at, why: own.why ?? null,
+      });
+    }
   }
 
   /* 특이사항: 시스템 기록과 양식에 자리가 없던 투입 */
@@ -529,7 +569,7 @@ export function fillForm(form: BrForm, d: FillData): { pages: FormPage[]; placed
   }
 
   /* 특이사항 칸이 없는 양식이면 부르는 쪽이 장 아래에 적는다 */
-  return { pages, placed, lost: noteCell ? [] : lines };
+  return { pages, placed, lost: noteCell ? [] : lines, changes };
 }
 
 /* ---------------------------------------------------------------------------
@@ -600,9 +640,9 @@ export function fixedEquipCodes(form: BrForm): string[] {
   return out;
 }
 
-/** 사람이 적을 칸 목록 (화면이 몇 칸 적었는지 센다) */
+/** 사람이 적을 칸 목록 (화면이 몇 칸 적었는지 센다). 서명 칸은 적을 칸이 아니다 (0140) */
 export function fieldsOf(pages: FormPage[]) {
-  return pages.flatMap((p) => p.tables.flatMap((t) => t.rows.flatMap((r) => r.cells.filter((c) => c.id))));
+  return pages.flatMap((p) => p.tables.flatMap((t) => t.rows.flatMap((r) => r.cells.filter((c) => c.id && !c.sg))));
 }
 
 /** 머리 · 꼬리 글 가운데 쪽 번호 ("1 / 2", "1 / __") */

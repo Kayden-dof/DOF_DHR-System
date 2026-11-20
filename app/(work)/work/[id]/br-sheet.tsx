@@ -32,6 +32,7 @@ import { daysUntilKST, todayKST } from '@/lib/kst';
 import { fmtDate } from '@/lib/fmt';
 import { isNoExpiry } from '@/lib/equipment-check';
 import { loadBrSheet, saveBrEntry, setRecordEquipment, issueFromSheet } from '../actions';
+import { ChangeNote } from '@/components/change-note';
 
 const PX = 4 / 3; // 1pt = 4/3 px
 
@@ -166,10 +167,11 @@ export function BrSheetView({ sheet, onSheet, onClose, busy, ctx, endSlot, readO
     return true;
   };
 
-  const save = (value: string) => {
+  /* why: 서명 칸을 고칠 때의 사유 (0140) */
+  const save = (value: string, why?: string) => {
     if (!cell?.id) return;
     const id = cell.id;
-    start(async () => { take(await saveBrEntry(sheet.recordId, sheet.docId, id, value)); });
+    start(async () => { take(await saveBrEntry(sheet.recordId, sheet.docId, id, value, why)); });
   };
 
   /* 설비: 고른 설비 묶음을 통째로 보낸다 (첫 설비부터) */
@@ -247,6 +249,13 @@ export function BrSheetView({ sheet, onSheet, onClose, busy, ctx, endSlot, readO
               <> · 해당할 때만 <b className="tnum text-ink">{sheet.optTotal}</b>
                 {sheet.optDone > 0 && <> (적은 칸 <b className="tnum text-brand">{sheet.optDone}</b>)</>}</>
             )}
+            {/* 고친 서명은 칸에 드러내지 않고 이 안내 하나로 접는다 (사용자 2026-11-20) */}
+            {sheet.changes.length > 0 && (
+              <>{' '}<ChangeNote className="align-middle" lines={sheet.changes.map((c) => ({
+                tag: '서명 고침', what: `${c.label} · ${c.kind === 'worker' ? '작업(검사)자' : '일자'}`,
+                from: c.from, to: c.to, by: c.by, at: c.at, why: c.why,
+              }))} /></>
+            )}
           </p>
         </div>
         <button type="button" onClick={onClose} className="btn-ghost">닫기</button>
@@ -288,7 +297,7 @@ export function BrSheetView({ sheet, onSheet, onClose, busy, ctx, endSlot, readO
             체크되고, 다시 누르면 지워집니다. 기기번호 칸은 설비를,{' '}
             {sheet.appendix ? '부여로트번호 칸은 로트 번호를 적고 재고에서 빼지 않습니다.'
               : '부여로트번호 칸은 자재 로트와 양을 고릅니다.'}{' '}
-            적은 값은 파란 글씨로 바로 저장됩니다.
+            적은 값은 파란 글씨로 바로 저장됩니다. 작업(검사)자 · 일자 칸도 눌러 고칠 수 있습니다.
           </p>
         )}
         {sheet.appendix && !ro && (
@@ -318,7 +327,10 @@ export function BrSheetView({ sheet, onSheet, onClose, busy, ctx, endSlot, readO
         )}
       </div>
 
-      {live && !ro && (live.k === 'equip' ? (
+      {live && !ro && (live.sg ? (
+        <SignEditor key={live.id} cell={live} sheet={sheet} busy={saving || busy} error={err}
+                    onSave={save} onCancel={() => setCell(null)} />
+      ) : live.k === 'equip' ? (
         <EquipPicker key={live.id} cell={live} refs={sheet.equipRefs} ctx={ctx}
                      busy={saving || busy} error={err}
                      onSave={(refs) => saveEquip(refs, true)} onClose={() => setCell(null)} />
@@ -746,6 +758,86 @@ function FieldEditor({ cell, workDate, busy, error, onSave, onCancel }: {
           <button type="button" disabled={busy} onClick={() => onSave('')} className="btn-danger">비우기</button>
         )}
         <button type="button" onClick={onCancel} className="btn-ghost flex-1">닫기</button>
+      </div>
+    </section>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   서명 칸 고치기 (0140 · 사용자 2026-11-20 «이부분도 수정 가능하도록 열어주세요. 대신
+   다른 계정이 수정하거나, 날짜가 다른 경우에는 사유를 적도록»)
+
+   기록한 작업자가 아닌 계정이 고치거나, 일자가 작업일과 다르면 사유를 받는다. 같은
+   판정을 DB 가 한 번 더 한다 (br_entry_who_sign). 현장에는 키보드가 없어 자주 쓰는
+   사유는 눌러서 고른다.
+--------------------------------------------------------------------------- */
+const SIGN_WHY = ['종이 기록서에 맞춤', '다른 작업자가 한 공정', '입력 착오 정정'];
+
+function SignEditor({ cell, sheet, busy, error, onSave, onCancel }: {
+  cell: FormCell; sheet: BrSheet; busy: boolean; error: string | null;
+  onSave: (v: string, why?: string) => void; onCancel: () => void;
+}) {
+  const isDate = cell.sg === 'date';
+  const [val, setVal] = useState(cell.v ?? '');
+  const [why, setWhy] = useState('');
+  const changed = val !== (cell.v ?? '');
+  const needWhy = !sheet.mine || (isDate && val !== sheet.workDate);
+  const ready = !!val && changed && (!needWhy || why.trim().length > 0);
+  const overridden = (cell.v ?? '') !== (cell.sv ?? '');
+
+  return (
+    <section className="max-h-[60vh] overflow-auto border-t-2 border-brand bg-surface px-4 py-4 shadow-lg">
+      <p className="text-sm text-muted">고칠 서명 칸</p>
+      <p className="text-base font-semibold text-ink">{cell.lb ?? '서명'}</p>
+      <p className="mt-1 text-sm text-muted">
+        처음 값 <span className="tnum">{cell.sv}</span>
+        {overridden && <> · 지금 <b className="tnum text-ink">{cell.v}</b></>}
+      </p>
+
+      {isDate ? (
+        <div className="mt-3 flex flex-wrap items-end gap-2">
+          <input type="date" value={val} max={ymd()} onChange={(ev) => setVal(ev.target.value)}
+                 className="input w-44 tnum" />
+          <button type="button" disabled={busy} onClick={() => setVal(sheet.workDate)}
+                  data-on={val === sheet.workDate} className="tile">
+            작업일 <span className="tnum">{sheet.workDate}</span>
+          </button>
+        </div>
+      ) : (
+        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+          {sheet.people.map((n) => (
+            <button key={n} type="button" disabled={busy} onClick={() => setVal(n)}
+                    data-on={val === n} className="tile justify-start">{n}</button>
+          ))}
+        </div>
+      )}
+
+      {needWhy && changed && (
+        <div className="mt-3">
+          <p className="text-sm font-semibold text-warn">
+            {!sheet.mine ? '기록한 작업자가 아닌 계정이 고칩니다.' : `작업일(${sheet.workDate})과 다른 날입니다.`}{' '}
+            사유를 적으십시오.
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {SIGN_WHY.map((w) => (
+              <button key={w} type="button" disabled={busy} onClick={() => setWhy(w)}
+                      data-on={why === w} className="tile">{w}</button>
+            ))}
+          </div>
+          <textarea value={why} onChange={(ev) => setWhy(ev.target.value)} rows={2} placeholder="사유"
+                    className="input mt-2 min-h-20 w-full py-2" />
+        </div>
+      )}
+
+      {error && <p className="mt-3 text-sm font-semibold text-danger">{error}</p>}
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        {overridden && (
+          <button type="button" disabled={busy} onClick={() => onSave('')} className="btn-ghost">처음 값으로</button>
+        )}
+        <button type="button" onClick={onCancel} className="btn-ghost">닫기</button>
+        <button type="button" disabled={busy || !ready} onClick={() => onSave(val, why.trim())}
+                className="btn-primary flex-1">저장</button>
       </div>
     </section>
   );

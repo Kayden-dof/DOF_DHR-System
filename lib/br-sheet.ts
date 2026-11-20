@@ -18,7 +18,7 @@
    부여로트번호 칸은 투입이 아니라 적는 칸이다 (lib/br-form.ts FieldKind lotno).
 --------------------------------------------------------------------------- */
 import type { Db } from './db';
-import { fillForm, fieldsOf, type BrForm, type Entry, type FillData, type FormPage } from './br-form';
+import { fillForm, fieldsOf, type BrForm, type Entry, type FillData, type FormPage, type SignChange } from './br-form';
 
 /** 한 공정의 양식 하나 - 고르는 단추 · 빈 칸 수에 쓴다 */
 export interface BrFormTab {
@@ -61,6 +61,12 @@ export interface BrSheet {
   forms: BrFormTab[];
   /** 빈 칸 수 - 본 기록서와 적기 시작한 별첨을 합친다 */
   empty: number;
+  /** 지금 보이는 양식의 서명 칸을 고친 내역 (0140). 화면은 «수정 사항» 안내로 접는다 */
+  changes: SignChange[];
+  /** 작업(검사)자 칸에서 고를 이름 - 역할이 있는 사용 중 계정 (0140) */
+  people: string[];
+  /** 보고 있는 사람이 이 기록의 작업자인가. 아니면 서명을 고칠 때 사유를 받는다 (0140) */
+  mine: boolean;
 }
 
 interface FormRow { id: string; doc_no: string; title: string | null; form: BrForm }
@@ -116,6 +122,7 @@ export async function brSheet(db: Db, recordId: string, docId?: string | null): 
     product_code: string | null; batch_no: string; sheet_count: number; load_unit: string | null;
     raw_lot_no: string; raw_item_code: string; worker_name: string;
     product_lot_no: string | null; product_item_code: string | null; locked: boolean;
+    mine: boolean;
   }>(
     `select pr.id, pr.work_date::text as work_date, pr.day_no, pr.equipment_id,
             pr.extra_equipment_ids, pr.equipment_ref, pr.extra_equipment_refs,
@@ -123,7 +130,8 @@ export async function brSheet(db: Db, recordId: string, docId?: string | null): 
             wo.wo_no, wo.batch_no, wo.sheet_count, dm.load_unit,
             ml.lot_no as raw_lot_no, ri.code as raw_item_code, u.full_name as worker_name,
             pl.lot_no as product_lot_no, pi.code as product_item_code,
-            is_locked(pr.work_order_id, pr.day_no, pr.worker_id) as locked
+            is_locked(pr.work_order_id, pr.day_no, pr.worker_id) as locked,
+            pr.worker_id = current_user_id() as mine
        from process_record pr
        join dmr_operation o on o.id = pr.operation_id
        join work_order wo on wo.id = pr.work_order_id
@@ -166,6 +174,7 @@ export async function brSheet(db: Db, recordId: string, docId?: string | null): 
 
   /* 양식마다 채워 빈 칸을 센다. 지금 보이는 양식의 채운 모양은 그대로 쓴다 */
   let shown: FormPage[] = [];
+  let changes: SignChange[] = [];
   let opt = { total: 0, done: 0 };
   const forms: BrFormTab[] = docs.map((doc, i) => {
     const entries = byDoc.get(doc.id) ?? {};
@@ -174,6 +183,7 @@ export async function brSheet(db: Db, recordId: string, docId?: string | null): 
     const need = all.filter((c) => !c.op);
     if (i === at) {
       shown = filled.pages;
+      changes = filled.changes;
       const o = all.filter((c) => c.op);
       opt = { total: o.length, done: o.filter((c) => c.v).length };
     }
@@ -185,6 +195,10 @@ export async function brSheet(db: Db, recordId: string, docId?: string | null): 
   });
   const doc = docs[at];
   const cur = forms[at];
+  const people = (await db.rows<{ full_name: string }>(
+    `select u.full_name from app_user u
+      where u.is_active and exists (select 1 from user_role r where r.user_id = u.id)
+      order by u.full_name`)).map((x) => x.full_name);
   return {
     recordId, docId: doc.id, docNo: doc.doc_no, size: doc.form.page, pages: shown,
     total: cur.total, done: cur.done, optTotal: opt.total, optDone: opt.done,
@@ -192,20 +206,21 @@ export async function brSheet(db: Db, recordId: string, docId?: string | null): 
     title: `${r.op_name} · ${doc.doc_no}`,
     equipRefs: [r.equipment_ref, ...(r.extra_equipment_refs ?? [])].filter(Boolean) as string[],
     appendix: at > 0, forms, empty: emptyOfForms(forms),
+    changes, people: [...new Set(people)], mine: r.mine === true,
   };
 }
 
 /** 그 기록에 적힌 칸을 양식별로. 빈 값(비운 칸)은 뺀다 */
 async function entriesByDoc(db: Db, recordId: string): Promise<Map<string, Record<string, Entry>>> {
-  const rows = await db.rows<{ doc_id: string; field: string; value: string; by: string; at: string }>(
-    `select e.doc_id, e.field, e.value, u.full_name as by,
+  const rows = await db.rows<{ doc_id: string; field: string; value: string; by: string; at: string; why: string | null }>(
+    `select e.doc_id, e.field, e.value, u.full_name as by, e.why,
             to_char(timezone('Asia/Seoul', e.entered_at), 'YYYY-MM-DD') as at
        from br_entry e join app_user u on u.id = e.entered_by
       where e.process_record_id = $1 and e.value <> ''`, [recordId]);
   const out = new Map<string, Record<string, Entry>>();
   for (const x of rows) {
     const m = out.get(x.doc_id) ?? {};
-    m[x.field] = { value: x.value, by: x.by, at: x.at };
+    m[x.field] = { value: x.value, by: x.by, at: x.at, why: x.why };
     out.set(x.doc_id, m);
   }
   return out;

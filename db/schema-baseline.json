@@ -95,6 +95,7 @@
     "trg_batch_plan_wo",
     "trg_block_delete",
     "trg_block_update",
+    "trg_br_entry_sign",
     "trg_br_entry_who",
     "trg_counter_forward_only",
     "trg_day_lock_open",
@@ -149,6 +150,7 @@
     "trg_wo_plan_fin",
     "trg_wo_root_immutable",
     "trg_wo_sheet_range",
+    "trg_work_request_who",
     "user_unused",
     "work_order_warnings",
     "worker_qualified"
@@ -208,6 +210,7 @@
     "work_calendar",
     "work_order",
     "work_order_plan",
+    "work_request",
     "worker_qualification"
   ],
   "trigger": [
@@ -231,6 +234,7 @@
     "br_entry.br_entry_no_truncate",
     "br_entry.br_entry_s04",
     "br_entry.br_entry_who",
+    "br_entry.br_entry_who_sign",
     "day_lock.day_lock_audit",
     "day_lock.day_lock_no_truncate",
     "day_lock.day_lock_open",
@@ -381,6 +385,10 @@
     "work_order_plan.work_order_plan_audit",
     "work_order_plan.work_order_plan_fin",
     "work_order_plan.work_order_plan_no_truncate",
+    "work_request.work_request_audit",
+    "work_request.work_request_no_delete",
+    "work_request.work_request_no_truncate",
+    "work_request.work_request_who",
     "worker_qualification.worker_qualification_audit",
     "worker_qualification.worker_qualification_no_truncate"
   ],

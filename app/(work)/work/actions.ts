@@ -351,13 +351,20 @@ export async function loadBrSheet(
   }
 }
 
+/*
+ * why: 서명 칸(작업(검사)자 · 일자)을 고칠 때의 사유 (0140 · 사용자 2026-11-20). 기록한
+ * 작업자가 아닌 계정이 고치거나 일자가 작업일과 다르면 DB 가 사유를 요구한다.
+ * 그 칸이 서명 칸인지는 화면이 보낸 것을 믿지 않고 여기서 양식을 채워 가린다.
+ */
 export async function saveBrEntry(
-  recordId: string, docId: string, field: string, value: string,
+  recordId: string, docId: string, field: string, value: string, why?: string,
 ): Promise<BrSheet | { error: string }> {
   try {
     const me = await worker();
     if (!/^p\d+t\d+r\d+c\d+$/.test(field)) return { error: '칸 자리가 올바르지 않습니다' };
     const v = String(value ?? '').slice(0, 2000);
+    const reason = String(why ?? '').trim().slice(0, 500);
+    let signKind: 'worker' | 'date' | null = null;
     const sheet = await withActor(me.id, async (db) => {
       /*
        * 그 기록 공정의 현행 양식에만 적는다. 다른 공정 · 지난 판 양식의 칸이 이 기록에
@@ -372,12 +379,20 @@ export async function saveBrEntry(
                          where pr.id = $1 and d.id = $2 and d.kind = 'BR' and d.is_current
                            and d.form is not null)`, [recordId, docId]);
       if (!ok) throw new Error('이 공정의 제조기록서 양식이 아닙니다');
+      /* 서명 칸인가 (0140). 지금 양식을 채워 그 자리의 칸을 본다 */
+      const before = await brSheet(db, recordId, docId);
+      for (const p of before?.pages ?? []) for (const t of p.tables) for (const r of t.rows)
+        for (const c of r.cells) if (c.id === field && c.sg) signKind = c.sg;
+      /* 감사추적의 사유 칸에도 남긴다. 적기 전에 세워야 그 줄에 붙는다 */
+      if (signKind && reason) {
+        await db.rows(`select set_config('app.change_reason', $1, true)`, [`서명 고침 · ${reason}`]);
+      }
       await db.rows(
-        `insert into br_entry (process_record_id, doc_id, field, value, entered_by)
-         values ($1, $2, $3, $4, $5)
+        `insert into br_entry (process_record_id, doc_id, field, value, entered_by, sign, why)
+         values ($1, $2, $3, $4, $5, $6, $7)
          on conflict (process_record_id, doc_id, field)
-           do update set value = excluded.value`,
-        [recordId, docId, field, v, me.id]);
+           do update set value = excluded.value, sign = excluded.sign, why = excluded.why`,
+        [recordId, docId, field, v, me.id, signKind, signKind ? reason || null : null]);
       return brSheet(db, recordId, docId);
     }, { reason: v ? '제조기록서 칸 적음' : '제조기록서 칸 비움' });
     return sheet ?? { error: '제조기록서를 다시 읽지 못했습니다' };
