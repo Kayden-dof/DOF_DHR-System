@@ -640,6 +640,17 @@ export function fillForm(form: BrForm, given: FillData): {
     if (x.section === 'head' && !headField) continue;
     let k: FieldKind | null = null;
     /* "합격 [ ] 불합격 [ ]" 처럼 이름 칸 옆의 빈칸은 표시(✓) 하나를 고르는 칸이다 */
+    /*
+     * 사용설비 표의 «확인결과» 빈 칸은 확인 표시(✓) 하나다 (사용자 2026-11-20 «체크가 되게 만들어줘야해.
+     * 문장을 쓸건 아니고 확인에 대한 부분이니까»). 전에는 빈 칸이라 수치 칸으로 잡혔다.
+     * 누르면 바로 ✓, 다시 누르면 지워진다 (보기가 하나인 고르기 칸).
+     */
+    if (!t && x.role === 'precheck_result') {
+      Object.assign(c, { id: x.id, k: 'choice' as const, o: ['✓'], lb: `${x.lb || '사용 전 기기 확인'} · 확인결과` });
+      const e = entries[x.id];
+      if (e && e.value !== '') { c.v = e.value; Object.assign(c, { t: '✓', f: true, a: 'c' as const }); enteredRow.set(x.row, e); }
+      continue;
+    }
     const MARK = /^(합격|불합격|적합|부적합|재포장)$/;
     if (!t && x.left && MARK.test(x.left)) {
       Object.assign(c, { id: x.id, k: 'choice' as const, o: ['✓'], lb: `${x.lb || '칸'} · ${x.left}` });
