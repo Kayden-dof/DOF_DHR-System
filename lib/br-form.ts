@@ -271,6 +271,8 @@ export function fillForm(form: BrForm, given: FillData): {
    * 나눔이 달라질 때 엉뚱한 칸을 짚는다.
    */
   let roles: { x0: number; x1: number; role: string }[] = [];
+  /* 머리 줄의 그 밖의 이름 칸 (두께(2-Point) · 가로 X 세로) - 그 아래 측정 칸의 이름 */
+  let colNames: { x0: number; x1: number; t: string }[] = [];
   let section: Section = null;
   /* 세부공정 칸은 여러 줄에 걸친다 - 그 아래 줄은 위 줄의 세부공정을 이어받는다 */
   let stepGroup = '';
@@ -388,10 +390,20 @@ export function fillForm(form: BrForm, given: FillData): {
         if (hits.length >= 2) {
           /* 새 머리 줄이 덮는 가로 자리만 바꾼다 (투입자재 줄은 사용설비 줄 아래 같은 표에 온다) */
           const fresh = hits.map((c) => ({ x0: x0Of(c), x1: x1Of(c), role: ROLE[norm(c.t)] }));
+          /*
+           * 같은 머리 줄의 다른 이름 칸(«두께(2-Point)» · «가로 X 세로» · «번호»)도 그 아래 열의 옛 뜻을
+           * 지운다. 전에는 위 표의 작업(검사)자 · 일자 자리를 물려받아 재단 치수 칸에 작업자 · 날짜가
+           * 찍혔다 (사용자 2026-11-20 «여기는 작업자 일자 쓰여질 필요 없다»).
+           */
+          const named = row.cells.filter((c) => norm(c.t) && !ROLE[norm(c.t)])
+            .map((c) => ({ x0: x0Of(c), x1: x1Of(c), t: flatLabel(c.t) }));
+          const over = (f: { x0: number; x1: number }, r: { x0: number; x1: number }) =>
+            f.x0 < r.x1 - 1.5 && r.x0 < f.x1 - 1.5;
           roles = [
-            ...roles.filter((r) => !fresh.some((f) => f.x0 < r.x1 - 1.5 && r.x0 < f.x1 - 1.5)),
+            ...roles.filter((r) => ![...fresh, ...named].some((f) => over(f, r))),
             ...fresh,
           ];
+          colNames = [...colNames.filter((r) => ![...fresh, ...named].some((f) => over(f, r))), ...named];
           const set = new Set(hits.map((c) => ROLE[norm(c.t)]));
           section = set.has('equip') ? 'equip'
             : set.has('matname') ? 'mat'
@@ -469,7 +481,8 @@ export function fillForm(form: BrForm, given: FillData): {
             ? [flat(first?.t) || '두께', gridCols.find((g) => x0Of(c) >= g.x0 - 1.5 && x0Of(c) < g.x1 - 1.5)?.t]
               .filter(Boolean).join(' · ')
             : role === 'calib' ? [flat(equipName), '검교정일자 확인'].filter(Boolean).join(' · ')
-            : section === 'cut' ? `${ri}줄 · ${CUT_COL[role ?? ''] ?? '측정'}`
+            : section === 'cut' ? `${ri}줄 · ${CUT_COL[role ?? '']
+              ?? colNames.find((h) => x0Of(c) >= h.x0 - 1.5 && x0Of(c) < h.x1 - 1.5)?.t ?? '측정'}`
             : section === 'head' && role && HEAD_COL[role]
               ? [flat(by('solname')?.t), HEAD_COL[role]].filter(Boolean).join(' · ')
             : label;
