@@ -465,9 +465,15 @@ export function PrintBundle({ back, label, right, children }: {
 --------------------------------------------------------------------------- */
 const FLOAT_NOTE =
   'absolute left-1/2 top-[575pt] z-10 -translate-x-1/2 whitespace-nowrap border border-black bg-white px-2 py-0.5 text-center text-[7pt] font-bold';
+/* 세로 양식 장(PaperSheet)은 꼬리글 아래 빈자리가 종이 맨 아래다 */
+const FLOAT_NOTE_PORTRAIT =
+  'absolute left-1/2 bottom-[1.5mm] z-10 -translate-x-1/2 whitespace-nowrap border border-black bg-white px-2 py-0.5 text-center text-[7pt] font-bold';
 
-function SheetMarks({ meta, floating = false }: { meta: PrintMeta; floating?: boolean }) {
+function SheetMarks({ meta, floating = false }: { meta: PrintMeta; floating?: boolean | 'portrait' }) {
   const reissued = meta.seq > 1;
+  const note = floating === 'portrait' ? FLOAT_NOTE_PORTRAIT
+    : floating ? FLOAT_NOTE
+    : 'mb-2 border border-black px-2 py-1 text-center text-[10px] font-bold';
   return (
     <>
         {/*
@@ -511,7 +517,7 @@ function SheetMarks({ meta, floating = false }: { meta: PrintMeta; floating?: bo
                 열람용 · 정본 아님
               </span>
             </div>
-            <p className={floating ? FLOAT_NOTE : 'mb-2 border border-black px-2 py-1 text-center text-[10px] font-bold'}>
+            <p className={note}>
               열람용입니다. 발행된 종이가 아니며 인쇄 대장에 남지 않았습니다.
               {meta.view.changed && ' 그 종이가 나간 뒤에 자료가 바뀌었습니다.'}
             </p>
@@ -540,7 +546,7 @@ function SheetMarks({ meta, floating = false }: { meta: PrintMeta; floating?: bo
                 미발행 · 정본 아님
               </span>
             </div>
-            <p className={floating ? FLOAT_NOTE : 'mb-2 border border-black px-2 py-1 text-center text-[10px] font-bold'}>
+            <p className={note}>
               아직 발행되지 않았습니다. 인쇄 대장에 남기려면 화면의 인쇄 단추를 누르세요.
             </p>
           </>
@@ -691,13 +697,20 @@ export function Sheet({
    Sheet 의 머리 · 꼬리를 씌우지 않는다. 시스템이 붙이는 것은 맨 위 한 줄(자료
    식별자 · 회차 · 바코드 · 쪽)과 재발행 · 미발행 표시뿐이다 - 가로 양식의
    FormSheet 와 같은 자리이고 같은 말이다.
+
+   양식은 스캔본의 자리 그대로 종이 가장자리부터 놓는다 (사용자 2026-11-20 «스캔본
+   디자인 확인해서 다시 똑같은 디자인으로»). 그래서 장에 여백이 없고(sheet--paper),
+   시스템 줄은 양식 위 빈자리에, 열람 · 미발행 알림은 꼬리글 아래 빈자리에 띄운다 -
+   양식의 표 자리를 밀어내지 않는다.
 --------------------------------------------------------------------------- */
-export function PaperSheet({ meta: given, page, caption, children }: {
+export function PaperSheet({ meta: given, page, caption, strip, children }: {
   meta: PrintMeta;
   /** 이 문서에서 몇 장째 */
   page: number;
   /** 묶음을 가리키는 말: 배치 · 지시서 */
   caption: React.ReactNode;
+  /** 시스템 줄의 좌우 끝 (mm, 종이 가장자리부터). 양식 표의 좌우 끝에 맞춘다 */
+  strip: { left: number; right: number };
   children: React.ReactNode;
 }) {
   const meta = useContext(MetaCtx) ?? given;
@@ -705,9 +718,9 @@ export function PaperSheet({ meta: given, page, caption, children }: {
   const short = meta.dataHash.slice(0, 12);
   const reissued = meta.seq > 1;
   return (
-    <div data-sheet={page} className="sheet relative">
-      <SheetMarks meta={meta} />
-      <div className="relative mb-3 flex items-center justify-between gap-3 text-[8px] leading-tight text-black">
+    <div data-sheet={page} className="sheet sheet--paper relative">
+      <SheetMarks meta={meta} floating="portrait" />
+      <div className="form-strip" style={{ left: `${strip.left}mm`, right: `${strip.right}mm`, top: '3.5mm' }}>
         <div className="min-w-0 truncate">
           <b>시스템 인쇄</b> · {caption} · 자료 식별자{' '}
           <b className="tracking-wide">{short}</b> · 회차 {meta.seq}

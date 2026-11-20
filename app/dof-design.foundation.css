@@ -2450,7 +2450,26 @@ html[data-theme='light'] .q-mark-on-dark { display: none; }
 .sheet--form .form-table td[data-field='cond'] { background: #fffdf5; box-shadow: inset 0 0 0 1px #fff; outline: 1px dashed #d6b54a; outline-offset: -3px; }
 .sheet--form .form-table td[data-active] { background: #e6eeff; box-shadow: inset 0 0 0 2px #1d4ed8; }
 .sheet--form .form-table td.sign-box { height: auto; }
-.sheet--form .form-strip {
+
+/* ---------------------------------------------------------------------------
+   회사 양식 장 - 세로 A4 (작업 지시서 첫 장 F705-01 · 사용자 2026-11-20)
+
+   «스캔본 디자인 확인해서 다시 똑같은 디자인으로». 양식의 칸 자리 · 너비 · 높이를
+   스캔본(원본 docx 와 같은 치수)에서 mm 로 옮겨 종이 가장자리부터 놓는다. 그래서
+   여백이 없다. 글꼴은 F706 과 같이 맑은 고딕 하나.
+
+   화면에서는 높이를 고정하지 않는다 - 칸이 길어져 넘치면 미리보기에서 장이
+   길어져 보여야 한다. 종이에서는 A4 한 쪽이다 (아래 @media print).
+--------------------------------------------------------------------------- */
+.sheet.sheet--paper {
+  width: 210mm;
+  min-height: 297mm;
+  padding: 0;
+  font-family: 'Malgun Gothic', '맑은 고딕', var(--font-sans);
+  color: #000;
+}
+.sheet--form .form-strip,
+.sheet--paper .form-strip {
   position: absolute;
   display: flex;
   align-items: center;
@@ -2771,6 +2790,16 @@ html[data-theme='light'] .q-mark-on-dark { display: none; }
     width: 297mm;
     height: 210mm;
     min-height: 210mm;
+    padding: 0;
+    overflow: hidden;
+  }
+  /* 세로 회사 양식 장 (F705-01) - 여백 없음, 양식의 좌표가 종이 가장자리부터다 */
+  @page paper { size: A4 portrait; margin: 0; }
+  .sheet.sheet--paper {
+    page: paper;
+    width: 210mm;
+    height: 297mm;
+    min-height: 297mm;
     padding: 0;
     overflow: hidden;
   }

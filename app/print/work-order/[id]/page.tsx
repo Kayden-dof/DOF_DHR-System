@@ -7,7 +7,7 @@ import Denied from '@/components/denied';
 import { chunkByWeight } from '@/lib/print-pages';
 import { isNoExpiry } from '@/lib/equipment-check';
 import PrintFrame, { Sheet, SignRow, PaperSheet } from '@/components/print-frame';
-import F705, { type WorkRequest } from './f705';
+import F705, { F705_EDGE, type WorkRequest } from './f705';
 
 export const dynamic = 'force-dynamic';
 
@@ -316,11 +316,9 @@ export default async function WorkOrderSheet({ params, searchParams }: {
       back={`/production/${id}`}
       raw
     >
-      <PaperSheet meta={meta} page={1} caption={caption}>
+      <PaperSheet meta={meta} page={1} caption={caption} strip={F705_EDGE}>
         <F705
           req={req ?? null}
-          logoUrl={meta.logoUrl}
-          companyName={meta.companyName}
           facts={{
             woNo: wo.wo_no,
             batchNo: wo.batch_no,
