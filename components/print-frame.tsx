@@ -912,7 +912,9 @@ export function FormBody({ page, size, formPage, onCell, active }: {
                 {r.cells.map((c) => (
                   <td key={c.c} colSpan={c.cs} rowSpan={c.rs}
                       data-fill={c.f || c.tk?.length ? '' : undefined} data-note={c.n ? '' : undefined}
-                      data-field={onCell && c.id ? (c.v ? 'done' : c.op ? 'cond' : 'open') : undefined}
+                      data-field={onCell && c.id
+                        /* 시스템 값이 있는 칸(sv)은 고칠 수 있을 뿐 빈 칸이 아니다 */
+                        ? (c.v || c.sv !== undefined ? 'done' : c.op ? 'cond' : 'open') : undefined}
                       data-active={onCell && c.id && c.id === active ? '' : undefined}
                       onClick={onCell && c.id ? () => onCell(c) : undefined}
                       style={{

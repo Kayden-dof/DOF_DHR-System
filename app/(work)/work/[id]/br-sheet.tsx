@@ -252,7 +252,8 @@ export function BrSheetView({ sheet, onSheet, onClose, busy, ctx, endSlot, readO
             {/* 고친 서명은 칸에 드러내지 않고 이 안내 하나로 접는다 (사용자 2026-11-20) */}
             {sheet.changes.length > 0 && (
               <>{' '}<ChangeNote className="align-middle" lines={sheet.changes.map((c) => ({
-                tag: '서명 고침', what: `${c.label} · ${c.kind === 'worker' ? '작업(검사)자' : '일자'}`,
+                tag: c.kind === 'result' ? '결과 고침' : '서명 고침',
+                what: c.kind === 'result' ? c.label : `${c.label} · ${c.kind === 'worker' ? '작업(검사)자' : '일자'}`,
                 from: c.from, to: c.to, by: c.by, at: c.at, why: c.why,
               }))} /></>
             )}
@@ -653,7 +654,10 @@ function FieldEditor({ cell, workDate, busy, error, onSave, onCancel }: {
 }) {
   const [pick, setPick] = useState(() => (cell.v ?? '').split('|')[0] ?? '');
   const [extra, setExtra] = useState(() => (cell.v ?? '').split('|')[1] ?? '');
-  const [num, setNum] = useState(() => (cell.k === 'number' ? cell.v ?? '' : ''));
+  /* 시스템이 셈한 결과 칸 (sv). 고친 값이 없으면 셈한 수에서 시작한다 */
+  const sysNum = cell.sv !== undefined && cell.u && cell.sv.endsWith(cell.u)
+    ? cell.sv.slice(0, -cell.u.length).trim() : (cell.sv ?? '');
+  const [num, setNum] = useState(() => (cell.k === 'number' ? cell.v ?? sysNum : ''));
   const [neg, setNeg] = useState(() => (cell.v ?? '').startsWith('-'));
   const [text, setText] = useState(() => (cell.k === 'text' ? cell.v ?? '' : ''));
   const [day, setDay] = useState(() => (cell.k === 'date' ? cell.v ?? '' : ''));
@@ -673,8 +677,14 @@ function FieldEditor({ cell, workDate, busy, error, onSave, onCancel }: {
 
   return (
     <section className="max-h-[55vh] overflow-auto border-t-2 border-brand bg-surface px-4 py-4 shadow-lg">
-      <p className="text-sm text-muted">적을 칸</p>
+      <p className="text-sm text-muted">{cell.sv !== undefined ? '고칠 칸' : '적을 칸'}</p>
       <p className="text-base font-semibold text-ink">{cell.lb ?? '칸'}</p>
+      {cell.sv !== undefined && (
+        <p className="mt-1 text-sm text-muted">
+          처음 값 <span className="tnum">{cell.sv}</span>
+          {cell.v && <> · 지금 <b className="tnum text-ink">{cell.v}{cell.u ? ` ${cell.u}` : ''}</b></>}
+        </p>
+      )}
 
       {cell.k === 'choice' && (
         <div className="mt-3 space-y-3">
@@ -754,9 +764,12 @@ function FieldEditor({ cell, workDate, busy, error, onSave, onCancel }: {
       {error && <p className="mt-3 text-sm font-semibold text-danger">{error}</p>}
 
       <div className="mt-4 flex gap-2">
-        {cell.v && (
+        {cell.v && (cell.sv !== undefined ? (
+          /* 덮어쓴 값을 걷으면 투입 기록으로 셈한 값으로 돌아간다 */
+          <button type="button" disabled={busy} onClick={() => onSave('')} className="btn-ghost">처음 값으로</button>
+        ) : (
           <button type="button" disabled={busy} onClick={() => onSave('')} className="btn-danger">비우기</button>
-        )}
+        ))}
         <button type="button" onClick={onCancel} className="btn-ghost flex-1">닫기</button>
       </div>
     </section>

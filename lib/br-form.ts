@@ -60,14 +60,19 @@ export interface FormCell {
    * 적을 칸이 아니라 고칠 수 있는 칸이라 빈 칸 수에 세지 않는다 (fieldsOf).
    */
   sg?: 'worker' | 'date';
-  /** 서명 칸에 시스템이 채우는 값 (적은 사람 · 날). 고친 값이 있으면 v 와 다르다 */
+  /**
+   * 시스템이 채우는 값. 서명 칸(적은 사람 · 날)과, 시스템이 셈한 결과 칸(원재료 장입 수 ·
+   * 투입량 · 사용자 2026-11-20). 사람이 덮어쓸 수 있는 칸이라는 표시이기도 하다 -
+   * 고친 값이 있으면 v 에 있고, 비우면 이 값으로 돌아간다. 적을 칸 수에 세지 않는다.
+   */
   sv?: string;
 }
 
 /** 서명 칸을 고친 내역 하나 (0140). 화면의 «수정 사항» 안내가 띄운다 */
 export interface SignChange {
   label: string;
-  kind: 'worker' | 'date';
+  /** 서명 칸(작업(검사)자 · 일자) 또는 시스템이 셈한 결과 칸 */
+  kind: 'worker' | 'date' | 'result';
   from: string;
   to: string;
   by: string;
@@ -162,6 +167,22 @@ const fmtQty = (q: string) => {
   return Number.isFinite(n) ? String(n) : q;
 };
 
+/*
+ * 줄의 기준 칸에서 단위를 읽는다. «5.6 L» · «1~30 장» · «292 ~293 g» · «2~8 ℃» 처럼
+ * 수 뒤에 단위 하나로 끝나는 글만 본다. 단위가 서로 다른 칸이 둘 이상이면 모른다고 한다.
+ */
+const UNIT_TAIL = /\d\s*(mTorr|Torr|mL|ml|L|kg|mg|g|℃|°C|%|장|개|EA|ea|min|분|시간|rpm|RPM|mm|cm|MPa|kPa|bar|psi|Pa)\s*$/;
+function rowUnit(texts: string[]): string | null {
+  const units = new Set<string>();
+  for (const raw of texts) {
+    for (const line of raw.split('\n')) {
+      const m = line.trim().match(UNIT_TAIL);
+      if (m) units.add(m[1]);
+    }
+  }
+  return units.size === 1 ? [...units][0] : null;
+}
+
 /** 양식 한 벌을 채운 사본. 원본은 건드리지 않는다 */
 export function fillForm(form: BrForm, d: FillData): {
   pages: FormPage[]; placed: Set<number>; lost: string[]; changes: SignChange[];
@@ -173,7 +194,7 @@ export function fillForm(form: BrForm, d: FillData): {
   /* 투입한 자재가 양식의 어느 자재 줄에 붙었는가 (그 줄의 자재명) */
   const matOf = new Map<number, string>();
   /* 세부공정 줄 - 투입량은 부여로트번호가 아니라 여기 결과 칸에 적는다 */
-  const stepRows: { item: string; result: FormCell; sz: number }[] = [];
+  const stepRows: { item: string; result: FormCell; sz: number; id: string }[] = [];
 
   /*
    * 열이 무엇인지는 머리 줄의 **가로 자리(pt)**로 기억한다. 다음 쪽의 표가 머리
@@ -187,13 +208,43 @@ export function fillForm(form: BrForm, d: FillData): {
   let stepGroup = '';
   let equipName = '';
   /* 사람이 적을 수 있는 칸 후보와 서명(작업자 · 일자) 칸. 칸 판정은 시스템 채움이 끝난 뒤에 한다 */
-  const cand: { cell: FormCell; id: string; role?: string; section: Section; lb: string; row: string; left?: string }[] = [];
+  const cand: {
+    cell: FormCell; id: string; role?: string; section: Section; lb: string; row: string; left?: string;
+    /** 같은 줄 칸들의 인쇄 글 (빈 수치 칸의 단위를 기준 칸에서 읽는다) */
+    sibs: string[];
+  }[] = [];
   const signs: { rows: string[]; cell: FormCell; role: 'worker' | 'date'; sz: number; id: string; lb: string }[] = [];
   /* 자재를 채운 줄 (그 줄의 작업자 칸은 투입한 작업자로) */
   const matRow = new Set<string>();
   const entries = d.entries ?? {};
   /* 사람이 적은 칸이 있는 줄 → 그 줄의 서명 칸에 들어갈 적은 사람 · 날짜 */
   const enteredRow = new Map<string, Entry>();
+  /* 시스템 값을 사람이 고친 칸 (서명 · 결과). 칸에는 고친 값만 보이고 내역은 여기로 */
+  const changes: SignChange[] = [];
+  const flatLabel = (s?: string) => (s ?? '').replace(/\s*\n\s*/g, ' ').trim();
+
+  /*
+   * 시스템이 셈한 결과 칸 - 원재료 장입 수, 투입한 자재의 양 (사용자 2026-11-20 «내가 수정해서
+   * 넣었더니 계속 자동으로 셈이 되는데.. 이것도 수정 가능하도록»). 같은 자재를 두 번 넣으면
+   * 둘을 더해 적는다 (B261104-01 염화나트륨 292.2 + 293 = 585.2 g). 종이와 다르면 사람이
+   * 덮어쓴다. 덮어쓴 값은 그 칸 자리로 br_entry 에 있고, 비우면 시스템 셈으로 돌아간다.
+   * 투입 기록(재고 차감) 자체는 바뀌지 않는다 - 그것은 투입 수량 정정(0041)이 고친다.
+   */
+  const sysResult = (cell: FormCell, id: string, qty: string, uom: string, sz: number, lb: string) => {
+    const sys = `${qty} ${uom}`.trim();
+    const own = entries[id];
+    const val = own && own.value !== '' ? own.value : '';
+    Object.assign(cell, {
+      t: val ? `${val} ${uom}`.trim() : sys, f: true, a: 'c' as const, b: false, s: sz,
+      id, k: 'number' as const, u: uom || undefined, sv: sys, lb, v: val || undefined,
+    });
+    if (own && val && val !== qty) {
+      changes.push({
+        label: lb, kind: 'result', from: sys, to: `${val} ${uom}`.trim(),
+        by: own.by, at: own.at, why: own.why ?? null,
+      });
+    }
+  };
 
   pages.forEach((page, pi) => {
     page.tables.forEach((tb, ti) => {
@@ -270,7 +321,10 @@ export function fillForm(form: BrForm, d: FillData): {
             : section === 'head' && role && HEAD_COL[role]
               ? [flat(by('solname')?.t), HEAD_COL[role]].filter(Boolean).join(' · ')
             : label;
-          cand.push({ cell: c, id: `p${pi}t${ti}r${ri}c${c.c}`, role, section, lb, row: rowKey(ri), left });
+          cand.push({
+            cell: c, id: `p${pi}t${ti}r${ri}c${c.c}`, role, section, lb, row: rowKey(ri), left,
+            sibs: row.cells.filter((o) => o !== c).map((o) => o.t ?? ''),
+          });
         }
 
         if (section === 'head') {
@@ -404,10 +458,12 @@ export function fillForm(form: BrForm, d: FillData): {
           const rawRow = !!rawName && !!item && (
             norm(item.t) === norm(rawName)
             || (norm(item.t) === '수량' && norm(stepGroup).includes(norm(rawName))));
+          const resultId = result ? `p${pi}t${ti}r${ri}c${result.c}` : '';
           if (item && result && rawRow && !norm(result.t)) {
-            Object.assign(result, { t: `${d.sheets} ${d.loadUnit ?? '장'}`, f: true, a: 'c' as const, s: sz });
+            sysResult(result, resultId, String(d.sheets), d.loadUnit ?? '장', sz,
+              `${flatLabel(norm(item.t) === '수량' ? stepGroup : item.t)} · 결과`);
           } else if (item?.t && result) {
-            stepRows.push({ item: item.t, result, sz });
+            stepRows.push({ item: item.t, result, sz, id: resultId });
           }
         }
       });
@@ -437,13 +493,10 @@ export function fillForm(form: BrForm, d: FillData): {
     const rows = stepRows.filter((r) => sameThing(r.item, m.name));
     let done = false;
     if (m.ok && rows.length === 1) {
-      const { result, sz } = rows[0];
-      if (!norm(result.t)) {
-        Object.assign(result, { t: amount, f: true, a: 'c' as const, b: false, s: sz });
-        done = true;
-      } else if (key(result.t) === key(m.uom)) {
-        /* 단위만 인쇄된 칸 ("g") - 그 단위 앞에 양을 적는다 */
-        Object.assign(result, { t: amount, f: true, a: 'c' as const, b: false, s: sz });
+      const { result, sz, id } = rows[0];
+      /* 빈 칸이거나 단위만 인쇄된 칸 ("g") - 양을 적는다. 사람이 덮어쓸 수 있다 */
+      if (!norm(result.t) || key(result.t) === key(m.uom)) {
+        sysResult(result, id, String(+m.qty.toFixed(6)), m.uom, sz, `${flatLabel(m.name)} · 결과`);
         done = true;
       } else if (result.t?.includes('□')) {
         const opts = result.t.split('\n');
@@ -511,6 +564,15 @@ export function fillForm(form: BrForm, d: FillData): {
       c.o = t.split('□').slice(1).map((s) => s.replace(/\s+/g, ' ').trim()).filter(Boolean);
     }
     if (k === 'number' && t) c.u = t;
+    /*
+     * 단위가 인쇄되지 않은 빈 수치 칸은 같은 줄 기준 칸의 단위를 쓴다 (사용자 2026-11-20
+     * «여긴 왜 입력칸에 단위 안붙지??» - 정제수 기준 «5.6 L» 옆 칸에 «5.6» 만 찍혔다).
+     * 기준 칸이 단위 하나로 끝날 때만 붙인다. 모르면 붙이지 않는다.
+     */
+    if (k === 'number' && !t) {
+      const u = rowUnit(x.sibs);
+      if (u) c.u = u;
+    }
     if (k === 'time' && t.includes('/')) c.dt = true;
     if (k === 'text' && t) c.u = t;      // 앞머리 (GM · PD)
     const e = entries[x.id];
@@ -528,7 +590,6 @@ export function fillForm(form: BrForm, d: FillData): {
    * 시스템 값을 덮는다. 고친 내역은 칸에 드러내지 않고 changes 로 넘긴다 - 화면이
    * «수정 사항» 안내 하나로 접어 둔다 (사용자 «이렇게까지 대놓고 표기» 하지 말 것).
    */
-  const changes: SignChange[] = [];
   for (const s of signs) {
     const e = s.rows.map((r) => enteredRow.get(r)).filter(Boolean)
       .sort((a, b) => (a!.at < b!.at ? 1 : -1))[0];
@@ -642,7 +703,9 @@ export function fixedEquipCodes(form: BrForm): string[] {
 
 /** 사람이 적을 칸 목록 (화면이 몇 칸 적었는지 센다). 서명 칸은 적을 칸이 아니다 (0140) */
 export function fieldsOf(pages: FormPage[]) {
-  return pages.flatMap((p) => p.tables.flatMap((t) => t.rows.flatMap((r) => r.cells.filter((c) => c.id && !c.sg))));
+  /* 시스템 값을 덮어쓸 수 있는 칸(sv · 서명 · 결과)은 적을 칸이 아니다 */
+  return pages.flatMap((p) => p.tables.flatMap((t) => t.rows.flatMap((r) =>
+    r.cells.filter((c) => c.id && !c.sg && c.sv === undefined))));
 }
 
 /** 머리 · 꼬리 글 가운데 쪽 번호 ("1 / 2", "1 / __") */
