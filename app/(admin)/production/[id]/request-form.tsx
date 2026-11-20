@@ -126,17 +126,21 @@ export default function WorkRequestForm({ woId, woNo, value, productName }: {
                       className="input min-h-20 w-full py-2" />
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div>
-              <label className="label" htmlFor={`${uid}-due`}>3 완료예정일</label>
-              <input id={`${uid}-due`} name="complete_by" type="date" defaultValue={value?.complete_by ?? ''}
-                     className="input tnum" />
-            </div>
-            <div className="sm:col-span-2">
-              <label className="label" htmlFor={`${uid}-ins`}>3 생산팀 검토 &amp; 지시사항</label>
-              <textarea id={`${uid}-ins`} name="instruction" defaultValue={value?.instruction ?? ''} rows={2}
-                        className="input min-h-16 w-full py-2" />
-            </div>
+          {/*
+            * 3 은 종이 칸 차례대로 위아래로 놓는다 - 완료예정일, 그 아래 지시사항.
+            * 날짜 칸과 여러 줄 칸을 한 줄에 나란히 두면 높이가 어긋나 보였다
+            * (사용자 2026-11-20 «사이즈 좀 다듬어줘봐라»). 날짜 칸은 날짜만큼의 폭,
+            * 지시사항은 2 특이사항과 같은 크기.
+            */}
+          <div>
+            <label className="label" htmlFor={`${uid}-due`}>3 완료예정일</label>
+            <input id={`${uid}-due`} name="complete_by" type="date" defaultValue={value?.complete_by ?? ''}
+                   className="input tnum w-full sm:w-48" />
+          </div>
+          <div>
+            <label className="label" htmlFor={`${uid}-ins`}>3 생산팀 검토 &amp; 지시사항</label>
+            <textarea id={`${uid}-ins`} name="instruction" defaultValue={value?.instruction ?? ''} rows={3}
+                      className="input min-h-20 w-full py-2" />
           </div>
 
           <Msg state={state} />

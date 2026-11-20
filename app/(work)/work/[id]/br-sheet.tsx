@@ -798,8 +798,13 @@ function SignEditor({ cell, sheet, busy, error, onSave, onCancel }: {
         <div className="mt-3 flex flex-wrap items-end gap-2">
           <input type="date" value={val} max={ymd()} onChange={(ev) => setVal(ev.target.value)}
                  className="input w-44 tnum" />
+          {/*
+            * .tile 은 세로로 쌓는 판이라 «작업일» 과 날짜가 두 줄로 갈라져 옆 날짜 칸보다
+            * 높아졌다 (사용자 2026-11-20 «이런 부분도 디자인 좀 맞추고»). 한 줄로 눕혀
+            * 날짜 칸 · 사유 단추와 같은 높이로 둔다.
+            */}
           <button type="button" disabled={busy} onClick={() => setVal(sheet.workDate)}
-                  data-on={val === sheet.workDate} className="tile">
+                  data-on={val === sheet.workDate} className="tile flex-row items-center gap-1.5 whitespace-nowrap">
             작업일 <span className="tnum">{sheet.workDate}</span>
           </button>
         </div>
