@@ -399,7 +399,8 @@ export async function saveBrEntry(
       /* 서명 칸인가 (0140). 지금 양식을 채워 그 자리의 칸을 본다 */
       const before = await brSheet(db, recordId, docId);
       for (const p of before?.pages ?? []) for (const t of p.tables) for (const r of t.rows)
-        for (const c of r.cells) if (c.id === field && c.sg) signKind = c.sg;
+        /* 확인자 · 확인일자(ck)는 서명 고침이 아니다 - 확인하는 사람이 적는 칸이라 사유를 묻지 않는다 */
+        for (const c of r.cells) if (c.id === field && c.sg && !c.ck) signKind = c.sg;
       /* 감사추적의 사유 칸에도 남긴다. 적기 전에 세워야 그 줄에 붙는다 */
       if (signKind && reason) {
         await db.rows(`select set_config('app.change_reason', $1, true)`, [`서명 고침 · ${reason}`]);

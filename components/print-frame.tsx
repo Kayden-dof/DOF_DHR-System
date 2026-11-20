@@ -914,7 +914,9 @@ export function FormBody({ page, size, formPage, onCell, active }: {
                       data-fill={c.f || c.tk?.length ? '' : undefined} data-note={c.n ? '' : undefined}
                       data-field={onCell && c.id
                         /* 시스템 값이 있는 칸(sv)은 고칠 수 있을 뿐 빈 칸이 아니다 */
-                        ? (c.v || c.sv !== undefined || c.off ? 'done' : c.op ? 'cond' : 'open') : undefined}
+                        /* 비어 있는 서명 · 확인자 칸은 해당할 때 적는 칸처럼 점선으로 */
+                        ? (c.v || (c.sv !== undefined && !(c.sg && !c.sv)) || c.off ? 'done'
+                          : c.op || c.sg ? 'cond' : 'open') : undefined}
                       data-active={onCell && c.id && c.id === active ? '' : undefined}
                       onClick={onCell && c.id ? () => onCell(c) : undefined}
                       style={{

@@ -44,7 +44,7 @@ export async function saveSolutionEntry(
       if (!before || before.docId !== docId) throw new Error('이 원액 로트의 제조기록서 양식이 아닙니다');
       let signKind: 'worker' | 'date' | null = null;
       for (const p of before.pages) for (const t of p.tables) for (const r of t.rows)
-        for (const c of r.cells) if (c.id === field && c.sg) signKind = c.sg;
+        for (const c of r.cells) if (c.id === field && c.sg && !c.ck) signKind = c.sg;
       if (signKind && reason) {
         await db.rows(`select set_config('app.change_reason', $1, true)`, [`서명 고침 · ${reason}`]);
       }

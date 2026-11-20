@@ -23,7 +23,7 @@
 
    판정하지 않는다 - 허용범위 밖이어도 적힌 대로 둔다 (§1).
 --------------------------------------------------------------------------- */
-import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import { FormBody } from '@/components/print-frame';
 import NumPad from '@/components/num-pad';
 import { optionBlank, type FormCell } from '@/lib/br-form';
@@ -679,6 +679,9 @@ function FieldEditor({ cell, workDate, busy, error, onSave, onCancel }: {
 }) {
   const [pick, setPick] = useState(() => (cell.v ?? '').split('|')[0] ?? '');
   const [extra, setExtra] = useState(() => (cell.v ?? '').split('|')[1] ?? '');
+  /* 빈자리가 둘 이상인 보기 - 칸마다 따로 적는다 (사용자 2026-11-20 «쓰는칸 나눠줘») */
+  const [fills, setFills] = useState<string[]>(() => (cell.v ?? '').split('|').slice(1));
+  const fillValue = () => [pick, ...fills.map((x) => x.trim())].join('|').replace(/\|+$/, '');
   /* 시스템이 셈한 결과 칸 (sv). 고친 값이 없으면 셈한 수에서 시작한다 */
   const sysNum = cell.sv !== undefined && cell.u && cell.sv.endsWith(cell.u)
     ? cell.sv.slice(0, -cell.u.length).trim() : (cell.sv ?? '');
@@ -729,6 +732,29 @@ function FieldEditor({ cell, workDate, busy, error, onSave, onCancel }: {
             <TimePair s={{ d: workDate, t: extra.split('~')[0] ?? '' }} e={{ d: workDate, t: extra.split('~')[1] ?? '' }}
                       dated={false}
                       onDone={(a, b) => onSave(`${pick}|${a.t}~${b.t}`)} busy={busy} />
+          )}
+          {blank === 'fill' && (
+            <div>
+              <div className="flex flex-wrap items-center gap-2 text-base text-ink">
+                {pick.split(/_{2,}/).map((part, i, all) => (
+                  <Fragment key={i}>
+                    {part.trim() && <span className="whitespace-nowrap">{part.trim()}</span>}
+                    {i < all.length - 1 && (
+                      <input value={fills[i] ?? ''} disabled={busy} aria-label={`빈칸 ${i + 1}`}
+                             onChange={(ev) => {
+                               /* 1*1 · 1x1 은 종이처럼 1×1 로 */
+                               const v = ev.target.value.replace(/\|/g, '').replace(/(\d)\s*[*xX]\s*(?=\d)/g, '$1×');
+                               setFills((f) => { const n = [...f]; n[i] = v; return n; });
+                             }}
+                             onKeyDown={(ev) => { if (ev.key === 'Enter' && !busy) onSave(fillValue()); }}
+                             className="input w-40 tnum" />
+                    )}
+                  </Fragment>
+                ))}
+              </div>
+              <button type="button" disabled={busy} onClick={() => onSave(fillValue())}
+                      className="btn-primary mt-3 w-full">저장</button>
+            </div>
           )}
           {blank === 'number' && (
             <div>
@@ -824,18 +850,23 @@ function SignEditor({ cell, sheet, busy, error, onSave, onCancel }: {
   const [val, setVal] = useState(cell.v ?? '');
   const [why, setWhy] = useState('');
   const changed = val !== (cell.v ?? '');
-  const needWhy = !sheet.mine || (isDate && val !== sheet.workDate);
+  /* 확인자 · 확인일자 칸은 확인하는 사람이 적는다 - 사유를 묻지 않는다 */
+  const needWhy = !cell.ck && (!sheet.mine || (isDate && val !== sheet.workDate));
   const ready = !!val && changed && (!needWhy || why.trim().length > 0);
   const overridden = (cell.v ?? '') !== (cell.sv ?? '');
 
   return (
     <section className="max-h-[60vh] overflow-auto border-t-2 border-brand bg-surface px-4 py-4 shadow-lg">
-      <p className="text-sm text-muted">고칠 서명 칸</p>
+      <p className="text-sm text-muted">{cell.ck ? '적을 확인 칸' : cell.sv ? '고칠 서명 칸' : '적을 서명 칸'}</p>
       <p className="text-base font-semibold text-ink">{cell.lb ?? '서명'}</p>
-      <p className="mt-1 text-sm text-muted">
-        처음 값 <span className="tnum">{cell.sv}</span>
-        {overridden && <> · 지금 <b className="tnum text-ink">{cell.v}</b></>}
-      </p>
+      {cell.sv ? (
+        <p className="mt-1 text-sm text-muted">
+          처음 값 <span className="tnum">{cell.sv}</span>
+          {overridden && <> · 지금 <b className="tnum text-ink">{cell.v}</b></>}
+        </p>
+      ) : cell.v ? (
+        <p className="mt-1 text-sm text-muted">지금 <b className="tnum text-ink">{cell.v}</b></p>
+      ) : null}
 
       {isDate ? (
         <div className="mt-3 flex flex-wrap items-end gap-2">
@@ -881,7 +912,9 @@ function SignEditor({ cell, sheet, busy, error, onSave, onCancel }: {
 
       <div className="mt-4 flex flex-wrap gap-2">
         {overridden && (
-          <button type="button" disabled={busy} onClick={() => onSave('')} className="btn-ghost">처음 값으로</button>
+          <button type="button" disabled={busy} onClick={() => onSave('')} className="btn-ghost">
+            {cell.sv ? '처음 값으로' : '지우기'}
+          </button>
         )}
         <button type="button" onClick={onCancel} className="btn-ghost">닫기</button>
         <button type="button" disabled={busy || !ready} onClick={() => onSave(val, why.trim())}

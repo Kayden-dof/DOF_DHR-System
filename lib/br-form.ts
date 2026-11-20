@@ -61,6 +61,11 @@ export interface FormCell {
    */
   sg?: 'worker' | 'date';
   /**
+   * 확인자 · 확인일자 칸 (사용자 2026-11-20 «이부분 작성 안돼는데?»). 서명 칸처럼 고르거나 적지만
+   * 작업자로 미리 채우지 않고, 확인하는 사람이 따로 적는 칸이라 사유를 묻지 않는다.
+   */
+  ck?: boolean;
+  /**
    * 시스템이 채우는 값. 서명 칸(적은 사람 · 날)과, 시스템이 셈한 결과 칸(원재료 장입 수 ·
    * 투입량 · 사용자 2026-11-20). 사람이 덮어쓸 수 있는 칸이라는 표시이기도 하다 -
    * 고친 값이 있으면 v 에 있고, 비우면 이 값으로 돌아간다. 적을 칸 수에 세지 않는다.
@@ -216,7 +221,11 @@ const ROLE: Record<string, string> = {
   작업지시번호: 'wo', 검교정유효확인: 'calib', '제조번호(로트번호)': 'plot',
 };
 
-type Section = 'head' | 'equip' | 'mat' | 'step' | 'cut' | null;
+/*
+ * grid: 머리 줄 없이 제목 한 줄로 시작하는 표 (F706-DX2401-07 3쪽 «두께 및 모델명 체크 후, 수량 작성»).
+ * 가로가 두께, 세로가 크기이고 칸은 «□ 모델명» · 수량이 짝으로 선다. 앞 표의 열 뜻을 물려받지 않는다.
+ */
+type Section = 'head' | 'equip' | 'mat' | 'step' | 'cut' | 'grid' | null;
 
 const fmtQty = (q: string) => {
   const n = Number(q);
@@ -272,7 +281,11 @@ export function fillForm(form: BrForm, given: FillData): {
     /** 같은 줄 칸들의 인쇄 글 (빈 수치 칸의 단위를 기준 칸에서 읽는다) */
     sibs: string[];
   }[] = [];
-  const signs: { rows: string[]; cell: FormCell; role: 'worker' | 'date'; sz: number; id: string; lb: string }[] = [];
+  const signs: {
+    rows: string[]; cell: FormCell; role: 'worker' | 'date'; sz: number; id: string; lb: string;
+    /** 확인자 · 확인일자 열 */
+    check?: boolean;
+  }[] = [];
   /* 자재를 채운 줄 (그 줄의 작업자 칸은 투입한 작업자로) */
   const matRow = new Set<string>();
   /*
@@ -287,6 +300,11 @@ export function fillForm(form: BrForm, given: FillData): {
   /* 시스템 값을 사람이 고친 칸 (서명 · 결과). 칸에는 고친 값만 보이고 내역은 여기로 */
   const changes: SignChange[] = [];
   const flatLabel = (s?: string) => (s ?? '').replace(/\s*\n\s*/g, ' ').trim();
+  /*
+   * «수량 합계» 칸은 적는 칸이 아니다 (사용자 2026-11-20). 위 줄들의 같은 세로줄 수량을 더해
+   * 시스템이 적는다. 칸을 다 채운 뒤(적은 값까지 놓인 뒤)에 더한다.
+   */
+  const sums: { cell: FormCell; from: FormCell[]; sz: number }[] = [];
 
   /*
    * 시스템이 셈한 결과 칸 - 원재료 장입 수, 투입한 자재의 양 (사용자 2026-11-20 «내가 수정해서
@@ -322,7 +340,24 @@ export function fillForm(form: BrForm, given: FillData): {
         roles.find((r) => x0Of(c) >= r.x0 - 1.5 && x0Of(c) < r.x1 - 1.5)?.role;
       const rowKey = (ri: number) => `${pi}:${ti}:${ri}`;
 
+      /* 제목 한 줄로 시작하고 머리 줄이 없는 표 - grid (Section 설명). 표가 끝나면 앞 열 뜻으로 돌아간다 */
+      const r0 = tb.rows[0]?.cells ?? [];
+      const grid = r0.length === 1 && (r0[0].cs ?? 1) === tb.cols.length && !!norm(r0[0].t)
+        && !tb.rows.some((r) => r.cells.filter((c) => ROLE[norm(c.t)]).length >= 2);
+      const kept = { roles, section };
+      /* 두께 머리 칸 («□ 0.5-1» · 두 칸 너비) - 아래 칸의 이름에 쓴다 */
+      const gridCols: { x0: number; x1: number; t: string }[] = [];
+      if (grid) { roles = []; section = 'grid'; }
+
       tb.rows.forEach((row, ri) => {
+        if (grid) {
+          if (ri === 0) return;
+          for (const c of row.cells) {
+            if ((c.cs ?? 1) >= 2 && (c.t ?? '').includes('□')) {
+              gridCols.push({ x0: x0Of(c), x1: x1Of(c), t: (c.t ?? '').replace('□', '').replace(/\s+/g, ' ').trim() });
+            }
+          }
+        }
         const hits = row.cells.filter((c) => ROLE[norm(c.t)]);
         if (hits.length >= 2) {
           /* 새 머리 줄이 덮는 가로 자리만 바꾼다 (투입자재 줄은 사용설비 줄 아래 같은 표에 온다) */
@@ -355,6 +390,20 @@ export function fillForm(form: BrForm, given: FillData): {
           return;
         }
 
+        /* 수량 합계 줄: 이름 칸 옆 칸마다 위 줄들의 같은 세로줄을 더한다 (sums) */
+        if (first && norm(first.t) === '수량합계') {
+          const tsz = Math.max(0, ...row.cells.filter((c) => norm(c.t)).map((c) => c.s ?? 10)) || 10;
+          for (const c of row.cells) {
+            if (c === first) continue;
+            const x0 = x0Of(c);
+            const x1 = x1Of(c);
+            const from = tb.rows.slice(0, ri)
+              .flatMap((r) => r.cells.filter((o) => x0Of(o) >= x0 - 1.5 && x1Of(o) <= x1 + 1.5));
+            sums.push({ cell: c, from, sz: tsz });
+          }
+          return;
+        }
+
         const by = (role: string) => row.cells.find((c) => roleOf(c) === role);
         /* 채운 글자는 그 줄 양식 글자와 같은 크기로 - 작게 들어가면 덧붙인 것처럼 보인다 */
         const sz = Math.max(0, ...row.cells.filter((c) => norm(c.t) && !c.f).map((c) => c.s ?? 10)) || 10;
@@ -370,19 +419,30 @@ export function fillForm(form: BrForm, given: FillData): {
           : [stepGroup || flat(first?.t), by('stepitem')?.t, by('range')?.t].map(flat).filter(Boolean).join(' · ');
         const sorted = [...row.cells].sort((a, b) => a.c - b.c);
         for (const c of row.cells) {
+          /* grid 의 첫 세로줄은 크기 이름 (1X1 · 가로X세로) - 적는 칸이 아니다 */
+          if (section === 'grid' && c.c === 0) continue;
           const role = roleOf(c);
-          if (role === 'worker' || role === 'date') {
+          /* 서명 칸: 작업(검사)자 · 일자, 확인자 · 확인일자 (확인 칸 · 사용자 2026-11-20) */
+          const signRole = role === 'worker' || role === 'checker' ? 'worker' as const
+            : role === 'date' || role === 'checkdate' ? 'date' as const : null;
+          if (signRole) {
             if (!norm(c.t)) {
               const span: string[] = [];
               for (let k = ri; k < ri + (c.rs ?? 1); k++) span.push(rowKey(k));
-              signs.push({ rows: span, cell: c, role, sz, id: `p${pi}t${ti}r${ri}c${c.c}`, lb: label });
+              signs.push({
+                rows: span, cell: c, role: signRole, sz, id: `p${pi}t${ti}r${ri}c${c.c}`, lb: label,
+                check: role === 'checker' || role === 'checkdate',
+              });
             }
             continue;
           }
           const left = sorted[sorted.indexOf(c) - 1]?.t?.trim();
           const CUT_COL: Record<string, string> = { cutlot: '제조번호', model: '모델명', qty: '수량' };
           const HEAD_COL: Record<string, string> = { mgmtno: '관리번호', madeon: '제조일자' };
-          const lb = role === 'calib' ? [flat(equipName), '검교정일자 확인'].filter(Boolean).join(' · ')
+          const lb = section === 'grid'
+            ? [flat(first?.t) || '두께', gridCols.find((g) => x0Of(c) >= g.x0 - 1.5 && x0Of(c) < g.x1 - 1.5)?.t]
+              .filter(Boolean).join(' · ')
+            : role === 'calib' ? [flat(equipName), '검교정일자 확인'].filter(Boolean).join(' · ')
             : section === 'cut' ? `${ri}줄 · ${CUT_COL[role ?? ''] ?? '측정'}`
             : section === 'head' && role && HEAD_COL[role]
               ? [flat(by('solname')?.t), HEAD_COL[role]].filter(Boolean).join(' · ')
@@ -563,6 +623,7 @@ export function fillForm(form: BrForm, given: FillData): {
           }
         }
       });
+      if (grid) { roles = kept.roles; section = kept.section; }
     });
   });
 
@@ -665,7 +726,7 @@ export function fillForm(form: BrForm, given: FillData): {
     else if (cutText) k = 'text';
     else if (!t || UNIT.test(t)) k = 'number';
     if (!k) continue;
-    Object.assign(c, { id: x.id, k, lb: x.lb || '칸' });
+    Object.assign(c, { id: x.id, k, lb: (x.section === 'grid' && k === 'number' ? `${x.lb} · 수량` : x.lb) || '칸' });
     /*
      * 재단 줄(제조번호 · 모델명 · 수량)은 나온 제품 로트 수만큼만 적는다 - 조건부 칸
      * (사용자 2026-11-11 «모두 채울 필요 없는 조건» 과 같은 성질). 양식에 따로 적힌 값이 이긴다.
@@ -705,6 +766,17 @@ export function fillForm(form: BrForm, given: FillData): {
     }
   }
 
+  /* 수량 합계: 위 줄들의 수량 칸(적은 값 · 시스템 값)을 더한다. 더할 것이 없으면 비워 둔다 */
+  for (const s of sums) {
+    const nums = s.from.filter((c) => c.k === 'number' && (c.v || c.sv));
+    const vals = nums.map((c) => parseFloat(c.v || c.sv || '')).filter(Number.isFinite);
+    if (!vals.length) continue;
+    const units = new Set(nums.map((c) => c.u ?? ''));
+    const u = units.size === 1 ? [...units][0] : '';
+    const total = +vals.reduce((a, b) => a + b, 0).toFixed(6);
+    Object.assign(s.cell, { t: u ? `${total} ${u}` : String(total), f: true, a: 'c' as const, b: false, s: s.sz });
+  }
+
   /*
    * 같은 줄의 표시 칸 (합격 [ ] 불합격 [ ]) 은 하나만 고른다 (사용자 2026-11-20 «둘중 하나가
    * 체크되면 다른 노란칸도 꺼져야 함»). 서로를 묶음으로 알고, 하나가 골라지면 나머지는
@@ -731,15 +803,23 @@ export function fillForm(form: BrForm, given: FillData): {
       .sort((a, b) => (a!.at < b!.at ? 1 : -1))[0];
     const sys = s.rows.some((r) => matRow.has(r) || resultRow.has(r));
     const own = entries[s.id];
-    if (!e && !sys && !own) continue;
-    const base = s.role === 'worker' ? (e?.by ?? d.worker) : (e?.at ?? d.workDate);
+    /*
+     * 적힌 것이 없는 줄의 서명 칸 · 확인자 칸도 눌러서 적는다 (사용자 2026-11-20 «여기도 마찬가지»).
+     * 전에는 그 줄에 값이 없으면 칸이 되지 않아 «재단 · 치수» 처럼 결과가 인쇄 글인 줄은 서명을
+     * 적을 수 없었다. 시스템 값이 없으면 처음 값은 비어 있다. 확인자 칸은 미리 채우지 않는다.
+     */
+    const base = s.check || (!e && !sys) ? ''
+      : s.role === 'worker' ? (e?.by ?? d.worker) : (e?.at ?? d.workDate);
     const text = own?.value || base;
+    const what = s.check ? (s.role === 'worker' ? '확인자' : '확인일자')
+      : (s.role === 'worker' ? '작업(검사)자' : '일자');
     Object.assign(s.cell, {
-      t: text, f: true, a: 'c' as const, b: false, s: s.sz,
-      id: s.id, k: s.role === 'worker' ? 'signer' as const : 'date' as const, sg: s.role, sv: base, v: text,
-      lb: `${s.lb || '서명'} · ${s.role === 'worker' ? '작업(검사)자' : '일자'}`,
+      id: s.id, k: s.role === 'worker' ? 'signer' as const : 'date' as const, sg: s.role, sv: base,
+      v: text || undefined, ck: s.check || undefined,
+      lb: `${s.lb || '서명'} · ${what}`,
     });
-    if (own?.value && own.value !== base) {
+    if (text) Object.assign(s.cell, { t: text, f: true, a: 'c' as const, b: false, s: s.sz });
+    if (own?.value && base && own.value !== base) {
       changes.push({
         label: s.lb || '서명', kind: s.role, from: base, to: own.value,
         by: own.by, at: own.at, why: own.why ?? null,
@@ -777,23 +857,27 @@ export function fillForm(form: BrForm, given: FillData): {
 
    값의 모양
      고르기   "보기"  또는 "보기|덧붙임" (충진시간처럼 보기 안에 빈자리가 있을 때)
-     시각     "09:20~09:40"  또는 날짜까지 "11/05 15:19~11/06 10:19"
+              빈자리가 둘 이상이면 "보기|첫 빈칸|둘째 빈칸" - 앞에서부터 차례로 채운다
+     시각    "09:20~09:40"  또는 날짜까지 "11/05 15:19~11/06 10:19"
      수치     "45.6"  (단위는 양식의 것)
      글       그대로
 --------------------------------------------------------------------------- */
 export function applyEntry(c: FormCell, value: string) {
   if (c.k === 'choice') {
-    const [pick, extra] = value.split('|');
+    const [pick, ...extras] = value.split('|');
+    const extra = extras[0] ?? '';
     const opts = c.o ?? [];
     const sep = (c.t ?? '').includes('\n') ? '\n' : '  ';
     let hit = '';
     const shown = opts.map((o) => {
       if (o !== pick) return `□ ${o}`;
       let s = `■ ${o}`;
-      if (extra) {
+      if (extras.some(Boolean)) {
+        let i = 0;
+        /* 비워 둔 빈칸은 밑줄 그대로 - 나중에 마저 적는다 */
         s = /:\s*~\s*:/.test(s) ? s.replace(/:\s*~\s*:/, extra.replace('~', ' ~ '))
-          : /_{2,}/.test(s) ? s.replace(/_{2,}/, extra)
-          : `${s} ${extra}`;
+          : /_{2,}/.test(s) ? s.replace(/_{2,}/g, (m) => extras[i++] || m)
+          : `${s} ${extras.filter(Boolean).join(' ')}`;
       }
       hit = s;
       return s;
@@ -818,9 +902,14 @@ export function applyEntry(c: FormCell, value: string) {
   Object.assign(c, { t: value, f: true, b: false });
 }
 
-/** 보기 안에 덧붙여 적을 빈자리가 있는가 (충진시간 : ~ : · ____ 분) */
-export const optionBlank = (o: string): 'time' | 'number' | null =>
-  /:\s*~\s*:/.test(o) ? 'time' : /_{2,}/.test(o) ? 'number' : null;
+/**
+ * 보기 안에 덧붙여 적을 빈자리가 있는가 (충진시간 : ~ : · ____ 분).
+ * 빈자리가 둘 이상이면 'fill' - 칸마다 따로 적는다 (완제품 검사 샘플링 «□ 2ea ____ , ____ cm₂»).
+ */
+export const optionBlank = (o: string): 'time' | 'number' | 'fill' | null =>
+  /:\s*~\s*:/.test(o) ? 'time'
+    : (o.match(/_{2,}/g)?.length ?? 0) > 1 ? 'fill'
+    : /_{2,}/.test(o) ? 'number' : null;
 
 /**
  * 양식에 박혀 인쇄된 기기번호 (고르는 □ 가 없는 칸). 그 공정을 시작할 때 이 설비를
