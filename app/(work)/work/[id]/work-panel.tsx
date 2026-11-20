@@ -181,7 +181,16 @@ export default function WorkPanel({
     for (let d = s[0] ?? 1; d <= (s.at(-1) ?? 0); d++) out.push(d);
     return out;
   }, [records]);
-  const nextDay = (days.at(-1) ?? 0) + 1;
+  const lastDay = days.at(-1) ?? 0;
+  /*
+   * 일차 건너뛰기 (사용자 2026-11-20 «일차 건너뛰기 버튼도 만들어줘»). 누를 때마다 새 일차를
+   * 하루씩 뒤에 연다. 그 일차에 기록을 남기기 전까지는 화면에만 있다 - 기록이 생기면 그 사이
+   * 일차는 위 days 가 «이어진 공정» 으로 세운다.
+   */
+  const [skip, setSkip] = useState(0);
+  useEffect(() => { setSkip(0); }, [lastDay]);
+  const nextDay = lastDay + 1 + skip;
+  const skippedDays = Array.from({ length: skip }, (_, i) => lastDay + 1 + i);
 
   const myDays = useMemo(
     () => new Set(myRecords.map((r) => r.day_no)), [myRecords]);
@@ -212,6 +221,19 @@ export default function WorkPanel({
     }
     return '';
   };
+  /*
+   * 기록이 없는 일차(건너뛴 날)에 이어진 공정 (사용자 2026-11-20 «건너뛴날 어떤 작업이 이어진
+   * 공정인지 나오게»). 그 날보다 앞서 시작해 그 날 이후에 끝났거나 아직 진행 중인 공정이다.
+   */
+  const kstDay = (t: Date | string | null) => (t ? nowLocalKST(t).slice(0, 10) : today);
+  const runningOn = (g: string) => g ? [...new Set(records
+    .filter((r) => r.started_at && kstDay(r.started_at) < g && (!r.ended_at || kstDay(r.ended_at) >= g))
+    .map((r) => ops.find((o) => o.id === r.operation_id)?.name ?? ''))].filter(Boolean) : [];
+  const gapLabel = (n: number) => {
+    const names = runningOn(dayDate.get(n) ?? gapDate(n));
+    return names.length ? `${names.join(' · ')} 이어짐` : '건너뜀';
+  };
+  const isGap = (n: number) => !records.some((r) => r.day_no === n);
 
   /*
    * 오늘 것을 적는다면 어느 일차인가.
@@ -315,7 +337,12 @@ export default function WorkPanel({
    * 양식이 떴다. 다음 손이 재작업 시작 단추로 갔다. 이제 오늘 할 일에서 아직 안 끝난
    * 다음 공정을 고른 채로 둔다. 재단 이후 공정은 남은 제품 로트가 있으면 그 공정에 남는다.
    */
-  const goNext = (cur: Op) => {
+  const goNext = (cur: Op, endDay?: number) => {
+    /*
+     * 여러 날 공정은 마감이 끝나는 일차로 옮긴다 (0148). 화면도 그 일차로 간다 - 그대로 두면
+     * 다음 공정(재단)이 시작한 일차에 들어간다 (사용자 2026-11-20 «재단은 11월 10일날»).
+     */
+    if (endDay && endDay !== day) setDay(endDay);
     if (cur.after_cutting) {
       const { done, total } = lotsDone(cur);
       if (total > 0 && done.size + 1 < total) return;
@@ -371,27 +398,66 @@ export default function WorkPanel({
                   */}
                 {/* 날짜가 «2026-11-» / «20» 으로 갈라지지 않게 (사용자 2026-11-20 «줄바꿈 저게 맞니») */}
                 <span className="whitespace-nowrap text-xs tnum text-faint">{dayDate.get(n) ?? gapDate(n)}</span>
-                <span className={`text-xs ${
+                {/* 기록이 없는 일차는 그 날 이어진 공정 이름 (사용자 2026-11-20 «어떤 작업이 이어진 공정인지») */}
+                <span title={isGap(n) ? gapLabel(n) : undefined} className={`max-w-full truncate text-xs ${
                   lockedDays.includes(n) ? 'text-ok' : mineHere > 0 ? 'text-muted' : 'text-faint'
                 }`}>
                   {lockedDays.includes(n)
                     ? '내 기록 마감'
                     : mineHere > 0
                       ? `내 기록 ${mineHere}건`
-                      : records.some((r) => r.day_no === n) ? '다른 작업자' : '이어진 공정'}
+                      : isGap(n) ? gapLabel(n) : '다른 작업자'}
                 </span>
               </button>
             );
           })}
+          {/* 건너뛴 일차 - 새 일차에 기록을 남기면 그대로 선다 */}
+          {skippedDays.map((n) => (
+            <button key={n} onClick={() => { setDay(n); setOpId(null); }}
+                    data-on={day === n}
+                    className="tile no-select w-[6.5rem] items-center gap-0.5 border-dashed px-2 text-center">
+              <span className="text-xl font-semibold tnum text-muted">{n}일차</span>
+              <span className="whitespace-nowrap text-xs tnum text-faint">{gapDate(n)}</span>
+              <span title={gapLabel(n)} className="max-w-full truncate text-xs text-faint">{gapLabel(n)}</span>
+            </button>
+          ))}
           {!days.includes(nextDay) && (
             <button onClick={() => { setDay(nextDay); setOpId(null); }}
                     data-on={day === nextDay}
                     className="tile no-select w-[6.5rem] items-center gap-0.5 border-dashed text-center">
               <span className="text-xl font-semibold tnum">{nextDay}일차</span>
+              {skip > 0 && <span className="whitespace-nowrap text-xs tnum text-faint">{gapDate(nextDay)}</span>}
               <span className="text-xs text-muted">새로 시작</span>
             </button>
           )}
+          {/* 일차 건너뛰기 - 누를 때마다 새 일차가 하루씩 뒤로 간다 (사용자 2026-11-20) */}
+          <button type="button" onClick={() => { setSkip((s) => s + 1); setDay(nextDay + 1); setOpId(null); }}
+                  className="tile no-select w-[6.5rem] items-center justify-center gap-0.5 border-dashed px-2 text-center">
+            <span className="text-sm font-semibold">일차 건너뛰기</span>
+            <span className="text-xs text-muted">하루 넘김</span>
+          </button>
+          {skip > 0 && (
+            <button type="button" onClick={() => { setSkip(0); setDay(lastDay + 1); setOpId(null); }}
+                    className="btn-ghost self-center">건너뛰기 취소</button>
+          )}
         </div>
+
+        {/* 건너뛴 날을 고르면 그 날 이어진 공정을 알린다 */}
+        {isGap(day) && day < nextDay && (dayDate.get(day) ?? gapDate(day)) && (
+          <p className="mt-3 rounded-md bg-canvas px-3 py-2 text-sm leading-relaxed text-ink">
+            <b>{day}일차</b>(<span className="tnum">{dayDate.get(day) ?? gapDate(day)}</span>)는{' '}
+            {runningOn(dayDate.get(day) ?? gapDate(day)).length
+              ? <><b>{runningOn(dayDate.get(day) ?? gapDate(day)).join(' · ')}</b> 공정이 이어진 날입니다.</>
+              : '건너뛴 날입니다.'}{' '}
+            따로 적을 기록이 없습니다.
+          </p>
+        )}
+        {skip > 0 && (
+          <p className="mt-3 text-sm leading-relaxed text-muted">
+            <b className="text-ink">{nextDay}일차</b>에 공정을 시작하면 {lastDay + 1}
+            {skip > 1 ? `~${nextDay - 1}` : ''}일차는 건너뛴 날로 남습니다.
+          </p>
+        )}
 
         {/*
           * 고른 일차가 오늘이 아니면 알린다 (4차 감사 E1).
@@ -488,7 +554,7 @@ export default function WorkPanel({
         <OperationCard
           key={op.id}
           allEquipment={allEquipment}
-          onEnded={() => goNext(op)}
+          onEnded={(d) => goNext(op, d)}
           scrollOnMount={advanced}
           doneLotIds={op.after_cutting ? [...lotsDone(op).done] : []}
           lotsLeft={op.after_cutting
@@ -502,6 +568,7 @@ export default function WorkPanel({
           splitOp={splitOp} loadUnit={loadUnit} expiryWarnDays={expiryWarnDays}
           cutDate={pickedDate ?? today}
           dayDate={pickedDate ?? null}
+          suggestDate={day > lastDay + 1 ? gapDate(day) : null}
           /* 고치기에서 고를 일차: 지금 있는 일차와 그다음 하나. 마감한 내 일차는 뺀다 */
           dayChoices={[...days, nextDay].filter((n, i, a) => a.indexOf(n) === i
             && (n === day || !lockedDays.includes(n)))}
@@ -663,14 +730,16 @@ function OperationCard({
   woId, day, op, rec, lots, people, productLots, locked, sheets, splitOp, loadUnit,
   expiryWarnDays,
   attemptCount,
-  isCut, finished, sampleTiers, sampleBasis, band, cutDate, dayDate, dayChoices, onMoved,
+  isCut, finished, sampleTiers, sampleBasis, band, cutDate, dayDate, suggestDate, dayChoices, onMoved,
   allEquipment, onEnded, scrollOnMount, doneLotIds, lotsLeft, pastRecs,
 }: {
+  /** 건너뛰어 연 새 일차의 날짜 - 시작 칸의 작업일을 이 날로 채운다 */
+  suggestDate?: string | null;
   allEquipment: EquipOpt[];
   /** 이 공정을 다른 일차 · 다른 사람이 마감한 기록 (최근 것부터). 기록서를 보기만으로 연다 */
   pastRecs: Rec[];
-  /** 공정을 마감했다. 현장 판이 다음 공정으로 넘긴다 */
-  onEnded: () => void;
+  /** 공정을 마감했다. 현장 판이 다음 공정으로 넘긴다 (day: 끝나는 일차로 갔으면 그 일차 · 0148) */
+  onEnded: (day?: number) => void;
   scrollOnMount: boolean;
   /** 재단 이후 공정에서 이미 마감한 제품 로트 */
   doneLotIds: string[];
@@ -796,7 +865,7 @@ function OperationCard({
           ))}
         </div>
       ) : showStart ? (
-        <StartCard woId={woId} day={day} dayDate={dayDate} op={op} people={people}
+        <StartCard woId={woId} day={day} dayDate={dayDate} suggestDate={suggestDate} op={op} people={people}
                    productLots={productLots} attempt={attemptCount + 1}
                    done={!!rec?.ended_at && !op.after_cutting} splitOp={splitOp}
                    doneLotIds={doneLotIds}
@@ -859,7 +928,7 @@ function OperationCard({
                      endSlot={running && rec ? (cancel) => (
                        <EndForm woId={woId} rec={rec} op={op} missing={missing} compact
                                 empty={emptyOf(br.sheet!)} onCancel={cancel}
-                                onEnded={() => { setOpen(false); onEnded(); }} />
+                                onEnded={(d) => { setOpen(false); onEnded(d); }} />
                      ) : undefined} />
       )}
       {viewId && <SheetViewer recordId={viewId} ctx={ctx} onClose={() => setViewId(null)} />}
@@ -910,10 +979,12 @@ function OperationCard({
 
 /* -------------------------------------------------------------------------- */
 
-function StartCard({ woId, day, dayDate, op, people, productLots, attempt, done, splitOp, doneLotIds = [], onStarted }: {
+function StartCard({ woId, day, dayDate, suggestDate, op, people, productLots, attempt, done, splitOp, doneLotIds = [], onStarted }: {
   woId: string; day: number; op: Op; people: PersonOpt[]; productLots: PlOpt[];
   /** 이 일차에 이미 적힌 작업일 (없으면 null) */
   dayDate: string | null;
+  /** 건너뛰어 연 새 일차의 날짜 (일차 건너뛰기) */
+  suggestDate?: string | null;
   attempt: number; done: boolean; splitOp: string | null;
   /** 재단 이후 공정에서 이미 마감한 제품 로트 */
   doneLotIds?: string[];
@@ -944,7 +1015,8 @@ function StartCard({ woId, day, dayDate, op, people, productLots, attempt, done,
   const now = useNowLocal();
   const [wd, setWd] = useState<string | null>(null);
   const [tm, setTm] = useState<string | null>(null);
-  const dateVal = wd ?? now.slice(0, 10);
+  /* 일차를 건너뛰어 연 새 일차는 그 날짜로 (오늘보다 뒤면 오늘) */
+  const dateVal = wd ?? (suggestDate && suggestDate < now.slice(0, 10) ? suggestDate : now.slice(0, 10));
   const timeVal = tm ?? now.slice(11, 16);
   const uid = useId();
 
@@ -1129,7 +1201,7 @@ function StartCard({ woId, day, dayDate, op, people, productLots, attempt, done,
 
 function RunningCard({ woId, op, rec, lots, sheets, loadUnit, expiryWarnDays, onEnded }: {
   woId: string; op: Op; rec: Rec; lots: LotOpt[]; sheets: number;
-  loadUnit: string | null; expiryWarnDays: number; onEnded?: () => void;
+  loadUnit: string | null; expiryWarnDays: number; onEnded?: (day?: number) => void;
 }) {
   const recorded = new Set(rec.issues.map((x) => x.item_id));
   /* 로트 없이 쓰는 소모품은 적을 것이 없다. 남은 자재로 세지 않는다 (0129 · S05 와 같은 규칙) */
@@ -1376,11 +1448,11 @@ function EndForm({ woId, rec, op, missing, compact = false, empty = 0, onCancel,
   /** 기록서 빈 노란 칸 수. 막지 않고 확인 문구에 적는다 */
   empty?: number;
   onCancel?: () => void;
-  onEnded?: () => void;
+  onEnded?: (day?: number) => void;
 }) {
   const [state, action, pending] = useActionState<FormState, FormData>(endRecord, {});
   const [confirm, setConfirm] = useState(compact);
-  useEffect(() => { if (state.ok) onEnded?.(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [state]);
+  useEffect(() => { if (state.ok) onEnded?.(state.day); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [state]);
   /* 종료 시각도 사람이 적는다 (0139). 지금으로 채워 두고 손대기 전까지 따라간다 */
   const now = useNowLocal();
   const [end, setEnd] = useState<string | null>(null);

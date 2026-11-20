@@ -3,7 +3,11 @@ import { ROLE_LABEL } from './roles';
  * `href` 는 성공한 뒤 이어서 갈 곳이 있을 때만 쓴다 (원액 제조 뒤의 라벨 인쇄).
  * 문구에 주소를 섞으면 눌러서 갈 수 없으므로 따로 둔다.
  */
-export type FormState = { ok?: boolean; message?: string; error?: string; href?: string };
+export type FormState = {
+  ok?: boolean; message?: string; error?: string; href?: string;
+  /** 공정 마감 뒤 그 기록의 일차 - 여러 날 공정이 끝나는 일차로 갔으면 화면이 따라간다 (0148) */
+  day?: number;
+};
 export const EMPTY_FORM_STATE: FormState = {};
 
 export const NUMBERING_TARGETS = [

@@ -136,7 +136,9 @@ export async function endRecord(_p: FormState, form: FormData): Promise<FormStat
     const ended = endRaw ? kstStamp(endRaw) : null;
     if (endRaw && !ended) return { error: '종료 시각을 다시 적으십시오' };
 
-    await withActor(me.id, async (db) => {
+    const moved = await withActor(me.id, async (db) => {
+      const [before] = await db.rows<{ day_no: number }>(
+        `select day_no from process_record where id = $1`, [pr]);
       if (reason) {
         await db.rows(`update process_record set no_material_reason = $2 where id = $1`,
                       [pr, reason]);
@@ -146,10 +148,17 @@ export async function endRecord(_p: FormState, form: FormData): Promise<FormStat
                       [pr, Number(rework)]);
       }
       await db.rows(`select complete_process_at($1, $2::timestamptz)`, [pr, ended]);
+      /* 여러 날 공정은 마감이 끝나는 일차로 옮긴다 (0148) */
+      const [after] = await db.rows<{ day_no: number }>(
+        `select day_no from process_record where id = $1`, [pr]);
+      return { from: before?.day_no, to: after?.day_no };
     });
 
     bump(wo);
-    return { ok: true, message: '공정을 마감했습니다.' };
+    if (moved.to && moved.from && moved.to !== moved.from) {
+      return { ok: true, day: moved.to, message: `공정을 마감했습니다. 끝난 날에 맞춰 ${moved.to}일차로 옮겼습니다.` };
+    }
+    return { ok: true, day: moved.to, message: '공정을 마감했습니다.' };
   } catch (e) {
     return { error: dbMessage(e) };
   }

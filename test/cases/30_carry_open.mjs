@@ -58,10 +58,11 @@ export default [
     await asUser(t, m.worker, () => t.rows(`select lock_day($1, 1, $2)`, [wo.id, m.worker]));
     t.ok(await t.val(`select is_locked($1, 1, $2)`, [wo.id, m.worker]), '1일차 마감');
 
-    /* 다음 일차에서 이어 적고 마감한다 */
+    /* 다음 일차에서 이어 적고 마감한다. 오늘(작업일 + 2) 끝났으니 끝나는 일차(4)로 간다 (0148) */
     await asUser(t, m.worker, () => t.rows(`select complete_process_at($1, now())`, [open]));
-    t.ok(await t.val(`select ended_at is not null and day_no = 2 from process_record where id = $1`, [open]),
-      '2일차에서 공정 마감');
+    t.ok(await t.val(
+      `select ended_at is not null and day_no = 4 and work_date = current_date from process_record where id = $1`,
+      [open]), '마감하면 끝난 날의 일차(4)로');
   },
 },
 
@@ -87,15 +88,17 @@ export default [
     const m = await master(t);
     const wo = await newWorkOrder(t, m);
     await t.rows(`update work_order set issued_at = now() - interval '10 days' where id = $1`, [wo.id]);
-    /* 작업일 3일 전 시작, 1일 전 끝 → 걸친 날 2 → 1일차에서 3일차까지 */
-    const pr = await rec(t, m, wo, { op: 'WS-DX2401-03', daysAgo: 3, ended: false });
-    await asUser(t, m.worker, () => t.rows(`select complete_process_at($1, now() - interval '1 day')`, [pr]));
+    /*
+     * 작업일 3일 전 시작, 오늘 끝 → 걸친 날 3 → 1일차에서 4일차까지. 관리 화면의 마감
+     * (complete_process)은 일차를 옮기지 않으므로 고치기로 옮긴다 (0148 은 현장 마감에서 옮긴다).
+     */
+    const pr = await rec(t, m, wo, { op: 'WS-DX2401-03', daysAgo: 3, ended: true });
     const fix = (day, wd) => asUser(t, m.worker, () => t.val(
       `select fix_record_day($1, $2::int, $3::date, null, null, '여러 날 공정 · 끝나는 일차로')`, [pr, day, wd]));
-    await t.rejects(async () => fix(4, await t.val(`select (current_date - 1)::text`)), { message: '옮길 수 없습니다' });
-    await fix(3, await t.val(`select (current_date - 1)::text`));
-    t.eq(await t.rows(`select day_no, (work_date = current_date - 1) as wd from process_record where id = $1`, [pr]),
-      [{ day_no: 3, wd: true }], '3일차 · 끝난 날');
+    await t.rejects(async () => fix(5, await t.val(`select current_date::text`)), { message: '옮길 수 없습니다' });
+    await fix(4, await t.val(`select current_date::text`));
+    t.eq(await t.rows(`select day_no, (work_date = current_date) as wd from process_record where id = $1`, [pr]),
+      [{ day_no: 4, wd: true }], '4일차 · 끝난 날');
   },
 },
 
