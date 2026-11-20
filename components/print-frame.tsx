@@ -43,6 +43,12 @@ export interface PrintMeta {
    */
   preview?: boolean;
 
+  /**
+   * 발행 전 읽기 (사용자 2026-11-20 «열람전에도 볼수 있게 해줘야 함»). 열람을 열었는데 나간 회차가
+   * 없을 때다. 지금 기록을 미리보기처럼 그리되 인쇄 단추는 없고 대장에 남지 않는다.
+   */
+  draft?: boolean;
+
   /** 읽기 전용 세션인가. 발행 단추를 낼지 가른다 */
   readOnly?: boolean;
 
@@ -129,6 +135,7 @@ const IssuedCtx = createContext<Map<string, PrintMeta> | null>(null);
 
 /** 머리띠 오른쪽 문구. 발행 전후로 말이 달라진다 */
 function barRight(m: PrintMeta) {
+  if (m.draft) return <>아직 발행 전입니다 · 지금 기록을 읽기로 봅니다</>;
   if (m.view) {
     return m.view.neverIssued
       ? <>아직 발행된 적이 없습니다</>
@@ -203,12 +210,20 @@ export default function PrintFrame({
   return (
     <MetaCtx.Provider value={m}>
       {!bare && (
-        <PrintBar back={back} label={m.kindLabel} view={!!m.view}
+        <PrintBar back={back} label={m.kindLabel} view={!!m.view || !!m.draft}
                   ticket={m.ticket} onIssued={setIssued}
                   readOnly={m.readOnly}
                   right={barRight(m)} />
       )}
 
+      {m.draft && (
+        <div className="no-print mx-auto mb-5 max-w-[210mm] rounded-lg border border-line bg-surface-sub px-4 py-3">
+          <p className="text-sm leading-relaxed text-ink">
+            아직 발행된 적이 없어 <b>지금 기록</b>을 읽기로 보여 드립니다. 이 화면은 인쇄 대장에 남지 않습니다.
+          </p>
+          <p className="mt-1 text-xs leading-relaxed text-muted">종이가 필요하면 배치 화면에서 발행하십시오.</p>
+        </div>
+      )}
       {m.view && <ViewNote v={m.view} seq={m.seq} label={m.kindLabel} />}
 
       {/*

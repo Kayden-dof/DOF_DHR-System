@@ -523,10 +523,14 @@ export async function logPrint(a: LogArgs): Promise<PrintMeta> {
       logoUrl: brand.hasLogo ? `/logo?v=${brand.logoUpdatedAt ?? '0'}` : null,
     };
     if (!past) {
-      /* 아직 나간 적이 없다. 미리보기를 여는 자리가 아니므로 그렇다고 말한다 */
-      return { ...base, seq: 0, dataHash: hash, printedAt: '', printedBy: '',
-               view: { neverIssued: true, issuedHash: '', currentHash: hash,
-                       changed: false, retrievedAt: null, retrieveReason: null } };
+      /*
+       * 아직 나간 적이 없다. 전에는 «아직 발행된 적이 없습니다» 만 내고 내용을 그리지 않았다.
+       * 관리자가 발행 전에 기록서를 읽을 길이 없었다 (사용자 2026-11-20 «열람전에도 볼수 있게»).
+       * 이제 지금 기록을 미리보기처럼 그리되 발행권은 주지 않는다 - 인쇄 단추가 없고 대장에도
+       * 남지 않는다. 장에는 미리보기와 같은 미발행 표시가 깔린다.
+       */
+      return { ...base, seq: 1, dataHash: hash, printedAt: '', printedBy: '',
+               preview: true, draft: true, readOnly: true };
     }
     return {
       ...base,
