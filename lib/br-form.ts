@@ -71,6 +71,13 @@ export interface FormCell {
    * 별첨(PBS 제조기록서)이 따를 원액 로트다.
    */
   sl?: boolean;
+  /**
+   * 같은 줄에서 하나만 고르는 표시 칸 묶음의 다른 칸들 (합격 [ ] 불합격 [ ] · 사용자 2026-11-20
+   * «둘중 하나가 체크되면 다른 노란칸도 꺼져야 함»). 하나를 고르면 나머지는 풀린다.
+   */
+  grp?: string[];
+  /** 같은 묶음의 다른 칸이 골라져 적을 필요가 없는 칸. 빈 칸으로 세지 않는다 */
+  off?: boolean;
 }
 
 /** 별첨이 따르는 원액 로트 (원액 제조 기록 · 0118 · 0119) */
@@ -617,6 +624,8 @@ export function fillForm(form: BrForm, given: FillData): {
     'equipno', 'precheck', 'mat', 'matname', 'matcode', 'matlot', 'step', 'stepitem', 'range', 'inspect',
     'solname']);
   const UNIT = /^[A-Za-z℃°%µ²₂/.\s]{1,8}$/;
+  /* 줄마다 표시 칸 (합격 · 불합격 …) - 하나만 고르는 묶음 */
+  const marks = new Map<string, FormCell[]>();
   for (const x of cand) {
     const c = x.cell;
     if (c.f || c.tk?.length || c.id) continue;
@@ -636,6 +645,7 @@ export function fillForm(form: BrForm, given: FillData): {
       Object.assign(c, { id: x.id, k: 'choice' as const, o: ['✓'], lb: `${x.lb || '칸'} · ${x.left}` });
       const e = entries[x.id];
       if (e && e.value !== '') { c.v = e.value; Object.assign(c, { t: '✓', f: true, a: 'c' as const }); enteredRow.set(x.row, e); }
+      marks.set(x.row, [...(marks.get(x.row) ?? []), c]);
       continue;
     }
     if (headField) k = x.role === 'madeon' ? 'date' : 'text';
@@ -681,6 +691,20 @@ export function fillForm(form: BrForm, given: FillData): {
       c.v = e.value;
       applyEntry(c, e.value);
       enteredRow.set(x.row, e);
+    }
+  }
+
+  /*
+   * 같은 줄의 표시 칸 (합격 [ ] 불합격 [ ]) 은 하나만 고른다 (사용자 2026-11-20 «둘중 하나가
+   * 체크되면 다른 노란칸도 꺼져야 함»). 서로를 묶음으로 알고, 하나가 골라지면 나머지는
+   * 적을 칸이 아니다 (off). 다른 칸을 고르면 현장 화면이 먼저 것을 푼다.
+   */
+  for (const group of marks.values()) {
+    if (group.length < 2) continue;
+    const picked = group.some((c) => c.v);
+    for (const c of group) {
+      c.grp = group.filter((o) => o !== c).map((o) => o.id!);
+      if (picked && !c.v) c.off = true;
     }
   }
 
@@ -808,8 +832,9 @@ export function fixedEquipCodes(form: BrForm): string[] {
 /** 사람이 적을 칸 목록 (화면이 몇 칸 적었는지 센다). 서명 칸은 적을 칸이 아니다 (0140) */
 export function fieldsOf(pages: FormPage[]) {
   /* 시스템 값을 덮어쓸 수 있는 칸(sv · 서명 · 결과)은 적을 칸이 아니다 */
+  /* 같은 묶음의 다른 칸이 골라진 표시 칸(off)도 적을 칸이 아니다 */
   return pages.flatMap((p) => p.tables.flatMap((t) => t.rows.flatMap((r) =>
-    r.cells.filter((c) => c.id && !c.sg && c.sv === undefined))));
+    r.cells.filter((c) => c.id && !c.sg && c.sv === undefined && !c.off))));
 }
 
 /** 머리 · 꼬리 글 가운데 쪽 번호 ("1 / 2", "1 / __") */

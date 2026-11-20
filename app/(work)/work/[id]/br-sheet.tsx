@@ -216,6 +216,14 @@ export function BrSheetView({ sheet, onSheet, onClose, busy, ctx, endSlot, readO
     const id = c.id!;
     const next = c.v ? '' : c.o![0];
     start(async () => {
+      /* 하나만 고르는 묶음 (합격 · 불합격): 이것을 고르면 먼저 고른 다른 칸을 푼다 */
+      if (next && c.grp?.length) {
+        for (const sid of c.grp) {
+          if (!find(sid)?.v) continue;
+          const r0 = await saveBrEntry(sheet.recordId, sheet.docId, sid, '');
+          if ('error' in r0) { setErr(r0.error); setCell(c); return; }
+        }
+      }
       const r = await saveBrEntry(sheet.recordId, sheet.docId, id, next);
       if ('error' in r) { setErr(r.error); setCell(c); return; }
       setErr(null);
