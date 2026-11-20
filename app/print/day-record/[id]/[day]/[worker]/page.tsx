@@ -5,7 +5,7 @@ import { fmtDate, fmtDateTime } from '@/lib/fmt';
 import { logPrint, printGate, viewParam } from '@/lib/print';
 import Denied from '@/components/denied';
 import PrintFrame, { Sheet, SignRow, FormSheet } from '@/components/print-frame';
-import { formHasSignRoom, type BrForm, type FillReturn, type FormPage } from '@/lib/br-form';
+import { type BrForm, type FillReturn } from '@/lib/br-form';
 import { fillOne, linkedSolution, type SolutionLink } from '@/lib/br-sheet';
 import { dayRecordPayload, hashable, type RecRow } from '@/lib/print-payload';
 import { chunkRows } from '@/lib/print-pages';
@@ -425,13 +425,12 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = fal
   const plain = records.filter((r) => !formsOf.has(r.operation_code));
   const plainPages = plain.length ? chunkRows(plain, ROWS_FIRST, ROWS_NEXT) : [];
   const formPages = plans.reduce((a, p) => a + p.pages.length, 0);
-  /* 서명란은 묶음의 마지막 장에 한 번. 뒤에 세로 장이 있으면 그 장이 갖는다 */
-  const lastPlan = plans[plans.length - 1];
-  const signOnForm = plans.length > 0 && plain.length === 0 && specLines.length === 0;
-  const signRoom = signOnForm && !!lastPlan
-    && formHasSignRoom(lastPlan.pages[lastPlan.pages.length - 1] as FormPage);
-  const signSheet = signOnForm && !signRoom ? 1 : 0;
-  const formSheetCount = formPages + plainPages.length + signSheet + (specLines.length > 0 ? 1 : 0);
+  /*
+   * 회사 양식 기록서에는 시스템이 서명 장(«제조기록서 확인») · 서명란을 덧붙이지 않는다 (사용자 2026-11-20
+   * «이부분은 인쇄에 들어갈 필요가 없는데?? 품질에서 제공한 제조기록서 양식이 아니잖아»). 양식의 줄마다
+   * 작업(검사)자 · 일자 · 확인자 칸이 서명 자리다. 양식이 없는 공정의 시스템 표는 그대로 서명란을 단다.
+   */
+  const formSheetCount = formPages + plainPages.length + (specLines.length > 0 ? 1 : 0);
 
   /* -------------------------------------------------------------------------
      뽑을 수 없으면 그 까닭을 종이 대신 화면으로 말한다
@@ -626,13 +625,11 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = fal
         )}
         {plans.flatMap((p, k) => p.pages.map((pg, i) => {
           n += 1;
-          const last = k === plans.length - 1 && i === p.pages.length - 1;
           return (
             <FormSheet key={`${k}-${i}`} meta={meta} page={pg} size={p.size}
                        formPage={{ n: i + 1, of: p.pages.length }}
                        sheet={{ n, of: formSheetCount }}
                        caption={caption}
-                       sign={last && signRoom}
                        extra={i === p.pages.length - 1 ? p.lost : undefined} />
           );
         }))}
@@ -650,15 +647,6 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = fal
             </Sheet>
           );
         })}
-
-        {signSheet > 0 && (
-          <Sheet meta={meta} page={formPages + 1} title="제조기록서 확인" subtitle={caption}>
-            <p className="text-[10px] text-black">
-              앞 {formPages}장의 공정 기록을 확인하고 서명합니다.
-            </p>
-            <SignRow roles={['작업자', '생산 책임자']} />
-          </Sheet>
-        )}
 
         {specLines.length > 0 && specSheet(formSheetCount)}
       </PrintFrame>
