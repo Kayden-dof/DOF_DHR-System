@@ -10,7 +10,7 @@ import type { Fix } from '@/lib/unblock';
 import { Dialog, useDialog } from '@/components/dialog';
 import {
   cutLot, setLotStatus, cancelWorkOrder, finishWorkOrder, retrievePrint, setWorkOrderNo, forceCorrectReason,
-  setBatchNo, forceCorrectTimes,
+  setBatchNo, setIssuedAt, forceCorrectTimes,
   recordNonconformity, recordWipNonconformity, endRecordForWorker,
 } from '../actions';
 import { fixRecord } from '@/app/(work)/work/actions';
@@ -284,6 +284,54 @@ export function BatchNoForm({ id, current }: { id: string; current: string }) {
         <input id={`${uid}-reason`} name="reason" required autoComplete="off"
                placeholder="종이 제조기록서 배치번호에 맞춤" className="input" />
       </div>
+      <Msg state={state} />
+      <div className="flex gap-2">
+        <button type="submit" disabled={pending} className="btn-primary">저장</button>
+        <button type="button" onClick={() => setOpen(false)} className="btn-ghost">취소</button>
+      </div>
+    </form>
+  );
+}
+
+/*
+ * 발행 일시 (0141). 늦게 옮겨 적어 입력한 때가 발행일로 들어간 지시서를 종이
+ * 지시서의 날짜에 맞춘다. 시스템관리자만 보인다.
+ */
+export function IssuedAtForm({ id, current }: {
+  id: string;
+  /** 지금 값. datetime-local 꼴 (YYYY-MM-DDTHH:MM:SS, 한국 시각) */
+  current: string;
+}) {
+  const uid = useId();
+  const [state, action, pending] = useActionState<FormState, FormData>(setIssuedAt, {});
+  const [open, setOpen] = useState(false);
+
+  if (!open || state.ok) {
+    return (
+      <>
+        <button type="button" onClick={() => setOpen(true)} className="qd-text-action">고치기</button>
+        {state.ok && <Msg state={state} />}
+      </>
+    );
+  }
+  return (
+    <form action={action} className="mt-2 space-y-2">
+      <input type="hidden" name="id" value={id} />
+      <div>
+        <label className="label" htmlFor={`${uid}-at`}>종이 지시서의 발행 일시</label>
+        <input id={`${uid}-at`} name="issued_at" type="datetime-local" step={1} required
+               defaultValue={current} className="input tnum" />
+      </div>
+      <div>
+        <label className="label" htmlFor={`${uid}-reason`}>사유</label>
+        <input id={`${uid}-reason`} name="reason" required autoComplete="off"
+               placeholder="종이 작업지시서 승인일에 맞춤" className="input" />
+      </div>
+      <Caution>
+        발행 일시만 바뀌고, 이전 값과 사유가 감사추적에 남습니다.
+        이미 적힌 작업일보다 늦은 날로는 고칠 수 없습니다.
+        이미 인쇄한 지시서는 바뀌지 않으며, 다시 인쇄하면 고친 일시로 나옵니다.
+      </Caution>
       <Msg state={state} />
       <div className="flex gap-2">
         <button type="submit" disabled={pending} className="btn-primary">저장</button>

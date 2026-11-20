@@ -222,6 +222,39 @@ export async function setBatchNo(_p: FormState, form: FormData): Promise<FormSta
 }
 
 /**
+ * 작업 지시 발행 일시를 종이 지시서에 맞춘다 (0141 · 사용자 2026-11-20).
+ * 받는 날 바로 입력하면 입력한 때가 곧 발행일이다. 늦게 옮겨 적은 지시서만 고친다.
+ * 시스템관리자만, 까닭과 함께. 미래 · 이미 적힌 작업일보다 늦은 날은 DB 가 막는다.
+ */
+export async function setIssuedAt(_p: FormState, form: FormData): Promise<FormState> {
+  try {
+    const user = await requireUser();
+    if (!hasRole(user, 'SYS_ADMIN')) return { error: '발행 일시는 시스템관리자만 고칠 수 있습니다' };
+    const id = String(form.get('id') ?? '');
+    const at = txt(form.get('issued_at'));
+    const why = txt(form.get('reason'));
+    if (!at || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(at)) {
+      return { error: '발행 일시를 적으십시오' };
+    }
+    if (!why) return { error: '왜 고치는지 적으십시오' };
+    /* datetime-local 은 시간대가 없다. 한국 시각으로 읽는다 */
+    const iso = `${at.length === 16 ? `${at}:00` : at}+09:00`;
+    const [before, after] = await withActor(user.id, async (db) => {
+      const show = `to_char(timezone('Asia/Seoul', issued_at), 'YYYY-MM-DD HH24:MI:SS')`;
+      const prev = await db.val<string>(`select ${show} from work_order where id = $1`, [id]);
+      const next = await db.val<string>(
+        `update work_order set issued_at = $2::timestamptz where id = $1 returning ${show}`, [id, iso]);
+      return [prev, next];
+    }, { reason: `발행 일시 고침 · ${why}` });
+    if (!after) return { error: '작업 지시를 찾을 수 없습니다' };
+    bump(id);
+    return { ok: true, message: `발행 일시를 ${before} 에서 ${after} 로 고쳤습니다.` };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
+/**
  * 잠긴 기록의 작업일 · 시작 · 종료 시각을 종이 기록에 맞춘다 - 강제 정정 (0131).
  * 시스템관리자만. 비운 칸은 그대로 둔다. 칸마다 정정 내역이 남는다.
  */

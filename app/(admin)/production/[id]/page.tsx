@@ -12,7 +12,7 @@ import { Panel, Empty, Tag, Field, Caution } from '@/components/ui';
 import WorkRequestForm, { type ReqValue } from './request-form';
 import {
   CutForm, LotStatusForm, CancelForm, WoNoForm, ForceReasonForm, FinishForm, RetrieveForm, EndForWorkerForm, DayPrintLink,
-  BatchNoForm, ForceTimesForm, FixRecordForm,
+  BatchNoForm, IssuedAtForm, ForceTimesForm, FixRecordForm,
   NonconformityForm, WipNonconformityForm, type OpOpt,
   type LotRow, type FinOpt,
 } from './batch-forms';
@@ -431,6 +431,10 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
           </Field>
           <Field label="발행">
             <span className="tnum">{fmtDateTime(wo.issued_at)}</span>
+            {/* 늦게 옮겨 적은 지시서를 종이 날짜에 맞춘다 (0141). 시스템관리자만 */}
+            {!readOnly && hasRole(user, 'SYS_ADMIN') && (
+              <> <IssuedAtForm id={wo.id} current={fmtDateTime(wo.issued_at).replace(' ', 'T')} /></>
+            )}
             <div className="text-xs text-muted">생산 {wo.prod_name} · 품질 {wo.qa_name}</div>
           </Field>
         </div>
