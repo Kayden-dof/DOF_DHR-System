@@ -430,7 +430,11 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = fal
    * «이부분은 인쇄에 들어갈 필요가 없는데?? 품질에서 제공한 제조기록서 양식이 아니잖아»). 양식의 줄마다
    * 작업(검사)자 · 일자 · 확인자 칸이 서명 자리다. 양식이 없는 공정의 시스템 표는 그대로 서명란을 단다.
    */
-  const formSheetCount = formPages + plainPages.length + (specLines.length > 0 ? 1 : 0);
+  /*
+   * 생산 규격 기록지(시스템이 만든 장)도 회사 양식 기록서에는 붙이지 않는다 (사용자 2026-11-20 «Remove it
+   * too»). 제조번호 · 형명 · 수량은 재단 양식의 표와 각 장의 시스템 기록 줄에 있다.
+   */
+  const formSheetCount = formPages + plainPages.length;
 
   /* -------------------------------------------------------------------------
      뽑을 수 없으면 그 까닭을 종이 대신 화면으로 말한다
@@ -643,12 +647,11 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = fal
                    title="제조기록서"
                    subtitle={<>{caption} · 양식이 등록되지 않은 공정</>}>
               <RecordTable rows={rows} title="공정 기록" />
-              {lastPlain && specLines.length === 0 && <SignRow roles={['작업자', '생산 책임자']} />}
+              {lastPlain && <SignRow roles={['작업자', '생산 책임자']} />}
             </Sheet>
           );
         })}
 
-        {specLines.length > 0 && specSheet(formSheetCount)}
       </PrintFrame>
     );
   }
