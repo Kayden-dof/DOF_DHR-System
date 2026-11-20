@@ -19,7 +19,8 @@
 --------------------------------------------------------------------------- */
 import type { Db } from './db';
 import {
-  fillForm, fieldsOf, type BrForm, type Entry, type FillData, type FillReturn, type FormPage, type SignChange,
+  fillForm, fieldsOf, type BrForm, type Entry, type FillData, type FillIssue, type FillReturn, type FormPage,
+  type SignChange, type SolutionFill,
 } from './br-form';
 
 /** 한 공정의 양식 하나 - 고르는 단추 · 빈 칸 수에 쓴다 */
@@ -111,8 +112,46 @@ export function emptyOfForms(forms: BrFormTab[]) {
  * 양식 하나를 채운다. 본 기록서는 그 기록의 투입 · 특이사항 줄을 받고, 별첨은
  * 비워 받는다 (위 머리말). 화면과 인쇄가 이것 하나로 갈래를 정한다.
  */
-export function fillOne(form: BrForm, base: FillData, appendix: boolean) {
-  return fillForm(form, appendix ? { ...base, issues: [], notes: [], appendix: true } : base);
+/** 별첨이 따르는 원액 로트와 그 로트를 만들 때 차감한 원료 */
+export interface SolutionLink { info: SolutionFill; inputs: FillIssue[] }
+
+/**
+ * 별첨은 그 기록의 투입이 아니라, 본 기록서 «관리번호 부여» 칸이 가리키는 원액 로트를
+ * 따른다 (PBS 제조기록서 연동 · 사용자 2026-11-20). 원료 로트 · 양은 원액 제조 기록에서,
+ * 서명의 사람 · 날은 그 원액을 만든 사람 · 날에서 온다. 없으면 지금처럼 빈 별첨이다.
+ */
+export function fillOne(form: BrForm, base: FillData, appendix: boolean, sol?: SolutionLink | null) {
+  if (!appendix) return fillForm(form, base);
+  return fillForm(form, {
+    ...base, issues: sol?.inputs ?? [], returns: [], notes: [], appendix: true,
+    solution: sol?.info ?? null,
+    worker: sol?.info.maker ?? base.worker,
+    workDate: sol?.info.made_on ?? base.workDate,
+  });
+}
+
+/** 본 기록서를 채운 모양에서 원액 로트번호 칸의 값 (적은 값, 없으면 처음 값) */
+export function linkedSolution(pages: FormPage[]): string | null {
+  for (const p of pages) for (const t of p.tables) for (const r of t.rows) for (const c of r.cells) {
+    if (c.sl) return (c.v || c.sv || '').split(',')[0].trim() || null;
+  }
+  return null;
+}
+
+/** 원액 로트와 그 원료 (v_solution_input). 원액 로트가 아니면 null */
+export async function solutionLink(db: Db, lotNo: string | null): Promise<SolutionLink | null> {
+  if (!lotNo) return null;
+  const info = await db.one<SolutionFill>(
+    `select ml.lot_no, ml.made_on::text as made_on, u.full_name as maker
+       from material_lot ml left join app_user u on u.id = ml.registered_by
+      where ml.lot_no = $1 and ml.made_on is not null`, [lotNo]);
+  if (!info) return null;
+  const inputs = await db.rows<FillIssue>(
+    `select item_code, item_name, material_lot_no as lot_no, qty::text as qty, usage_uom,
+            null::text as amend_reason
+       from v_solution_input where solution_lot_no = $1
+      order by item_code, material_lot_no`, [lotNo]);
+  return { info, inputs };
 }
 
 export async function brSheet(db: Db, recordId: string, docId?: string | null): Promise<BrSheet | null> {
@@ -181,7 +220,17 @@ export async function brSheet(db: Db, recordId: string, docId?: string | null): 
     worker: r.worker_name, workDate: r.work_date,
     issues, returns, noLotCodes: noLot, equipment: r.equipment_id,
     extraEquipment: r.extra_equipment_ids, notes: [],
+    /* 이 기록에 투입된 원액 로트 - 본 기록서 «관리번호 부여» 칸의 처음 값 */
+    solutionLots: (await db.rows<{ lot_no: string }>(
+      `select distinct ml.lot_no from material_issue mi
+         join material_lot ml on ml.id = mi.material_lot_id
+        where mi.process_record_id = $1 and ml.made_on is not null
+        order by ml.lot_no`, [recordId])).map((x) => x.lot_no),
   };
+
+  /* 본 기록서를 먼저 채워 «관리번호 부여» 칸이 가리키는 원액 로트를 안다. 별첨이 그것을 따른다 */
+  const mainFilled = fillOne(docs[0].form, { ...base, entries: byDoc.get(docs[0].id) ?? {} }, false);
+  const sol = await solutionLink(db, linkedSolution(mainFilled.pages));
 
   /* 양식마다 채워 빈 칸을 센다. 지금 보이는 양식의 채운 모양은 그대로 쓴다 */
   let shown: FormPage[] = [];
@@ -189,7 +238,7 @@ export async function brSheet(db: Db, recordId: string, docId?: string | null): 
   let opt = { total: 0, done: 0 };
   const forms: BrFormTab[] = docs.map((doc, i) => {
     const entries = byDoc.get(doc.id) ?? {};
-    const filled = fillOne(doc.form, { ...base, entries }, i > 0);
+    const filled = i === 0 ? mainFilled : fillOne(doc.form, { ...base, entries }, true, sol);
     const all = fieldsOf(filled.pages);
     const need = all.filter((c) => !c.op);
     if (i === at) {
@@ -200,7 +249,8 @@ export async function brSheet(db: Db, recordId: string, docId?: string | null): 
     }
     return {
       docId: doc.id, docNo: doc.doc_no, label: formLabel(doc.title, i === 0), main: i === 0,
-      inUse: i === 0 || Object.keys(entries).length > 0,
+      /* 별첨은 적은 칸이 있거나 따르는 원액 로트가 있을 때 쓰인다 */
+      inUse: i === 0 || Object.keys(entries).length > 0 || !!sol,
       total: need.length, done: need.filter((c) => c.v).length,
     };
   });

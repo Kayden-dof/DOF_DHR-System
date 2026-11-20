@@ -573,6 +573,7 @@ function LotPicker({ cell, ctx, busy, error, onSave, onClose }: {
         <div className="mt-3">
           <NumPad key={lot.id} name="qty" label={`넣은 양 (${lot.usage_uom})`} unit={lot.usage_uom}
                   max={Number(lot.qty_available)} initial={qty} onChange={setQty}
+                  onEnter={() => { if (!busy && Number(qty) > 0) onSave(lot.id, Number(qty)); }}
                   hint={need !== null ? (
                     <>장입 {ctx.sheets}{ctx.loadUnit ?? ''} 의 <b className="text-ink">예상</b> 소요량{' '}
                       <b className="tnum text-ink">{need} {lot.usage_uom}</b>을 미리 채웠습니다. 실제로 넣은 양이
@@ -707,7 +708,8 @@ function FieldEditor({ cell, workDate, busy, error, onSave, onCancel }: {
           )}
           {blank === 'number' && (
             <div>
-              <NumPad name="extra" label="빈칸에 적을 수" initial={extra} onChange={setExtra} />
+              <NumPad name="extra" label="빈칸에 적을 수" initial={extra} onChange={setExtra}
+                      onEnter={() => { if (!busy && extra) onSave(`${pick}|${extra}`); }} />
               <button type="button" disabled={busy || !extra} onClick={() => onSave(`${pick}|${extra}`)}
                       className="btn-primary mt-3 w-full">저장</button>
             </div>
@@ -725,7 +727,11 @@ function FieldEditor({ cell, workDate, busy, error, onSave, onCancel }: {
       {cell.k === 'number' && (
         <div className="mt-3">
           <NumPad name="num" label={`값${cell.u ? ` (${cell.u})` : ''}`} unit={cell.u}
-                  initial={num.replace(/^-/, '')} onChange={setNum} />
+                  initial={num.replace(/^-/, '')} onChange={setNum}
+                  onEnter={() => {
+                    const v = num.replace(/^-/, '');
+                    if (!busy && v) onSave(`${neg ? '-' : ''}${v}`);
+                  }} />
           <div className="mt-3 flex gap-2">
             <button type="button" onClick={() => setNeg((x) => !x)} data-on={neg} className="tile w-24 justify-center">
               {neg ? '− 영하' : '+'}

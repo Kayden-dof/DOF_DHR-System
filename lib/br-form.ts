@@ -66,6 +66,19 @@ export interface FormCell {
    * 고친 값이 있으면 v 에 있고, 비우면 이 값으로 돌아간다. 적을 칸 수에 세지 않는다.
    */
   sv?: string;
+  /**
+   * 원액 로트번호 칸 (본 기록서 «20X PBS 제조 · 관리번호 부여» · 사용자 2026-11-20). 이 칸의 값이
+   * 별첨(PBS 제조기록서)이 따를 원액 로트다.
+   */
+  sl?: boolean;
+}
+
+/** 별첨이 따르는 원액 로트 (원액 제조 기록 · 0118 · 0119) */
+export interface SolutionFill {
+  lot_no: string;
+  made_on: string | null;
+  /** 원액 로트를 등록한 사람 (만든 사람) */
+  maker: string | null;
 }
 
 /** 서명 칸을 고친 내역 하나 (0140). 화면의 «수정 사항» 안내가 띄운다 */
@@ -165,6 +178,10 @@ export interface FillData {
    * 특이사항 줄을 비워 넘긴다 - 그 기록의 투입과 시스템 기록은 본 기록서에 한 번만 찍힌다.
    */
   appendix?: boolean;
+  /** 이 기록에 투입된 원액 로트번호. 본 기록서 «관리번호 부여» 칸의 처음 값 */
+  solutionLots?: string[];
+  /** 별첨이 따르는 원액 로트. 머리 · 서명의 처음 값이 된다 (원료는 issues 로 온다) */
+  solution?: SolutionFill | null;
 }
 
 const norm = (s: string | undefined) => (s ?? '').replace(/\s+/g, '');
@@ -443,7 +460,11 @@ export function fillForm(form: BrForm, given: FillData): {
             if (code === d.rawItemCode) {
               text = d.rawLotNo;
               rawName = name;
-            } else if (!d.appendix && !(code && d.noLotCodes.includes(code))) {
+            } else if (!(code && d.noLotCodes.includes(code))) {
+              /*
+               * 별첨의 «투입» 은 그 원액 로트를 만들 때 차감한 원료다 (부르는 쪽이 넘긴다 · 원액
+               * 제조 기록 0119). 본 기록서의 투입이 아니다. 없으면 빈 칸 그대로다.
+               */
               const hit = d.issues
                 .map((x, k) => ({ x, k }))
                 .filter(({ x }) => code
@@ -470,9 +491,13 @@ export function fillForm(form: BrForm, given: FillData): {
             if (code !== d.rawItemCode && !(code && d.noLotCodes.includes(code))) {
               const id = `p${pi}t${ti}r${ri}c${lotCell.c}`;
               if (d.appendix) {
-                /* 별첨: 로트 번호를 적기만 한다 (FieldKind lotno 의 설명) */
+                /*
+                 * 별첨: 로트 번호를 적기만 한다 (FieldKind lotno 의 설명). 따르는 원액 로트의
+                 * 원료 로트가 처음 값이고 (sv), 적은 값이 이긴다.
+                 */
                 Object.assign(lotCell, {
                   id, k: 'lotno' as const, ic: code || undefined, lb: flat(name) || code || '자재',
+                  sv: text ?? undefined,
                 });
                 const e = entries[id];
                 if (e && e.value !== '') {
@@ -501,7 +526,29 @@ export function fillForm(form: BrForm, given: FillData): {
             norm(item.t) === norm(rawName)
             || (norm(item.t) === '수량' && norm(stepGroup).includes(norm(rawName))));
           const resultId = result ? `p${pi}t${ti}r${ri}c${result.c}` : '';
-          if (item && result && rawRow && !norm(result.t)) {
+          if (item && result && !d.appendix && norm(item.t) === '관리번호부여') {
+            /*
+             * 원액 관리번호 (사용자 2026-11-20 «요 칸은 내가 기입할수있게 해줘야 하는데...?? 그리고
+             * PBS 제조기록서랑 연동 되어야 하는데..»). 칸에는 «L» 앞머리와 «별첨문서(…) 첨부» 가
+             * 인쇄돼 있다. 첫 줄 자리에 원액 로트번호를 적고 나머지는 그대로 둔다. 처음 값은 이
+             * 기록에 투입된 원액 로트, 사람이 고르거나 적은 값이 이긴다. 이 값을 별첨이 따른다.
+             */
+            const lines = (result.t ?? '').split('\n');
+            const rest = lines.slice(1).join('\n');
+            const sys = (d.solutionLots ?? []).join(', ');
+            const own = entries[resultId];
+            const val = own && own.value !== '' ? own.value : '';
+            const shown = val || sys;
+            Object.assign(result, {
+              id: resultId, k: 'lotno' as const, sl: true,
+              lb: flatLabel(stepGroup).replace(/\s*제조$/, '') || '관리번호',
+              u: lines[0]?.trim() || undefined, sv: sys || undefined, v: val || undefined,
+            });
+            if (shown) {
+              Object.assign(result, { t: rest ? `${shown}\n${rest}` : shown, f: true, a: 'c' as const, b: false, s: sz });
+              resultRow.add(rowKey(ri));
+            }
+          } else if (item && result && rawRow && !norm(result.t)) {
             sysResult(result, resultId, String(d.sheets), d.loadUnit ?? '장', sz,
               `${flatLabel(norm(item.t) === '수량' ? stepGroup : item.t)} · 결과`, rowKey(ri));
           } else if (item?.t && result) {
@@ -618,6 +665,17 @@ export function fillForm(form: BrForm, given: FillData): {
     }
     if (k === 'time' && t.includes('/')) c.dt = true;
     if (k === 'text' && t) c.u = t;      // 앞머리 (GM · PD)
+    /*
+     * 별첨 머리의 관리번호 · 제조일자: 따르는 원액 로트의 번호 · 제조일이 처음 값이다
+     * (PBS 제조기록서 연동 · 사용자 2026-11-20). 적은 값이 이긴다.
+     */
+    const headSys = headField && d.solution
+      ? (x.role === 'madeon' ? d.solution.made_on : d.solution.lot_no) : null;
+    if (headSys) {
+      c.sv = headSys;
+      Object.assign(c, { t: headSys, f: true, a: 'c' as const, b: false });
+      matRow.add(x.row);
+    }
     const e = entries[x.id];
     if (e && e.value !== '') {
       c.v = e.value;

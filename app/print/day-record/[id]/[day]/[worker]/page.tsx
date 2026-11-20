@@ -6,7 +6,7 @@ import { logPrint, printGate, viewParam } from '@/lib/print';
 import Denied from '@/components/denied';
 import PrintFrame, { Sheet, SignRow, FormSheet } from '@/components/print-frame';
 import { formHasSignRoom, type BrForm, type FillReturn, type FormPage } from '@/lib/br-form';
-import { fillOne } from '@/lib/br-sheet';
+import { fillOne, linkedSolution, type SolutionLink } from '@/lib/br-sheet';
 import { dayRecordPayload, hashable, type RecRow } from '@/lib/print-payload';
 import { chunkRows } from '@/lib/print-pages';
 
@@ -317,7 +317,32 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = fal
          left join product_lot pl on pl.id = pr.product_lot_id
         where pr.work_order_id = $1 and pr.day_no = $2 and pr.worker_id = $3
         order by o.seq, pr.attempt, pl.lot_no nulls first, pr.id`, [id, dayNo, worker])).map((x) => x.returns);
-    return { forms, noLot, woNo: wdm?.wo_no ?? null, returns };
+    /*
+     * 기록마다 투입된 원액 로트 (본 기록서 «관리번호 부여» 칸의 처음 값) 와, 별첨(PBS 제조기록서)이
+     * 따를 원액 로트들의 제조 기록 (사용자 2026-11-20 «PBS 제조기록서랑 연동»). 자료 식별자 밖이다.
+     */
+    const solLots = (await db.rows<{ lots: string[] }>(
+      `select coalesce((select array_agg(distinct ml.lot_no order by ml.lot_no)
+                          from material_issue mi join material_lot ml on ml.id = mi.material_lot_id
+                         where mi.process_record_id = pr.id and ml.made_on is not null), '{}') as lots
+         from process_record pr
+         join dmr_operation o on o.id = pr.operation_id
+         left join product_lot pl on pl.id = pr.product_lot_id
+        where pr.work_order_id = $1 and pr.day_no = $2 and pr.worker_id = $3
+        order by o.seq, pr.attempt, pl.lot_no nulls first, pr.id`, [id, dayNo, worker])).map((x) => x.lots);
+    const solutions = new Map<string, SolutionLink>();
+    for (const x of await db.rows<SolutionLink['info'] & { inputs: SolutionLink['inputs'] }>(
+      `select ml.lot_no, ml.made_on::text as made_on, u.full_name as maker,
+              coalesce((select json_agg(json_build_object(
+                         'item_code', v.item_code, 'item_name', v.item_name, 'lot_no', v.material_lot_no,
+                         'qty', v.qty::text, 'usage_uom', v.usage_uom, 'amend_reason', null)
+                         order by v.item_code, v.material_lot_no)
+                          from v_solution_input v where v.solution_lot_id = ml.id), '[]'::json) as inputs
+         from material_lot ml left join app_user u on u.id = ml.registered_by
+        where ml.made_on is not null`)) {
+      solutions.set(x.lot_no, { info: { lot_no: x.lot_no, made_on: x.made_on, maker: x.maker }, inputs: x.inputs });
+    }
+    return { forms, noLot, woNo: wdm?.wo_no ?? null, returns, solLots, solutions };
   });
   /* 공정마다 양식 차례 - 본 기록서가 처음 */
   const formsOf = new Map<string, typeof look.forms>();
@@ -350,15 +375,21 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = fal
       worker: head.worker_name, workDate: fmtDate(head.work_date),
       issues: r.issues, returns: look.returns[ri] ?? [], noLotCodes: look.noLot,
       equipment: r.equipment_id, extraEquipment: r.extra_equipment ?? null, notes,
+      solutionLots: look.solLots[ri] ?? [],
     };
+    /* 현장에서 적은 칸 (0132) - 그 양식에 적힌 것만 */
+    const entriesOf = (docId: string) => Object.fromEntries((r.br ?? [])
+      .filter((e) => e.doc === docId)
+      .map((e) => [e.field, { value: e.value, by: e.by, at: e.at }]));
+    /* 본 기록서를 먼저 채워 «관리번호 부여» 칸이 가리키는 원액 로트를 안다 (현장 화면과 같은 갈래) */
+    const main = fillOne(docs[0].form, { ...base, entries: entriesOf(docs[0].id) }, false);
+    const linked = linkedSolution(main.pages);
+    const sol = linked ? look.solutions.get(linked) ?? null : null;
     return docs.flatMap((doc, i) => {
-      /* 현장에서 적은 칸 (0132) - 그 양식에 적힌 것만 */
-      const entries = Object.fromEntries((r.br ?? [])
-        .filter((e) => e.doc === doc.id)
-        .map((e) => [e.field, { value: e.value, by: e.by, at: e.at }]));
-      /* 별첨은 적은 칸이 있을 때만 (위 머리말) */
-      if (i > 0 && Object.keys(entries).length === 0) return [];
-      const filled = fillOne(doc.form, { ...base, entries }, i > 0);
+      const entries = entriesOf(doc.id);
+      /* 별첨은 적은 칸이 있거나 따르는 원액 로트가 있을 때만 (위 머리말 · PBS 제조기록서 연동) */
+      if (i > 0 && Object.keys(entries).length === 0 && !sol) return [];
+      const filled = i === 0 ? main : fillOne(doc.form, { ...base, entries }, true, sol);
       return [{ r, size: doc.form.page, pages: filled.pages, lost: filled.lost }];
     });
   });
