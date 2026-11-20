@@ -353,27 +353,54 @@ function pairsOf(cells) {
 }
 
 /**
+ * 표 칸이 아니라 한 줄에 "이름표 값" 으로 적힌 사실. 이름표 -> 값.
+ *
+ * 작업 지시서 첫 장은 회사 양식 F705-01 이다 (0136). 배치의 사실은 그 양식의
+ * 3 «생산팀 검토 & 지시사항» 한 칸 안에 "장입 수량 24 장" 처럼 줄로 들어가서
+ * 이름표와 값이 제 칸을 따로 갖지 않는다. 그 칸 전체를 한 덩어리로 보면 값이
+ * 어느 이름표 뒤에 있는지 가릴 수 없으므로 줄(안에 div 가 없는 div)로 쪼갠다.
+ */
+function factsOf(html) {
+  const body = html.replace(REACT_GAP, '').replace(/<script[\s\S]*?<\/script>/gi, ' ')
+                   .replace(/<style[\s\S]*?<\/style>/gi, ' ');
+  const lines = [];
+  for (const m of body.matchAll(new RegExp('<div\\b[^>]*>((?:(?!<\\/?div\\b)[\\s\\S])*?)<\\/div>', 'gi'))) {
+    const t = unescape(m[1]);
+    if (t) lines.push(t);
+  }
+  return (label) => {
+    const line = lines.find((t) => t.startsWith(`${label} `));
+    return line === undefined ? undefined : line.slice(label.length + 1).trim();
+  };
+}
+
+/**
  * 값이 칸 안에 있는가.
  *
  * 칸의 글이 값과 같거나, 값 뒤에 단위만 붙은 꼴이거나(20 장 · 4 통),
  * 값이 낱말 경계에서 끊어져 들어 있어야 한다. "12" 가 "2026-09-02" 안에
  * 우연히 들어가는 것을 막는 것이 요점이다.
+ *
+ * 값이 칸에 여러 번 나오면 하나라도 경계에서 끊어져 있으면 된다. 전에는 첫 자리만
+ * 봤다. 그래서 두께 "0510" 이 같은 칸의 형명 "PD05050510" 뒤에 오면, 앞의 것이
+ * 숫자에 묻혀 있다는 이유로 제대로 찍힌 두께를 없다고 했다 (2026-11-20).
  */
 function inCell(cellText, value) {
   const t = cellText.trim();
   const v = value.trim();
   if (!t || !v) return false;
   if (t === v) return true;
-  const i = t.indexOf(v);
-  if (i < 0) return false;
-  const before = i === 0 ? '' : t[i - 1];
-  const after = t[i + v.length] ?? '';
   const wordish = (ch) => /[0-9A-Za-z가-힣]/.test(ch);
-  /* 숫자 값이 더 긴 숫자 안에 묻히면 안 된다 */
-  if (/^[0-9.]+$/.test(v)) {
-    return !/[0-9.]/.test(before) && !/[0-9.]/.test(after);
+  for (let i = t.indexOf(v); i >= 0; i = t.indexOf(v, i + 1)) {
+    const before = i === 0 ? '' : t[i - 1];
+    const after = t[i + v.length] ?? '';
+    /* 숫자 값이 더 긴 숫자 안에 묻히면 안 된다 */
+    const ok = /^[0-9.]+$/.test(v)
+      ? !/[0-9.]/.test(before) && !/[0-9.]/.test(after)
+      : !wordish(before) || !wordish(after);
+    if (ok) return true;
   }
-  return !wordish(before) || !wordish(after);
+  return false;
 }
 
 async function sheet(name, formPath, checks, signBoxes, register) {
@@ -406,6 +433,7 @@ async function sheet(name, formPath, checks, signBoxes, register) {
   const text = visibleText(raw);
   const cells = cellsOf(raw);
   const pairs = pairsOf(cells);
+  const factOf = factsOf(raw);
 
   /*
    * 쪽 번호는 실제 매수와 같아야 한다 (§7).
@@ -417,9 +445,14 @@ async function sheet(name, formPath, checks, signBoxes, register) {
    * React 는 이어진 글자 조각 사이에 <!-- --> 를 끼운다. 떼고 본다.
    * 이것을 몰라 "종이가 쪽 번호를 말하지 않는다" 고 일곱 번 잘못 짚었다.
    */
+  /*
+   * 회사 양식 장(PaperSheet · 작업 지시서 첫 장 F705-01)은 머리 줄 오른쪽 끝에
+   * 바코드와 나란히 <span> 으로 n / N 을 찍는다. 그것을 못 읽어 "1 / 3" 이 찍힌
+   * 첫 장을 쪽 번호가 없는 장으로 셌다 (0136 이후).
+   */
   const flat = raw.replace(REACT_GAP, '');
   const sheets = (flat.match(/data-sheet="/g) || []).length;
-  const claims = [...flat.matchAll(new RegExp('(\\d+)\\s*\\/\\s*(\\d+)<\\/div>', 'g'))].map(
+  const claims = [...flat.matchAll(new RegExp('(\\d+)\\s*\\/\\s*(\\d+)(?:<\\/span>)?<\\/div>', 'g'))].map(
     (m) => [Number(m[1]), Number(m[2])]);
   if (sheets > 0) {
     const nOk = claims.length === sheets && claims.every(([, n]) => n === sheets);
@@ -493,6 +526,11 @@ async function sheet(name, formPath, checks, signBoxes, register) {
       const got = pairs.get(c.cell);
       found = got !== undefined && inCell(got, value);
       where = got === undefined ? `'${c.cell}' 칸이 없음` : `'${c.cell}' = ${got}`;
+    } else if (c.fact) {
+      /* 한 줄에 "이름표 값" 으로 적힌 사실은 그 이름표 바로 뒤에 있어야 한다 */
+      const got = factOf(c.fact);
+      found = got !== undefined && inCell(got, value);
+      where = got === undefined ? `'${c.fact}' 줄이 없음` : `'${c.fact}' = ${got}`;
     } else if (c.anywhere) {
       /* 칸이 아닌 자리(문단 · 제목)에 나오는 것 */
       found = text.includes(value);
@@ -568,23 +606,29 @@ async function registerCheck(kind, where = {}) {
 
 await sheet('① 작업 지시서', `/print/work-order/${wo.id}`, [
   ...common('작업 지시서'),
-  { label: '지시서번호',        value: wo.wo_no, cell: '지시서번호' },
+  /*
+   * 첫 장은 회사 양식 F705-01(Rev.02) 작업요청 및 지시서다 (0136 · 사용자 2026-11-11).
+   * 지시서번호는 그 양식의 «작업지시번호(생산팀 기입)» 칸에, 장입 수량 · 필요 용기는
+   * 3 «생산팀 검토 & 지시사항» 칸 안의 줄로 들어간다.
+   */
+  { label: '지시서번호',        value: wo.wo_no, cell: '작업지시번호 (생산팀 기입)' },
   /*
    * 필요 용기 수 (§7). 단위가 다른 값을 더한 숫자가 찍히고 있었다.
    * 단위별로 각각 종이에 있어야 한다.
    */
   ...containerExpect.map((c) => ({
-    label: `필요 용기 ${c.uom}`, value: `${c.n} ${c.uom}`, cell: '필요 용기 수',
+    label: `필요 용기 ${c.uom}`, value: `${c.n} ${c.uom}`, fact: '필요 용기',
   })),
-  { label: '장입 수량',         value: String(wo.sheet_count), cell: '장입 수량' },
+  { label: '장입 수량',         value: String(wo.sheet_count), fact: '장입 수량' },
   { label: '배치번호',          value: wo.batch_no },
-  // 제품 자리에는 최상위 관리 코드가 나가고, 형명(PD…)은 규격으로 함께 적힌다
-  { label: '제품 관리 코드',    value: wo.product_code ?? wo.item_code },
-  { label: '제품명',            value: wo.product_name ?? wo.item_name },
-  { label: '형명',              value: wo.item_code },
+  // 제품 자리에는 최상위 관리 코드가 나가고, 형명(PD…)은 규격으로 함께 적힌다 (0031)
+  { label: '제품 관리 코드',    value: wo.product_code ?? wo.item_code, fact: '제품' },
+  { label: '제품명',            value: wo.product_name ?? wo.item_name, fact: '제품' },
+  /* F705 로 바꿀 때 한 번 빠졌다 (0136). 제품 줄에 함께 있어야 한다 */
+  { label: '형명',              value: wo.item_code, fact: '제품' },
   { label: '제품표준서 개정',   value: wo.dmr_revision },
   { label: '원재료 로트번호',   value: wo.raw_lot_no },
-  { label: '두께 구간',         value: wo.thickness_band },
+  { label: '두께 구간',         value: wo.thickness_band, fact: '원재료 로트' },
   { label: '원재료 공급자',     value: wo.supplier_name },
   { label: '성적서 번호',       value: wo.coa_no },
   { label: '생산 발행자',       value: wo.prod_name },

@@ -324,7 +324,13 @@ export default async function WorkOrderSheet({ params, searchParams }: {
           facts={{
             woNo: wo.wo_no,
             batchNo: wo.batch_no,
-            product: `${wo.product_name ?? wo.item_name} (${wo.product_code ?? wo.item_code})`,
+            /*
+             * 제품 자리는 최상위 관리 코드이고, 형명(PD…)은 그 옆에 함께 적는다 - 둘 다
+             * 필요한 값이다 (0031). F705 로 바꿀 때 형명이 빠졌던 것을 되살린다
+             * (사용자 2026-11-20). 관리 코드가 없으면 형명이 곧 제품 자리에 나간다.
+             */
+            product: `${wo.product_name ?? wo.item_name} (${wo.product_code ?? wo.item_code})`
+              + (wo.product_code ? ` · 형명 ${wo.item_code}` : ''),
             revision: wo.dmr_revision,
             rawLot: wo.raw_lot_no + (wo.thickness_band ? ` · 두께 ${wo.thickness_band}` : ''),
             supplier: `${wo.supplier_name} / ${wo.supplier_lot_no}`,
