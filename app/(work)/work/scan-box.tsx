@@ -61,7 +61,7 @@ export default function ScanBox() {
         name="scan"
         autoComplete="off"
         spellCheck={false}
-        className="input h-14 w-full text-center font-mono text-xl tracking-wide"
+        className="input w-full text-center font-mono text-xl tracking-wide"
       />
       {/*
         * 단추를 둔다. 스캐너의 Enter 만 믿지 않는다 - 스캐너 설정에 따라

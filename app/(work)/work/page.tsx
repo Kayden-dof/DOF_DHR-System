@@ -234,7 +234,7 @@ export default async function WorkHome(
           * 2026-11-06). 전에는 36px 짜리 글줄이라, 기계가 말을 안 듣는 바로 그때
           * 장갑 낀 손이 가장 작은 것을 겨냥해야 했다.
           */}
-        <summary className="flex h-14 cursor-pointer list-none items-center justify-between gap-3 rounded-lg
+        <summary className="flex h-[var(--tap)] cursor-pointer list-none items-center justify-between gap-3 rounded-lg
                             border border-ctl px-5 text-base text-muted transition-colors
                             hover:bg-surface-sub [&::-webkit-details-marker]:hidden">
           <span>스캐너가 안 됩니까? <b className="text-ink">배치 고르기</b></span>

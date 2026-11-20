@@ -62,8 +62,8 @@ export default function NumPad({
       <input ref={ref} type="hidden" name={name} value={value} readOnly />
 
       <div
-        className={`mt-1.5 flex h-14 items-center justify-end rounded-md border px-4 ${
-          over ? 'border-danger bg-danger-bg' : 'border-line-strong bg-surface'
+        className={`input mt-1.5 flex items-center justify-end ${
+          over ? 'border-danger bg-danger-bg' : ''
         }`}
       >
         <span className="text-2xl font-semibold tnum text-ink">

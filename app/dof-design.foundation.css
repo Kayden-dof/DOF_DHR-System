@@ -1864,7 +1864,9 @@ input, textarea, [contenteditable] { caret-color: var(--color-brand); }
      위 괘선만 긋는 장부형 판(2026-10-23 오너 결정 «3»)까지 둥글어진다 */
   .touch .section-head { padding: 1rem 1.25rem; }
 
-  /* 큰 선택 타일. 현장에서 손가락으로 고르는 모든 것 */
+  /* 큰 선택 타일. 현장에서 손가락으로 고르는 모든 것.
+     테두리는 입력칸 · 단추 · 숫자 키와 같은 조작 테두리(--qd-ctl)다 (2026-11-20 네모칸
+     감사). 전에는 옅은 선(line-strong)이라 같은 줄의 날짜 칸 · «오늘» 단추와 테두리가 갈렸다 */
   .tile {
     display: flex;
     flex-direction: column;
@@ -1872,7 +1874,7 @@ input, textarea, [contenteditable] { caret-color: var(--color-brand); }
     gap: 0.1875rem;
     min-height: var(--tap-touch);
     padding: 0.875rem 1rem;
-    border: 1px solid var(--color-line-strong);
+    border: 1px solid var(--qd-ctl);
     border-radius: var(--r-md);
     background: var(--color-surface);
     text-align: left;
@@ -2104,9 +2106,14 @@ input, textarea, [contenteditable] { caret-color: var(--color-brand); }
 
      그 제품의 칸은 44px 이고 모서리가 넉넉하다. 여기는 40px 에 6px 이었다.
      칸이 작으면 폼이 «빽빽한 표» 처럼 보인다 - 고급스러움은 대개 여백이다.
+
+     🔴 2026-11-20 네모칸 감사. 여기 높이를 `2.75rem` 으로 박아 두었었다. 위의 첫
+        `.input` 이 `height: var(--tap)` 으로 현장(.touch) 56px 을 따르게 해 둔 것을
+        이 줄이 뒤에서 덮어, 현장에서만 칸 44 · 옆 단추(.btn-*) · 타일 56 으로 갈렸다
+        (기록서 «시작 · 종료» 시각 칸과 «지금», 공정 시작의 작업일 · 시각 칸 등).
+        높이는 첫 `.input` 하나가 --tap 으로 정한다. 관리 화면은 --tap = 44 라 그대로다.
   --------------------------------------------------------------------------- */
   .input {
-    height: 2.75rem;
     border-radius: var(--r-md);
     background: var(--color-surface-sub);
   }

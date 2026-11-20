@@ -857,8 +857,8 @@ function TimePair({ s, e, dated, busy, onDone }: {
   const [a, setA] = useState(s);
   const [b, setB] = useState(e);
   const row = (label: '시작' | '종료', v: { d: string; t: string }, set: (x: { d: string; t: string }) => void) => (
-    <div className="flex flex-wrap items-end gap-2">
-      <span className="w-12 pb-3 text-base font-semibold text-ink">{label}</span>
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="w-12 text-base font-semibold text-ink">{label}</span>
       {dated && (
         <input type="date" value={v.d} onChange={(ev) => set({ ...v, d: ev.target.value })} className="input w-44 tnum" />
       )}
