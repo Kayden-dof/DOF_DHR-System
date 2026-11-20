@@ -55,7 +55,11 @@ export default [
 
 {
   id: 'RV-02', expect: '확인',
-  name: '시각 역전을 잡는다 (시작이 종료보다 늦음)',
+  /*
+   * 0156 (사용자 2026-11-20 «시스템 기록에 대한 특이 사항은 언급하지 말것. 작성된 기록에서의 문제만을
+   * 언급할것»): 시스템 시작 · 종료 시각의 역전은 더 짚지 않는다. 종이의 시각은 기록서 칸에 적은 값이다.
+   */
+  name: '시스템 시작 · 종료 시각이 역전되어도 짚지 않는다 (적힌 기록의 문제만 · 0156)',
   async run(t) {
     const m = await master(t);
     const rawLot = await newMaterialLot(t, m, m.raw, { thickness_band: '0510', qty: 50 });
@@ -70,10 +74,8 @@ export default [
         where id = $1`, [pr]);
 
     const rows = await flags(t, wo);
-    const hit = rows.find((r) => r.kind === '시각 모순');
-    if (!hit) throw new Error('시각 모순을 잡지 못했다');
-    if (!hit.detail.includes('역전')) {
-      throw new Error(`사실을 그대로 적어야 한다: ${hit.detail}`);
+    if (rows.some((r) => r.kind === '시각 모순')) {
+      throw new Error(`시스템 시각으로 짚었다: ${rows.map((r) => r.detail).join(' / ')}`);
     }
   },
 },
@@ -274,8 +276,8 @@ export default [
     const wo = await newWorkOrder(t, m, { rawLot, sheets: 20 });
     await t.setActor(m.admin);
     const { pr } = await goodOp(t, m, wo);
-    await t.rows(
-      `update process_record set ended_at = started_at - interval '1 hour' where id = $1`, [pr]);
+    /* 적힌 기록의 문제 하나 - 투입량이 구간 밖 (0156 부터 시스템 시각 역전은 짚지 않는다) */
+    await t.rows(`update material_issue set qty = 1 where process_record_id = $1`, [pr]);
 
     const rows = await flags(t, wo);
     const banned = ['적합', '부적합', '합격', '불합격', '이상 없음', '검토 완료', '오류', '위반'];
@@ -368,17 +370,17 @@ export default [
     const wo = await newWorkOrder(t, m, { rawLot, sheets: 20 });
     const op = m.ops['WS-DX2401-03'];
 
-    // 시작이 종료보다 늦은 기록 하나
+    // 자재를 기록하지 않고 사유로 마감한 기록 하나 (0156 부터 시각 모순은 짚지 않는다)
     await t.rows(
       `insert into process_record (work_order_id, operation_id, day_no, work_date,
-         worker_id, started_at, ended_at)
-       values ($1,$2,1,current_date,$3,
-               current_date + interval '9 hours', current_date + interval '8 hours')`,
+         worker_id, no_material_reason, started_at, ended_at)
+       values ($1,$2,1,current_date,$3,'자재 사용 없음',
+               current_date + interval '8 hours', current_date + interval '9 hours')`,
       [wo.id, op, m.worker]);
 
     const rows = await flags(t, wo);
-    const hit = rows.find((r) => r.kind === '시각 모순');
-    if (!hit) throw new Error('시각 역전을 잡지 못했다');
+    const hit = rows.find((r) => r.kind === '기입 누락');
+    if (!hit) throw new Error('기입 누락을 잡지 못했다');
 
     const name = await t.val(`select name from dmr_operation where id = $1`, [op]);
     if (!hit.detail.includes(name)) {

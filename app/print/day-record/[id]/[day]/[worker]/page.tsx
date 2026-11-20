@@ -389,24 +389,18 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = fal
   /* 공정마다 양식 차례 - 본 기록서가 처음 */
   const formsOf = new Map<string, typeof look.forms>();
   for (const f of look.forms) formsOf.set(f.op_code, [...(formsOf.get(f.op_code) ?? []), f]);
-  const hms = (v: Date | null) => (v ? fmtDateTime(v).slice(11) : '');
   let marked = 0;
   const plans = records.flatMap((r, ri) => {
     const docs = formsOf.get(r.operation_code);
     if (!docs?.length) return [];
+    /*
+     * 특이사항 칸에는 적힌 기록만 (사용자 2026-11-20 «시스템 기록에 대한 특이 사항은 언급하지 말것. 작성된
+     * 기록에서의 문제만을 언급할것»). 전에는 «시스템 기록 · 시작 · 종료 · 회차 · 설비», 순환자, 제조번호,
+     * 위탁 발송을 시스템이 적었다. 작업자가 마감 때 적은 재포장 수량 · 자재 미사용 사유만 남긴다.
+     */
     const notes = [
-      [`시스템 기록 · 시작 ${hms(r.started_at)} · 종료 ${hms(r.ended_at)}`,
-       r.attempt > 1 ? `${r.attempt}회차` : '',
-       r.equipment_id
-         ? `설비 ${[r.equipment_id, ...(r.extra_equipment ?? [])].join(' · ')}` : ''].filter(Boolean).join(' · '),
-      r.rotation_name ? `순환자 ${r.rotation_name} (서명하지 않음)` : '',
-      r.product_lot_no
-        ? `제조번호 ${r.product_lot_no} · ${r.product_item_code ?? ''} · ${r.product_qty ?? ''}개`
-          + (r.product_sample ? ` (샘플 ${r.product_sample})` : '')
-        : '',
       r.rework_qty ? `재포장 ${r.rework_qty}` : '',
       r.no_material_reason ? `자재 미사용 사유 · ${r.no_material_reason}` : '',
-      ...r.steril.map((v) => `위탁 발송 ${v.qty}개 · ${v.batch_no}`),
     ].filter(Boolean);
     const base = {
       batchNo: head.batch_no,
@@ -638,7 +632,7 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = fal
               {marked > 0
                 ? <>기록서에서 이 항목이 가리키는 칸 <b className="text-ink">{marked}</b>곳을 붉게 표시했습니다.</>
                 : plans.some((p) => hlFlags.some((f) => flagOps(f).has(p.r.operation_code)))
-                  ? '기록서에서 짚을 칸을 찾지 못했습니다. 각 장 아래의 시스템 기록 줄을 보십시오.'
+                  ? '기록서에서 짚을 칸을 찾지 못했습니다.'
                   : '이 항목의 공정은 이 기록서에 없습니다.'}
             </p>
             {recIds.filter((x) => hlFlags.some((f) => flagOps(f).has(x.code))).map((x) => (
