@@ -75,6 +75,34 @@ export default [
 },
 
 {
+  id: 'EB-04', expect: '통과',
+  name: '작업일보다 앞선 날로 마감하면 작업일도 그 날로 · 정정 내역 · 발행일 앞으로는 옮기지 않음 (0143)',
+  async run(t) {
+    const m = await master(t);
+    const wo = await newWorkOrder(t, m);
+    await t.rows(`update work_order set issued_at = now() - interval '20 days' where id = $1`, [wo.id]);
+    const pr = await started(t, m, wo);
+    await asUser(t, m.worker, () =>
+      t.rows(`select complete_process_at($1, now() - interval '16 days')`, [pr]));
+    t.eq(await t.val(
+      `select work_date = (timezone('Asia/Seoul', ended_at))::date from process_record where id = $1`, [pr]),
+      true, '작업일 = 마감한 날');
+    t.eq(await t.val(
+      `select count(*)::int from record_correction
+        where process_record_id = $1 and field = 'work_date' and before_close`, [pr]), 1, '정정 내역');
+
+    /* 발행일보다 앞선 날로 마감하면 작업일은 그대로 두고 마감만 한다 */
+    const wo2 = await newWorkOrder(t, m);
+    await t.rows(`update work_order set issued_at = now() - interval '2 days' where id = $1`, [wo2.id]);
+    const pr2 = await started(t, m, wo2);
+    await asUser(t, m.worker, () =>
+      t.rows(`select complete_process_at($1, now() - interval '10 days')`, [pr2]));
+    t.eq(await t.val(`select work_date = current_date and ended_at is not null from process_record where id = $1`,
+      [pr2]), true, '발행일 앞은 작업일을 두고 마감');
+  },
+},
+
+{
   id: 'EB-03', expect: '거부',
   name: '미래 종료 시각은 그대로 막는다',
   async run(t) {

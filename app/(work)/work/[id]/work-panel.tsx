@@ -14,6 +14,7 @@ import {
 } from './br-sheet';
 import { todayKST, nowLocalKST } from '@/lib/kst';
 import { isNoExpiry } from '@/lib/equipment-check';
+import { altSuffix } from '@/lib/units';
 import {
   startRecord, issueMaterial, endRecord, closeDay, cutAtField,
   amendIssue, returnIssue, dayGaps, fixRecord,
@@ -36,6 +37,8 @@ export interface Op {
   qual_managed: boolean;
   qualified: boolean;
   bom: { item_id: string; item_code: string; item_name: string; usage_uom: string;
+         /** 함께 적을 단위 (0143 · 과산화수소 kg 옆 L) */
+         alt_uom?: string | null; alt_ratio?: string | number | null;
          basis: string; required: string | null;
          /** 작업표준서가 범위로 준 양의 위쪽 끝 (0128). 범위가 아니면 required 와 같다 */
          required_max?: string | null;
@@ -341,7 +344,7 @@ export default function WorkPanel({
             return (
               <button key={n} onClick={() => { setDay(n); setOpId(null); }}
                       data-on={day === n}
-                      className="tile no-select w-[6.5rem] items-center gap-0.5 text-center">
+                      className="tile no-select w-[6.5rem] items-center gap-0.5 px-2 text-center">
                 <span className="text-xl font-semibold tnum">{n}일차</span>
                 {/*
                   * 그 일차가 언제였는지 붙인다 (4차 감사 E1).
@@ -351,7 +354,8 @@ export default function WorkPanel({
                   * 선택된 채 뜨고 그것이 어제라는 표시가 없었다. 그대로 적으면
                   * 종이에 앞선 날짜만 찍히고 오늘 작업이 시각만 남은 채 들어간다.
                   */}
-                <span className="text-xs tnum text-faint">{dayDate.get(n) ?? ''}</span>
+                {/* 날짜가 «2026-11-» / «20» 으로 갈라지지 않게 (사용자 2026-11-20 «줄바꿈 저게 맞니») */}
+                <span className="whitespace-nowrap text-xs tnum text-faint">{dayDate.get(n) ?? ''}</span>
                 <span className={`text-xs ${
                   lockedDays.includes(n) ? 'text-ok' : mineHere > 0 ? 'text-muted' : 'text-faint'
                 }`}>
@@ -1206,7 +1210,7 @@ function MaterialForm({ woId, rec, op, lots, sheets, loadUnit, expiryWarnDays }:
                   <span className="text-muted">
                     예상 {Number(b.required)}
                     {b.required_max != null && Number(b.required_max) > Number(b.required)
-                      ? `~${Number(b.required_max)}` : ''} {b.usage_uom}
+                      ? `~${Number(b.required_max)}` : ''} {b.usage_uom}{altSuffix(b.required, b)}
                   </span>
                 )}
                 {noLot ? (
@@ -1987,11 +1991,14 @@ function PrepCard(
   const today = left.filter((o) => (o.typical_day ?? 99) === todayDay);
 
   /* 오늘 할 공정의 자재를 품목별로 모은다. 같은 자재가 두 공정에 걸리면 더한다 */
-  const need = new Map<string, { name: string; uom: string; qty: number; known: boolean }>();
+  const need = new Map<string, {
+    name: string; uom: string; qty: number; known: boolean;
+    alt_uom?: string | null; alt_ratio?: string | number | null;
+  }>();
   for (const o of today) {
     for (const b of o.bom) {
       const cur = need.get(b.item_id)
-        ?? { name: b.item_name, uom: b.usage_uom, qty: 0, known: true };
+        ?? { name: b.item_name, uom: b.usage_uom, qty: 0, known: true, alt_uom: b.alt_uom, alt_ratio: b.alt_ratio };
       if (b.required === null) cur.known = false;
       else cur.qty += Number(b.required);
       need.set(b.item_id, cur);
@@ -2049,10 +2056,14 @@ function PrepCard(
                 <li key={id} className="flex flex-wrap items-baseline gap-x-4 py-2">
                   <span className="min-w-0 flex-1 text-base text-ink">{n.name}</span>
                   <span className="tnum text-lg font-semibold text-ink">
-                    {n.known ? n.qty : '—'} {n.uom}
+                    {n.known ? +n.qty.toFixed(6) : '—'} {n.uom}
+                    {n.known && altSuffix(n.qty, n) && (
+                      <span className="ml-1 text-sm font-normal text-muted">{altSuffix(n.qty, n).trim()}</span>
+                    )}
                   </span>
+                  {/* 재고도 단위를 붙인다 (사용자 2026-11-20 «왜 재고가 Kg 단위로 나와?» - 단위가 없어 무엇인지 몰랐다) */}
                   <span className={`tnum text-sm ${short ? 'font-semibold text-warn' : 'text-muted'}`}>
-                    재고 {have}{short ? ' · 모자람' : ''}
+                    재고 {+have.toFixed(6)} {n.uom}{altSuffix(have, n)}{short ? ' · 모자람' : ''}
                   </span>
                 </li>
               );

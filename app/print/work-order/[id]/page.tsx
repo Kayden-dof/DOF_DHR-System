@@ -6,6 +6,7 @@ import { logPrint, printGate, viewParam } from '@/lib/print';
 import Denied from '@/components/denied';
 import { chunkByWeight } from '@/lib/print-pages';
 import { isNoExpiry } from '@/lib/equipment-check';
+import { altSuffix, type AltUnit } from '@/lib/units';
 import PrintFrame, { Sheet, SignRow, PaperSheet } from '@/components/print-frame';
 import F705, { F705_EDGE, type WorkRequest } from './f705';
 
@@ -61,8 +62,10 @@ function opName(o: { name: string; after_cutting: boolean }, splitOp: string | n
 
 
 /* 공정 표. 장이 여럿일 때 이어지는 장이 같은 표를 그린다 (§10 복제는 갈라진다) */
-function OpTable({ rows, title, today, units, splitOp }: {
+function OpTable({ rows, title, today, units, splitOp, alts }: {
   rows: OpRow[]; title: string; today?: string | null; units: number;
+  /** 품목 코드 → 함께 적을 단위 (0143). 자료 식별자 밖에서 읽는다 */
+  alts: Map<string, AltUnit>;
   /** 갈림 공정 이름. 없으면 그 말을 쓰지 않는다 (0101) */
   splitOp: string | null;
 }) {
@@ -146,7 +149,7 @@ function OpTable({ rows, title, today, units, splitOp }: {
                         ? (m.basis === 'PER_UNIT'
                             ? `${splitOp ? `${splitOp} 후` : '나중에'} 확정`
                             : '구간 없음')
-                        : `${Number(m.required)} ${m.usage_uom}`}
+                        : `${Number(m.required)} ${m.usage_uom}${altSuffix(m.required, alts.get(m.item_code))}`}
                     </td>
                     {i === 0 && equipCell}
                   </tr>
@@ -209,6 +212,12 @@ export default async function WorkOrderSheet({ params, searchParams }: {
         `select request_dept, requester, purpose, purpose_note, urgent, lines, notes,
                 complete_by::text as complete_by, instruction
            from work_request where work_order_id = $1`, [id]),
+      /*
+       * 함께 적을 단위 (0143 · 과산화수소 kg 옆 L). 표시만 하므로 자료 식별자(payload)에
+       * 넣지 않는다 - 넣으면 이미 나간 지시서의 식별자가 모두 달라진다.
+       */
+      alts: await db.rows<{ code: string; alt_uom: string; alt_ratio: string }>(
+        `select code, alt_uom, alt_ratio::text from item where alt_uom is not null`),
       today: await db.val<string>(
         `select to_char(timezone('Asia/Seoul', now()), 'YYYY-MM-DD')`),
       ops: await db.rows<OpRow>(
@@ -242,6 +251,7 @@ export default async function WorkOrderSheet({ params, searchParams }: {
 
   if (!d) notFound();
   const { wo, ops, today, req } = d;
+  const alts = new Map<string, AltUnit>(d.alts.map((a) => [a.code, a]));
   /* 종이의 낱말이 제품에서 나온다 (0101) */
   const splitOp = wo.split_op;
   /* 예정 제품 개수. 0 이면 아직 정해지지 않은 것이지 0 개가 아니다 */
@@ -371,7 +381,7 @@ export default async function WorkOrderSheet({ params, searchParams }: {
             */}
           <OpTable rows={rows}
                    title={k === 0 ? '공정 순서 및 자재 소요량' : '공정 순서 및 자재 소요량 (이어짐)'}
-                   today={today} units={units} splitOp={splitOp} />
+                   today={today} units={units} splitOp={splitOp} alts={alts} />
 
           {k === last && (
             <>

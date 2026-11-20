@@ -155,6 +155,20 @@ export async function updateItem(_p: FormState, form: FormData): Promise<FormSta
         return n !== null && Number.isFinite(n) && n > 0 ? n : null;
       })();
 
+      /*
+       * 함께 적을 단위 (0143). 표시만 하므로 로트가 있어도 고친다. 단위를 비우면 둘 다 걷는다.
+       * 완제품은 칸이 없어 폼에 없다 - 그때는 건드리지 않는다.
+       */
+      if (form.has('alt_uom')) {
+        const altUom = String(form.get('alt_uom') ?? '').trim();
+        const altRatio = num(form.get('alt_ratio'));
+        if (altUom && !(altRatio !== null && Number.isFinite(altRatio) && altRatio > 0)) {
+          throw new Error(`함께 적을 단위 1 ${altUom} 이 사용 단위로 얼마인지 적으십시오`);
+        }
+        await db.rows(`update item set alt_uom = $2, alt_ratio = $3 where id = $1`,
+          [id, altUom || null, altUom ? altRatio : null]);
+      }
+
       await db.rows(
         /*
          * 기본 공급자 (6차 감사 N7). 사양 §4.2 에 있는 열인데 화면에 칸이

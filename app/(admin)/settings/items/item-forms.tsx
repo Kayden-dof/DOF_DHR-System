@@ -21,6 +21,9 @@ export interface ItemRow {
   purchase_uom: string;
   usage_uom: string;
   conversion: string;
+  /** 함께 적을 단위와 그 1 단위의 사용 단위 양 (0143). 표시만 한다 */
+  alt_uom: string | null;
+  alt_ratio: string | null;
   min_stock: string | null;
   min_stock_auto: string | null;
   min_stock_basis: string | null;
@@ -338,6 +341,28 @@ export function ItemRowView({ it, suppliers }: {
                   모두 사용 단위 기준의 숫자로 적혀 있습니다 - 단위를 바꾸면 이미
                   적힌 숫자의 뜻이 바뀝니다.
                 </div>
+              )}
+
+              {/*
+                * 함께 적을 단위 (0143 · 사용자 2026-11-20 «L 도 병용표기»). 재고 · 소요량의
+                * 숫자는 사용 단위 그대로이고 옆에 괄호로 덧붙일 뿐이라 로트가 있어도 고친다.
+                */}
+              {it.type !== 'FIN' && (
+                <>
+                  <div>
+                    <label className="label" htmlFor={`${uid}-alt_uom`}>함께 적을 단위</label>
+                    <input id={`${uid}-alt_uom`} name="alt_uom" defaultValue={it.alt_uom ?? ''}
+                           autoComplete="off" placeholder="예: L" className="input" />
+                  </div>
+                  <div>
+                    <label className="label" htmlFor={`${uid}-alt_ratio`}>
+                      함께 적을 단위 1 = ? {it.usage_uom}
+                    </label>
+                    <input id={`${uid}-alt_ratio`} name="alt_ratio" type="number" step="any" min="0.0001"
+                           defaultValue={it.alt_ratio ? Number(it.alt_ratio) : ''}
+                           placeholder="예: 1.11" className="input tnum" />
+                  </div>
+                </>
               )}
 
               {it.type !== 'FIN' && (
