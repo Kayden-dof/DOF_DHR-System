@@ -3,7 +3,7 @@ import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { withActor } from './db';
 import type { RoleCode } from './roles';
-import { isViewerOnly, isReadOnly, homePath, seatOf } from './roles';
+import { isAdmin, isViewerOnly, isReadOnly, homePath, seatOf } from './roles';
 import { screenAccess } from './access';
 import { SESSION_COOKIE as COOKIE, PATH_HEADER } from './auth-const';
 import { canOpen } from './access';
@@ -53,6 +53,11 @@ export interface SessionUser {
    * 데 쓴다 - 다시 로그인하면 값이 바뀌므로 앞 세션의 잠금 표시가 따라오지 않는다.
    */
   issued_at: number;
+  /**
+   * 본인이 자동 잠금을 껐고 지금 관리 역할이 있다 (0153 · idle_lock_off()).
+   * 화면은 이것을 바로 쓰지 말고 idleLockOff(user) 로 묻는다 - 앉은 역할까지 본다.
+   */
+  idle_lock_off: boolean;
 }
 
 function secret(): Buffer {
@@ -208,9 +213,12 @@ export async function currentUser(): Promise<SessionUser | null> {
       id: string; login_code: string; full_name: string;
       is_developer: boolean; must_change_pin: boolean; roles: RoleCode[] | null;
       pin_changed_at: Date | null; screens: Record<string, boolean> | null;
+      idle_lock_off: boolean;
     }>(
       `select u.id, u.login_code, u.full_name, u.is_developer, u.must_change_pin,
               u.pin_changed_at,
+              /* 값과 역할을 함께 본다. 관리 역할을 거두면 다음 요청부터 다시 잠긴다 (0153) */
+              idle_lock_off(u.id) as idle_lock_off,
               array_remove(array_agg(distinct r.role::text), null)::text[] as roles,
               /*
                * 계정별 화면 배정 (0116). is_open 이 null 인 칸은 역할 기본값으로
@@ -314,6 +322,17 @@ export async function requireUserForPasswordChange(): Promise<SessionUser> {
 
 export function hasRole(user: SessionUser, ...roles: RoleCode[]): boolean {
   return roles.some((r) => user.roles.includes(r));
+}
+
+/* ---------------------------------------------------------------------------
+   자동 잠금을 걸지 않는가 (0153 · 사용자 2026-11-20)
+
+   DB 가 값과 관리 역할을 함께 본 결과(idle_lock_off)에, 이번에 앉은 역할을 한 번
+   더 건다. 관리자 겸 작업자가 작업자로 앉았으면 그 세션은 현장 패드의 것이라
+   늘 잠근다 - 여러 사람이 번갈아 쓰는 자리다.
+--------------------------------------------------------------------------- */
+export function idleLockOff(user: SessionUser): boolean {
+  return user.idle_lock_off && isAdmin(user.seat);
 }
 
 /* ---------------------------------------------------------------------------

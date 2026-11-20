@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { withActor } from '@/lib/db';
 import { redirect } from 'next/navigation';
-import { requireUser, hasRole, ROLE_LABEL } from '@/lib/session';
+import { requireUser, hasRole, idleLockOff, ROLE_LABEL } from '@/lib/session';
 import { isAdmin, isWorker, isViewerOnly, isQpOnly } from '@/lib/roles';
 import { canOpen } from '@/lib/access';
 import { cookies, headers } from 'next/headers';
@@ -225,7 +225,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         who={user.id}
         foot={
           <>
-            <div className="qd-rail-user">
+            {/* 이름을 누르면 내 설정 (사용자 2026-11-20 · 자동 잠금 끄기) */}
+            <Link href="/me" className="qd-rail-user" title="내 설정">
               {/* 개발 계정은 동그라미 자체를 물들인다. 꼬리표보다 덜 시끄럽고 더 눈에 띈다 */}
               <span aria-hidden className={`qd-avatar${user.is_developer ? ' !bg-warn-bg !text-warn' : ''}`}>
                 {initial}
@@ -237,9 +238,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
                   {roleLine}
                 </span>
               </span>
-            </div>
+            </Link>
             <div className="flex flex-wrap items-center gap-x-3 in-[.qd-rail--collapsed]:flex-col">
               {switchRole('qd-rail-logout', true)}
+              <Link href="/me" className="qd-rail-logout" aria-label="내 설정" title="내 설정">
+                <span className="dof-rail-full">내 설정</span>
+                <span className="dof-rail-mini" aria-hidden>⚙</span>
+              </Link>
               <form action={logout}>
                 {/* 접힌 레일에서는 글귀 대신 표식 하나 (원본 접힘의 로그아웃과 같다) */}
                 <button type="submit" className="qd-rail-logout" aria-label="로그아웃" title="로그아웃">
@@ -300,8 +305,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         * 현장보다 길게 준다. 워터마크(감사 04)는 캡처를 막지 못하지만 찍히면
         * 누가 언제 봤는지가 함께 남는다. 뒤로가기는 홈 화면 앱에서 브라우저
         * 뒤로가기가 없는 자리를 메운다.
+        *
+        * 관리자는 내 설정에서 자동 잠금을 끌 수 있다 (0153 · 사용자 2026-11-20).
+        * 관리 역할을 거두면 다음 화면부터 다시 걸린다 (idleLockOff).
         */}
-      <IdleLock minutes={30} sid={String(user.issued_at)} name={user.full_name} initial={initial} />
+      {!idleLockOff(user) && (
+        <IdleLock minutes={30} sid={String(user.issued_at)} name={user.full_name} initial={initial} />
+      )}
       <Watermark text={stamp(user.full_name, user.login_code)} />
       <BackFab />
     </div>

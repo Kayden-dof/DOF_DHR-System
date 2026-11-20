@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { withActor } from '@/lib/db';
 import { redirect } from 'next/navigation';
-import { requireUser } from '@/lib/session';
+import { requireUser, idleLockOff } from '@/lib/session';
 import { isAdmin, isWorker } from '@/lib/roles';
 import { BrandMark } from '@/components/brand-mark';
 import { BrandCopyright, SystemName } from '@/components/brand-mark';
@@ -114,8 +114,13 @@ export default async function WorkLayout({ children }: { children: React.ReactNo
         * 자리 비움 잠금. 로그아웃이 아니라 화면만 덮는다. 세션은 8시간 그대로다.
         * 시간은 공정 대기 시간을 보고 정해야 한다. 초임계 가공처럼 오래 도는
         * 공정이 있으면 더 길어야 한다.
+        *
+        * 관리자로 앉아 자동 잠금을 끈 계정만 빠진다 (0153). 작업자로 앉은 세션은
+        * 늘 잠근다 (idleLockOff).
         */}
-      <IdleLock minutes={20} sid={String(user.issued_at)} name={user.full_name} initial={user.full_name.slice(0, 1)} />
+      {!idleLockOff(user) && (
+        <IdleLock minutes={20} sid={String(user.issued_at)} name={user.full_name} initial={user.full_name.slice(0, 1)} />
+      )}
 
       <footer className="mx-auto w-full max-w-[1240px] px-5 pb-8 pt-4">
         <div className="flex items-center justify-between gap-4 border-t border-line pt-4">
