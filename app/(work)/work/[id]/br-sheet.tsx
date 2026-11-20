@@ -880,7 +880,8 @@ function TimePair({ s, e, dated, busy, onDone }: {
       {dated && (
         <input type="date" value={v.d} onChange={(ev) => set({ ...v, d: ev.target.value })} className="input w-44 tnum" />
       )}
-      <input type="time" value={v.t} onChange={(ev) => set({ ...v, t: ev.target.value })} className="input w-36 tnum" />
+      {/* «오후 12:10» 과 시계 표시가 다 보이는 폭 (사용자 2026-11-20 «오른쪽 짤려서 시간 잘 안보인다») */}
+      <input type="time" value={v.t} onChange={(ev) => set({ ...v, t: ev.target.value })} className="input w-48 tnum" />
       <button type="button" disabled={busy}
               onClick={() => {
                 const now = { d: ymd(), t: hhmm() };
