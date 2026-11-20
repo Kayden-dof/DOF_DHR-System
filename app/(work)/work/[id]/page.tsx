@@ -9,7 +9,7 @@ import { Tag } from '@/components/ui';
 import { WO_STATUS_LABEL } from '@/lib/forms';
 import WorkPanel, {
   type Op, type Rec, type LotOpt, type PersonOpt, type PlOpt, type FinOpt,
-  type SampleTier, type Skip,
+  type SampleTier, type Skip, type Flag,
 } from './work-panel';
 import type { EquipOpt } from './br-sheet';
 
@@ -191,6 +191,8 @@ export default async function WorkBatchPage({ params }: { params: Promise<{ id: 
            from process_skip s join app_user u on u.id = s.skipped_by
           where s.work_order_id = $1 and s.cancelled_at is null
           order by s.skipped_at`, [id]),
+      /* 확인해 볼 항목 - 배치 화면과 같은 판정 (review_flags). 공정 마감 전에 그 공정 것을 보인다 */
+      flags: await db.rows<Flag>(`select kind, detail, day_no, ref from review_flags($1)`, [id]),
     };
   });
 
@@ -292,6 +294,7 @@ export default async function WorkBatchPage({ params }: { params: Promise<{ id: 
         meId={user.id}
         lockedDays={d.lockedDays.map((r) => r.day_no)}
         skips={d.skips}
+        flags={d.flags}
         expiryWarnDays={expiryWarnDays}
             today={todayKST()}
     />

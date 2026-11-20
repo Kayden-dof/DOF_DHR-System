@@ -348,6 +348,26 @@ export async function cutLot(_p: FormState, form: FormData): Promise<FormState> 
   }
 }
 
+/**
+ * 쓰지 않은 제조번호 지우기 (0151 · 사용자 2026-11-20 «잘못넣었으면 어떻게 삭제 하는데??»).
+ * 그 번호를 가리키는 기록이 하나도 없을 때만 DB 가 지운다. 번호는 다시 쓰지 않는다.
+ */
+export async function deleteLot(_p: FormState, form: FormData): Promise<FormState> {
+  try {
+    const me = await mgr();
+    const id = String(form.get('id') ?? '');
+    const wo = String(form.get('work_order_id') ?? '');
+    const why = String(form.get('reason') ?? '').trim();
+    if (!why) return { error: '왜 지우는지 적으십시오' };
+    const no = await withActor(me.id, (db) =>
+      db.val<string>(`select delete_unused_product_lot($1, $2)`, [id, why]));
+    bump(wo);
+    return { ok: true, message: `제조번호 ${no}를 지웠습니다. 이 번호는 다시 쓰지 않습니다.` };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
 export async function setLotStatus(_p: FormState, form: FormData): Promise<FormState> {
   try {
     const me = await mgr();

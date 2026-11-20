@@ -3,6 +3,7 @@ import { fixAt } from '@/lib/unblock';
 import { notFound } from 'next/navigation';
 import { requireUser, hasRole, canWrite } from '@/lib/session';
 import { withUser } from '@/lib/db';
+import { openSteps } from '@/lib/batch-open';
 import { fmtDate, fmtDateTime } from '@/lib/fmt';
 import { WO_STATUS_LABEL, PL_STATUS_LABEL } from '@/lib/forms';
 import { KIND_LABEL, viewHref } from '@/lib/print';
@@ -11,7 +12,7 @@ import { ChangeNote } from '@/components/change-note';
 import { Panel, Empty, Tag, Field, Caution } from '@/components/ui';
 import WorkRequestForm, { type ReqValue } from './request-form';
 import {
-  CutForm, LotStatusForm, CancelForm, WoNoForm, ForceReasonForm, FinishForm, RetrieveForm, EndForWorkerForm, DayPrintLink,
+  CutForm, LotStatusForm, LotDeleteForm, CancelForm, WoNoForm, ForceReasonForm, FinishForm, RetrieveForm, EndForWorkerForm, DayPrintLink,
   BatchNoForm, IssuedAtForm, ForceTimesForm, FixRecordForm,
   NonconformityForm, WipNonconformityForm, type OpOpt,
   type LotRow, type FinOpt,
@@ -69,6 +70,8 @@ interface RecRow {
   id: string; day_no: number; work_date: string; attempt: number;
   operation_code: string; operation_name: string; after_cutting: boolean;
   worker_name: string; rotation_name: string | null;
+  /** 기록한 작업자 - 확인해 볼 항목에서 그 일차 기록서를 여는 데 쓴다 */
+  worker_id: string;
   started_at: Date | null; ended_at: Date | null; equipment_id: string | null;
   rework_qty: number | null; no_material_reason: string | null;
   /** 일차 마감으로 잠긴 기록인가. 강제 정정은 잠긴 기록에만 연다 (0128) */
@@ -143,7 +146,9 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                 pl.manufactured_on, pl.expiry_date, pl.status::text as status, pl.location,
                 h.months as shelf_months,
                 coalesce((select sum(sh.qty)::int from shipment sh
-                           where sh.product_lot_id = pl.id), 0) as shipped
+                           where sh.product_lot_id = pl.id), 0) as shipped,
+                /* 이 번호로 적힌 기록이 있는가 - 없으면 지울 수 있다 (0151) */
+                product_lot_used(pl.id) as used
            from product_lot pl
            join item i on i.id = pl.item_id
            join v_lot_quality q on q.product_lot_id = pl.id
@@ -168,7 +173,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
       records: await db.rows<RecRow>(
         `select pr.id, pr.day_no, pr.work_date::text as work_date, pr.attempt,
                 o.code as operation_code, o.name as operation_name, o.after_cutting,
-                u.full_name as worker_name, ru.full_name as rotation_name,
+                u.full_name as worker_name, ru.full_name as rotation_name, pr.worker_id,
                 pr.started_at, pr.ended_at, pr.equipment_id, pr.rework_qty,
                 pr.no_material_reason, pl.lot_no as product_lot_no,
                 (select count(*)::int from material_issue mi
@@ -211,6 +216,8 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
         `select m.id, m.code, m.name, model_band(m.code) as band
            from dm_models($1) m order by m.code`, [wo.device_master_id]),
       today: await db.val<string>(`select to_char(timezone('Asia/Seoul', now()),'YYYY-MM-DD')`),
+      /* 마감 안 된 공정 · 남은 로트 - 배치 종료의 «아직 남은 것» (lib/batch-open) */
+      openSteps: await openSteps(db, id),
       /*
        * 검토 지원 (§8.5). 산술로 판정되는 것만 돌아온다.
        * 이상이 없으면 빈 배열이고, 그때는 아무것도 그리지 않는다.
@@ -283,10 +290,23 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
   const unprinted = d.days.filter((r) => r.printed === 0).length;
   const remaining = [
     active && '배치 미종료',
+    ...(wo.status !== 'CANCELLED' ? d.openSteps : []),
     unprinted > 0 && `기록서 미발행 ${unprinted}건`,
     d.lots.length === 0 && wo.status !== 'CANCELLED' && (splitOp ? `${splitOp} 전` : '제조번호 전'),
   ].filter(Boolean) as string[];
   const totalPages = d.days.reduce((a, r) => a + r.printed, 0);
+
+  /*
+   * 확인해 볼 항목을 누르면 그 일차 제조기록서를 읽기로 연다 (사용자 2026-11-20 «클릭하면 해당 화면으로
+   * 넘어갈수있도록»). 항목의 ref 가 공정 코드면 그 공정을 적은 작업자의 것, 아니면 그 일차의 첫 작업자.
+   * 일차가 없는 항목(수량 불일치)은 제품 로트 판으로.
+   */
+  const flagHref = (r: { kind: string; day_no: number | null; ref: string }) => {
+    if (r.day_no === null) return r.kind === '수량 불일치' ? '#lots' : null;
+    const worker = d.records.find((x) => x.day_no === r.day_no && x.operation_code === r.ref)?.worker_id
+      ?? d.days.find((x) => x.day_no === r.day_no)?.worker_id;
+    return worker ? `/print/day-record/${wo.id}/${r.day_no}/${worker}?view=1` : null;
+  };
 
   return (
     <div className="space-y-5">
@@ -383,17 +403,30 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
           </header>
 
           <ul className="divide-y divide-line-soft">
-            {d.review.map((r, i) => (
-              <li key={i} className="flex items-start gap-3 px-4 py-3">
-                <Tag tone="warn">{r.kind}</Tag>
-                <span className="min-w-0 flex-1 text-sm leading-relaxed text-ink">
-                  {r.detail}
-                </span>
-                {r.day_no !== null && (
-                  <span className="shrink-0 tnum text-xs text-muted">{r.day_no}일차</span>
-                )}
-              </li>
-            ))}
+            {d.review.map((r, i) => {
+              const href = flagHref(r);
+              const body = (
+                <>
+                  <Tag tone="warn">{r.kind}</Tag>
+                  <span className="min-w-0 flex-1 text-sm leading-relaxed text-ink">
+                    {r.detail}
+                  </span>
+                  {r.day_no !== null && (
+                    <span className="shrink-0 tnum text-xs text-muted">{r.day_no}일차</span>
+                  )}
+                  {href && <span className="shrink-0 text-xs font-semibold text-brand">보기 ›</span>}
+                </>
+              );
+              return (
+                <li key={i}>
+                  {href ? (
+                    <Link href={href} className="flex items-start gap-3 px-4 py-3 hover:bg-surface-sub">{body}</Link>
+                  ) : (
+                    <div className="flex items-start gap-3 px-4 py-3">{body}</div>
+                  )}
+                </li>
+              );
+            })}
           </ul>
 
           <p className="border-t border-line-soft bg-surface-sub px-4 py-2.5 text-xs leading-relaxed text-muted">
@@ -475,6 +508,8 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
         </Panel>
       )}
 
+      {/* 확인해 볼 항목의 «수량 불일치» 가 여기로 온다 */}
+      <div id="lots" className="scroll-mt-4" />
       <Panel
         title={`제품 로트${splitOp ? ` (${splitOp} 분할)` : ''}`}
         note="형명별 · 제조번호"
@@ -539,6 +574,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                         <NonconformityForm lot={l} woId={wo.id}
                                            today={d.today ?? ''} ops={d.ops} />
                         <LotStatusForm lot={l} woId={wo.id} />
+                        {active && !l.used && <LotDeleteForm lot={l} woId={wo.id} />}
                       </>}
                     </td>
                   </tr>
@@ -616,12 +652,18 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                     </td>
                     <td className="td tnum text-right text-muted">{r.printed || ''}</td>
                     <td className="td text-right">
-                      {!readOnly && (
-                        <DayPrintLink
-                          href={`/print/day-record/${wo.id}/${r.day_no}/${r.worker_id}`}
-                          locked={r.locked}
-                        />
-                      )}
+                      <span className="inline-flex items-start gap-2">
+                        {/* 읽기로 연다 - 인쇄하지 않고 잠그지 않는다 (사용자 2026-11-20 «관리자는 제조기록서 읽기로라도») */}
+                        <Link href={`/print/day-record/${wo.id}/${r.day_no}/${r.worker_id}?view=1`} className="btn-quiet">
+                          보기
+                        </Link>
+                        {!readOnly && (
+                          <DayPrintLink
+                            href={`/print/day-record/${wo.id}/${r.day_no}/${r.worker_id}`}
+                            locked={r.locked}
+                          />
+                        )}
+                      </span>
                     </td>
                   </tr>
                 ))}

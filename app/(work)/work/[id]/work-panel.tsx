@@ -74,6 +74,8 @@ export interface PlOpt {
   qty_produced?: number; qty_sample?: number;
 }
 export interface FinOpt { id: string; code: string; name: string }
+/** 확인해 볼 항목 (review_flags). ref 는 대개 공정 코드다 */
+export interface Flag { kind: string; detail: string; day_no: number | null; ref: string }
 /** 재단 이후 공정을 건너뛴 제품 로트 (0149) */
 export interface Skip {
   id: string; operation_id: string; product_lot_id: string; reason: string; by_name: string; at: string;
@@ -143,8 +145,10 @@ function useNowLocal(): string {
 export default function WorkPanel({
   woId, batchNo, sheets, splitOp, loadUnit, expiryWarnDays,
   ops, records, lots, people, productLots, meId, lockedDays,
-  cutOpId, finished, sampleTiers, sampleBasis, band, today, allEquipment = [], skips = [],
+  cutOpId, finished, sampleTiers, sampleBasis, band, today, allEquipment = [], skips = [], flags = [],
 }: {
+  /** 확인해 볼 항목 - 공정 마감 전에 그 공정 것을 보인다 (사용자 2026-11-20) */
+  flags?: Flag[];
   /** 대장의 쓰는 설비 전부. 기록서 기기번호 칸의 «전체 설비 보기» 가 읽는다 */
   allEquipment?: EquipOpt[];
   /** 재단 이후 공정을 건너뛴 제품 로트 (0149) */
@@ -571,6 +575,7 @@ export default function WorkPanel({
           scrollOnMount={advanced}
           doneLotIds={op.after_cutting ? [...lotsDone(op).done] : []}
           skips={skips.filter((s) => s.operation_id === op.id)}
+          flags={flags.filter((f) => f.ref === op.code)}
           recordedLotIds={records.filter((r) => r.operation_id === op.id && r.product_lot_id)
             .map((r) => r.product_lot_id as string)}
           lotsLeft={op.after_cutting
@@ -748,8 +753,10 @@ function OperationCard({
   attemptCount,
   isCut, finished, sampleTiers, sampleBasis, band, cutDate, dayDate, suggestDate, dayChoices, onMoved,
   allEquipment, onEnded, scrollOnMount, doneLotIds, lotsLeft, pastRecs,
-  skips = [], recordedLotIds = [],
+  skips = [], recordedLotIds = [], flags = [],
 }: {
+  /** 이 공정의 확인해 볼 항목 */
+  flags?: Flag[];
   /** 이 공정을 건너뛴 제품 로트 (0149) */
   skips?: Skip[];
   /** 이 공정을 기록한(진행 중 포함) 제품 로트 - 건너뛸 수 없다 */
@@ -947,7 +954,7 @@ function OperationCard({
             <MaterialForm woId={woId} rec={rec} op={op} lots={lots} sheets={sheets}
                           loadUnit={loadUnit} expiryWarnDays={expiryWarnDays} />
           </details>
-          <EndForm woId={woId} rec={rec} op={op} missing={missing} unused={unused}
+          <EndForm woId={woId} rec={rec} op={op} missing={missing} unused={unused} flags={flags}
                    empty={br.sheet ? emptyOf(br.sheet) : 0} onEnded={onEnded} />
         </div>
       ) : rec ? (
@@ -961,7 +968,7 @@ function OperationCard({
         <BrSheetView sheet={br.sheet} onSheet={br.setSheet} onClose={() => setOpen(false)}
                      busy={br.pending} ctx={ctx} readOnly={locked}
                      endSlot={running && rec ? (cancel) => (
-                       <EndForm woId={woId} rec={rec} op={op} missing={missing} unused={unused} compact
+                       <EndForm woId={woId} rec={rec} op={op} missing={missing} unused={unused} flags={flags} compact
                                 empty={emptyOf(br.sheet!)} onCancel={cancel}
                                 onEnded={(d) => { setOpen(false); onEnded(d); }} />
                      ) : undefined} />
@@ -1563,9 +1570,11 @@ function MaterialForm({ woId, rec, op, lots, sheets, loadUnit, expiryWarnDays }:
   );
 }
 
-function EndForm({ woId, rec, op, missing, unused = [], compact = false, empty = 0, onCancel, onEnded }: {
+function EndForm({ woId, rec, op, missing, unused = [], flags = [], compact = false, empty = 0, onCancel, onEnded }: {
   woId: string; rec: Rec; op: Op;
   missing: { item_code: string; item_name: string }[];
+  /** 이 공정의 확인해 볼 항목 - 이 일차 것만 보인다 */
+  flags?: Flag[];
   /** 기록서에 «-»(사용 안 함)로 적은 자재 이름. 다른 빠진 자재가 없으면 이것이 사유가 된다 */
   unused?: string[];
   /** 기록서 창 아래 막대에서 연 것. 막대의 «공정 마감» 이 첫 누름이라 곧장 확인을 보인다 */
@@ -1587,6 +1596,24 @@ function EndForm({ woId, rec, op, missing, unused = [], compact = false, empty =
     <form action={action} className="space-y-4 py-4">
       <input type="hidden" name="work_order_id" value={woId} />
       <input type="hidden" name="process_record_id" value={rec.id} />
+
+      {/*
+        * 확인해 볼 항목 - 배치 화면에 뜨는 것과 같은 판정을 마감 전에 보인다 (사용자 2026-11-20 «생산자가
+        * 쓸때도 공정 마감하기전에 떠줘야»). 막지 않는다. 고칠 것이면 마감 전에 고친다.
+        */}
+      {flags.filter((f) => f.day_no === null || f.day_no === rec.day_no).length > 0 && (
+        <div className="rounded-md border border-warn/30 bg-warn-bg p-3">
+          <p className="text-sm font-semibold text-ink">확인해 볼 항목이 있습니다</p>
+          <ul className="mt-1.5 space-y-1 text-sm text-ink">
+            {flags.filter((f) => f.day_no === null || f.day_no === rec.day_no).map((f, i) => (
+              <li key={i}><Tag tone="warn">{f.kind}</Tag> {f.detail}</li>
+            ))}
+          </ul>
+          <p className="mt-2 text-sm leading-relaxed text-muted">
+            틀린 값이면 마감 전에 기록서에서 고치십시오. 맞는 값이면 그대로 마감해도 됩니다.
+          </p>
+        </div>
+      )}
 
       {missing.length > 0 && (
         <div className="rounded-md border border-warn/30 bg-warn-bg p-3">

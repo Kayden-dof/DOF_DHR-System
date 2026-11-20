@@ -9,7 +9,7 @@ import { Unblock } from '@/components/unblock';
 import type { Fix } from '@/lib/unblock';
 import { Dialog, useDialog } from '@/components/dialog';
 import {
-  cutLot, setLotStatus, cancelWorkOrder, finishWorkOrder, retrievePrint, setWorkOrderNo, forceCorrectReason,
+  cutLot, setLotStatus, deleteLot, cancelWorkOrder, finishWorkOrder, retrievePrint, setWorkOrderNo, forceCorrectReason,
   setBatchNo, setIssuedAt, forceCorrectTimes,
   recordNonconformity, recordWipNonconformity, endRecordForWorker,
 } from '../actions';
@@ -21,6 +21,8 @@ export interface LotRow {
   manufactured_on: string; expiry_date: string; status: string;
   location: string | null; shelf_months: number | null; shipped: number;
   rework: number; concession: number; scrap: number;
+  /** 이 제조번호를 가리키는 기록이 있는가 (0151). 없으면 지울 수 있다 */
+  used?: boolean;
 }
 export interface FinOpt {
   id: string; code: string; name: string;
@@ -161,6 +163,58 @@ export function CutForm({ woId, options, today, used, band, cutDate, fix }: {
         )}
       </div>
     </form>
+  );
+}
+
+/*
+ * 쓰지 않은 제조번호 지우기 (0151 · 사용자 2026-11-20 «잘못넣었으면 어떻게 삭제 하는데??»).
+ * 그 번호로 적힌 기록(공정 · 인쇄 · 멸균 · 출고 · 부적합 …)이 하나도 없을 때만 보인다.
+ * 되돌릴 수 없다 - 번호는 다시 쓰지 않는다. 그래서 무엇이 사라지는지 단추 옆에 적는다.
+ */
+const LOT_DELETE_WHY = ['형명을 잘못 고름', '수량을 잘못 적음', '두 번 부여함'];
+
+export function LotDeleteForm({ lot, woId }: { lot: LotRow; woId: string }) {
+  const [state, action, pending] = useActionState<FormState, FormData>(deleteLot, {});
+  const { open, setOpen } = useDialog(state);
+  const [why, setWhy] = useState('');
+
+  return (
+    <>
+      <button onClick={() => setOpen(true)} className="qd-text-action">지우기</button>
+      <Dialog
+        open={open}
+        onClose={() => setOpen(false)}
+        title="제조번호 지우기"
+        note={<><span className="font-mono">{lot.lot_no}</span> · {lot.item_code}</>}
+      >
+        <form action={action} className="space-y-3">
+          <input type="hidden" name="id" value={lot.id} />
+          <input type="hidden" name="work_order_id" value={woId} />
+          <input type="hidden" name="reason" value={why} />
+          <p className="rounded-md border border-warn/40 bg-warn-bg px-3 py-2.5 text-sm leading-relaxed text-ink">
+            이 제조번호로 적힌 기록이 없어 지울 수 있습니다. <b>지우면 되돌릴 수 없고, 이 번호는 다시 쓰지
+            않습니다.</b> 지운 사실과 사유는 감사추적에 남습니다.
+          </p>
+          <div>
+            <span className="label">지우는 까닭</span>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {LOT_DELETE_WHY.map((w) => (
+                <button key={w} type="button" onClick={() => setWhy(w)} data-on={why === w} className="tile">
+                  <span className="text-sm font-semibold">{w}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <Msg state={state} />
+          <div className="flex gap-2">
+            <button type="button" onClick={() => setOpen(false)} className="btn-ghost">닫기</button>
+            <button type="submit" disabled={pending || !why} className="btn-primary flex-1">
+              {pending ? '지우는 중' : '지운다'}
+            </button>
+          </div>
+        </form>
+      </Dialog>
+    </>
   );
 }
 

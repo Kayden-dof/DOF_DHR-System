@@ -304,6 +304,8 @@ const WRITE_FUNCS = [
   /* 0149 · 제품 로트의 재단 이후 공정 건너뛰기 · 취소 */
   'skip_operation(uuid, uuid, uuid, text)',
   'unskip_operation(uuid, text)',
+  /* 0151 · 쓰지 않은 제조번호 지우기 */
+  'delete_unused_product_lot(uuid, text)',
 ];
 const leaky = [];
 for (const f of WRITE_FUNCS) {

@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { requireUser } from '@/lib/session';
 import { withActor } from '@/lib/db';
+import { openSteps } from '@/lib/batch-open';
 import { fmtDate, fmtDateTime } from '@/lib/fmt';
 import { logPrint, printGate, viewParam } from '@/lib/print';
 import { chunkRows } from '@/lib/print-pages';
@@ -157,16 +158,19 @@ export default async function CoverSheet({ params, searchParams }: {
        */
       flags: await db.rows<FlagRow>(
         `select kind, detail, day_no, ref from review_flags($1)`, [id]),
+      /* 마감 안 된 공정 · 남은 로트 - 배치 화면의 «아직 남은 것» 과 같은 목록 (lib/batch-open) */
+      steps: await openSteps(db, id),
     };
   });
 
   if (!d) notFound();
-  const { head, materials, lots, days, prints, requests, certs, concessions, flags } = d;
+  const { head, materials, lots, days, prints, requests, certs, concessions, flags, steps } = d;
 
   // 아직 남아 있는 것. 사실만 적고 판정하지 않는다 (§10).
   const openDays = days.filter((r) => r.prints === 0).length;
   const open = [
     head.status !== 'DONE' && head.status !== 'CANCELLED' && '배치 미종료',
+    ...(head.status !== 'CANCELLED' ? steps : []),
     openDays > 0 && `기록서 미발행 ${openDays}건`,
     lots.length === 0 && (head.split_op ? `${head.split_op} 전` : '제조번호 전'),
   ].filter(Boolean) as string[];

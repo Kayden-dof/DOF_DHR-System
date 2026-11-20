@@ -25,6 +25,9 @@ async function prep(t) {
   await t.setActor(m.admin);
   const lot = await t.val(`select cut_product_lot($1,$2,10,0)`, [wo.id, m.fin]);
   await t.setActor(null);
+  /* 작업자 역할을 직접 준다 - 앞 시험이 준 역할에 기대지 않는다 */
+  await t.rows(`insert into user_role (user_id, role) select $1, 'WORKER'
+                 where not exists (select 1 from user_role where user_id = $1 and role = 'WORKER')`, [m.worker]);
   return { m, wo, lot, steril: m.ops['WS-DX2401-09'] };
 }
 
