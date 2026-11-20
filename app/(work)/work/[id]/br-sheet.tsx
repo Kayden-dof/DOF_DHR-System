@@ -26,7 +26,7 @@
 import { Fragment, useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import { FormBody } from '@/components/print-frame';
 import NumPad from '@/components/num-pad';
-import { optionBlank, type FormCell } from '@/lib/br-form';
+import { optionBlank, pairSep, type FormCell } from '@/lib/br-form';
 import type { BrSheet, BrFormTab } from '@/lib/br-sheet';
 import { daysUntilKST, todayKST } from '@/lib/kst';
 import { fmtDate } from '@/lib/fmt';
@@ -738,16 +738,18 @@ function FieldEditor({ cell, workDate, busy, error, onSave, onCancel }: {
               <div className="flex flex-wrap items-center gap-2 text-base text-ink">
                 {pick.split(/_{2,}/).map((part, i, all) => (
                   <Fragment key={i}>
-                    {part.trim() && <span className="whitespace-nowrap">{part.trim()}</span>}
+                    {/* 가로 · 세로 짝 사이 쉼표는 «*» 로 보인다 (lib/br-form fillBlanks) */}
+                    {part.trim() && (
+                      <span className="whitespace-nowrap">{i > 0 && i < all.length - 1 && pairSep(part) ? '*' : part.trim()}</span>
+                    )}
                     {i < all.length - 1 && (
-                      <input value={fills[i] ?? ''} disabled={busy} aria-label={`빈칸 ${i + 1}`}
+                      <input value={fills[i] ?? ''} disabled={busy} aria-label={`빈칸 ${i + 1}`} inputMode="decimal"
                              onChange={(ev) => {
-                               /* 1*1 · 1x1 은 종이처럼 1×1 로 */
-                               const v = ev.target.value.replace(/\|/g, '').replace(/(\d)\s*[*xX]\s*(?=\d)/g, '$1×');
+                               const v = ev.target.value.replace(/\|/g, '');
                                setFills((f) => { const n = [...f]; n[i] = v; return n; });
                              }}
                              onKeyDown={(ev) => { if (ev.key === 'Enter' && !busy) onSave(fillValue()); }}
-                             className="input w-40 tnum" />
+                             className="input w-28 tnum" />
                     )}
                   </Fragment>
                 ))}

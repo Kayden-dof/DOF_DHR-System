@@ -305,6 +305,8 @@ export function fillForm(form: BrForm, given: FillData): {
    * 시스템이 적는다. 칸을 다 채운 뒤(적은 값까지 놓인 뒤)에 더한다.
    */
   const sums: { cell: FormCell; from: FormCell[]; sz: number }[] = [];
+  /* 가장 나중 grid 표의 제목 - 그 아래 «확인자 | 빈칸» 줄의 칸 이름 */
+  let gridTitle = '';
 
   /*
    * 시스템이 셈한 결과 칸 - 원재료 장입 수, 투입한 자재의 양 (사용자 2026-11-20 «내가 수정해서
@@ -347,7 +349,7 @@ export function fillForm(form: BrForm, given: FillData): {
       const kept = { roles, section };
       /* 두께 머리 칸 («□ 0.5-1» · 두 칸 너비) - 아래 칸의 이름에 쓴다 */
       const gridCols: { x0: number; x1: number; t: string }[] = [];
-      if (grid) { roles = []; section = 'grid'; }
+      if (grid) { roles = []; section = 'grid'; gridTitle = flatLabel(r0[0].t); }
 
       tb.rows.forEach((row, ri) => {
         if (grid) {
@@ -358,6 +360,30 @@ export function fillForm(form: BrForm, given: FillData): {
             }
           }
         }
+
+        /*
+         * 이름 | 빈칸 | 이름 | 빈칸 이 한 줄에 선 줄 (F706-DX2401-07 3쪽 끝 «확인자 | | 확인일자 | »).
+         * 머리 줄이 아니라 이름 바로 옆 칸에 적는다 (사용자 2026-11-20 «확인자 확인일자 활성 안되어있다»).
+         */
+        const inRow = [...row.cells].sort((a, b) => a.c - b.c);
+        const named = inRow.filter((c) => ROLE[norm(c.t)]);
+        const nextOf = (c: FormCell) => inRow[inRow.indexOf(c) + 1];
+        if (named.length && named.every((c) => nextOf(c) && !norm(nextOf(c).t))) {
+          const rsz = Math.max(0, ...named.map((c) => c.s ?? 10)) || 10;
+          for (const c of named) {
+            const role = ROLE[norm(c.t)];
+            const signRole = role === 'worker' || role === 'checker' ? 'worker' as const
+              : role === 'date' || role === 'checkdate' ? 'date' as const : null;
+            const n = nextOf(c);
+            if (!signRole) continue;
+            signs.push({
+              rows: [rowKey(ri)], cell: n, role: signRole, sz: rsz, id: `p${pi}t${ti}r${ri}c${n.c}`,
+              lb: gridTitle, check: role === 'checker' || role === 'checkdate',
+            });
+          }
+          return;
+        }
+
         const hits = row.cells.filter((c) => ROLE[norm(c.t)]);
         if (hits.length >= 2) {
           /* 새 머리 줄이 덮는 가로 자리만 바꾼다 (투입자재 줄은 사용설비 줄 아래 같은 표에 온다) */
@@ -873,10 +899,8 @@ export function applyEntry(c: FormCell, value: string) {
       if (o !== pick) return `□ ${o}`;
       let s = `■ ${o}`;
       if (extras.some(Boolean)) {
-        let i = 0;
-        /* 비워 둔 빈칸은 밑줄 그대로 - 나중에 마저 적는다 */
         s = /:\s*~\s*:/.test(s) ? s.replace(/:\s*~\s*:/, extra.replace('~', ' ~ '))
-          : /_{2,}/.test(s) ? s.replace(/_{2,}/g, (m) => extras[i++] || m)
+          : /_{2,}/.test(s) ? fillBlanks(s, extras)
           : `${s} ${extras.filter(Boolean).join(' ')}`;
       }
       hit = s;
@@ -900,6 +924,24 @@ export function applyEntry(c: FormCell, value: string) {
     return;
   }
   Object.assign(c, { t: value, f: true, b: false });
+}
+
+/** 두 빈칸 사이가 쉼표뿐이면 가로 · 세로 짝이다 (샘플링 «____ , ____ cm₂») */
+export const pairSep = (s: string) => /^\s*,\s*$/.test(s);
+
+/**
+ * 보기의 빈칸(밑줄)을 앞에서부터 차례로 채운다. 비워 둔 빈칸은 밑줄 그대로 - 나중에 마저 적는다.
+ * 가로 · 세로 짝이 둘 다 적히면 «1*1» 로 붙인다 (사용자 2026-11-20 «1*1 표기여야되는데 왜 점이야»).
+ */
+function fillBlanks(s: string, extras: string[]) {
+  const bits = s.split(/(_{2,})/);
+  let k = 0;
+  return bits.map((b, j) => {
+    if (j % 2) return extras[k++] || b;
+    const before = extras[j / 2 - 1];
+    const after = extras[j / 2];
+    return j > 0 && j < bits.length - 1 && pairSep(b) && before && after ? '*' : b;
+  }).join('');
 }
 
 /**
