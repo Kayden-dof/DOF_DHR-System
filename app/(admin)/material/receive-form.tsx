@@ -14,6 +14,8 @@ export interface ItemOpt {
   shelf_life_months: number | null;
   /** 품목의 기본 공급자. 입고 폼의 처음 값 (UI/UX 검수 2026-11-11) */
   default_supplier_id?: string | null;
+  /** 거짓이면 로트 없이 쓰는 소모품. 성적서 · 공급자 로트 없이 입고한다 (0144) */
+  lot_tracked?: boolean;
 }
 export interface SupplierOpt { id: string; name: string; status: string }
 export interface OrderOpt {
@@ -57,6 +59,8 @@ export default function ReceiveForm({ items, suppliers, orders, today, presetPo,
 
   const pool = useMemo(() => items.filter((i) => i.type !== 'FIN'), [items]);
   const item = pool.find((i) => i.id === itemId) ?? pool[0];
+  /* 로트 없이 쓰는 소모품 - 성적서 · 공급자 로트가 필수가 아니다 (0144) */
+  const loose = item?.lot_tracked === false;
   const conv = Number(item?.conversion ?? 1);
   const usageQty = Number(qty || 0) * conv;
   const isRaw = item?.type === 'RAW';
@@ -222,19 +226,31 @@ export default function ReceiveForm({ items, suppliers, orders, today, presetPo,
             라벨에 이미 붙인 번호가 있을 때만 적습니다. 비우면 채번 규칙이 만듭니다.
           </p>
         </div>
+        {/*
+          * 로트 없이 쓰는 소모품 (0144 · 사용자 2026-11-20 «타이벡 파우치같은건 로트 번호가 없는걸»).
+          * 공급자 로트 · 성적서가 없으니 비워서 입고한다. 사내 로트번호는 채번 규칙이 붙인다.
+          */}
         <div>
           <label className="label" htmlFor={`${uid}-supplier_lot_no`}>공급자 로트번호</label>
-          <input id={`${uid}-supplier_lot_no`} name="supplier_lot_no" required autoComplete="off" className="input font-mono" />
+          <input key={`sl-${loose}`} id={`${uid}-supplier_lot_no`} name="supplier_lot_no" required={!loose}
+                 autoComplete="off" className="input font-mono" />
         </div>
         <div>
-          <label className="label" htmlFor={`${uid}-coa_no`}>성적서 번호 (필수)</label>
-          <input id={`${uid}-coa_no`} name="coa_no" required autoComplete="off" placeholder="COA-..."
-                 className="input font-mono" />
+          <label className="label" htmlFor={`${uid}-coa_no`}>성적서 번호</label>
+          <input key={`cn-${loose}`} id={`${uid}-coa_no`} name="coa_no" required={!loose} autoComplete="off"
+                 placeholder="COA-..." className="input font-mono" />
         </div>
         <div>
           <label className="label" htmlFor={`${uid}-coa_date`}>성적서 일자</label>
-          <input id={`${uid}-coa_date`} name="coa_date" type="date" required defaultValue={today} className="input tnum" />
+          <input key={`cd-${loose}`} id={`${uid}-coa_date`} name="coa_date" type="date" required={!loose}
+                 defaultValue={loose ? '' : today} className="input tnum" />
         </div>
+        {loose && (
+          <p className="text-xs leading-relaxed text-muted sm:col-span-2 lg:col-span-4">
+            로트 없이 쓰는 소모품입니다. 공급자 로트번호 · 성적서가 없으면 비워 두고 입고합니다.
+            공정을 마감할 때 제품표준서 소요량만큼 이 재고에서 자동으로 차감됩니다.
+          </p>
+        )}
         <div>
           <label className="label" htmlFor={`${uid}-qc_passed_on`}>합격판정일자 (필수)</label>
           <input id={`${uid}-qc_passed_on`} name="qc_passed_on" type="date" required

@@ -189,12 +189,16 @@ export async function receiveMaterial(_p: FormState, form: FormData): Promise<Fo
          values ($1,$2,$3,$4,$5,$6,$7::date,$8::timestamptz,$9,$10,$10,$11,$12::date,$13,$14,
                  $15::date)
          returning id`,
+        /*
+         * 성적서 · 공급자 로트는 비면 비운 채로 보낸다 (0144). 로트를 기록하는 품목이면
+         * DB 가 S02 로 막고, 로트 없이 쓰는 소모품이면 그대로 들어간다.
+         */
         [itemId, lotNo,
          String(form.get('supplier_id') ?? ''),
-         String(form.get('supplier_lot_no') ?? '').trim(),
+         txt(form.get('supplier_lot_no')),
          txt(form.get('purchase_order_id')),
-         String(form.get('coa_no') ?? '').trim(),
-         String(form.get('coa_date') ?? ''),
+         txt(form.get('coa_no')),
+         txt(form.get('coa_date')),
          String(form.get('received_at') ?? '') + 'T00:00:00+09:00',
          me.id, usageQty,
          numOrNull(form.get('unit_price'), '단가'),

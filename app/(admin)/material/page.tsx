@@ -102,7 +102,7 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
      */
     items: await db.rows<ItemOpt>(
       `select id, code, name, type::text as type, purchase_uom, usage_uom, conversion,
-              shelf_life_months, default_supplier_id
+              shelf_life_months, default_supplier_id, lot_tracked
          from item where is_active and type <> 'SOLUTION' order by type, code`),
     suppliers: await db.rows<SupplierOpt>(
       /* 승인된 공급자가 먼저 (UI/UX 검수 2026-11-11). 전에는 status desc 라
