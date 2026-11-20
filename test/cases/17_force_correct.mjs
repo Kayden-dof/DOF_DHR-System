@@ -228,10 +228,10 @@ export default [
     t.eq(await t.val(`select count(*)::int from record_correction where process_record_id = $1
                         and field in ('work_date','started_at','ended_at')`, [pr]), 3, '정정 내역');
     t.ok(await t.val(`select is_locked($1, 1, $2)`, [wo.id, m.worker]), '잠금은 그대로');
-    /* 강제 정정 밖에서는 발행일 앞 작업일이 여전히 막힌다 */
+    /* 미래 시각은 막힌다. 종료가 시작 앞인 것은 0142 부터 막지 않는다 (27_end_before_start) */
     await asUser(t, m.admin, () => t.rejects(() => t.rows(
       `select force_correct_times($1, null, now() + interval '1 hour', now(), '거꾸로')`, [pr]),
-      { message: '종료 시각이' }));
+      { message: '아직 오지 않은' }));
   },
 },
 

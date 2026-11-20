@@ -133,7 +133,8 @@ export default [
 
 {
   id: 'RF-06', expect: '거부',
-  name: '사유 없음 · 열린 기록에 종료 · 종료가 시작 앞 · 미래 시각 · 마지막 일차를 건너뜀 · 같은 값',
+  /* 종료가 시작 앞인 것은 0142 부터 막지 않는다 (27_end_before_start) */
+  name: '사유 없음 · 열린 기록에 종료 · 미래 시각 · 마지막 일차를 건너뜀 · 같은 값',
   async run(t) {
     const m = await master(t);
     const wo = await newWorkOrder(t, m);
@@ -142,9 +143,6 @@ export default [
     await t.rejects(() => fix(t, m.worker, done, 2, null, null, null, '  '), { message: '왜 고치는지' });
     await t.rejects(() => fix(t, m.worker, open, null, null, null,
       new Date(Date.now() - 600_000).toISOString()), { message: '아직 마감하지 않은' });
-    await t.rejects(() => fix(t, m.worker, done, null, null,
-      new Date(Date.now() - 60_000).toISOString(), new Date(Date.now() - 7_200_000).toISOString()),
-      { message: '종료 시각이 시작' });
     await t.rejects(() => fix(t, m.worker, done, null, null,
       new Date(Date.now() + 3_600_000).toISOString(), null), { message: '아직 오지 않은 시각' });
     await t.rejects(() => fix(t, m.worker, done, 3, null, null, null), { message: '옮길 수 없습니다' });
@@ -194,7 +192,8 @@ export default [
 
 {
   id: 'RF-09', expect: '통과',
-  name: '적은 종료 시각으로 공정 마감 · S05 에 막히면 종료 칸도 남지 않는다 · 미래 · 시작 앞 거부',
+  /* 시작 앞 종료는 0142 부터 받는다 (27_end_before_start) */
+  name: '적은 종료 시각으로 공정 마감 · S05 에 막히면 종료 칸도 남지 않는다 · 미래 거부',
   async run(t) {
     const m = await master(t);
     const wo = await newWorkOrder(t, m);
@@ -213,8 +212,6 @@ export default [
       'S05 에 막히면 종료 칸이 비어 있다');
     await t.rejects(() => asUser(t, m.worker, () => t.rows(
       `select complete_process_at($1, $2::timestamptz)`, [pr, at(3_600_000)])), { message: '아직 오지 않은' });
-    await t.rejects(() => asUser(t, m.worker, () => t.rows(
-      `select complete_process_at($1, $2::timestamptz)`, [pr, at(-4 * 3_600_000)])), { message: '시작 시각' });
 
     await t.rows(`update process_record set no_material_reason = '해당 공정 미실시' where id = $1`, [pr]);
     const end = await t.val(`select date_trunc('minute', now() - interval '1 hour')::text`);
