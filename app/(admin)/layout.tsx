@@ -13,6 +13,7 @@ import FindUnit from '@/components/find-unit';
 import { BrandMark, BrandMonogram, BrandCopyright, SystemName } from '@/components/brand-mark';
 import { yearKST } from '@/lib/kst';
 import IdleLock from '@/components/idle-lock';
+import { lockMinutes } from '@/lib/idle-lock';
 import { logout } from './actions';
 import { type NavItem } from './nav';
 import Clock from '@/components/clock';
@@ -93,7 +94,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const here = (await headers()).get(PATH_HEADER);
   const opened = here ? user.screens.get(here) === true : false;
   if (!isAdmin(seat) && !viewer && !qp && !opened) {
-    redirect(isWorker(seat) ? '/work' : '/no-role');
+    /* 내 설정은 현장 쪽에도 있다 - 작업자로 앉았으면 그리로 (사용자 2026-11-25) */
+    redirect(isWorker(seat) ? (here === '/me' ? '/work/me' : '/work') : '/no-role');
   }
 
   /*
@@ -308,9 +310,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         *
         * 관리자는 내 설정에서 자동 잠금을 끌 수 있다 (0153 · 사용자 2026-11-20).
         * 관리 역할을 거두면 다음 화면부터 다시 걸린다 (idleLockOff).
+        * 시간은 본인이 내 설정에서 고른다. 고르지 않았으면 30분 (0157 · 사용자 2026-11-25).
         */}
       {!idleLockOff(user) && (
-        <IdleLock minutes={30} sid={String(user.issued_at)} name={user.full_name} initial={initial} />
+        <IdleLock minutes={lockMinutes('desk', user.idle_lock_desk_min)}
+                  sid={String(user.issued_at)} name={user.full_name} initial={initial} />
       )}
       <Watermark text={stamp(user.full_name, user.login_code)} />
       <BackFab />

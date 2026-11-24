@@ -187,6 +187,9 @@ const CONSTRAINT_LABEL: Record<string, string> = {
     '같은 대상·품목에 활성 규칙이 이미 있습니다. 기존 규칙을 내린 뒤 등록하십시오',
   numbering_rule_seq_width_check: '순번 자릿수는 1~10 사이여야 합니다',
   user_role_pkey: '이미 부여된 역할입니다',
+  /* 잠금 시간은 정해 둔 값만 (0157 · lib/idle-lock.ts) */
+  app_user_idle_lock_desk_min_check: '관리 화면 잠금 시간은 정해 둔 값 가운데에서 고릅니다',
+  app_user_idle_lock_pad_min_check: '현장 화면 잠금 시간은 30분까지, 정해 둔 값 가운데에서 고릅니다',
 };
 
 const COLUMN_LABEL: Record<string, string> = {

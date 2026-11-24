@@ -58,6 +58,9 @@ export interface SessionUser {
    * 화면은 이것을 바로 쓰지 말고 idleLockOff(user) 로 묻는다 - 앉은 역할까지 본다.
    */
   idle_lock_off: boolean;
+  /** 본인이 고른 잠금 시간(분). 비어 있으면 기본값 (0157 · lib/idle-lock.ts lockMinutes) */
+  idle_lock_desk_min: number | null;
+  idle_lock_pad_min: number | null;
 }
 
 function secret(): Buffer {
@@ -214,11 +217,13 @@ export async function currentUser(): Promise<SessionUser | null> {
       is_developer: boolean; must_change_pin: boolean; roles: RoleCode[] | null;
       pin_changed_at: Date | null; screens: Record<string, boolean> | null;
       idle_lock_off: boolean;
+      idle_lock_desk_min: number | null; idle_lock_pad_min: number | null;
     }>(
       `select u.id, u.login_code, u.full_name, u.is_developer, u.must_change_pin,
               u.pin_changed_at,
               /* 값과 역할을 함께 본다. 관리 역할을 거두면 다음 요청부터 다시 잠긴다 (0153) */
               idle_lock_off(u.id) as idle_lock_off,
+              u.idle_lock_desk_min, u.idle_lock_pad_min,
               array_remove(array_agg(distinct r.role::text), null)::text[] as roles,
               /*
                * 계정별 화면 배정 (0116). is_open 이 null 인 칸은 역할 기본값으로

@@ -11,6 +11,7 @@ import BackFab from '@/components/back-fab';
 import DemoBanner from '@/components/demo-banner';
 import { logout } from './actions';
 import IdleLock from '@/components/idle-lock';
+import { lockMinutes } from '@/lib/idle-lock';
 import Clock from '@/components/clock';
 import { RoleSwitch } from '@/components/role-picker';
 
@@ -98,6 +99,10 @@ export default async function WorkLayout({ children }: { children: React.ReactNo
                 관리 화면
               </Link>
             )}
+            {/* 비밀번호 · 잠금 시간 (사용자 2026-11-25 «내 계정 설정은 어디있어..?») */}
+            <Link href="/work/me" className="btn-ghost">
+              내 설정
+            </Link>
             <form action={logout}>
               <button type="submit"
                       className="btn-ghost">
@@ -117,9 +122,13 @@ export default async function WorkLayout({ children }: { children: React.ReactNo
         *
         * 관리자로 앉아 자동 잠금을 끈 계정만 빠진다 (0153). 작업자로 앉은 세션은
         * 늘 잠근다 (idleLockOff).
+        *
+        * 시간은 본인이 내 설정에서 고른다 (0157). 고르지 않았으면 20분, 길어도 30분 -
+        * 여러 사람이 번갈아 쓰는 패드다 (lib/idle-lock.ts).
         */}
       {!idleLockOff(user) && (
-        <IdleLock minutes={20} sid={String(user.issued_at)} name={user.full_name} initial={user.full_name.slice(0, 1)} />
+        <IdleLock minutes={lockMinutes('pad', user.idle_lock_pad_min)}
+                  sid={String(user.issued_at)} name={user.full_name} initial={user.full_name.slice(0, 1)} />
       )}
 
       <footer className="mx-auto w-full max-w-[1240px] px-5 pb-8 pt-4">

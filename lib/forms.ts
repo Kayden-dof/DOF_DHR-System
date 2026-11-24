@@ -207,6 +207,8 @@ export const FIELD_LABEL: Record<string, string> = {
   pin_changed_at:         '비밀번호 바꾼 일시',
   must_change_pin:        '비밀번호 변경 필요',
   idle_lock_off:          '자동 잠금 끄기',
+  idle_lock_desk_min:     '관리 화면 잠금 시간 (분)',
+  idle_lock_pad_min:      '현장 화면 잠금 시간 (분)',
   role:                   '역할',
   user_id:                '대상 계정',
   pattern:                '번호 형식',
