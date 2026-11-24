@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { requireUser } from '@/lib/session';
 import { withActor } from '@/lib/db';
-import { fmtDate } from '@/lib/fmt';
+import { fmtDate, chem } from '@/lib/fmt';
 import { logPrint, printGate, viewParam } from '@/lib/print';
 import Denied from '@/components/denied';
 import { chunkByWeight } from '@/lib/print-pages';
@@ -52,7 +52,7 @@ interface OpRow {
 function opName(o: { name: string; after_cutting: boolean }, splitOp: string | null) {
   return (
     <>
-      {o.name}
+      {chem(o.name)}
       {o.after_cutting && splitOp && (
         <div className="nb text-[10px]">{splitOp} 이후</div>
       )}

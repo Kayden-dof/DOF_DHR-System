@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import { requireUser } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import { openSteps } from '@/lib/batch-open';
-import { fmtDate, fmtDateTime } from '@/lib/fmt';
+import { fmtDate, fmtDateTime, chem } from '@/lib/fmt';
 import { logPrint, printGate, viewParam } from '@/lib/print';
 import { chunkRows } from '@/lib/print-pages';
 import Denied from '@/components/denied';
@@ -356,7 +356,7 @@ export default async function CoverSheet({ params, searchParams }: {
               <td className="font-mono">{m.lot_no}</td>
               <td className="text-right tnum">{Number(m.qty)} {m.usage_uom}</td>
               <td>
-                {m.operation_name}
+                {chem(m.operation_name)}
                 <span className="tnum"> · {m.day_no}일차</span>
                 {m.attempt > 1 && <span className="tnum font-bold"> · {m.attempt}회차</span>}
               </td>
@@ -455,7 +455,7 @@ export default async function CoverSheet({ params, searchParams }: {
                 <tr key={i}>
                   <td className="text-center tnum">{f.day_no ?? ''}</td>
                   <td>{f.kind}</td>
-                  <td className="text-[10px]">{f.detail}</td>
+                  <td className="text-[10px]">{chem(f.detail)}</td>
                   <td className="sign-box" style={{ height: 'auto' }} />
                 </tr>
               ))}

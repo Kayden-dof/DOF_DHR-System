@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { requireUser, hasRole, canWrite } from '@/lib/session';
 import { withUser } from '@/lib/db';
 import { openSteps } from '@/lib/batch-open';
-import { fmtDate, fmtDateTime } from '@/lib/fmt';
+import { fmtDate, fmtDateTime, chem } from '@/lib/fmt';
 import { WO_STATUS_LABEL, PL_STATUS_LABEL } from '@/lib/forms';
 import { KIND_LABEL, viewHref } from '@/lib/print';
 import Denied from '@/components/denied';
@@ -415,7 +415,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                 <>
                   <Tag tone="warn">{r.kind}</Tag>
                   <span className="min-w-0 flex-1 text-sm leading-relaxed text-ink">
-                    {r.detail}
+                    {chem(r.detail)}
                   </span>
                   {r.day_no !== null && (
                     <span className="shrink-0 tnum text-xs text-muted">{r.day_no}일차</span>
@@ -718,7 +718,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                       {r.attempt > 1 && <span className="ml-1 text-warn">{r.attempt}회차</span>}
                     </td>
                     <td className="td">
-                      <div className="text-sm">{r.operation_name}</div>
+                      <div className="text-sm">{chem(r.operation_name)}</div>
                       <div className="font-mono text-xs text-faint">{r.operation_code}</div>
                     </td>
                     <td className="td font-mono ">{r.product_lot_no ?? ''}</td>
@@ -739,7 +739,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                       {!r.ended_at && !readOnly && (
                         <EndForWorkerForm
                           recordId={r.id} woId={wo.id}
-                          label={`${r.day_no}일차 · ${r.operation_name} · ${r.worker_name}`} />
+                          label={`${r.day_no}일차 · ${chem(r.operation_name)} · ${r.worker_name}`} />
                       )}
                     </td>
                     <td className="td tnum text-right text-muted">{r.issues || ''}</td>

@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { requireUser } from '@/lib/session';
 import { withActor, dbMessage } from '@/lib/db';
-import { fmtDate, fmtDateTime } from '@/lib/fmt';
+import { fmtDate, fmtDateTime, chem } from '@/lib/fmt';
 import { logPrint, printGate, viewParam } from '@/lib/print';
 import Denied from '@/components/denied';
 import PrintFrame, { Sheet, SignRow, FormSheet } from '@/components/print-frame';
@@ -96,7 +96,7 @@ function RecordTable({ rows, title }: { rows: RecRow[]; title: string }) {
                   {r.attempt > 1 && <div className="text-[9px]">{r.attempt}회차</div>}
                 </td>
                 <td>
-                  {r.operation_name}
+                  {chem(r.operation_name)}
                   <div className="font-mono text-[9px]">{r.operation_code}</div>
                   {/*
                     * 재단 이후 공정은 제품 로트 단위다. 제조번호만 적으면 그 로트가
@@ -484,7 +484,7 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = fal
           <ul className="mt-4 list-disc space-y-1 pl-5 text-sm text-ink">
             {open.map((r, i) => (
               <li key={i}>
-                {r.operation_name}
+                {chem(r.operation_name)}
                 <span className="ml-1.5 font-mono text-xs text-muted">{r.operation_code}</span>
                 {r.attempt > 1 && <span className="ml-1.5 text-xs">{r.attempt}회차</span>}
               </li>
@@ -626,7 +626,7 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = fal
           <div className="no-print mx-auto mb-5 max-w-[210mm] rounded-lg border border-danger/40 bg-danger-bg px-4 py-3">
             <p className="text-sm font-semibold text-ink">확인해 볼 항목</p>
             <ul className="mt-1 space-y-0.5 text-sm leading-relaxed text-ink">
-              {hlFlags.map((f, i) => <li key={i}><b>{f.kind}</b> · {f.detail}</li>)}
+              {hlFlags.map((f, i) => <li key={i}><b>{f.kind}</b> · {chem(f.detail)}</li>)}
             </ul>
             <p className="mt-1.5 text-xs leading-relaxed text-muted">
               {marked > 0
@@ -637,7 +637,7 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = fal
             </p>
             {recIds.filter((x) => hlFlags.some((f) => flagOps(f).has(x.code))).map((x) => (
               <a key={x.id} href={`/production/${id}/record/${x.id}`} className="btn-ghost mt-2 mr-2">
-                {x.name} 기록서 고치기
+                {chem(x.name)} 기록서 고치기
               </a>
             ))}
             <MarkScroll />

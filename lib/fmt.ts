@@ -39,3 +39,15 @@ export function fmtTime(v: Date | string | null | undefined): string {
 export function shortId(v: string | null | undefined): string {
   return v ? v.slice(0, 8) : '';
 }
+
+/*
+ * 화학식의 숫자를 아래첨자로 (사용자 2026-11-25 «H2O2 표기 저거 맞아?? 2는 아래첨자»). 제품표준서의 공정
+ * 이름은 «H2O2 처리» 로 적혀 있고 회사 양식은 H₂O₂ 다. 이름을 고치면 표준서 대조가 풀리고 나간 종이의
+ * 자료 식별자가 흔들리므로, 저장된 값은 두고 화면 · 종이에 낼 때만 바꾼다. 아는 식만, 낱말 단위로 -
+ * 코드(DX2401 · WS-DX2401-04)는 건드리지 않는다.
+ */
+const SUB = '₀₁₂₃₄₅₆₇₈₉';
+const FORMULA = /(?<![A-Za-z0-9])(H2O2|H2O|CO2|O2|N2|NaHCO3|H2SO4|Na2CO3|CaCl2|MgCl2)(?![A-Za-z0-9])/g;
+export function chem(v: string | null | undefined): string {
+  return (v ?? '').replace(FORMULA, (f) => f.replace(/\d/g, (d) => SUB[Number(d)]));
+}

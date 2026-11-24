@@ -4,7 +4,7 @@ import { todayKST } from '@/lib/kst';
 import { requireUser, hasRole } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import { getBrand } from '@/lib/brand';
-import { fmtDate } from '@/lib/fmt';
+import { fmtDate, chem } from '@/lib/fmt';
 import { Tag } from '@/components/ui';
 import { WO_STATUS_LABEL } from '@/lib/forms';
 import WorkPanel, {
@@ -282,7 +282,8 @@ export default async function WorkBatchPage({ params }: { params: Promise<{ id: 
         sheets={wo.sheet_count}
         splitOp={wo.split_op}
         loadUnit={wo.load_unit}
-        ops={d.ops}
+        /* 화학식 아래첨자 (H₂O₂ · 사용자 2026-11-25) - 저장된 이름은 그대로, 화면에 낼 때만 */
+        ops={d.ops.map((o) => ({ ...o, name: chem(o.name) }))}
         records={d.records}
         lots={d.lots}
         allEquipment={d.allEquipment}
@@ -296,7 +297,7 @@ export default async function WorkBatchPage({ params }: { params: Promise<{ id: 
         meId={user.id}
         lockedDays={d.lockedDays.map((r) => r.day_no)}
         skips={d.skips}
-        flags={d.flags}
+        flags={d.flags.map((f) => ({ ...f, detail: chem(f.detail) }))}
         expiryWarnDays={expiryWarnDays}
             today={todayKST()}
     />

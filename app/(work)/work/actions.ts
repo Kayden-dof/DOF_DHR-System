@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { withActor, dbMessage } from '@/lib/db';
+import { chem } from '@/lib/fmt';
 import { requireUser } from '@/lib/session';
 import { isWorker, isAdmin } from '@/lib/roles';
 import type { FormState } from '@/lib/forms';
@@ -548,7 +549,8 @@ export async function dayGaps(
         const forms = sh.forms
           .filter((f) => (f.inUse || f.lot) && (f.missing?.length ?? 0) > 0)
           .map((f) => ({ label: f.label, missing: f.missing ?? [], lot: f.lot }));
-        if (forms.length) out.push({ op: r.attempt > 1 ? `${r.name} ${r.attempt}회차` : r.name, forms });
+        const name = chem(r.name);
+        if (forms.length) out.push({ op: r.attempt > 1 ? `${name} ${r.attempt}회차` : name, forms });
       }
       return out;
     });

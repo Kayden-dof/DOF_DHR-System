@@ -1,4 +1,5 @@
 import type { Db } from '@/lib/db';
+import { chem } from '@/lib/fmt';
 
 /**
  * 배치에 아직 남은 공정 (사용자 2026-11-20 «모든 공정이 마감되면 해당 배치는 생산 종결 처리를
@@ -36,7 +37,8 @@ export async function openSteps(db: Db, woId: string): Promise<string[]> {
       order by o.seq`, [woId]);
 
   const out: string[] = [];
-  for (const r of rows) {
+  for (const r0 of rows) {
+    const r = { ...r0, name: chem(r0.name) };
     if (r.running > 0) out.push(`진행 중 ${r.name}`);
     else if (!r.after_cutting && r.ended === 0) out.push(`${r.name} 기록 없음`);
     else if (r.after_cutting && r.lots > 0 && r.lots_left?.length) {
