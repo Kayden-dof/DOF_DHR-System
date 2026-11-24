@@ -28,6 +28,8 @@ export interface FinOpt {
   id: string; code: string; name: string;
   /** 형명의 두께 구간. 체계가 정한다 (0075). 체계 밖 코드면 null */
   band: string | null;
+  /** UDI-DI (GTIN-14 · 0158) */
+  udi?: string | null;
 }
 
 /* ---------------------------------------------------------------------------
@@ -80,6 +82,17 @@ export function CutForm({ woId, options, today, used, band, cutDate, fix }: {
   const others = band ? pool.filter((o) => o.band !== band) : pool;
 
   const [itemId, setItemId] = useState('');
+  /*
+   * 형명 · UDI 를 넣으면 그 형명을 고른다 (사용자 2026-11-25 «형명은 입력하면 자동으로 배치되게»). 형명 코드,
+   * UDI-DI, 라벨 바코드의 GS1 글((01)…) 모두 받는다. 맞는 형명이 없으면 알린다.
+   */
+  const [find, setFind] = useState('');
+  const key = find.replace(/\s/g, '').toUpperCase();
+  const gtin = key.match(/\(01\)(\d{14})/)?.[1]
+    ?? (/^01\d{14}/.test(key) && key.length > 14 ? key.slice(2, 16) : null)
+    ?? (/^\d{14}$/.test(key) ? key : /^\d{13}$/.test(key) ? `0${key}` : null);
+  const found = key ? pool.find((o) => o.code.toUpperCase() === key || (!!gtin && o.udi === gtin)) : undefined;
+  useEffect(() => { if (found) setItemId(found.id); }, [found]);
   const picked = pool.find((o) => o.id === itemId) ?? ofBand[0] ?? others[0];
   const offBand = !!band && !!picked && picked.band !== band;
 
@@ -89,6 +102,15 @@ export function CutForm({ woId, options, today, used, band, cutDate, fix }: {
     <form action={action} className="border-t border-line bg-canvas p-4">
       <input type="hidden" name="work_order_id" value={woId} />
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="sm:col-span-2 lg:col-span-5">
+          <label className="label" htmlFor={`${uid}-find`}>형명 · UDI</label>
+          <input id={`${uid}-find`} value={find} onChange={(e) => setFind(e.target.value)} autoComplete="off"
+                 placeholder="형명(PD10182025)이나 UDI를 넣거나 라벨 바코드를 읽으십시오"
+                 className="input font-mono" />
+          {key && !found && (
+            <p className="mt-1 text-xs text-danger">이 제품의 형명 · UDI 가 아닙니다. 아래에서 고르십시오.</p>
+          )}
+        </div>
         <div className="lg:col-span-2">
           <label className="label" htmlFor={`${uid}-item_id`}>형명</label>
           <select id={`${uid}-item_id`} name="item_id" required className="input"
@@ -97,19 +119,19 @@ export function CutForm({ woId, options, today, used, band, cutDate, fix }: {
               <>
                 <optgroup label={`이 배치의 두께 구간 ${band}`}>
                   {ofBand.map((o) => (
-                    <option key={o.id} value={o.id}>{o.code} · {o.name}</option>
+                    <option key={o.id} value={o.id}>{o.code} · {o.name}{o.udi ? ` · UDI ${o.udi}` : ''}</option>
                   ))}
                 </optgroup>
                 {others.length > 0 && (
                   <optgroup label="그 밖의 두께">
                     {others.map((o) => (
-                      <option key={o.id} value={o.id}>{o.code} · {o.name}</option>
+                      <option key={o.id} value={o.id}>{o.code} · {o.name}{o.udi ? ` · UDI ${o.udi}` : ''}</option>
                     ))}
                   </optgroup>
                 )}
               </>
             ) : (
-              pool.map((o) => <option key={o.id} value={o.id}>{o.code} · {o.name}</option>)
+              pool.map((o) => <option key={o.id} value={o.id}>{o.code} · {o.name}{o.udi ? ` · UDI ${o.udi}` : ''}</option>)
             )}
           </select>
         </div>

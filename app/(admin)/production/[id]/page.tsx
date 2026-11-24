@@ -217,8 +217,8 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
         /* 두께 구간은 형명 체계가 정한다 (0075). 화면이 뒤 네 자리를 잘라
            쓰던 것을 DB 로 옮겼다 - 자리 수가 바뀌면 그 화면만 조용히 틀린다.
            고를 형명은 이 제품의 것만이다 (0138 dm_models) */
-        `select m.id, m.code, m.name, model_band(m.code) as band
-           from dm_models($1) m order by m.code`, [wo.device_master_id]),
+        `select m.id, m.code, m.name, model_band(m.code) as band, i.udi_di as udi
+           from dm_models($1) m join item i on i.id = m.id order by m.code`, [wo.device_master_id]),
       today: await db.val<string>(`select to_char(timezone('Asia/Seoul', now()),'YYYY-MM-DD')`),
       /* 마감 안 된 공정 · 남은 로트 - 배치 종료의 «아직 남은 것» (lib/batch-open) */
       openSteps: await openSteps(db, id),

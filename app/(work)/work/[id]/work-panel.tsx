@@ -73,7 +73,11 @@ export interface PlOpt {
   id: string; lot_no: string; item_code: string; item_name: string;
   qty_produced?: number; qty_sample?: number;
 }
-export interface FinOpt { id: string; code: string; name: string }
+export interface FinOpt {
+  id: string; code: string; name: string;
+  /** UDI-DI (GTIN-14 · 0158). 재단에서 형명 대신 넣어도 고른다 */
+  udi?: string | null;
+}
 /** 확인해 볼 항목 (review_flags). ref 는 대개 공정 코드다 */
 export interface Flag { kind: string; detail: string; day_no: number | null; ref: string }
 /** 재단 이후 공정을 건너뛴 제품 로트 (0149) */
@@ -1962,6 +1966,22 @@ function CutPanel({
   const [item, setItem] = useState('');
   const [produced, setProduced] = useState('');
   const [sample, setSample] = useState('');
+  /*
+   * 형명 · UDI 를 넣으면 그 형명을 고른다 (사용자 2026-11-25 «형명은 입력하면 자동으로 배치되게 해줘. 재단할때»).
+   * 형명 코드(PD10182025), UDI-DI(08809911220697), 라벨 바코드를 읽은 GS1 글((01)08809911220697…) 모두 받는다.
+   * 넣는 동안 아래 형명 칸을 좁혀 보이고, 하나로 맞으면 바로 고른다.
+   */
+  const [find, setFind] = useState('');
+  const key = find.replace(/\s/g, '').toUpperCase();
+  /* GS1 글은 (01) 뒤 14자리, 괄호 없이 읽힌 것은 앞 «01» 다음 14자리. 그냥 14 · 13자리면 그대로(앞에 0) */
+  const gtin = key.match(/\(01\)(\d{14})/)?.[1]
+    ?? (/^01\d{14}/.test(key) && key.length > 14 ? key.slice(2, 16) : null)
+    ?? (/^\d{14}$/.test(key) ? key : /^\d{13}$/.test(key) ? `0${key}` : null);
+  const exact = key ? finished.find((f) => f.code.toUpperCase() === key || (!!gtin && f.udi === gtin)) : undefined;
+  const shownModels = key && !exact
+    ? finished.filter((f) => f.code.toUpperCase().includes(key) || (f.udi ?? '').includes(key))
+    : finished;
+  useEffect(() => { if (exact) setItem(exact.id); }, [exact]);
 
   /* -------------------------------------------------------------------------
      제출이 끝나면 칸을 비운다 (4차 감사 E3)
@@ -1974,7 +1994,7 @@ function CutPanel({
      그 숫자가 라벨요청서와 편철 표지에 찍힌다.
   ------------------------------------------------------------------------- */
   useEffect(() => {
-    if (state.ok) { setItem(''); setProduced(''); setSample(''); }
+    if (state.ok) { setItem(''); setProduced(''); setSample(''); setFind(''); }
   }, [state]);
   /* 사람이 직접 시료 수를 고쳤는가. 고쳤으면 그 값을 덮어쓰지 않는다 */
   const [touched, setTouched] = useState(false);
@@ -2040,9 +2060,27 @@ function CutPanel({
           <input type="hidden" name="item_id" value={item} />
 
           <div>
+            <label className="label" htmlFor={`${uid}-find`}>형명 · UDI</label>
+            <input id={`${uid}-find`} value={find} onChange={(e) => setFind(e.target.value)}
+                   placeholder="형명(PD10182025)이나 UDI를 넣거나 라벨 바코드를 읽으십시오"
+                   autoComplete="off" className="input font-mono text-base" />
+            {key && !exact && shownModels.length === 0 && (
+              <p className="mt-1.5 text-sm text-danger">
+                이 제품의 형명이 아닙니다. 표준코드 등록대장에 있는 형명 · UDI 인지 확인하십시오.
+              </p>
+            )}
+            {exact && (
+              <p className="mt-1.5 text-sm text-ok">
+                <b className="font-mono">{exact.code}</b> {exact.name}
+                {exact.udi && <> · UDI <span className="font-mono">{exact.udi}</span></>} 를 골랐습니다.
+              </p>
+            )}
+          </div>
+
+          <div>
             <span className="label">형명</span>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {finished.map((f) => {
+              {shownModels.map((f) => {
                 const already = lots.some((l) => l.item_code === f.code);
                 return (
                   <button key={f.id} type="button" onClick={() => setItem(f.id)}

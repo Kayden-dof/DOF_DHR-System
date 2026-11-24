@@ -178,7 +178,7 @@ export default async function WorkBatchPage({ params }: { params: Promise<{ id: 
        * 섞이지 않는다.
        */
       finished: await db.rows<FinOpt>(
-        `select m.id, m.code, m.name from dm_models($2) m
+        `select m.id, m.code, m.name, i.udi_di as udi from dm_models($2) m join item i on i.id = m.id
           where ($1::text is null or right(m.code, 4) = $1)
           order by m.code`, [wo.thickness_band, wo.device_master_id]),
       lockedDays: await db.rows<{ day_no: number }>(
