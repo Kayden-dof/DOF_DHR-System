@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { todayKST } from '@/lib/kst';
-import { requireUser} from '@/lib/session';
+import { requireUser, hasRole } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import { getBrand } from '@/lib/brand';
 import { fmtDate } from '@/lib/fmt';
@@ -276,6 +276,8 @@ export default async function WorkBatchPage({ params }: { params: Promise<{ id: 
 
       <WorkPanel
         woId={wo.id}
+        canManage={hasRole(user, 'SYS_ADMIN', 'PROD_MGR')}
+        woDone={wo.status === 'DONE'}
         batchNo={wo.batch_no}
         sheets={wo.sheet_count}
         splitOp={wo.split_op}

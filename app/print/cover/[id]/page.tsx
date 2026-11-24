@@ -89,14 +89,27 @@ export default async function CoverSheet({ params, searchParams }: {
 
     return {
       head,
+      /*
+       * 투입 줄은 반납을 뺀 양으로, 전량 반납한 줄은 빼고 (사용자 2026-11-20 «염화나트륨 중복 표기» -
+       * 292.2 g 줄을 전량 반납했는데 293 g 줄과 함께 두 줄로 나갔다). 반납은 stock_movement RETURN.
+       */
       materials: await db.rows<MatRow>(
-        `select item_code, item_name, material_lot_no as lot_no, qty,
-                operation_name, product_lot_id, day_no, attempt,
-                (select lot_no from product_lot pl where pl.id = g.product_lot_id) as product_lot_no,
-                (select usage_uom from item i2 where i2.code = g.item_code) as usage_uom
-           from v_lot_genealogy g
-          where work_order_id = $1
-          order by item_code, material_lot_no, day_no, attempt, product_lot_no`, [id]),
+        `select item_code, item_name, lot_no, qty, operation_name, product_lot_id, day_no, attempt,
+                product_lot_no, usage_uom
+           from (select i.code as item_code, i.name as item_name, ml.lot_no,
+                        mi.qty - coalesce((select sum(sm.qty) from stock_movement sm
+                                            where sm.material_issue_id = mi.id and sm.type = 'RETURN'), 0) as qty,
+                        op.name as operation_name, pr.product_lot_id, pr.day_no, pr.attempt,
+                        (select lot_no from product_lot pl where pl.id = pr.product_lot_id) as product_lot_no,
+                        i.usage_uom
+                   from material_issue mi
+                   join process_record pr on pr.id = mi.process_record_id
+                   join material_lot ml on ml.id = mi.material_lot_id
+                   join item i on i.id = ml.item_id
+                   join dmr_operation op on op.id = pr.operation_id
+                  where pr.work_order_id = $1) x
+          where qty > 0
+          order by item_code, lot_no, day_no, attempt, product_lot_no`, [id]),
       lots: await db.rows<LotRow>(
         `select pl.lot_no, i.code as item_code, i.name as item_name,
                 pl.qty_produced, pl.qty_sample, pl.qty_available,

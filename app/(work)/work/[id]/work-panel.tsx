@@ -146,7 +146,12 @@ export default function WorkPanel({
   woId, batchNo, sheets, splitOp, loadUnit, expiryWarnDays,
   ops, records, lots, people, productLots, meId, lockedDays,
   cutOpId, finished, sampleTiers, sampleBasis, band, today, allEquipment = [], skips = [], flags = [],
+  canManage = false, woDone = false,
 }: {
+  /** 생산관리자 · 시스템관리자인가 - 모든 공정을 마치면 배치 종료로 가는 길을 보인다 */
+  canManage?: boolean;
+  /** 배치가 이미 종료되었는가 */
+  woDone?: boolean;
   /** 확인해 볼 항목 - 공정 마감 전에 그 공정 것을 보인다 (사용자 2026-11-20) */
   flags?: Flag[];
   /** 대장의 쓰는 설비 전부. 기록서 기기번호 칸의 «전체 설비 보기» 가 읽는다 */
@@ -383,6 +388,8 @@ export default function WorkPanel({
         * 하고 아무것도 적지 않는다.
         */}
       <PrepCard ops={ops} records={records} lots={lots}
+                productLots={productLots} skips={skips} woId={woId}
+                canManage={canManage} woDone={woDone}
                 sheets={sheets} loadUnit={loadUnit}
                 onGo={dayToday !== null && dayToday !== day
                   ? () => { setDay(dayToday); setOpId(null); }
@@ -2265,8 +2272,9 @@ function IssueRow({ woId, x, locked }: {
    짚되 막지 않는다 (§2 "경고만") - 통에 실제로 얼마나 남았는지는 사람이 본다.
 --------------------------------------------------------------------------- */
 function PrepCard(
-  { ops, records, lots, sheets, loadUnit, onGo, goLabel }: {
+  { ops, records, lots, productLots, skips, woId, canManage, woDone, sheets, loadUnit, onGo, goLabel }: {
     ops: Op[]; records: Rec[]; lots: LotOpt[];
+    productLots: PlOpt[]; skips: Skip[]; woId: string; canManage: boolean; woDone: boolean;
     sheets: number; loadUnit: string | null;
     /** 오늘 적을 일차가 지금 열린 일차와 다를 때만 온다 */
     onGo: (() => void) | null;
@@ -2279,10 +2287,42 @@ function PrepCard(
    */
   const doneOf = (o: Op) => {
     const mine = records.filter((r) => r.operation_id === o.id);
+    /*
+     * 재단 이후 공정은 제품 로트마다 - 마감했거나 건너뛰었으면(0149 · 멸균 선량 샘플) 그 로트는 끝났다
+     * (사용자 2026-11-25 «남은 공정이 0개 여야 하는데..? 멸균 스킵이라고 했잖아?»).
+     */
+    if (o.after_cutting && productLots.length > 0) {
+      return productLots.every((p) =>
+        mine.some((r) => r.product_lot_id === p.id && !!r.ended_at)
+        || skips.some((s) => s.operation_id === o.id && s.product_lot_id === p.id));
+    }
     return mine.length > 0 && mine.every((r) => !!r.ended_at);
   };
   const left = ops.filter((o) => !doneOf(o));
-  if (left.length === 0) return null;
+  /*
+   * 모든 공정을 마쳤으면 다음 할 일 - 배치 종료 (사용자 2026-11-25 «공정 종료 버튼은 어디에?? 관리자가
+   * 공정 종료 할수있는건가?»). 배치 종료는 되돌릴 수 없어 생산관리자 · 시스템관리자가 배치 화면에서 한다.
+   */
+  if (left.length === 0) {
+    if (woDone) return null;
+    return (
+      <section className="card py-5">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="text-base font-semibold text-ink">모든 공정을 마쳤습니다</h2>
+          <span className="text-sm text-muted">남은 공정 0개</span>
+        </div>
+        <p className="mt-1.5 text-sm leading-relaxed text-muted">
+          다음은 배치 종료입니다. 생산관리자 · 시스템관리자가 배치 화면에서 합니다. 종료하면 되돌릴 수 없고,
+          그다음 편철 표지를 인쇄합니다.
+        </p>
+        {canManage && (
+          <Link href={`/production/${woId}`} className="btn-primary mt-3 w-full justify-center">
+            배치 화면에서 배치 종료
+          </Link>
+        )}
+      </section>
+    );
+  }
 
   const todayDay = Math.min(...left.map((o) => o.typical_day ?? 99));
   const today = left.filter((o) => (o.typical_day ?? 99) === todayDay);
