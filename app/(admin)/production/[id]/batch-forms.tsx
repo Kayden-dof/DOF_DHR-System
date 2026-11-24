@@ -657,6 +657,7 @@ export function FinishForm({ id, batchNo, remaining = [], pages = 0, lots = 0 }:
             <p className="text-sm font-semibold text-ink">종료하면 되돌릴 수 없습니다</p>
             <ul className="mt-1 space-y-0.5 text-sm leading-relaxed text-muted">
               <li>· 번호 정정 · 제조번호 부여 · 배치 취소를 더 할 수 없습니다.</li>
+              <li>· 재단 완료인 제품 로트는 포장 완료가 되어 출하 승인 화면에 나옵니다.</li>
               <li>· 다음은 이 화면 아래 «배치 종료와 편철» 의 편철 표지 인쇄입니다.</li>
             </ul>
           </div>

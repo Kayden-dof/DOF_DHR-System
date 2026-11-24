@@ -425,7 +425,12 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
           </Empty>
         ) : (
           <div className="qd-table-scroll">
-            <table className="qd-table qd-table--hangul">
+            {/*
+              * 열이 전부 짧은 «기록 · 수치» 표라 data-grow="0" - 남는 폭을 모든 열이 같은 몫으로 나눈다.
+              * 정해 두지 않으면 첫 열(형명)이 남는 폭을 다 가져가 수치가 오른쪽 끝에 몰렸다 (사용자 2026-11-25
+              * «형명 이후에 왤케 다 오른쪽으로 몰려있지»).
+              */}
+            <table className="qd-table qd-table--hangul" data-grow="0">
               <thead>
                 <tr>
                   <th className="th">형명</th>
