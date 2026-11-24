@@ -364,7 +364,9 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                              productName={wo.product_name ?? wo.item_name} />
           )}
           {active && !readOnly && (
-            <FinishForm id={wo.id} remaining={remaining.filter((x) => x !== '배치 미종료')} />
+            <FinishForm id={wo.id} batchNo={wo.batch_no}
+                        remaining={remaining.filter((x) => x !== '배치 미종료')}
+                        pages={totalPages} lots={d.lots.length} />
           )}
         </div>
       </div>

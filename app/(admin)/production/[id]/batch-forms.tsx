@@ -606,40 +606,71 @@ export function CancelForm({ id }: { id: string }) {
 }
 
 /*
- * 배치 종료 (UI/UX 검수 2026-11-11).
+ * 배치 종료 (UI/UX 검수 2026-11-11 · 2026-11-25).
  *
  * 전에는 «종료하고 편철 표지를 출력하시겠습니까?» 라고 물었다. 종료는 표지를
  * 내지 않고, 되돌리는 자리도 없다. 무엇이 사라지는지와 아직 남은 것을 묻는
  * 자리에 적는다. 남은 것이 있어도 막지 않는다 - 알린다.
+ *
+ * 머리줄 아래로 노란 띠가 펼쳐지던 것을 확인 창으로 옮겼다 (사용자 2026-11-25 «디자인이 좀 별로»).
+ * 되돌릴 수 없는 일이라 그 일 하나만 보이는 자리에서 묻는다 - 로트 수정 · 회수와 같은 Dialog.
+ * 창 안의 차례: 지금 상태(남은 것 / 남은 것 없음) → 종료하면 바뀌는 것 → 단추.
  */
-export function FinishForm({ id, remaining = [] }: {
+export function FinishForm({ id, batchNo, remaining = [], pages = 0, lots = 0 }: {
   id: string;
-  /** 편철 전에 남은 것 (기록서 미발행 · 제조번호 전). 사실만 센 것 */
+  batchNo: string;
+  /** 편철 전에 남은 것 (진행 중 공정 · 남은 로트 · 기록서 미발행 · 제조번호 전). 사실만 센 것 */
   remaining?: string[];
+  /** 발행된 기록서 장수 · 제품 로트 수 - 남은 것이 없을 때 무엇을 닫는지 보인다 */
+  pages?: number;
+  lots?: number;
 }) {
   const [state, action, pending] = useActionState<FormState, FormData>(finishWorkOrder, {});
-  const [ask, setAsk] = useState(false);
-
-  if (!ask) {
-    return <button onClick={() => setAsk(true)} className="btn-ghost">배치 종료</button>;
-  }
+  const { open, setOpen } = useDialog(state);
 
   return (
-    <form action={action} className="flex w-full flex-wrap items-center gap-2 rounded-md border border-warn/40 bg-warn-bg px-3 py-2">
-      <input type="hidden" name="id" value={id} />
-      <span className="min-w-0 flex-1 text-sm leading-relaxed text-ink">
-        <b>종료하면 되돌릴 수 없습니다.</b> 번호 정정 · 제조번호 부여 · 배치 취소 단추가
-        사라지고, 다음은 편철 표지 인쇄입니다.
-        {remaining.length > 0 && (
-          <span className="block font-bold text-warn">아직 남은 것: {remaining.join(' · ')}</span>
-        )}
-      </span>
-      <button type="submit" disabled={pending} className="btn-primary">종료한다</button>
-      <button type="button" onClick={() => setAsk(false)} className="btn-quiet">
-        그만
-      </button>
-      <Msg state={state} />
-    </form>
+    <>
+      <button type="button" onClick={() => setOpen(true)} className="btn-ghost">배치 종료</button>
+      <Dialog open={open} onClose={() => setOpen(false)} title="배치 종료"
+              note={<span className="font-mono">{batchNo}</span>}>
+        <form action={action} className="space-y-4">
+          <input type="hidden" name="id" value={id} />
+
+          {remaining.length > 0 ? (
+            <div className="rounded-md border border-warn/40 bg-warn-bg px-3 py-2.5">
+              <p className="text-sm font-semibold text-ink">아직 남은 것이 있습니다</p>
+              <ul className="mt-1.5 space-y-0.5 text-sm leading-relaxed text-ink">
+                {remaining.map((r) => <li key={r}>· {r}</li>)}
+              </ul>
+              <p className="mt-1.5 text-xs leading-relaxed text-muted">
+                막지는 않습니다. 남은 채로 종료하면 편철 표지에 미완료로 찍힙니다.
+              </p>
+            </div>
+          ) : (
+            <p className="rounded-md bg-surface-sub px-3 py-2.5 text-sm leading-relaxed text-ink">
+              남은 공정 · 미발행 기록서가 없습니다. 기록서 <b className="tnum">{pages}</b>장 · 제품 로트{' '}
+              <b className="tnum">{lots}</b>건을 닫습니다.
+            </p>
+          )}
+
+          <div>
+            <p className="text-sm font-semibold text-ink">종료하면 되돌릴 수 없습니다</p>
+            <ul className="mt-1 space-y-0.5 text-sm leading-relaxed text-muted">
+              <li>· 번호 정정 · 제조번호 부여 · 배치 취소를 더 할 수 없습니다.</li>
+              <li>· 다음은 이 화면 아래 «배치 종료와 편철» 의 편철 표지 인쇄입니다.</li>
+            </ul>
+          </div>
+
+          <Msg state={state} />
+          <div className="flex gap-2">
+            <button type="button" onClick={() => setOpen(false)} className="btn-ghost">그만</button>
+            <button type="submit" disabled={pending} className="btn-primary flex-1">
+              {pending ? '종료하는 중' : '배치를 종료한다'}
+            </button>
+          </div>
+        </form>
+      </Dialog>
+    </>
   );
 }
 
