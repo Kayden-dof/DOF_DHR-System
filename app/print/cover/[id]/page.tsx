@@ -6,7 +6,7 @@ import { fmtDate, fmtDateTime, chem } from '@/lib/fmt';
 import { logPrint, printGate, viewParam } from '@/lib/print';
 import { chunkRows } from '@/lib/print-pages';
 import Denied from '@/components/denied';
-import PrintFrame, { Sheet, SignRow } from '@/components/print-frame';
+import PrintFrame, { Sheet, SignRow, SelfIssue } from '@/components/print-frame';
 import { getBrand } from '@/lib/brand';
 
 export const dynamic = 'force-dynamic';
@@ -507,7 +507,7 @@ export default async function CoverSheet({ params, searchParams }: {
                  * 항목이 붙으면 더 벌어진다.
                  */
                 { name: '편철 표지 (이 장)',
-                  fact: <>발행 {meta.seq}회차 · 식별자 {meta.dataHash.slice(0, 12)}</>,
+                  fact: <SelfIssue given={meta} />,
                   pages: String(meta.pages) },
                 { name: '작업 지시서',
                   fact: wp
