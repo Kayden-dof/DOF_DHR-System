@@ -8,6 +8,8 @@
 // =============================================================================
 
 import { masterData as master, newMaterialLot, newWorkOrder, sterilReport } from '../fixtures.mjs';
+import { gtinOf, findModel } from '../../lib/model-find.ts';
+import { cutRowCheck } from '../../lib/ship-check.ts';
 
 /* 이 파일의 거래처 하나. 다른 시험의 거래처와 사업자번호가 겹치지 않게 */
 let CUSTOMER;
@@ -256,6 +258,60 @@ export default [
     } finally {
       await t.rows(`select set_config('app.change_reason', '', false)`);
     }
+  },
+},
+
+
+{
+  id: 'SC-01', expect: '확인',
+  name: '형명 · UDI 찾기는 형명 코드 · UDI-DI · 라벨 바코드 글을 받는다',
+  async run(t) {
+    for (const s of ['(01)08809911220376', '0108809911220376172811101026111001', '08809911220376', '8809911220376']) {
+      t.eq(gtinOf(s), '08809911220376', s);
+    }
+    t.eq(gtinOf('PD05050510'), null, '형명 코드는 GTIN 이 아니다');
+    const pool = [{ code: 'PD10182025', udi: '08809911220999' }, { code: 'PD05050510', udi: '08809911220376' }];
+    t.eq(findModel('pd 0505 0510', pool)?.code, 'PD05050510', '띄어쓰기 · 소문자');
+    t.eq(findModel('(01)08809911220376', pool)?.code, 'PD05050510', '바코드');
+    t.eq(findModel('PD0505', pool), undefined, '반만 맞으면 없음');
+    t.eq(findModel('', pool), undefined, '빈 칸');
+  },
+},
+
+{
+  id: 'SC-02', expect: '확인',
+  name: '재단 줄은 손으로 적은 제조번호의 붙임표 자리가 달라도 그 로트 줄로 찾는다',
+  async run(t) {
+    const cells = [
+      { row: 7, role: 'cutlot', value: 'GM261110-02' }, { row: 7, role: 'model', value: 'PD05050510' },
+      { row: 5, role: 'cutlot', value: 'GM261110-01' }, { row: 5, role: 'model', value: 'pd1018 2025' },
+      { row: 5, role: 'qty', value: '20' },
+    ];
+    const r = cutRowCheck(cells, 'GM-26111001', 1, 'PD10182025');
+    t.eq(`${r.ok}/${r.row}/${r.actual}`, 'true/5/pd1018 2025', '제조번호로 찾은 줄 (n번째가 아니라)');
+  },
+},
+
+{
+  id: 'SC-03', expect: '확인',
+  name: '재단 줄 모델명이 주문 형명과 다르면 다름',
+  async run(t) {
+    const cells = [{ row: 3, role: 'cutlot', value: 'P2611-0001' }, { row: 3, role: 'model', value: 'PD05050510' }];
+    const r = cutRowCheck(cells, 'P2611-0001', 0, 'PD10182025');
+    t.eq(`${r.ok}/${r.row}/${r.actual}`, 'false/3/PD05050510', '다름');
+  },
+},
+
+{
+  id: 'SC-04', expect: '확인',
+  name: '재단 칸이 없으면 볼 수 없음, 로트 줄이 없으면 다름, 제조번호 칸이 비면 n번째 줄',
+  async run(t) {
+    t.eq(cutRowCheck([], 'P1', 0, 'PD05050510').ok, null, '양식 없음');
+    const one = [{ row: 2, role: 'cutlot', value: '' }, { row: 2, role: 'model', value: 'PD05050510' }];
+    const miss = cutRowCheck(one, 'P2', 1, 'PD05050510');
+    t.eq(`${miss.ok}/${miss.row}/${miss.actual}`, 'false/null/null', '둘째 로트인데 줄이 하나');
+    const nth = cutRowCheck(one, 'P1', 0, 'PD05050510');
+    t.eq(`${nth.ok}/${nth.row}`, 'true/2', '제조번호 칸이 비면 첫째 로트 = 첫째 줄');
   },
 },
 
