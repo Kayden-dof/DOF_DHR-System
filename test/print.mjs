@@ -606,6 +606,10 @@ async function registerCheck(kind, where = {}) {
 
 await sheet('① 작업 지시서', `/print/work-order/${wo.id}`, [
   ...common('작업 지시서'),
+  // 공정이 보통 몇 일차인지. 참고값이지만 종이에 나와야 계획을 세운다 (공정 표의 «보통 일차» 칸)
+  ...(wo.typical_days ?? []).map((d, i) => ({
+    label: `공정 ${i + 1} 보통 일차`, value: String(d),
+  })),
   /*
    * 첫 장은 회사 양식 F705-01(Rev.02) 작업요청 및 지시서다 (0136 · 사용자 2026-11-11).
    * 지시서번호는 그 양식의 «작업지시번호(생산팀 기입)» 칸에, 장입 수량 · 필요 용기는
@@ -737,10 +741,10 @@ await sheet('④ 편철 표지', `/print/cover/${wo.id}`, [
   { label: '원재료 로트번호', value: wo.raw_lot_no },
   { label: '성적서 번호',     value: wo.coa_no },
   { label: '장입 수량',       value: String(wo.sheet_count) },
-  // 공정이 보통 몇 일차인지. 참고값이지만 종이에 나와야 계획을 세운다
-  ...(wo.typical_days ?? []).map((d, i) => ({
-    label: `공정 ${i + 1} 보통 일차`, value: String(d),
-  })),
+  /*
+   * 공정의 보통 일차는 표지가 아니라 작업 지시서에 찍힌다 (① 로 옮김 · 2026-11-25). 여기서는 표의
+   * 아무 칸에 그 숫자가 있으면 통과해, 서류 목록의 줄 번호(1~7)가 우연히 맞춰 주고 있었다.
+   */
   ...lots.map((l) => ({ label: `제품 로트 ${l.item_code}`, value: l.lot_no })),
   // 전체 투입 자재 - 원액 로트도 다른 자재처럼 한 줄로 오른다 (공급자 없이 만든 로트)
   ...batchSolLots.map((r) => ({ label: '전체 투입 자재 · 원액 로트', value: r.lot_no })),
@@ -755,8 +759,9 @@ await sheet('④ 편철 표지', `/print/cover/${wo.id}`, [
   { label: '편철 서류 목록', value: '편철 서류 목록', anywhere: true },
   { label: '목록 · 작업 지시서', value: '작업 지시서' },
   { label: '목록 · 제조기록서', value: '제조기록서 (일차 · 작업자별)' },
-  { label: '목록 · 출하 승인 요청서', value: coverRR },
-  { label: '목록 · 멸균 성적서', value: coverCert },
+  // 출하 승인은 품질 몫이라 표지 목록에서 뺐다 (0160 · 생산팀 전용)
+  { label: '목록 · 출하 승인 요청서 없음', value: '출하 승인 요청서 (서면', anywhere: true, absent: true },
+  { label: '목록 · 멸균 보고서', value: coverCert },
   { label: '목록 · 원재료 성적서', value: wo.coa_no },
   { label: '철 확인란',        value: '철 확인' },
   /*

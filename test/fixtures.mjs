@@ -178,6 +178,26 @@ export async function approveLots(t, woId) {
 }
 
 /**
+ * 그 지시의 제품 로트를 멸균 위탁에 넣고 회수 · 멸균 보고서 번호까지 적는다 (0160 · 사용자 2026-11-25
+ * «멸균 입고가 되면 멸균보고서를 넣어야지만 출하가 가능»). 이미 보고서가 있는 로트는 둔다.
+ */
+export async function sterilReport(t, m, woId) {
+  const lots = await t.rows(
+    `select pl.id, greatest(pl.qty_produced, 1) as qty from product_lot pl
+      where pl.work_order_id = $1 and lot_steril_report(pl.id) is null`, [woId]);
+  if (lots.length === 0) return;
+  const sb = await t.val(
+    `insert into steril_batch (batch_no, vendor_name, registered_by, shipped_at, received_at, cert_no)
+     values ('ST-T-' || substr(md5(random()::text), 1, 10), '시험 멸균처', $1,
+             current_date, current_date, 'SR-시험-' || substr(md5(random()::text), 1, 6))
+     returning id`, [m.admin]);
+  for (const l of lots) {
+    await t.rows(`insert into steril_batch_lot (steril_batch_id, product_lot_id, qty) values ($1,$2,$3)`,
+      [sb, l.id, l.qty]);
+  }
+}
+
+/**
  * 제품표준서 대조 확인을 다시 적는다 (0134).
  * 공정 · 자재 · 구간 · 설비를 고치면 대조가 풀리므로, 시험이 그런 것을 고친 뒤
  * 작업 지시를 내려면 화면에서처럼 다시 대조해야 한다.
@@ -239,6 +259,8 @@ export async function releaseRequestNo(t, m, woId, tag = 'rr') {
    * 출고하지 않는다). 화면에서도 요청서 → 서면 승인 → 승인 기록 → 출고 차례다.
    */
   await approveLots(t, woId);
+  /* 출고는 멸균 보고서가 있어야 적힌다 (0160). 화면에서도 멸균 회수 → 보고서 → 출고 차례다 */
+  await sterilReport(t, m, woId);
   const no = await t.val(
     `select doc_no from record_print_log('RELEASE_REQUEST', md5($2) || md5($2),
                                          $1, null, null, null, null, 1, null)`,

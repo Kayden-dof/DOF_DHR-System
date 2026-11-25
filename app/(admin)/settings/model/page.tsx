@@ -58,7 +58,7 @@ export default async function ModelSchemePage() {
         <>
           형명 한 줄이 종이의 규격 표기를 만듭니다. 접두어와 자리를 정해 두면
           형명에서 <b className="text-ink">규격 문구</b>가 만들어지고, 그 문구가
-          라벨요청서와 출하 승인 요청서에 그대로 나갑니다.
+          라벨요청서에 그대로 나갑니다.
         </>
       }
       nav={<SubNav items={settingsNav(user.seat, user.screens)} />}
@@ -96,7 +96,7 @@ export default async function ModelSchemePage() {
         return (
           <section key={sc.id} className="space-y-4">
             <Panel title={`${sc.name} · ${sc.prefix}`}
-                   note="접두어와 규격 문구. 이 문구가 라벨요청서와 출하 승인 요청서에 찍힙니다.">
+                   note="접두어와 규격 문구. 이 문구가 라벨요청서에 찍힙니다.">
               <SchemeForm scheme={sc} />
             </Panel>
 

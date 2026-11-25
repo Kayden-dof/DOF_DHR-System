@@ -34,7 +34,10 @@ export const EQUIPMENT_NAV: NavItem[] = [
 ];
 
 export const SHIPPING_NAV: NavItem[] = [
-  { href: '/shipping', label: '출하 승인' },
+  /*
+   * 출하 승인은 품질 몫이라 뺐다 (0160 · 사용자 2026-11-25 «생산팀에서만 굴러가는거라서 출하 승인
+   * 기능이 … 해당사항이 없거든»). 배치가 끝나면 멸균 위탁 → 회수 · 멸균 보고서 → 출고 차례다.
+   */
   { href: '/shipping/steril', label: '멸균 위탁' },
   { href: '/shipping/ship', label: '출고' },
 ];

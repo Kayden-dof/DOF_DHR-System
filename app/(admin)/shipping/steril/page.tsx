@@ -113,7 +113,7 @@ export default async function SterilPage() {
                   <th className="th text-right">수량</th>
                   <th className="th">발송일</th>
                   <th className="th">회수일</th>
-                  <th className="th">성적서</th>
+                  <th className="th">멸균 보고서</th>
                   <th className="th">단계</th>
                   <th className="th" />
                 </tr>
@@ -131,11 +131,11 @@ export default async function SterilPage() {
       <section className="card py-4">
         <h3 className="text-xs font-semibold text-ink">이 화면이 하는 일과 하지 않는 일</h3>
         <ul className="mt-2 space-y-1.5 text-xs leading-relaxed text-muted">
-          <li>· 발송·회수 시점과 성적서 번호를 기록합니다.</li>
+          <li>· 배치가 끝나면 포장 완료된 제품 로트를 멸균 위탁으로 보냅니다.</li>
           <li>· 발송하면 제품 로트가 멸균 중으로, 회수하면 멸균 회수로 넘어갑니다.</li>
           <li>
-            · <b className="text-ink">적합 여부는 판정하지 않습니다.</b> 서면 멸균 성적서로
-            판정하며, 시스템은 그 번호를 붙들어 두는 역할만 합니다.
+            · <b className="text-ink">회수일과 멸균 보고서 번호를 모두 적어야 출고할 수 있습니다.</b>
+            {' '}적합 여부는 서면 멸균 보고서로 판정하며, 시스템은 그 번호를 붙들어 두는 역할만 합니다.
           </li>
           <li>
             · 파괴검사용 2개는 제조번호를 붙일 때 시료 수량에 이미 반영되어 있어 출하 가능 수량에서

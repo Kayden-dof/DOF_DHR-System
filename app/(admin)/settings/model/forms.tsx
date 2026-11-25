@@ -48,8 +48,7 @@ export function SchemeForm({ scheme }: { scheme: Scheme | null }) {
                  placeholder="{1}x{2}cm · 두께 {3}~{4}mm"
                  className="input" />
           <p className="mt-1 text-xs leading-relaxed text-muted">
-            <b className="text-ink">이 문구가 종이에 찍힙니다.</b> 라벨요청서와 출하 승인
-            요청서의 규격 칸입니다. <code>{'{1}'}</code>은 아래 1번 자리 값으로 바뀝니다.
+            <b className="text-ink">이 문구가 종이에 찍힙니다.</b> 라벨요청서의 규격 칸입니다. <code>{'{1}'}</code>은 아래 1번 자리 값으로 바뀝니다.
           </p>
         </div>
         <div className="sm:col-span-2">

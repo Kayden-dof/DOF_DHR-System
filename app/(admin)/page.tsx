@@ -60,9 +60,9 @@ export default async function Dashboard() {
           where status in ('ISSUED','IN_PROCESS','CUT'))                    as wo_open,
         (select count(*)::int from work_order where status = 'ISSUED')      as wo_issued,
         (select count(*)::int from product_lot where status = 'PACKED')     as lots_packed,
+        /* 출고 대기 - 멸균 보고서가 적혀 출고할 수 있고 출하 가능 수량이 남은 로트 (0160) */
         (select count(*)::int from product_lot
-          where status in ('PACKED','STERILIZING','TESTED')
-            and release_approved_by is null)                                as lots_await_release,
+          where qty_available > 0 and lot_steril_report(id) is not null)    as lots_await_release,
         (select count(*)::int from product_lot
           where release_approved_by is not null and qty_available > 0)      as lots_shippable,
         (select count(*)::int from v_reorder_alert)                         as reorder,
@@ -219,8 +219,7 @@ export default async function Dashboard() {
         (select coalesce(json_agg(x), '[]'::json) from (
            select pl.lot_no, i.name as item_name, pl.status::text as status
              from product_lot pl join item i on i.id = pl.item_id
-            where pl.status in ('PACKED','STERILIZING','TESTED')
-              and pl.release_approved_by is null
+            where pl.qty_available > 0 and lot_steril_report(pl.id) is not null
             order by pl.manufactured_on limit 9) x)                        as await_release,
 
         (select coalesce(json_agg(x), '[]'::json) from (
@@ -297,7 +296,7 @@ export default async function Dashboard() {
   /*
    * 숫자를 누르면 그 숫자가 센 것만 걸러 연다 (UI/UX 검수 2026-11-11). 전에는
    * 거르지 않은 목록으로 가서, 숫자를 이룬 줄을 다시 찾아야 했다. 받는 화면이
-   * 같은 잣대로 거른다 - 생산 status=OPEN · due, 자재 due=expiry, 출하 승인 기록 판.
+   * 같은 잣대로 거른다 - 생산 status=OPEN · due, 자재 due=expiry, 출고 화면.
    */
   const stats: StatItem[] = [
     { label: '진행 중인 배치', value: c.wo_open, unit: '건', href: '/production?status=OPEN',
@@ -319,11 +318,11 @@ export default async function Dashboard() {
         left: mono(r.batch_no), sub: r.worker, right: `${r.day_no}일차`,
       })), '마감하지 않은 일차가 없습니다', c.unprinted_days) },
 
-    { label: '출하 승인 대기', value: c.lots_await_release, unit: '로트', href: '/shipping#pending',
+    { label: '출고 대기', value: c.lots_await_release, unit: '로트', href: '/shipping/ship',
       tone: c.lots_await_release > 0 ? 'info' : undefined,
       detail: statRows(L.await_release.map((r) => ({
         left: mono(r.lot_no), sub: r.item_name, right: PL_STATUS_LABEL[r.status] ?? r.status,
-      })), '승인을 기다리는 로트가 없습니다', c.lots_await_release) },
+      })), '출고를 기다리는 로트가 없습니다', c.lots_await_release) },
 
     { label: '기한 임박 자재', value: c.expiring + c.expired, unit: '건', href: '/material?due=expiry',
       tone: c.expired > 0 ? 'danger' : c.expiring > 0 ? 'warn' : undefined,

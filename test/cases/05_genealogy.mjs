@@ -2,7 +2,7 @@
 // 05_genealogy.mjs · 계보 정확성 · 재고 · 원가 (§8.3, §9 M3·M4)
 // =============================================================================
 
-import { masterData as master, newMaterialLot, newWorkOrder, releaseRequestNo as requestNo }
+import { masterData as master, newMaterialLot, newWorkOrder, releaseRequestNo as requestNo, sterilReport }
   from '../fixtures.mjs';
 import { solutionItem } from './16_solution.mjs';
 
@@ -460,43 +460,41 @@ export default [
 },
 
 {
-  id: 'SH-06', expect: '예외',
-  name: '출하 승인서 번호 없이 출고를 기록할 수 없다',
+  /*
+   * 0160 (사용자 2026-11-25 «생산에서 그냥 출하 업체를 기입하는정도만»). 출하 승인은 시스템 밖이라
+   * 승인서 번호 없이 출고를 적는다. 전에는 거부를 기대했다.
+   */
+  id: 'SH-06', expect: '통과',
+  name: '출하 승인서 번호 없이 출고를 기록한다 (0160)',
   async run(t) {
     const m = await master(t);
     const b = await batch(t, m);
-    // null 도, 빈칸도 안 된다. 서면 승인의 근거 없이 적힌 출고는 이을 방법이 없다
-    await t.rejects(
+    await sterilReport(t, m, b.wo.id);
+    await t.resolves(
       () => t.rows(`insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by)
-                    values ($1,'거래처병',1,current_date,$2)`, [b.lotA, m.admin]),
-      { code: 'P0001', message: '출하 승인서 번호' });
-    await t.rejects(
+                    values ($1,'거래처병',1,current_date,$2)`, [b.lotA, m.admin]));
+    await t.resolves(
       () => t.rows(`insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by,
                                           release_request_no)
-                    values ($1,'거래처병',1,current_date,$2,'   ')`, [b.lotA, m.admin]),
-      { code: 'P0001', message: '출하 승인서 번호' });
+                    values ($1,'거래처병',1,current_date,$2,'   ')`, [b.lotA, m.admin]));
   },
 },
 
 {
-  id: 'SH-07', expect: '예외',
-  name: '발행된 적 없는 승인서 번호로는 출고를 기록할 수 없다 (D5)',
+  /*
+   * 0111 은 발행된 적 없는 승인서 번호를 거부했다. 0160 부터 승인서 번호는 따지지 않는다 -
+   * 적힌 값은 그대로 남고, 발행된 번호도 그대로 지나간다.
+   */
+  id: 'SH-07', expect: '통과',
+  name: '승인서 번호는 따지지 않는다 - 적은 값은 그대로 남는다 (0160)',
   async run(t) {
     const m = await master(t);
     const b = await batch(t, m);
-
-    /*
-     * 0026 은 칸이 비었는지만 물었다. 지어낸 번호는 그대로 들어갔고, 그 번호로
-     * 종이를 찾으면 나오지 않았다. 이제 가리키는 종이가 실재해야 한다 (0111).
-     */
-    await t.rejects(
+    await t.resolves(
       () => t.rows(`insert into shipment (product_lot_id, customer_name, qty, shipped_at,
                                           shipped_by, release_request_no)
                     values ($1,'거래처정',1,current_date,$2,'RR-지어낸-01')`,
-                   [b.lotA, m.admin]),
-      { code: 'P0001', message: '발행된 적이 없습니다' });
-
-    /* 발행된 번호는 지나간다. 막는 것은 실재하지 않는 번호뿐이다 */
+                   [b.lotA, m.admin]));
     const no = await requestNo(t, m, b.wo.id, 'sh07');
     await t.rows(
       `insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by,
@@ -522,10 +520,9 @@ export default [
     t.eq(await t.val(`select customer_name from shipment where id=$1`, [id]),
          '거래처무역', '번호를 안 건드린 수정');
 
-    /* 번호를 없는 것으로 바꾸는 것은 막는다 */
-    await t.rejects(
-      () => t.rows(`update shipment set release_request_no='RR-없는것-99' where id=$1`, [id]),
-      { code: 'P0001', message: '발행된 적이 없습니다' });
+    /* 번호를 바꾸는 것도 따지지 않는다 (0160) */
+    await t.resolves(
+      () => t.rows(`update shipment set release_request_no='RR-없는것-99' where id=$1`, [id]));
   },
 },
 

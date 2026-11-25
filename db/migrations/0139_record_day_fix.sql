@@ -35,8 +35,13 @@
 
 /* === 1. 정정 내역이 받는 칸 · 마감 전에 고쳤는가 ========================= */
 alter table record_correction drop constraint if exists record_correction_field_check;
+/*
+ * not valid (2026-11-25): 이관은 배포 때마다 처음부터 다시 돈다. 뒤 이관(0155)이 허용한 값('br_entry')의
+ * 줄이 운영에 생기자 이 줄이 그 줄에 걸려 배포가 여기서 멈췄다. 0131 처럼 기존 줄은 보지 않고, 마지막
+ * 정의(0155)가 전체 줄을 검사하는 규칙을 다시 세운다.
+ */
 alter table record_correction add constraint record_correction_field_check
-  check (field in ('no_material_reason', 'day_no', 'work_date', 'started_at', 'ended_at'));
+  check (field in ('no_material_reason', 'day_no', 'work_date', 'started_at', 'ended_at')) not valid;
 
 /*
  * 기본값을 두지 않는다. 옛 백업에는 이 칸이 없고, 옛 줄은 전부 강제 정정이었다

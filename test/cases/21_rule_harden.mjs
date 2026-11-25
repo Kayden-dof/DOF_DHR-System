@@ -66,16 +66,28 @@ export default [
 },
 
 {
-  id: 'RH-03', expect: '예외',
-  name: '출하 승인 기록이 없는 로트를 출고',
+  /*
+   * 0160 (사용자 2026-11-25 «생산팀에서만 굴러가는거라서 출하 승인 기능이 … 해당사항이 없거든»).
+   * 전에는 거부를 기대했다. 품질이 이 시스템에 출하 승인을 적지 않으므로 출고를 막지 않는다.
+   */
+  id: 'RH-03', expect: '확인',
+  name: '출하 승인 없이도 출고하되, 멸균 보고서가 있어야 한다 (0160 · 생산팀 전용)',
   async run(t) {
     const m = await master(t);
     const l = await lot(t, m);
-    await t.rejects(
-      () => t.rows(
-        `insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by)
-         values ($1, '거래처', 1, current_date, $2)`, [l.id, m.admin]),
-      { message: '출하 승인 기록이 없어 출고할 수 없습니다' });
+    const ship = () => t.rows(
+      `insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by)
+       values ($1, '거래처', 1, current_date, $2)`, [l.id, m.admin]);
+    await t.rejects(ship, { message: '멸균 보고서가 없어 출고할 수 없습니다' });
+    /* 멸균 회수만 되고 보고서 번호가 비었으면 아직이다 */
+    const sb = await t.val(
+      `insert into steril_batch (batch_no, vendor_name, registered_by, shipped_at, received_at)
+       values ('ST-RH03', '시험 멸균처', $1, current_date, current_date) returning id`, [m.admin]);
+    await t.rows(`insert into steril_batch_lot (steril_batch_id, product_lot_id, qty) values ($1,$2,1)`, [sb, l.id]);
+    await t.rejects(ship, { message: '멸균 보고서가 없어' });
+    await t.rows(`update steril_batch set cert_no = 'SR-RH03' where id = $1`, [sb]);
+    await t.resolves(ship);
+    t.eq(Number(await t.val(`select count(*) from shipment where product_lot_id = $1`, [l.id])), 1, '출고 한 줄');
   },
 },
 

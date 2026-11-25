@@ -522,20 +522,10 @@ export default async function CoverSheet({ params, searchParams }: {
                 { name: '라벨요청서',
                   fact: lp ? <>최종 {lp.latest}회차 발행분</> : '발행 이력 없음',
                   pages: lp ? '1' : '-' },
-                { name: '출하 승인 요청서 (서면 승인 원본)',
-                  fact: requests.length === 0
-                    ? '발행 이력 없음'
-                    : <>{requests.map((r, i) => (
-                        <span key={i}>
-                          {i > 0 && ' · '}
-                          {r.doc_no ? <span className="font-mono">{r.doc_no}</span>
-                            : <><span className="tnum">{r.seq}</span>회차</>}
-                        </span>
-                      ))}</>,
-                  pages: requests.length ? String(requests.length) : '-' },
-                { name: '멸균 성적서 (외부 원본)',
+                /* 출하 승인 요청서 줄은 뺐다 - 출하 승인은 품질 몫, 이 시스템은 생산팀 전용 (0160) */
+                { name: '멸균 보고서 (외부 원본)',
                   fact: certs.length === 0
-                    ? '회수된 성적서 없음'
+                    ? '회수된 보고서 없음'
                     : <span className="font-mono">
                         {certs.map((c) => c.cert_no).join(' · ')}
                       </span>,

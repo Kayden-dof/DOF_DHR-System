@@ -311,7 +311,7 @@ export async function finishWorkOrder(_p: FormState, form: FormData): Promise<Fo
       await db.rows(`update work_order set status='DONE' where id=$1 and status <> 'CANCELLED'`, [id]);
       /*
        * 생산이 끝났으니 아직 «재단 완료» 인 제품 로트는 «포장 완료» 로 (사용자 2026-11-25 «생산이 종료되었는데
-       * 안나오네?»). 출하 승인 목록은 포장 완료부터 받는데, 그 상태는 제품 로트 «수정» 에서 손으로만 바뀌어
+       * 안나오네?»). 멸균 위탁은 포장 완료부터 받는데, 그 상태는 제품 로트 «수정» 에서 손으로만 바뀌어
        * 종료한 배치의 로트가 어디에도 나오지 않았다.
        */
       return db.rows<{ lot_no: string }>(
@@ -322,7 +322,7 @@ export async function finishWorkOrder(_p: FormState, form: FormData): Promise<Fo
     return {
       ok: true,
       message: packed.length
-        ? `배치를 종료했습니다. 제품 로트 ${packed.length}건이 포장 완료가 되어 출하 승인에서 요청할 수 있습니다. 편철 표지를 인쇄하십시오.`
+        ? `배치를 종료했습니다. 제품 로트 ${packed.length}건이 포장 완료가 되어 멸균 위탁으로 보낼 수 있습니다. 편철 표지를 인쇄하십시오.`
         : '배치를 종료했습니다. 편철 표지를 인쇄하십시오.',
     };
   } catch (e) {

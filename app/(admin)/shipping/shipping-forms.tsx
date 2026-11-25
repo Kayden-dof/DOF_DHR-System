@@ -20,9 +20,11 @@ export interface PlOpt {
   release_approved_by: string | null; release_approved_on: string | null;
   shipped: number;
   /** 완제품검사 시료 수량. 앞 번호부터 빠진다 */
-  qty_sample: number;
-  /** 이 배치로 나간 출하 승인 요청서 번호. 최근 것이 앞에 온다 (0111) */
-  requests: string[];
+  qty_sample?: number;
+  /** 이 배치로 나간 출하 승인 요청서 번호 (0111 · 0160 부터 쓰지 않음) */
+  requests?: string[];
+  /** 멸균 보고서 번호 (회수된 멸균 위탁 · 0160). 있어야 출고한다 */
+  report?: string | null;
 }
 export interface SbRow {
   id: string; batch_no: string; request_no: string | null; vendor_name: string;
@@ -254,7 +256,7 @@ export function SterilRow({ sb, today }: { sb: SbRow; today: string }) {
                        className="input tnum" />
               </div>
               <div className="w-48">
-                <label className="label" htmlFor={`${uid}-cert_no`}>멸균 성적서 번호</label>
+                <label className="label" htmlFor={`${uid}-cert_no`}>멸균 보고서 번호</label>
                 <input id={`${uid}-cert_no`} name="cert_no" defaultValue={sb.cert_no ?? ''}
                        className="input font-mono" />
               </div>
@@ -268,7 +270,7 @@ export function SterilRow({ sb, today }: { sb: SbRow; today: string }) {
               </button>
               <p className="w-full text-xs leading-relaxed text-muted">
                 발송일을 적으면 제품 로트가 멸균 중으로, 회수일을 적으면 멸균 회수로 넘어갑니다.
-                적합 여부는 서면 성적서로 판정합니다. 시스템은 시점과 번호만 기록합니다.
+                회수일과 멸균 보고서 번호가 모두 적혀야 이 배치의 제품 로트를 출고할 수 있습니다.
               </p>
               <div className="w-full"><Msg state={state} /></div>
             </form>
@@ -437,13 +439,11 @@ export function ApproveForm({ lot, today }: { lot: PlOpt; today: string }) {
    읽기도 쓰기도 어려웠다 (사용자 지적). 행 전체를 누르게 하고, 입력은 그 행
    바로 아래에 표 전체 폭으로 펼친다.
 
-   출하 승인서 번호는 필수다. DB 트리거가 같은 것을 막고 있고 (0026), 여기의
-   required 는 그 규칙을 먼저 안내하는 것뿐이다.
+   출하 승인은 시스템 밖이다 (0160 · 생산팀 전용). 멸균 보고서가 적힌 로트만 이 목록에
+   오고, 출고에는 출하 업체 · 수량 · 출고일만 적는다.
 --------------------------------------------------------------------------- */
-export function ShipList({ lots, today, fix }: {
+export function ShipList({ lots, today }: {
   lots: PlOpt[]; today: string;
-  /** 출하 승인 요청서가 없을 때 발행하러 가는 자리 */
-  fix?: Fix;
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
 
@@ -458,7 +458,7 @@ export function ShipList({ lots, today, fix }: {
             <th className="th text-right">출하 가능</th>
             <th className="th text-right">기출고</th>
             <th className="th">유효기한</th>
-            <th className="th">승인</th>
+            <th className="th">멸균 보고서</th>
             <th className="th w-0" />
           </tr>
         </thead>
@@ -487,10 +487,7 @@ export function ShipList({ lots, today, fix }: {
                     </span>
                     <span className="ml-1 text-faint">{days}일</span>
                   </td>
-                  <td className="td ">
-                    {l.release_approved_by}
-                    <div className="tnum text-faint">{fmtDate(l.release_approved_on)}</div>
-                  </td>
+                  <td className="td font-mono">{l.report ?? ''}</td>
                   <td className="td text-right">
                     <span aria-hidden
                           className={`inline-block text-faint transition-transform ${
@@ -502,7 +499,7 @@ export function ShipList({ lots, today, fix }: {
                 {open && (
                   <tr>
                     <td colSpan={8} className="border-b border-line bg-canvas p-0">
-                      <ShipRowForm lot={l} today={today} fix={fix} />
+                      <ShipRowForm lot={l} today={today} />
                     </td>
                   </tr>
                 )}
@@ -515,7 +512,7 @@ export function ShipList({ lots, today, fix }: {
   );
 }
 
-function ShipRowForm({ lot, today, fix }: { lot: PlOpt; today: string; fix?: Fix }) {
+function ShipRowForm({ lot, today }: { lot: PlOpt; today: string }) {
   /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
   const uid = useId();
 
@@ -528,36 +525,9 @@ function ShipRowForm({ lot, today, fix }: { lot: PlOpt; today: string; fix?: Fix
       <p className="text-sm font-semibold text-ink">
         <span className="font-mono">{lot.lot_no}</span> 출고 기록
       </p>
-      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div>
-          {/*
-            * 나간 요청서에서 고른다 (0111).
-            *
-            * 전에는 빈 칸에 손으로 적었다. 그러면 지어낸 번호가 그대로 들어가고,
-            * 그 번호로 종이를 찾으면 나오지 않는다. 이제 실재하지 않는 번호는
-            * DB 가 거부하므로, 화면은 고를 것을 내주는 자리를 맡는다.
-            *
-            * 나간 요청서가 없으면 고를 것이 없다고 말하고 그 이유를 적는다.
-            * 막는 것이 아니라 어디로 가야 하는지 알려 주는 것이다.
-            */}
-          <label className="label" htmlFor={`${uid}-release_request_no`}>출하 승인서 번호 (필수)</label>
-          {lot.requests.length === 0 ? (
-            <>
-              <input id={`${uid}-release_request_no`} name="release_request_no" required
-                     disabled className="input font-mono" />
-              <Unblock fix={fix} align="start" className="mt-1.5"
-                       why="이 배치로 나간 출하 승인 요청서가 없습니다."
-                       todo="출하 승인 요청서 발행하기" />
-            </>
-          ) : (
-            <select id={`${uid}-release_request_no`} name="release_request_no" required
-                    defaultValue={lot.requests[0]} className="input font-mono">
-              {lot.requests.map((r) => <option key={r} value={r}>{r}</option>)}
-            </select>
-          )}
-        </div>
-        <div>
-          <label className="label" htmlFor={`${uid}-customer_name`}>거래처</label>
+          <label className="label" htmlFor={`${uid}-customer_name`}>출하 업체</label>
           <input id={`${uid}-customer_name`} name="customer_name" required autoComplete="off" className="input" />
         </div>
         <div>
@@ -577,9 +547,6 @@ function ShipRowForm({ lot, today, fix }: { lot: PlOpt; today: string; fix?: Fix
           </button>
         </div>
       </div>
-      <p className="mt-2 text-xs leading-relaxed text-muted">
-        서면 승인이 끝난 요청서의 번호를 옮겨 기재합니다. 번호 없이는 기록되지 않습니다.
-      </p>
       {/*
         * 출고 단추 옆 안내 (UI/UX 검수 2026-11-11). 전에는 무엇이 줄고 되돌릴 수
         * 있는지를 말하지 않았다. 출고를 지우는 자리는 없다.
@@ -587,7 +554,7 @@ function ShipRowForm({ lot, today, fix }: { lot: PlOpt; today: string; fix?: Fix
       <div className="mt-2">
         <Caution>
           출고를 기록하면 이 제조번호의 출하 가능 수량이 그만큼 줄고 그 거래처로 나간 것으로
-          남습니다. <b>되돌릴 수 없습니다.</b> 출하 승인이 기록된 로트만 이 목록에 나옵니다.
+          남습니다. <b>되돌릴 수 없습니다.</b> 멸균 보고서가 적힌 로트만 이 목록에 나옵니다.
         </Caution>
       </div>
       <Msg state={state} />
