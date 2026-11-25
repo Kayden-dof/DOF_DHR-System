@@ -7,7 +7,8 @@
 // 개정본 복사가 함께 옮긴다. 배치 계획은 같은 판의 지시에만 이어진다.
 // =============================================================================
 
-import { masterData as master, newWorkOrder } from '../fixtures.mjs';
+import { masterData as master, newWorkOrder, newMaterialLot, reverify } from '../fixtures.mjs';
+import { brFormOfRecord } from '../../lib/br-scope.ts';
 
 const STEP = (id, extra = {}) => ({
   id, p: '01', n: `작업 ${id}`, k: 'work', s: 480, d: 30, mn: null, mx: null, a: [], m: '', ...extra,
@@ -134,6 +135,61 @@ export default [
           and br_form_in_scope(device_master_id, is_current, $1) order by revision`, [dm]);
     t.eq((await pick(r00)).map((x) => x.id).join(), old, 'Rev.00 판은 현행 양식');
     t.eq((await pick(r01)).map((x) => x.id).join(), neu, 'Rev.01 판은 묶인 개정안 양식만');
+  },
+},
+
+{
+  id: 'TL-06', expect: '확인',
+  name: '현장 칸 저장도 그 지시의 판이 쓰는 양식만 받는다 (묶인 개정안은 받고 범위 밖 현행 양식은 막는다)',
+  async run(t) {
+    /*
+     * 운영 DX2401 Rev.01 이 이 모양이다 (2026-11-25): 공정마다 Rev.00 현행 양식(묶이지 않음)과
+     * Rev.01 판에 묶인 개정안(현행 아님)이 함께 있다. 화면 · 관리 정정 · 인쇄는 br_form_in_scope 로
+     * 개정안만 쓴다. 현장 저장 관문이 is_current 로 보면 개정안 칸은 막고, 화면에 없는 Rev.00
+     * 양식 칸은 받아 서명 판정 없이 적는다 - 종이에 없는 값이 인쇄 자료의 br 에 들어간다.
+     */
+    const m = await master(t);
+    const FORM = JSON.stringify({ page: { w: 842, h: 595 }, pages: [{ texts: [], tables: [] }] });
+    const dmOf = async (rev) => {
+      const dm = await t.val(
+        `insert into device_master (item_id, revision, status, product_code, effective_from)
+         values ($1, $2, 'DRAFT', 'TL-BR', current_date) returning id`, [m.fin, rev]);
+      const op = await t.val(
+        `insert into dmr_operation (device_master_id, seq, code, name, after_cutting)
+         values ($1, 1, 'WS-TL-BR-01', '처리', false) returning id`, [dm]);
+      await reverify(t, dm, m.admin);
+      return { dm, op, rev };
+    };
+    const r00 = await dmOf('Rev.TL8');
+    const r01 = await dmOf('Rev.TL9');
+    const doc = (rev, cur, dm) => t.val(
+      `insert into mfg_doc (product_code, op_code, kind, doc_no, title, revision, is_current,
+                            device_master_id, form, registered_by)
+       values ('TL-BR', 'WS-TL-BR-01', 'BR', 'F706-TL-BR-01', '양식', $1, $2, $3, $4::jsonb, $5)
+       returning id`, [rev, cur, dm, FORM, m.admin]);
+    const cur = await doc('Rev.00', true, null);
+    const bound = await doc('Rev.01', false, r01.dm);
+
+    const record = async (s) => {
+      const raw = await newMaterialLot(t, m, m.raw, { thickness_band: '0510', qty: 50 });
+      const wo = await t.val(
+        `insert into work_order (wo_no, batch_no, device_master_id, dmr_revision,
+           material_lot_id, sheet_count, issued_by_prod, issued_by_qa)
+         values (next_number('WORK_ORDER'), next_number('BATCH'), $1, $2, $3, 10, $4, $5)
+         returning id`, [s.dm, s.rev, raw, m.admin, m.qa]);
+      await t.setActor(m.worker);
+      const pr = await t.val(
+        `insert into process_record (work_order_id, operation_id, day_no, work_date, worker_id, started_at)
+         values ($1, $2, 1, current_date, $3, now()) returning id`, [wo, s.op, m.worker]);
+      await t.setActor(null);
+      return pr;
+    };
+    const p01 = await record(r01);
+    t.eq(await brFormOfRecord(t, p01, bound), true, 'Rev.01 지시: 판에 묶인 개정안 칸은 받는다');
+    t.eq(await brFormOfRecord(t, p01, cur), false, 'Rev.01 지시: 화면에 없는 Rev.00 현행 양식 칸은 막는다');
+    const p00 = await record(r00);
+    t.eq(await brFormOfRecord(t, p00, cur), true, '묶인 양식이 없는 판: 현행 양식 칸은 받는다');
+    t.eq(await brFormOfRecord(t, p00, bound), false, '묶인 양식이 없는 판: 다른 판에 묶인 양식 칸은 막는다');
   },
 },
 

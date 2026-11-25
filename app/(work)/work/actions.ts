@@ -8,6 +8,7 @@ import { requireUser } from '@/lib/session';
 import { isWorker, isAdmin } from '@/lib/roles';
 import type { FormState } from '@/lib/forms';
 import { brSheet, currentForm, type BrSheet } from '@/lib/br-sheet';
+import { brFormOfRecord } from '@/lib/br-scope';
 import { fixedEquipCodes } from '@/lib/br-form';
 import { kstStamp } from '@/lib/kst';
 
@@ -400,7 +401,7 @@ export async function returnIssue(_p: FormState, form: FormData): Promise<FormSt
 --------------------------------------------------------------------------- */
 /*
  * 한 공정에 양식이 둘 이상이면(본 기록서 + 별첨, 2026-11-12) docId 로 고른다. 비우면
- * 본 기록서. 그 공정의 현행 양식이 아닌 docId 는 받지 않는다 - 아래 saveBrEntry 참고.
+ * 본 기록서. 그 지시의 판이 쓰는 양식이 아닌 docId 는 받지 않는다 - 아래 saveBrEntry 참고.
  */
 export async function loadBrSheet(
   recordId: string, docId?: string | null,
@@ -430,21 +431,15 @@ export async function saveBrEntry(
     let signKind: 'worker' | 'date' | null = null;
     const sheet = await withActor(me.id, async (db) => {
       /*
-       * 그 기록 공정의 현행 양식에만 적는다. 다른 공정 · 지난 판 양식의 칸이 이 기록에
-       * 붙으면 화면에도 종이에도 안 보이는 값이 자료 식별자에만 들어간다.
-       * 트랜잭션 안이라 던지면 아무것도 남지 않는다.
+       * 그 지시의 제품표준서 판이 쓰는 양식에만 적는다 (br_form_in_scope · lib/br-scope).
+       * 다른 공정 · 다른 판 양식의 칸이 이 기록에 붙으면 화면에도 종이에도 안 보이는 값이
+       * 자료 식별자에만 들어간다. 트랜잭션 안이라 던지면 아무것도 남지 않는다.
        */
-      const ok = await db.val<boolean>(
-        `select exists (select 1 from process_record pr
-                          join dmr_operation o on o.id = pr.operation_id
-                          join device_master dm on dm.id = o.device_master_id
-                          join mfg_doc d on d.product_code = dm.product_code and d.op_code = o.code
-                         where pr.id = $1 and d.id = $2 and d.kind = 'BR' and d.is_current
-                           and d.form is not null)`, [recordId, docId]);
-      if (!ok) throw new Error('이 공정의 제조기록서 양식이 아닙니다');
-      /* 서명 칸인가 (0140). 지금 양식을 채워 그 자리의 칸을 본다 */
+      if (!(await brFormOfRecord(db, recordId, docId))) throw new Error('이 공정의 제조기록서 양식이 아닙니다');
+      /* 서명 칸인가 (0140). 지금 양식을 채워 그 자리의 칸을 본다. 못 채우면 판정 없이 적지 않는다 */
       const before = await brSheet(db, recordId, docId);
-      for (const p of before?.pages ?? []) for (const t of p.tables) for (const r of t.rows)
+      if (!before || before.docId !== docId) throw new Error('이 공정의 제조기록서 양식이 아닙니다');
+      for (const p of before.pages) for (const t of p.tables) for (const r of t.rows)
         /* 확인자 · 확인일자(ck)는 서명 고침이 아니다 - 확인하는 사람이 적는 칸이라 사유를 묻지 않는다 */
         for (const c of r.cells) if (c.id === field && c.sg && !c.ck) signKind = c.sg;
       /* 감사추적의 사유 칸에도 남긴다. 적기 전에 세워야 그 줄에 붙는다 */

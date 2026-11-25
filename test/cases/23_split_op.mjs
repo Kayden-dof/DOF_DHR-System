@@ -9,6 +9,7 @@
 // =============================================================================
 
 import { masterData as master, newMaterialLot, reverify } from '../fixtures.mjs';
+import { cutModels } from '../../lib/cut-models.ts';
 
 /** 공정 셋짜리 판: 01 절단(갈림 표시) · 02 처리(배치) · 03 포장(제품 로트) */
 async function splitDm(t, m, rev, { mark = true } = {}) {
@@ -178,6 +179,53 @@ export default [
     const outside = (await t.rows(`select code from dm_models($1)`, [dmLoose])).map((r) => r.code);
     t.ok(outside.includes('ZZ-SP6'), '체계 밖 대표 형명: 자기 자신이 든다');
     t.ok(!outside.some((c) => c.startsWith('PC')), '체계 밖 대표 형명: 체계에 든 형명은 빠진다');
+  },
+},
+
+{
+  id: 'SP-07', expect: '통과',
+  name: '재단에서 고를 형명의 두께 구간은 형명 체계가 정한다 · 두께 자리가 없는 체계는 원료 두께로 거르지 않는다',
+  async run(t) {
+    /*
+     * 현장 재단 목록이 뒤 네 자리(right(code, 4))로 두께를 보던 것을 관리 화면과 같은
+     * model_band 로 맞춘다 (2026-11-25). 운영 PD 62종은 둘이 같지만 PC 12종은 두께 자리가
+     * 없어 model_band 가 비고, 뒤 네 자리는 길이 · 너비 자리다 - 원료 로트에 두께가 적히면
+     * 숫자가 우연히 맞는 형명 하나만 남는다. 다른 시험의 체계와 겹치지 않는 머리말을 쓴다.
+     */
+    const scheme = async (prefix, roles) => {
+      const id = await t.val(
+        `insert into model_scheme (name, prefix, spec_pattern, name_pattern)
+         values ($1, $1, '{1}', '{P}') returning id`, [prefix]);
+      for (const [i, role] of roles.entries()) {
+        await t.rows(
+          `insert into model_segment (scheme_id, seq, digits, divisor, decimals, label, role)
+           values ($1, $2, 2, 1, 0, '자리', $3)`, [id, i + 1, role]);
+      }
+    };
+    const fin = (code) => t.val(
+      `insert into item (code, name, type, purchase_uom, usage_uom, shelf_life_months)
+       values ($1, $1, 'FIN', 'EA', 'EA', 24) returning id`, [code]);
+    const dmOf = (item) => t.val(
+      `insert into device_master (item_id, revision, status) values ($1, 'Rev.SP7', 'DRAFT') returning id`,
+      [item]);
+    const codes = async (dm, band) => (await cutModels(t, dm, band)).map((x) => x.code).join(' ');
+
+    await scheme('QD', ['WIDTH', 'HEIGHT', 'BAND', 'BAND']);
+    const d1 = await fin('QD05050510');
+    await fin('QD05051015');
+    await fin('QD10150510');
+    const dmD = await dmOf(d1);
+    t.eq(await codes(dmD, null), 'QD05050510 QD05051015 QD10150510', '원료 두께가 없으면 이 제품의 형명 전부');
+    t.eq(await codes(dmD, '0510'), 'QD05050510 QD10150510', '원료 두께 구간의 형명만');
+    t.eq(await codes(dmD, '2530'), '', '맞는 두께의 형명이 없으면 빈 목록 (현장 화면이 관리자에게 미룬다)');
+
+    await scheme('QC', [null, null, null]);
+    const c1 = await fin('QC032004');
+    await fin('QC033004');
+    await fin('QC035008');
+    const dmC = await dmOf(c1);
+    t.eq(await codes(dmC, '2004'), 'QC032004 QC033004 QC035008',
+      '두께 자리가 없는 체계는 원료 두께가 적혀 있어도 거르지 않는다');
   },
 },
 

@@ -8,10 +8,11 @@ import { chem } from '@/lib/fmt';
 import { Tag } from '@/components/ui';
 import { WO_STATUS_LABEL } from '@/lib/forms';
 import WorkPanel, {
-  type Op, type Rec, type LotOpt, type PersonOpt, type PlOpt, type FinOpt,
+  type Op, type Rec, type LotOpt, type PersonOpt, type PlOpt,
   type SampleTier, type Skip, type Flag,
 } from './work-panel';
 import type { EquipOpt } from './br-sheet';
+import { cutModels } from '@/lib/cut-models';
 
 export const dynamic = 'force-dynamic';
 
@@ -179,15 +180,8 @@ export default async function WorkBatchPage({ params }: { params: Promise<{ id: 
           where device_master_id = $1 order by min_qty`, [wo.device_master_id]),
       sampleBasis: await db.val<string | null>(
         `select sample_basis from device_master where id = $1`, [wo.device_master_id]),
-      /*
-       * 두께는 원재료가 정하므로 이 배치에서 나올 형명은 그 두께의 것뿐이다 (§3 ③).
-       * 고를 형명은 이 제품의 것만이다 (0138 dm_models) - 늑연골 배치에 진피 형명이
-       * 섞이지 않는다.
-       */
-      finished: await db.rows<FinOpt>(
-        `select m.id, m.code, m.name, i.udi_di as udi from dm_models($2) m join item i on i.id = m.id
-          where ($1::text is null or right(m.code, 4) = $1)
-          order by m.code`, [wo.thickness_band, wo.device_master_id]),
+      /* 이 제품의 형명 중 원재료 두께 구간의 것 (lib/cut-models) */
+      finished: await cutModels(db, wo.device_master_id, wo.thickness_band),
       lockedDays: await db.rows<{ day_no: number }>(
         `select day_no from day_lock where work_order_id = $1 and worker_id = $2`,
         [id, user.id]),
