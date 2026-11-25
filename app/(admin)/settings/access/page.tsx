@@ -79,16 +79,6 @@ export default async function AccessPage({ searchParams }: {
 
   const sysAdmin = hasRole(user, 'SYS_ADMIN');
 
-  /* 지금 그 역할을 실제로 몇 사람이 들고 있는가. 표에 사람 수를 함께 얹는다 */
-  const counts = await withActor(user.id, async (db) => db.rows<{
-    role: string; n: number;
-  }>(
-    `select r.role::text as role, count(*)::int as n
-       from user_role r join app_user u on u.id = r.user_id
-      where u.is_active
-      group by r.role`,
-  ), { readOnly: true, reason: '권한 매트릭스 조회' });
-
   /* ---------------------------------------------------------------------------
      계정별 배정 (0116)
 
@@ -98,25 +88,31 @@ export default async function AccessPage({ searchParams }: {
   --------------------------------------------------------------------------- */
   const picked = (await searchParams).u ?? null;
 
-  const people = await withActor(user.id, async (db) => db.rows<{
-    id: string; login_code: string; full_name: string;
-    roles: RoleCode[] | null; touched: number;
-  }>(
-    `select u.id, u.login_code, u.full_name,
-            array_remove(array_agg(distinct r.role::text), null)::text[] as roles,
-            count(distinct s.path) filter (where s.is_open is not null)::int as touched
-       from app_user u
-       left join user_role r on r.user_id = u.id
-       left join user_screen s on s.user_id = u.id
-      where u.is_active and u.can_login
-      group by u.id order by u.login_code`,
-  ), { readOnly: true, reason: '화면 배정 조회' });
-
-  const mine = picked
-    ? await withActor(user.id, async (db) => db.rows<{ path: string; is_open: boolean | null }>(
-        `select path, is_open from user_screen where user_id = $1`, [picked]),
-      { readOnly: true, reason: '화면 배정 조회' })
-    : [];
+  /* 셋을 읽기 전용 트랜잭션 하나에서 읽는다 (최적화 2026-11-25 - 전에는 셋을 따로 열었다) */
+  const { counts, people, mine } = await withActor(user.id, async (db) => ({
+    /* 지금 그 역할을 실제로 몇 사람이 들고 있는가. 표에 사람 수를 함께 얹는다 */
+    counts: await db.rows<{ role: string; n: number }>(
+      `select r.role::text as role, count(*)::int as n
+         from user_role r join app_user u on u.id = r.user_id
+        where u.is_active
+        group by r.role`),
+    people: await db.rows<{
+      id: string; login_code: string; full_name: string;
+      roles: RoleCode[] | null; touched: number;
+    }>(
+      `select u.id, u.login_code, u.full_name,
+              array_remove(array_agg(distinct r.role::text), null)::text[] as roles,
+              count(distinct s.path) filter (where s.is_open is not null)::int as touched
+         from app_user u
+         left join user_role r on r.user_id = u.id
+         left join user_screen s on s.user_id = u.id
+        where u.is_active and u.can_login
+        group by u.id order by u.login_code`),
+    mine: picked
+      ? await db.rows<{ path: string; is_open: boolean | null }>(
+          `select path, is_open from user_screen where user_id = $1`, [picked])
+      : [],
+  }), { readOnly: true, reason: '권한 매트릭스 · 화면 배정 조회' });
   const assigned = new Map(mine.filter((r) => r.is_open !== null).map((r) => [r.path, r.is_open!]));
   const who = people.find((p) => p.id === picked) ?? null;
 

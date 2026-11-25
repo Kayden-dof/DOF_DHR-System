@@ -226,28 +226,34 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = fal
    * 자료는 lib/print-payload 에서 온다. 인쇄물 조회가 같은 것을 읽어
    * 자료 식별자를 다시 계산하므로, 두 곳이 갈라지면 안 된다.
    */
-  const d = await withActor(user.id, (db) => dayRecordPayload(db, id, dayNo, worker));
-  /*
-   * 관리자 정정한 칸 (0155). 칸 값은 이기되 그 줄의 작업자 · 일자를 바꾸지 않는다. 자료 식별자(payload)
-   * 밖에서 읽는다 - 나간 종이의 식별자를 흔들지 않는다.
-   */
-  const forcedKeys = new Set((await withActor(user.id, (db) => db.rows<{ k: string }>(
-    `select o.code || ':' || pr.attempt || ':' || e.doc_id || ':' || e.field as k
-       from br_entry e join process_record pr on pr.id = e.process_record_id
-       join dmr_operation o on o.id = pr.operation_id
-      where e.forced and pr.work_order_id = $1 and pr.day_no = $2 and pr.worker_id = $3`,
-    [id, dayNo, worker]))).map((x) => x.k));
   /* 확인해 볼 항목에서 열었을 때 관리자에게 그 공정 기록서를 고치는 길 (0155) */
   const canFix = !!hl && user.roles.some((x) => x === 'SYS_ADMIN' || x === 'PROD_MGR');
-  const recIds = canFix ? await withActor(user.id, (db) => db.rows<{ code: string; id: string; name: string }>(
-    `select o.code, pr.id, o.name from process_record pr join dmr_operation o on o.id = pr.operation_id
-      where pr.work_order_id = $1 and pr.day_no = $2 and pr.worker_id = $3 order by o.seq, pr.attempt`,
-    [id, dayNo, worker])) : [];
   /* 배치 화면의 확인해 볼 항목에서 열었으면 그 항목 (같은 종류 · ref · 이 일차) */
   const [hlKind, hlRef] = hl ? hl.split('|') : [];
-  const hlFlags: FlagRow[] = hl ? (await withActor(user.id, (db) => db.rows<FlagRow>(
-    `select kind, detail, day_no, ref from review_flags($1)`, [id])))
-    .filter((f) => f.kind === hlKind && f.ref === hlRef && (f.day_no === null || f.day_no === dayNo)) : [];
+
+  /* 아래 넷은 한 트랜잭션에서 읽는다 (최적화 2026-11-25 - 전에는 넷을 따로 열었다) */
+  const { d, forced, recIds, flags } = await withActor(user.id, async (db) => ({
+    d: await dayRecordPayload(db, id, dayNo, worker),
+    /*
+     * 관리자 정정한 칸 (0155). 칸 값은 이기되 그 줄의 작업자 · 일자를 바꾸지 않는다. 자료 식별자(payload)
+     * 밖에서 읽는다 - 나간 종이의 식별자를 흔들지 않는다.
+     */
+    forced: await db.rows<{ k: string }>(
+      `select o.code || ':' || pr.attempt || ':' || e.doc_id || ':' || e.field as k
+         from br_entry e join process_record pr on pr.id = e.process_record_id
+         join dmr_operation o on o.id = pr.operation_id
+        where e.forced and pr.work_order_id = $1 and pr.day_no = $2 and pr.worker_id = $3`,
+      [id, dayNo, worker]),
+    recIds: canFix ? await db.rows<{ code: string; id: string; name: string }>(
+      `select o.code, pr.id, o.name from process_record pr join dmr_operation o on o.id = pr.operation_id
+        where pr.work_order_id = $1 and pr.day_no = $2 and pr.worker_id = $3 order by o.seq, pr.attempt`,
+      [id, dayNo, worker]) : [],
+    flags: hl ? await db.rows<FlagRow>(
+      `select kind, detail, day_no, ref from review_flags($1)`, [id]) : [],
+  }));
+  const forcedKeys = new Set(forced.map((x) => x.k));
+  const hlFlags: FlagRow[] = flags
+    .filter((f) => f.kind === hlKind && f.ref === hlRef && (f.day_no === null || f.day_no === dayNo));
 
   if (!d || d.records.length === 0) notFound();
   const { head, records } = d;

@@ -119,7 +119,6 @@ export async function withActor<T>(
 ): Promise<T> {
   const client = await pool().connect();
   try {
-    await client.query('begin');
     /*
      * 열람자 세션은 읽기 전용 역할로 돈다 (app_readonly · 0043).
      *
@@ -127,17 +126,23 @@ export async function withActor<T>(
      * 게이트를 하나도 빠뜨리지 않는다는 데 기대는 방식이고, §1 이 그걸
      * 검증으로 치지 않는다고 못 박고 있다. 응용에 구멍이 생겨도 쓰기는
      * DB 에서 거부되어야 한다.
+     *
+     * begin 과 역할을 한 번에 보낸다 (최적화 2026-11-25). 값이 없는 고정 문장이라
+     * 단순 질의 하나에 둘을 실을 수 있다. 전에는 문장마다 풀러를 한 번씩 오갔다.
      */
-    await client.query(opts.readOnly ? 'set local role app_readonly' : 'set local role app_role');
-    // 트랜잭션 로컬(3번째 인자 true)로 세팅한다. 커넥션 풀러가 세션을
-    // 재사용하므로 세션 GUC로 두면 다음 요청의 감사기록에 남의 id가 찍힌다.
-    await client.query('select set_config($1, $2, true)', ['app.user_id', actorId ?? '']);
+    await client.query(opts.readOnly ? 'begin; set local role app_readonly'
+                                     : 'begin; set local role app_role');
     /*
-     * 왜 바꿨는가. 주면 감사추적에 남고 (0061), 주지 않으면 비어 있다.
-     * 트랜잭션 로컬이라 다음 요청으로 새지 않는다.
+     * 트랜잭션 로컬(3번째 인자 true)로 세팅한다. 커넥션 풀러가 세션을
+     * 재사용하므로 세션 GUC로 두면 다음 요청의 감사기록에 남의 id가 찍힌다.
+     *
+     * app.change_reason - 왜 바꿨는가. 주면 감사추적에 남고 (0061), 주지 않으면
+     * 비어 있다. 트랜잭션 로컬이라 다음 요청으로 새지 않는다.
+     *
+     * 값은 자리표($n)로 넘기고, 둘을 한 select 에 묶어 한 번만 오간다.
      */
-    await client.query('select set_config($1, $2, true)',
-                       ['app.change_reason', opts.reason ?? '']);
+    await client.query('select set_config($1, $2, true), set_config($3, $4, true)',
+                       ['app.user_id', actorId ?? '', 'app.change_reason', opts.reason ?? '']);
     const out = await fn(wrap(client));
     await client.query('commit');
     return out;

@@ -67,25 +67,23 @@ export default async function VerifyPage({
    */
   const canRetrieve = canWrite(user) && hasRole(user, 'SYS_ADMIN', 'PROD_MGR');
 
-  const hits = q.length >= 4
-    ? await withActor(user.id, (db) =>
-        db.rows<Hit>(
-          `select * from v_print_lookup
-            where short_hash like $1 || '%'
-            order by printed_at desc limit 20`, [q]))
-    : [];
+  /* 찾기와 다시 계산을 한 트랜잭션에서 한다 (최적화 2026-11-25). 찾을 값이 없으면 열지 않는다 */
+  const hits = q.length < 4 ? [] : await withActor(user.id, async (db) => {
+    const hits = await db.rows<Hit>(
+      `select * from v_print_lookup
+        where short_hash like $1 || '%'
+        order by printed_at desc limit 20`, [q]);
 
-  /*
-   * 지금 자료로 다시 계산해 종이에 찍힌 값과 견준다 (1차 감사 지적 2 의 나머지).
-   *
-   * 제조기록서만 한다. 인쇄하면 그 묶음이 잠겨 (S04) 자료가 얼기 때문에,
-   * 나중에 다시 계산한 값이 다르면 그건 실제로 무언가 달라진 것이다.
-   *
-   * 다른 양식은 대조하지 않는다. 편철 표지는 일차가 늘면 바뀌고 라벨요청서는
-   * 재단이 진행되면 바뀐다. 그것까지 견주면 정상 진행에도 계속 "다르다" 가
-   * 떠서, 신호가 아니라 소음이 된다 (§8.5).
-   */
-  await withActor(user.id, async (db) => {
+    /*
+     * 지금 자료로 다시 계산해 종이에 찍힌 값과 견준다 (1차 감사 지적 2 의 나머지).
+     *
+     * 제조기록서만 한다. 인쇄하면 그 묶음이 잠겨 (S04) 자료가 얼기 때문에,
+     * 나중에 다시 계산한 값이 다르면 그건 실제로 무언가 달라진 것이다.
+     *
+     * 다른 양식은 대조하지 않는다. 편철 표지는 일차가 늘면 바뀌고 라벨요청서는
+     * 재단이 진행되면 바뀐다. 그것까지 견주면 정상 진행에도 계속 "다르다" 가
+     * 떠서, 신호가 아니라 소음이 된다 (§8.5).
+     */
     for (const h of hits) {
       if (h.kind !== 'DAY_RECORD' || !h.work_order_id || h.day_no === null) continue;
       const worker = await db.val<string>(
@@ -94,6 +92,7 @@ export default async function VerifyPage({
       const payload = await dayRecordPayload(db, h.work_order_id, h.day_no, worker);
       h.recomputed = payload ? dataHash(hashable(payload)) : null;
     }
+    return hits;
   });
 
   return (

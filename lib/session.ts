@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
+import { cache } from 'react';
 import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { withActor } from './db';
@@ -208,7 +209,23 @@ export async function endSession(): Promise<void> {
 /** 로그인 상태면 계정을, 아니면 null. 매 요청 DB를 다시 읽는다. */
 export async function currentUser(): Promise<SessionUser | null> {
   const jar = await cookies();
-  const claim = unseal(jar.get(COOKIE)?.value);
+  const token = jar.get(COOKIE)?.value;
+  if (!token) return null;
+  return readUser(token);
+}
+
+/*
+ * 한 요청에 한 번만 읽는다 (최적화 2026-11-25).
+ *
+ * 레이아웃 · 화면 · 제목(generateMetadata) · 인쇄 문지기가 저마다 requireUser 를
+ * 부르므로 같은 계정을 한 요청에 두세 번 읽고 있었다. 요청이 끝나면 버리므로
+ * "매 요청 DB 를 다시 읽는다" 는 그대로다 - 역할을 거두면 다음 요청부터 막힌다.
+ *
+ * 쿠키 값을 열쇠로 둔다. 같은 요청 안에서 역할을 고르거나(chooseSeat) 로그아웃해
+ * 쿠키가 바뀌면 열쇠가 달라 새로 읽는다.
+ */
+const readUser = cache(async (token: string): Promise<SessionUser | null> => {
+  const claim = unseal(token);
   if (!claim) return null;
 
   return withActor(null, async (db) => {
@@ -261,7 +278,7 @@ export async function currentUser(): Promise<SessionUser | null> {
       screens: new Map(Object.entries(row.screens ?? {})),
     };
   });
-}
+});
 
 /* ---------------------------------------------------------------------------
    로그인 확인

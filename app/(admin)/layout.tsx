@@ -42,10 +42,20 @@ export default async function AdminLayout({ children }: { children: React.ReactN
    * 감사추적이 조용할 때만 참이라, 이관을 한 번이라도 돌리면 닫힌다. 닫힌 문
    * 앞에 단추를 걸어 두면 누르는 사람만 헛수고한다 (2026-08-31 확인).
    */
-  const demo = await withActor(user.id, async (db) => ({
-    seededAt: await db.val<string>(`select seeded_at::text from demo_marker limit 1`),
-    gateOpen: await db.val<boolean>(`select only_demo_data()`),
-  }));
+  const watches = user.is_developer || hasRole(user, 'SYS_ADMIN');
+  /*
+   * 시연 표식 · 비울 수 있는가 · 밖에서 두드린 수를 한 질의로 묻는다 (최적화
+   * 2026-11-25). 전에는 트랜잭션 둘에 질의 셋이었고, 머리줄은 화면마다 그린다.
+   * 두드린 수는 지켜보는 사람일 때만 센다 - 아래 주석 그대로다.
+   */
+  const head = await withActor(user.id, (db) => db.one<{
+    seeded_at: string | null; gate_open: boolean | null; outside: number | null;
+  }>(watches
+    ? `select (select seeded_at::text from demo_marker limit 1) as seeded_at,
+              only_demo_data() as gate_open, access_block_alert() as outside`
+    : `select (select seeded_at::text from demo_marker limit 1) as seeded_at,
+              only_demo_data() as gate_open, null::int as outside`));
+  const demo = { seededAt: head?.seeded_at ?? undefined, gateOpen: head?.gate_open ?? undefined };
 
   /* ---------------------------------------------------------------------------
      지정 자리 밖에서 두드린 것 (0110 · 사용자 지시 2026-09-11)
@@ -58,13 +68,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
      묻는 사람을 좁힌다. 이 표시는 개발계정과 시스템관리자의 것이고, 다른
      사람에게는 할 일이 아니다. 질의도 그때만 돈다 - 머리줄은 화면마다
-     다시 그려지므로 아무에게나 한 번씩 더 묻게 두지 않는다.
+     다시 그려지므로 아무에게나 한 번씩 더 묻게 두지 않는다. 묻는 자리는 위의
+     한 질의다 (watches).
   --------------------------------------------------------------------------- */
-  const watches = user.is_developer || hasRole(user, 'SYS_ADMIN');
-  const outside = watches
-    ? (await withActor(user.id, (db) =>
-        db.val<number>(`select access_block_alert()`))) ?? 0
-    : 0;
+  const outside = watches ? head?.outside ?? 0 : 0;
 
 
   /*
