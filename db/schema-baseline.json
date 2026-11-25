@@ -273,6 +273,7 @@
     "batch_plan.batch_plan_audit",
     "batch_plan.batch_plan_no_truncate",
     "batch_plan.batch_plan_so_line",
+    "batch_plan.batch_plan_so_line_ins",
     "batch_plan.batch_plan_wo",
     "br_entry.br_entry_audit",
     "br_entry.br_entry_no_delete",

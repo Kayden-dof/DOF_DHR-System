@@ -1,8 +1,11 @@
 // =============================================================================
-// 42_order_plan.mjs - 주문에서 생산 계획 · 자재 소요 예보 (0164)
-// 근거: 사용자 2026-11-25 «주문에서 생산 계획을 잡고, 자재가 얼마나 드는지 미리 보고 싶다»
+// 42_order_plan.mjs - 주문에서 생산 계획 · 자재 소요 예보 (0164 · 0167)
+// 근거: 사용자 결정 2026-11-25 - 제안 2단계(수주 → 생산 계획 → 자재 소요)와 접근 A.
+//       사용자가 한 말은 설계 문서 docs/superpowers/specs/2026-11-25-order-plan-needs-design.md 의
+//       '사용자가 말한 것' 절에 그대로 있다.
 //
 // 판의 유효 크기 · 원료 품목 칸, 계획의 장수와 주문 줄, 장당 개수.
+// 0167: 계획 · 지시 이음은 바뀔 때만 · 완제품 재고에서 덮인 로트 빼기 · 두께 구간 꼴 맞추기 · 지난 계획도 소요에.
 // =============================================================================
 
 import { masterData as master, newMaterialLot, newWorkOrder, reverify, REAGENT_TIERS } from '../fixtures.mjs';
@@ -68,8 +71,10 @@ async function tidy(t, m, { plans = [], lines = [], wos = [], lots = [] } = {}) 
   for (const id of wos) await t.rows(
     `update work_order set status = 'CANCELLED', cancelled_reason = '시험 뒷정리' where id = $1 and status <> 'CANCELLED'`, [id]);
 }
+/* 내보낼 수 있는 그 형명 로트의 남은 양 (출하 · 폐기 로트는 빼고). 줄에 걸린 지시의 로트는 부르는 쪽이 따로 본다 */
 const fgStock = (t, code) => t.val(
-  `select coalesce(sum(qty_available),0)::int from product_lot where item_id = (select id from item where code = $1)`, [code]);
+  `select coalesce(sum(qty_available),0)::int from product_lot
+    where item_id = (select id from item where code = $1) and status not in ('SHIPPED', 'DISPOSED')`, [code]);
 /** 판 안 형명 가운데 장당 개수가 나오는 첫 형명 */
 async function pickCode(t, m) {
   for (const r of await t.rows(`select code from dm_models($1)`, [m.dm])) {
@@ -250,7 +255,7 @@ export default [
            values ($1, $2, $3, 20, 12, current_date, current_date + 365, $4) returning id`,
           [wo.id, 'OP04-' + Math.random().toString(36).slice(2, 8), itemId, m.admin]));
         t.eq(await covered(t, l1), 12, '재단한 지시는 로트의 남은 양');
-        t.eq((await planRow(t, l1)).fg_stock - stock0, 12, 'fg_stock 은 로트 남은 양만큼 늘어 보인다');
+        t.eq((await planRow(t, l1)).fg_stock, stock0, '이 줄에 걸린 지시의 로트는 덮인 개수에 있어 fg_stock 에 들지 않는다 (0167)');
         /* 로트가 다른 형명이면 그 지시는 이 줄에 0 */
         const other = (await t.rows(`select code from dm_models($1) where code <> $2 limit 1`, [m.dm, code]))[0];
         if (other) {
@@ -259,6 +264,56 @@ export default [
           await hang(t, m, wo.id, l2);
           t.eq(await covered(t, l2), 0, '다른 형명 로트만 있으면 0');
         }
+      } finally { await tidy(t, m, mine); await restoreDm(t, m, old); }
+    });
+  },
+},
+
+{
+  id: 'OP-04b', expect: '통과',
+  name: '완제품 재고는 이 줄에 걸린 지시의 로트와 출하 · 폐기 로트를 빼고 센다',
+  async run(t) {
+    const m = await master(t);
+    await withScheme(t, async () => {
+      const old = await putInForce(t, m);
+      const mine = { plans: [], lines: [], wos: [], lots: [] };
+      try {
+        const { code } = await pickCode(t, m);
+        const itemId = await t.val(`select id from item where code = $1`, [code]);
+        const stock0 = await fgStock(t, code);
+        const l1 = await orderLine(t, m, code, 'OP04B', 100);
+        mine.lines.push(l1);
+        const lotOf = async (woId, qty, status = 'CUT') => {
+          const id = await t.val(
+            `insert into product_lot (work_order_id, lot_no, item_id, qty_produced, qty_available, manufactured_on, expiry_date, status, registered_by)
+             values ($1, $2, $3, 20, $4, current_date, current_date + 365, $5::pl_status, $6) returning id`,
+            [woId, 'OP04B-' + Math.random().toString(36).slice(2, 8), itemId, qty, status, m.admin]);
+          mine.lots.push(id); return id;
+        };
+        /* 이 줄에 걸린 지시 - 로트 12 는 덮인 개수에 든다 */
+        const w1 = await newWorkOrder(t, m, { sheets: 10 });
+        mine.wos.push(w1.id);
+        await hang(t, m, w1.id, l1);
+        await lotOf(w1.id, 12);
+        /* 걸리지 않은 지시 - 로트 7 은 완제품 재고 */
+        const w2 = await newWorkOrder(t, m, { sheets: 10 });
+        mine.wos.push(w2.id);
+        await lotOf(w2.id, 7);
+        /* 출하된 로트 - 내보낼 수 없어 세지 않는다 */
+        const w3 = await newWorkOrder(t, m, { sheets: 10 });
+        mine.wos.push(w3.id);
+        await lotOf(w3.id, 5, 'SHIPPED');
+        const r = await planRow(t, l1);
+        t.eq(r.covered, 12, '걸린 지시의 로트는 덮인 개수');
+        t.eq(r.fg_stock - stock0, 7, '완제품 재고는 걸리지 않은 지시의 로트 7 만 (덮인 12 · 출하 5 는 빼고)');
+        /* 이음을 떼면 그 로트는 다시 완제품 재고로 보인다 */
+        await t.setActor(m.admin);
+        await t.rows(
+          `update work_order_so_line set unlinked_at = now(), unlinked_by = $3, unlink_reason = '시험 뗌'
+            where work_order_id = $1 and sales_order_line_id = $2 and unlinked_at is null`, [w1.id, l1, m.admin]);
+        const r2 = await planRow(t, l1);
+        t.eq(r2.covered, 0, '뗀 지시는 덮지 않는다');
+        t.eq(r2.fg_stock - stock0, 19, '뗀 지시의 로트는 완제품 재고로 돌아온다');
       } finally { await tidy(t, m, mine); await restoreDm(t, m, old); }
     });
   },
@@ -509,6 +564,57 @@ export default [
 },
 
 {
+  id: 'OP-05e', expect: '통과',
+  name: '원료 두께 구간은 영문 · 숫자만 견준다 (로트 05-10 = 필요 0510, 0159 출고 검토와 같은 규칙)',
+  async run(t) {
+    const m = await master(t);
+    await withScheme(t, async () => {
+      await withScene(t, m, async (S) => {
+        const rw = await S.mk('RM-OP5E', 'RAW');
+        await S.setRaw(rw);
+        await S.inForce();
+        await S.plan('PD05050510', 3, 12);   /* 0510 - 12장 */
+        await S.lot(rw, 4, { thickness_band: '05-10' });
+        await S.lot(rw, 1, { thickness_band: ' 05 10 ' });
+        await S.lot(rw, 50, { thickness_band: '10-15' });
+        const rows = (await S.shortage(3, 3)).filter((x) => x.item_id === rw);
+        t.eq(rows.length, 1, '구간 하나');
+        t.eq(rows[0].band, '0510', '필요 쪽 구간 이름은 형명에서 온 그대로');
+        t.eq(Number(rows[0].stock_qty), 5, '05-10 · 05 10 으로 적은 로트도 0510 재고 (10-15 는 빼고)');
+        t.eq(Number(rows[0].short_qty), 7, '부족 12 - 5 = 7');
+      });
+    });
+  },
+},
+
+{
+  id: 'OP-05f', expect: '통과',
+  name: '시작일이 지났는데 지시가 없는 계획도 소요에 들고, 필요일은 기간 첫날',
+  async run(t) {
+    const m = await master(t);
+    await withScheme(t, async () => {
+      await withScene(t, m, async (S) => {
+        const rw = await S.mk('RM-OP5F', 'RAW');
+        await S.setRaw(rw);
+        await S.inForce();
+        const past = await S.plan('PD05050510', -2, 12);
+        const later = await S.plan('PD05050510', 9, 5);
+        const rows = await t.rows(
+          `select *, need_on::text as on_txt from material_needs(current_date, current_date + 3) where source = 'PLAN'`);
+        const today = await t.val(`select current_date::text`);
+        const mine = rows.filter((x) => x.source_id === past);
+        t.ok(mine.length > 0, '지난 계획(지시 없음)도 소요에 든다');
+        t.ok(mine.every((x) => x.on_txt === today), '필요일은 기간 첫날 (오늘)');
+        t.eq(Number(mine.find((x) => x.item_id === rw)?.qty), 12, '판의 원료는 장수 12');
+        t.eq(rows.some((x) => x.source_id === later), false, '기간 끝 뒤의 계획은 들지 않는다');
+        const s = (await S.shortage(0, 3)).find((x) => x.item_id === rw);
+        t.eq(Number(s.need_qty), 12, '부족 셈에도 든다');
+      });
+    });
+  },
+},
+
+{
   id: 'OP-06', expect: '통과',
   name: '계획에 지시를 이으면 그 주문 줄을 지시에 함께 건다',
   async run(t) {
@@ -571,15 +677,81 @@ export default [
         const before = await planRow(t, line);
         t.eq(before.covered, 0, '올리기 전에는 덮인 것이 없다');
         t.eq(Math.max(0, before.left_qty - before.covered), 63 * per, '올리기 전 만들 개수는 남은 개수 그대로');
-        /* 일정에 올리기가 넣는 모양 그대로: 장수 30 · 30 · 3, 라벨 «발주번호 i/n» */
+        /* 일정에 올리기가 넣는 모양 그대로: 장수 30 · 30 · 3, 이름 «발주번호 형명 i/n» (0167) */
         const sheets = [30, 30, 3];
         for (const [i, s] of sheets.entries()) {
-          mine.plans.push(await plan(t, m, { sheets: s, line, label: `SD ${i + 1}/${sheets.length}` }));
+          mine.plans.push(await plan(t, m, { sheets: s, line, label: `SD ${code} ${i + 1}/${sheets.length}` }));
         }
         const after = await planRow(t, line);
         t.eq(after.covered, 63 * per, '덮인 개수는 63장 x 장당 개수');
         t.eq(Math.max(0, after.left_qty - after.covered), 0, '올린 뒤 만들 개수는 0 - 두 번 올리지 않는다');
       } finally { await tidy(t, m, mine); await restoreDm(t, m, old); }
+    });
+  },
+},
+
+{
+  id: 'OP-08', expect: '통과',
+  name: '계획의 지시가 바뀔 때만 주문 줄을 건다 - 뗀 이음은 같은 지시로 다시 저장해도 걸리지 않는다',
+  async run(t) {
+    const m = await master(t);
+    await withScheme(t, async () => {
+      const code = await t.val(`select code from dm_models($1) limit 1`, [m.dm]);
+      const line = await orderLine(t, m, code, 'OP08');
+      const mine = { plans: [], lines: [line], wos: [], lots: [] };
+      try {
+        const p = await plan(t, m, { line });
+        mine.plans.push(p);
+        const a = await newWorkOrder(t, m);
+        const b = await newWorkOrder(t, m);
+        mine.wos.push(a.id, b.id);
+        await t.setActor(m.admin);
+        const live = (wo) => t.val(
+          `select count(*)::int from work_order_so_line
+            where work_order_id = $1 and sales_order_line_id = $2 and unlinked_at is null`, [wo, line]);
+        await t.rows(`update batch_plan set work_order_id = $1 where id = $2`, [a.id, p]);
+        t.eq(await live(a.id), 1, '계획에 지시 A 를 이으면 줄이 A 에 걸린다');
+        /* 사람이 작업 지시 화면에서 사유를 적고 뗀다 */
+        await t.rows(
+          `update work_order_so_line set unlinked_at = now(), unlinked_by = $3, unlink_reason = '시험 뗌'
+            where work_order_id = $1 and sales_order_line_id = $2 and unlinked_at is null`, [a.id, line, m.admin]);
+        /* 일정 화면의 저장은 메모 · 날짜만 고쳐도 지시 칸을 같은 값으로 다시 적는다 */
+        await t.rows(`update batch_plan set work_order_id = $1, note = '메모만 고침' where id = $2`, [a.id, p]);
+        t.eq(await live(a.id), 0, '같은 지시로 다시 저장해도 뗀 줄은 다시 걸리지 않는다');
+        await t.rows(`update batch_plan set work_order_id = $1 where id = $2`, [b.id, p]);
+        t.eq(await live(b.id), 1, 'A → B 로 바꾸면 B 에 걸린다');
+        t.eq(await live(a.id), 0, 'A 쪽 이음은 시스템이 건드리지 않는다');
+      } finally { await tidy(t, m, mine); }
+    });
+  },
+},
+
+{
+  id: 'OP-08b', expect: '통과',
+  name: '날짜 · 메모만 고치는 저장은 주문 줄 형명을 다시 검사하지 않는다 (줄 · 판을 바꾸면 검사한다)',
+  async run(t) {
+    const m = await master(t);
+    await withScheme(t, async () => {
+      const code = await t.val(`select code from dm_models($1) limit 1`, [m.dm]);
+      const itemId = await t.val(`select id from item where code = $1`, [code]);
+      const line = await orderLine(t, m, code, 'OP08B');
+      const mine = { plans: [], lines: [line], wos: [], lots: [] };
+      try {
+        const p = await plan(t, m, { line });
+        mine.plans.push(p);
+        /* 그 형명 품목을 비활성으로 - 판의 형명 목록에서 빠진다 */
+        await t.rows(`update item set is_active = false where id = $1`, [itemId]);
+        /* 일정 화면의 저장은 판 칸을 같은 값으로 다시 적는다 */
+        await t.rows(`update batch_plan set start_on = start_on + 1, device_master_id = device_master_id where id = $1`, [p]);
+        t.eq(await t.val(`select start_on - current_date from batch_plan where id = $1`, [p]), 1, '날짜는 고쳐진다');
+        await t.rows(`update batch_plan set sales_order_line_id = null where id = $1`, [p]);
+        await t.rejects(() => t.rows(`update batch_plan set sales_order_line_id = $2 where id = $1`, [p, line]),
+          { code: 'P0001', message: '이 주문 줄의 형명은' });
+        await t.rejects(() => plan(t, m, { line }), { code: 'P0001', message: '이 주문 줄의 형명은' });
+      } finally {
+        await t.rows(`update item set is_active = true where id = $1`, [itemId]);
+        await tidy(t, m, mine);
+      }
     });
   },
 },
