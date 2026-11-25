@@ -3,7 +3,7 @@
 // 근거: 주문에서 생산 계획 · 자재 소요 예보 (lib/order-plan.ts)
 // =============================================================================
 
-import { proposeBatches, nextWorkday, addWorkdays, samplesFor, planNote } from '../../lib/order-plan.ts';
+import { proposeBatches, nextWorkday, addWorkdays, samplesFor, planNote, firstStepMin } from '../../lib/order-plan.ts';
 import { DEFAULT_CALENDAR } from '../../lib/timeline.ts';
 
 const CAL = { ...DEFAULT_CALENDAR, holidays: ['2026-11-30'] };
@@ -127,6 +127,16 @@ export default [
   async run(t) {
     const p = proposeBatches(base());
     t.eq(planNote(p, 1, 3), '장당 16개 · 1000개 + 시료 0개 → 63장 · 1/3', '비고');
+  },
+},
+
+{
+  id: 'OL-08', expect: '통과',
+  name: '시간표 첫 단계의 하루 안 시각',
+  async run(t) {
+    t.eq(firstStepMin(null), 480, '시간표 없음 480');
+    t.eq(firstStepMin([]), 480, '빈 시간표 480');
+    t.eq(firstStepMin([S('a', { s: 1440 + 600 }), S('b', { s: 2880 + 480 })]), 600, '둘째 날에 시작하는 첫 단계의 하루 안 시각');
   },
 },
 

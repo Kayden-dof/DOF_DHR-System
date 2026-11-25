@@ -8,8 +8,15 @@
    'use client' 가 아니다 - 서버 화면도 부른다.
 --------------------------------------------------------------------------- */
 
-import { addDays, daysBetween, dayIndex, isOff, planBatch } from './timeline.ts';
+import { DAY, addDays, daysBetween, dayIndex, isOff, planBatch } from './timeline.ts';
 import type { Step, WorkCalendar } from './timeline.ts';
+
+/** 시간표 첫 단계의 하루 안 시각 (분). 시간표가 없으면 08:00 */
+export function firstStepMin(steps: Step[] | null): number {
+  if (!steps || !steps.length) return 480;
+  const f = Math.min(...steps.map((x) => x.s));
+  return f - dayIndex(f) * DAY;
+}
 
 export interface SampleTier { min: number; max: number | null; samples: number }
 

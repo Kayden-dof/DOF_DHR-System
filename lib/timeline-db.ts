@@ -19,6 +19,10 @@ export async function loadCalendar(db: Db): Promise<WorkCalendar> {
   };
 }
 
+/** 저장된 단계에 빠진 칸(a · m · mn · mx)을 채운다. 화면과 서버가 같은 시간표를 보게 한다 */
+export const tidySteps = (steps: Step[]): Step[] =>
+  steps.map((x) => ({ ...x, a: x.a ?? [], m: x.m ?? '', mn: x.mn ?? null, mx: x.mx ?? null }));
+
 export interface TimelineRow {
   steps: Step[];
   basis: string;
@@ -35,7 +39,7 @@ export async function loadTimeline(db: Db, dmId: string): Promise<TimelineRow | 
       where t.device_master_id = $1`, [dmId]);
   if (!r) return null;
   return {
-    steps: r.steps.map((x) => ({ ...x, a: x.a ?? [], m: x.m ?? '', mn: x.mn ?? null, mx: x.mx ?? null })),
+    steps: tidySteps(r.steps),
     basis: r.basis, updated_at: r.updated_at, updated_by_name: r.updated_by_name,
   };
 }

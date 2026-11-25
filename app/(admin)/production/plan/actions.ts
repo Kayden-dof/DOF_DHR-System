@@ -4,8 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { withActor, dbMessage, type Db } from '@/lib/db';
 import { requireRole } from '@/lib/session';
 import { loadCalendar, loadTimeline } from '@/lib/timeline-db';
-import { DAY, dayIndex } from '@/lib/timeline';
-import { proposeBatches, planNote, type SampleTier } from '@/lib/order-plan';
+import { proposeBatches, planNote, firstStepMin, type SampleTier } from '@/lib/order-plan';
 import type { FormState } from '@/lib/forms';
 
 /* ---------------------------------------------------------------------------
@@ -98,6 +97,7 @@ export async function addPlansFromOrder(_p: FormState, form: FormData): Promise<
     const lineId = String(form.get('line') ?? '');
     const dm = String(form.get('dm') ?? '');
     const units = Number(form.get('units'));
+    const seen = Number(form.get('covered'));
     const gapRaw = String(form.get('gap') ?? '').trim();
     const gap = gapRaw === '' ? null : Number(gapRaw);
     if (!lineId || !dm) return { error: '주문 줄을 다시 고르십시오' };
@@ -105,23 +105,26 @@ export async function addPlansFromOrder(_p: FormState, form: FormData): Promise<
     if (gap != null && (!Number.isInteger(gap) || gap < 0 || gap > 365)) return { error: '배치 간격은 0 이상의 근무일 수로 넣으십시오' };
 
     const n = await withActor(user.id, async (db) => {
+      /* 같은 줄을 동시에 올리는 제출은 줄을 세운다 (오래된 화면 · 두 탭) */
+      await db.val(`select pg_advisory_xact_lock(hashtext('order-plan:' || $1))`, [lineId]);
       if (!(await db.val<boolean>(`select dm_effective($1::uuid)`, [dm]))) throw new Error(NOT_LIVE);
       const row = await db.one<{
-        po: string; due_on: string | null; dm_id: string; per_sheet: number | null; sheet_min: number | null; sheet_max: number | null;
+        po: string; due_on: string | null; dm_id: string; left_qty: number; covered: number; per_sheet: number | null; sheet_min: number | null; sheet_max: number | null;
       }>(
-        `select customer_po_no as po, to_char(due_on, 'YYYY-MM-DD') as due_on, dm_id::text,
+        `select customer_po_no as po, to_char(due_on, 'YYYY-MM-DD') as due_on, dm_id::text, left_qty, covered,
                 per_sheet, sheet_min, sheet_max
            from order_plan_lines() where line_id = $1::uuid`, [lineId]);
       if (!row) throw new Error('이 주문 줄은 지금 계획을 올릴 수 없습니다 (취소 · 완료 · 시행 중인 판 없음). 화면을 새로 고치십시오');
       if (row.dm_id !== dm) throw new Error('이 주문 줄에 맞는 제품표준서 판이 바뀌었습니다. 화면을 새로 고친 뒤 다시 올리십시오');
 
+      if (row.covered !== seen || row.left_qty - row.covered <= 0) {
+        throw new Error('이 주문 줄의 덮인 개수가 바뀌었습니다. 화면을 새로 고친 뒤 다시 올리십시오');
+      }
       const tiers = (await db.rows<{ min_qty: number; max_qty: number | null; sample_qty: number }>(
         `select min_qty, max_qty, sample_qty from sample_plan where device_master_id = $1::uuid order by min_qty`, [dm]))
         .map((x): SampleTier => ({ min: x.min_qty, max: x.max_qty, samples: x.sample_qty }));
       const steps = (await loadTimeline(db, dm))?.steps ?? null;
-      /* 시간표 첫 단계의 하루 안 시각. 시간표가 없으면 08:00 */
-      const first = steps?.length ? Math.min(...steps.map((x) => x.s)) : null;
-      const startMin = first == null ? 480 : first - dayIndex(first) * DAY;
+      const startMin = firstStepMin(steps);
       const today = (await db.val<string>(`select to_char(timezone('Asia/Seoul', now()), 'YYYY-MM-DD')`)) ?? '';
 
       const p = proposeBatches({

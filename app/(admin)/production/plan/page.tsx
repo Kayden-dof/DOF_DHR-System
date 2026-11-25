@@ -6,7 +6,8 @@ import { Panel, Empty, Tag } from '@/components/ui';
 import { Table, Th, Td } from '@/components/table';
 import { RowLink } from '@/components/row-link';
 import { withActor } from '@/lib/db';
-import { loadCalendar } from '@/lib/timeline-db';
+import { loadCalendar, tidySteps } from '@/lib/timeline-db';
+import { firstStepMin } from '@/lib/order-plan';
 import {
   DAY, KIND_LABEL, addDays, carried, dayIndex, daysBetween, dur, hhmm, isHands, isOff, md, planBatch,
   procColor, weekday, type Plan, type Step, type WorkCalendar,
@@ -95,8 +96,8 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
                                          and wo.device_master_id in (select d2.id from device_master d2 where d2.item_id = dm.item_id)
                                        order by wo.issued_at desc limit 1)) g on true
         where dm.id = any($1::uuid[])`, [[...new Set(lines.map((x) => x.dm))]]) : [];
-    const running = lines.length ? await db.rows<{ name: string; start_on: string }>(
-      `select wo.batch_no as name,
+    const running = lines.length ? await db.rows<{ id: string; name: string; start_on: string }>(
+      `select wo.id::text as id, wo.batch_no as name,
               to_char(coalesce((select min(pr.work_date) from process_record pr where pr.work_order_id = wo.id),
                                timezone('Asia/Seoul', wo.issued_at)::date), 'YYYY-MM-DD') as start_on
          from work_order wo where wo.status in ('ISSUED', 'IN_PROCESS', 'CUT')`) : [];
@@ -110,13 +111,12 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
   const liveDms = d.dms.filter((o) => !o.note);
   const dmsFor = (keep: string | null) =>
     keep && !liveDms.some((o) => o.id === keep) ? [...liveDms, ...d.dms.filter((o) => o.id === keep)] : liveDms;
-  const stepsOf = new Map(d.tls.map((t) => [t.dm, t.steps]));
+  const stepsOf = new Map(d.tls.map((t) => [t.dm, tidySteps(t.steps)]));
   /* 주문에서 계획: 줄마다 판의 시간표 · 시료 구간 · 간격 기본값을 붙인다 */
   const infoOf = new Map(d.dmInfo.map((x) => [x.dm, x]));
   const orderLines: OrderPlanLine[] = d.lines.map((x) => {
     const info = infoOf.get(x.dm);
     const steps = stepsOf.get(x.dm);
-    const firstStep = steps?.length ? Math.min(...steps.map((y) => y.s)) : null;
     /* 시간표 없는 판의 간격: 가장 최근 종료 지시의 첫 ~ 마지막 기록일 사이 근무일 수 */
     let defaultGap: number | null = null;
     if (info?.gap_from && info.gap_to) {
@@ -128,13 +128,15 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
       dueOn: x.due_on, leftQty: x.left_qty, covered: x.covered, fgStock: x.fg_stock, perSheet: x.per_sheet,
       sized: info?.sized ?? false, sheetMin: x.sheet_min, sheetMax: x.sheet_max, multiWo: x.multi_wo,
       tiers: info?.tiers ?? [], steps: steps?.length ? steps : null,
-      startMin: firstStep == null ? 480 : firstStep - dayIndex(firstStep) * DAY, defaultGap,
+      startMin: firstStepMin(steps ?? null), defaultGap,
     };
   });
   /* 겹침을 알릴 날: 이미 잡은 계획의 시작일과 진행 중 지시의 시작일 */
+  /* 지시가 이어진 계획과 그 지시는 하나로 센다 (계획 이름 우선) */
+  const linkedWo = new Set(d.plans.flatMap((p) => (p.wo ? [p.wo] : [])));
   const occupied: Occupied[] = [
     ...d.plans.map((p) => ({ on: p.start_on, name: p.label })),
-    ...d.running.map((r) => ({ on: r.start_on, name: r.name })),
+    ...d.running.filter((r) => !linkedWo.has(r.id)).map((r) => ({ on: r.start_on, name: r.name })),
   ];
   const planOf = new Map<string, Plan | null>(
     d.plans.map((p) => [p.id, planBatch(stepsOf.get(p.dm) ?? [], p.start_on, p.start_min, d.cal)]));

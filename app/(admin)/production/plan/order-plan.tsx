@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useId, useMemo, useState } from 'react';
 import type { FormState } from '@/lib/forms';
+import Link from 'next/link';
 import { Msg, Tag } from '@/components/ui';
 import { Table, Th, Td } from '@/components/table';
 import { Dialog, useDialog } from '@/components/dialog';
@@ -55,6 +56,8 @@ export function OrderPlan({ lines, calendar, today, occupied, writable }: {
 }
 
 const num = (s: string) => (s.trim() === '' ? NaN : Number(s));
+/* 서버와 같은 규칙: 0 이상의 정수만 간격으로 쓴다 */
+const gapOf = (s: string) => { const n = num(s); return Number.isInteger(n) && n >= 0 ? n : null; };
 
 function LineRow({ line: l, calendar, today, occupied, writable }: {
   line: OrderPlanLine; calendar: WorkCalendar; today: string; occupied: Occupied[]; writable: boolean;
@@ -71,12 +74,11 @@ function LineRow({ line: l, calendar, today, occupied, writable }: {
 
   const hasTimeline = !!l.steps && l.steps.length > 0;
   const u = num(units);
-  const g = num(gap);
   const p = useMemo(() => proposeBatches({
     units: Number.isInteger(u) && u > 0 ? u : 0, perSheet: l.perSheet, sheetMin: l.sheetMin, sheetMax: l.sheetMax,
     sampleTiers: l.tiers, steps: l.steps, startMin: l.startMin, calendar, today, dueOn: l.dueOn,
-    gapDays: Number.isInteger(g) && g >= 0 ? g : null,
-  }), [u, g, l, calendar, today]);
+    gapDays: gapOf(gap),
+  }), [u, gap, l, calendar, today]);
 
   /* 겹침: 제안 배치의 [시작일, 작업 끝날] 안에 이미 있는 계획 · 진행 중 지시의 시작일이 드는가. 막지 않는다 */
   const clash = p.ok
@@ -98,7 +100,10 @@ function LineRow({ line: l, calendar, today, occupied, writable }: {
       <Td nowrap>{l.dueOn ? <span className="tnum">{md(l.dueOn)}</span> : '-'}</Td>
       <Td>
         {l.perSheet == null ? (
-          <span className="text-warn">{l.sized ? '이 형명은 한 장에 나오지 않습니다' : '유효 크기를 넣으십시오 (설정 > 제품표준서)'}</span>
+          <span className="text-warn">
+            {l.sized ? '이 형명은 한 장에 나오지 않습니다'
+              : <Link href={`/settings/dmr?dm=${l.dmId}`} className="underline">유효 크기를 넣으십시오</Link>}
+          </span>
         ) : !p.ok ? (
           <span className="text-muted">{defUnits === 0 ? '이미 계획이 덮고 있습니다' : '만들 개수를 넣으십시오'}</span>
         ) : (
@@ -126,7 +131,7 @@ function LineRow({ line: l, calendar, today, occupied, writable }: {
             {!hasTimeline && l.perSheet != null && (
               <>
                 <label className="label" htmlFor={`${uid}-g`}>배치 간격 (근무일)</label>
-                <input id={`${uid}-g`} className="input" type="number" min={0} inputMode="numeric" value={gap}
+                <input id={`${uid}-g`} className="input" type="number" min={0} step={1} inputMode="numeric" value={gap}
                        onChange={(e) => setGap(e.target.value)} />
               </>
             )}
@@ -141,6 +146,7 @@ function LineRow({ line: l, calendar, today, occupied, writable }: {
                     <input type="hidden" name="dm" value={l.dmId} />
                     <input type="hidden" name="units" value={u} />
                     <input type="hidden" name="gap" value={hasTimeline ? '' : gap} />
+                    <input type="hidden" name="covered" value={l.covered} />
                     <p className="text-sm">
                       배치 계획 {p.batches.length}개가 생깁니다. 일정 화면에서 날짜를 옮기거나 지울 수 있습니다.
                     </p>
