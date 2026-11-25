@@ -14,7 +14,8 @@ import { Panel, Empty, Tag } from '@/components/ui';
 import { shipReview } from '@/lib/ship-review';
 import { specMessage, type CutRowCell } from '@/lib/ship-check';
 import {
-  ShipList, RelinkShipment, type PlOpt, type ShipLine, type ShipLot, type RelinkOpt,
+  ShipList, RelinkShipment, SkipSterilReport, CancelSterilSkip,
+  type PlOpt, type ShipLine, type ShipLot, type RelinkOpt,
 } from '../shipping-forms';
 
 export const dynamic = 'force-dynamic';
@@ -40,10 +41,14 @@ interface ShipRow {
   batch_no: string; shipped_by_name: string;
   /** 그 로트의 멸균 보고서 번호 (0160) */
   report: string | null;
+  /** 보고서 없이 내보낸 사유 (0166) */
+  skip: string | null;
   /** 나간 주문 (고객 발주번호) · 그 줄 */
   po: string | null; line_id: string | null;
 }
 interface OpenLine extends ShipLine { item_id: string; due_on: string | null }
+/** 멸균 보고서를 생략한 로트 (0166) */
+interface SkipRow extends PlOpt { skip: string; skipped_by_name: string; skipped_at: string }
 
 type Search = Promise<{ c?: string; l?: string }>;
 
@@ -53,7 +58,7 @@ const LOTS = `
          pl.expiry_date, pl.manufactured_on,
          pl.release_approved_by, pl.release_approved_on::text as release_approved_on,
          coalesce((select sum(sh.qty)::int from shipment sh where sh.product_lot_id = pl.id), 0) as shipped,
-         lot_steril_report(pl.id) as report
+         lot_steril_report(pl.id) as report, lot_steril_skip(pl.id) as skip
     from product_lot pl
     join item i on i.id = pl.item_id
     join work_order wo on wo.id = pl.work_order_id
@@ -100,7 +105,7 @@ export default async function ShipPage({ searchParams }: { searchParams: Search 
        */
       const base = await db.rows<PlOpt & { for_line: boolean; other_orders: string | null }>(
         `select x.*, k.for_line, k.other_orders from (
-           ${LOTS} and pl.item_id = $1 and lot_steril_report(pl.id) is not null
+           ${LOTS} and pl.item_id = $1 and lot_steril_ok(pl.id)
          ) x
          cross join lateral (
            select exists (select 1 from work_order_so_line w
@@ -125,9 +130,18 @@ export default async function ShipPage({ searchParams }: { searchParams: Search 
     return {
       customers, open, lines, line, lots,
       waiting: await db.rows<PlOpt>(
-        `${LOTS} and lot_steril_report(pl.id) is null order by pl.expiry_date, pl.lot_no`),
+        `${LOTS} and not lot_steril_ok(pl.id) order by pl.expiry_date, pl.lot_no`),
+      /* 보고서 없이 사유와 함께 생략한 로트 - 남은 수량이 있는 동안 보인다 (0166) */
+      skipped: await db.rows<SkipRow>(
+        `select x.*, u.full_name as skipped_by_name,
+                to_char(timezone('Asia/Seoul', s.skipped_at), 'YYYY-MM-DD') as skipped_at
+           from (${LOTS} and lot_steril_report(pl.id) is null) x
+           join steril_report_skip s on s.product_lot_id = x.id
+           join app_user u on u.id = s.skipped_by
+          order by s.skipped_at desc`),
       shipments: await db.rows<ShipRow>(
-        `select lot_steril_report(sh.product_lot_id) as report, sh.id, sh.customer_name, sh.qty,
+        `select lot_steril_report(sh.product_lot_id) as report, lot_steril_skip(sh.product_lot_id) as skip,
+                sh.id, sh.customer_name, sh.qty,
                 sh.shipped_at::text as shipped_at,
                 pl.lot_no, i.code as item_code, i.name as item_name, pl.item_id,
                 wo.batch_no, u.full_name as shipped_by_name,
@@ -219,7 +233,7 @@ export default async function ShipPage({ searchParams }: { searchParams: Search 
 
       {d.line && (
         <Panel title={`출고 가능 로트 · ${d.line.code}`}
-               note="멸균 보고서가 적힌 로트 · 유효기한이 이른 것부터. 검토 칸에 마우스를 올리면 주문과 실제 값이 보입니다">
+               note="멸균 보고서가 적혔거나 생략한 로트 · 유효기한이 이른 것부터. 검토 칸에 마우스를 올리면 주문과 실제 값이 보입니다">
           {d.lots.length === 0 ? (
             <Empty hint="멸균 위탁에서 회수일과 멸균 보고서 번호를 적으면 여기 나옵니다."
                    action={<Unblock fix={fixAt(user, '/shipping/steril')} todo="멸균 위탁 보기" />}>
@@ -234,7 +248,8 @@ export default async function ShipPage({ searchParams }: { searchParams: Search 
       )}
 
       {d.waiting.length > 0 && (
-        <Panel title="멸균 보고서 대기" note="멸균 위탁에서 회수일과 멸균 보고서 번호를 적으면 출고할 수 있습니다">
+        <Panel title="멸균 보고서 대기"
+               note="멸균 위탁에서 회수일과 멸균 보고서 번호를 적으면 출고할 수 있습니다. 보고서 없이 내보내는 로트(멸균 선량 샘플 등)는 «생략» 에 사유를 적습니다">
           <div className="qd-table-scroll">
             <table className="qd-table qd-table--hangul" data-grow="2">
               <thead>
@@ -244,6 +259,7 @@ export default async function ShipPage({ searchParams }: { searchParams: Search 
                   <th className="th">배치</th>
                   <th className="th text-right">출하 가능</th>
                   <th className="th">상태</th>
+                  {!viewer && <th className="th w-0" />}
                 </tr>
               </thead>
               <tbody>
@@ -259,6 +275,49 @@ export default async function ShipPage({ searchParams }: { searchParams: Search 
                     <td className="td">
                       <Tag tone="quiet">{PL_STATUS_LABEL[l.status] ?? l.status}</Tag>
                     </td>
+                    {!viewer && <td className="td text-right"><SkipSterilReport id={l.id} lotNo={l.lot_no} /></td>}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Panel>
+      )}
+
+      {d.skipped.length > 0 && (
+        <Panel title="멸균 보고서 생략" note="보고서 없이 출고하는 로트 · 한 개도 출고하기 전이면 생략을 취소할 수 있습니다">
+          <div className="qd-table-scroll">
+            <table className="qd-table qd-table--hangul" data-grow="2">
+              <thead>
+                <tr>
+                  <th className="th">제조번호</th>
+                  <th className="th">형명</th>
+                  <th className="th">생략 사유</th>
+                  <th className="th">기록</th>
+                  <th className="th text-right">출하 가능</th>
+                  {!viewer && <th className="th w-0" />}
+                </tr>
+              </thead>
+              <tbody>
+                {d.skipped.map((l) => (
+                  <tr key={l.id}>
+                    <td className="td font-mono font-semibold">{l.lot_no}</td>
+                    <td className="td">
+                      <div className="text-sm">{l.item_name}</div>
+                      <div className="font-mono text-xs text-faint">{l.item_code}</div>
+                    </td>
+                    <td className="td text-sm">{l.skip}</td>
+                    <td className="td text-sm text-muted">
+                      {l.skipped_by_name} · <span className="tnum">{fmtDate(l.skipped_at)}</span>
+                    </td>
+                    <td className="td tnum text-right">{l.qty_available}</td>
+                    {!viewer && (
+                      <td className="td text-right">
+                        {l.shipped === 0
+                          ? <CancelSterilSkip id={l.id} lotNo={l.lot_no} />
+                          : <span className="text-xs text-faint">출고 {l.shipped}개</span>}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -299,7 +358,9 @@ export default async function ShipPage({ searchParams }: { searchParams: Search 
                     <td className="td text-sm">{s.item_name}</td>
                     <td className="td font-mono text-muted">{s.batch_no}</td>
                     <td className="td font-mono ">
-                      {s.report ?? <span className="text-faint">-</span>}
+                      {s.report ?? (s.skip
+                        ? <span title={s.skip}><Tag tone="warn">생략</Tag></span>
+                        : <span className="text-faint">-</span>)}
                     </td>
                     <td className="td tnum text-right font-semibold">{s.qty}</td>
                     <td className="td text-muted">{s.shipped_by_name}</td>

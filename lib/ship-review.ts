@@ -5,7 +5,7 @@
 
      LOT · DMR · BAND   DB 의 ship_spec_check (제품 로트 형명 · 작업지시서 제품 · 원료 두께)
      BR                 그 배치 재단 기록서의 이 로트 줄 모델명 (lib/ship-check.ts cutRowCheck)
-     STERIL             멸균 보고서 (0160 lot_steril_report)
+     STERIL             멸균 보고서 (0160 lot_steril_report) · 사유와 함께 생략했으면 맞음 (0166 lot_steril_skip)
 
    출고 화면의 검토 표와 처리 함수(ship · relinkShipment)가 이 하나를 쓴다. 서버에서만 부른다.
 --------------------------------------------------------------------------- */
@@ -38,12 +38,14 @@ export async function shipReview(
 ): Promise<SpecRow[]> {
   const spec = await db.rows<SpecRow>(
     `select kind, label, expected, actual, ok from ship_spec_check($1, $2)`, [lotId, lineId]);
-  const lot = await db.one<{ lot_no: string; wo: string; idx: number; code: string; report: string | null }>(
+  const lot = await db.one<{
+    lot_no: string; wo: string; idx: number; code: string; report: string | null; skip: string | null;
+  }>(
     `select pl.lot_no, pl.work_order_id as wo,
             (select count(*)::int from product_lot x
               where x.work_order_id = pl.work_order_id and x.lot_no < pl.lot_no) as idx,
             (select i.code from sales_order_line l join item i on i.id = l.item_id where l.id = $2) as code,
-            lot_steril_report(pl.id) as report
+            lot_steril_report(pl.id) as report, lot_steril_skip(pl.id) as skip
        from product_lot pl where pl.id = $1`, [lotId, lineId]);
   if (!lot) throw new Error('제품 로트를 찾을 수 없습니다');
 
@@ -55,6 +57,8 @@ export async function shipReview(
   const br = brReview(sets, lot.lot_no, lot.idx, lot.code);
   return [
     ...spec, br,
-    { kind: 'STERIL', label: '멸균 보고서', expected: null, actual: lot.report, ok: !!lot.report },
+    lot.report || !lot.skip
+      ? { kind: 'STERIL', label: '멸균 보고서', expected: null, actual: lot.report, ok: !!lot.report }
+      : { kind: 'STERIL', label: '멸균 보고서 생략', expected: null, actual: lot.skip, ok: true },
   ];
 }

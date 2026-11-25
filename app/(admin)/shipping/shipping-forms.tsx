@@ -11,7 +11,9 @@ import { PL_STATUS_LABEL } from '@/lib/forms';
 import Toasts from '@/components/toast';
 import { Unblock } from '@/components/unblock';
 import type { Fix } from '@/lib/unblock';
-import { createSterilBatch, updateSterilBatch, approveRelease, ship, relinkShipment } from './actions';
+import {
+  createSterilBatch, updateSterilBatch, approveRelease, ship, relinkShipment, skipSterilReport, cancelSterilSkip,
+} from './actions';
 import { Dialog, useDialog } from '@/components/dialog';
 import type { SpecRow } from '@/lib/ship-check';
 
@@ -463,7 +465,12 @@ const REVIEW_SHORT: Record<SpecRow['kind'], string> = {
 function ReviewMarks({ review }: { review: SpecRow[] }) {
   return (
     <span className="inline-flex flex-wrap gap-1">
-      {review.map((r) => (
+      {review.map((r) => r.kind === 'STERIL' && r.label === '멸균 보고서 생략' ? (
+        /* 보고서 없이 사유와 함께 생략한 로트 (0166) - «맞음» 이 아니라 생략으로 보인다 */
+        <span key={r.kind} title={`멸균 보고서 생략: ${r.actual ?? ''}`}>
+          <Tag tone="warn">멸균 생략</Tag>
+        </span>
+      ) : (
         <span key={r.kind} title={`${r.label}: 주문 ${r.expected ?? '-'} · 실제 ${r.actual ?? '-'}`}>
           <Tag tone={r.ok === false ? 'danger' : r.ok ? 'ok' : 'faint'}>
             {REVIEW_SHORT[r.kind]} {r.ok === false ? '다름' : r.ok ? '맞음' : '볼 수 없음'}
@@ -587,6 +594,64 @@ function ShipRowForm({ lot, line, today }: { lot: ShipLot; line: ShipLine; today
       </div>
       <Msg state={state} />
     </form>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   멸균 보고서 생략 (0166 · 사용자 2026-11-25 «멸균 선량 샘플 요청건이라 멸균 보고서 없이 출고가 된 제품이라..
+   스킵할때는 어떤 사유로 멸균 보고서를 스킵했는지 적을수 있게 팝업 기능으로»)
+--------------------------------------------------------------------------- */
+export function SkipSterilReport({ id, lotNo }: { id: string; lotNo: string }) {
+  const uid = useId();
+  const [state, action, pending] = useActionState<FormState, FormData>(skipSterilReport, {});
+  const { open, setOpen } = useDialog(state);
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)} className="btn-ghost">생략</button>
+      <Dialog open={open} onClose={() => setOpen(false)} title={`${lotNo} 멸균 보고서 생략`}
+              note="멸균 보고서 없이 내보내는 로트 (멸균 선량 시험용 샘플 등)">
+        <form action={action}>
+          <input type="hidden" name="id" value={id} />
+          <label className="label" htmlFor={`${uid}-r`}>생략 사유</label>
+          <textarea id={`${uid}-r`} name="reason" required rows={3} maxLength={300} className="input"
+                    placeholder="예: 멸균 선량 시험용 샘플 요청 - 멸균 보고서 없이 출고" />
+          <div className="mt-3">
+            <Caution>
+              생략하면 이 제조번호는 멸균 보고서 없이 출고 가능 로트에 나옵니다. 사유 · 기록자 · 시각이 남고,
+              한 개도 출고하기 전이면 생략을 취소할 수 있습니다.
+            </Caution>
+          </div>
+          <Msg state={state} />
+          <div className="mt-4 flex gap-2">
+            <button type="submit" disabled={pending} className="btn-danger">생략한다</button>
+            <button type="button" onClick={() => setOpen(false)} className="btn-ghost">닫기</button>
+          </div>
+        </form>
+      </Dialog>
+    </>
+  );
+}
+
+export function CancelSterilSkip({ id, lotNo }: { id: string; lotNo: string }) {
+  const [state, action, pending] = useActionState<FormState, FormData>(cancelSterilSkip, {});
+  const { open, setOpen } = useDialog(state);
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)} className="qd-text-action">생략 취소</button>
+      <Dialog open={open} onClose={() => setOpen(false)} title={`${lotNo} 멸균 보고서 생략 취소`}>
+        <form action={action}>
+          <input type="hidden" name="id" value={id} />
+          <Caution>
+            다시 멸균 보고서 대기로 돌아가 보고서를 적기 전까지 출고하지 않습니다. 생략했던 사유는 감사추적에 남습니다.
+          </Caution>
+          <Msg state={state} />
+          <div className="mt-4 flex gap-2">
+            <button type="submit" disabled={pending} className="btn-primary">생략 취소</button>
+            <button type="button" onClick={() => setOpen(false)} className="btn-ghost">닫기</button>
+          </div>
+        </form>
+      </Dialog>
+    </>
   );
 }
 

@@ -159,6 +159,12 @@ export default async function CoverSheet({ params, searchParams }: {
            join product_lot pl on pl.id = sbl.product_lot_id
           where pl.work_order_id = $1 and sb.cert_no is not null
           order by sb.cert_no`, [id]),
+      /* 보고서 없이 사유와 함께 생략한 로트 (0166) - 보고서 칸이 비는 까닭을 표지에 적는다 */
+      skips: await db.rows<{ lot_no: string; reason: string }>(
+        `select pl.lot_no, s.reason
+           from steril_report_skip s join product_lot pl on pl.id = s.product_lot_id
+          where pl.work_order_id = $1 and lot_steril_report(pl.id) is null
+          order by pl.lot_no`, [id]),
       /*
        * 검토 지원 (§8.5). 배치 화면이 짚는 것과 같은 자료다.
        * 산술로 판정되는 것만 돌아오고, 짚을 것이 없으면 빈 배열이다.
@@ -171,7 +177,7 @@ export default async function CoverSheet({ params, searchParams }: {
   });
 
   if (!d) notFound();
-  const { head, materials, lots, days, prints, requests, certs, concessions, flags, steps } = d;
+  const { head, materials, lots, days, prints, requests, certs, skips, concessions, flags, steps } = d;
 
   // 아직 남아 있는 것. 사실만 적고 판정하지 않는다 (§10).
   const openDays = days.filter((r) => r.prints === 0).length;
@@ -518,11 +524,17 @@ export default async function CoverSheet({ params, searchParams }: {
                   pages: lp ? '1' : '-' },
                 /* 출하 승인 요청서 줄은 뺐다 - 출하 승인은 품질 몫, 이 시스템은 생산팀 전용 (0160) */
                 { name: '멸균 보고서 (외부 원본)',
-                  fact: certs.length === 0
-                    ? '회수된 보고서 없음'
-                    : <span className="font-mono">
-                        {certs.map((c) => c.cert_no).join(' · ')}
-                      </span>,
+                  fact: <>
+                    {certs.length === 0 && skips.length === 0 && '회수된 보고서 없음'}
+                    {certs.length > 0 && (
+                      <span className="font-mono">{certs.map((c) => c.cert_no).join(' · ')}</span>
+                    )}
+                    {skips.map((x, i) => (
+                      <span key={x.lot_no}>
+                        {certs.length > 0 || i > 0 ? ' · ' : ''}생략 <span className="font-mono">{x.lot_no}</span> ({x.reason})
+                      </span>
+                    ))}
+                  </>,
                   pages: certs.length ? String(certs.length) : '-' },
                 /*
                   * 특채 기록지. 품질팀이 발행한 종이이고 시스템은 그 문서 코드만

@@ -92,6 +92,43 @@ export default [
 },
 
 {
+  /*
+   * 0166 (사용자 2026-11-25 «멸균 선량 샘플 요청건이라 멸균 보고서 없이 출고가 된 제품이라.. 스킵할때는
+   * 어떤 사유로 멸균 보고서를 스킵했는지 적을수 있게»).
+   */
+  id: 'RH-11', expect: '확인',
+  name: '멸균 보고서를 사유와 함께 생략하면 출고하고, 출고한 뒤에는 생략을 지우지도 고치지도 못한다 (0166)',
+  async run(t) {
+    const m = await master(t);
+    const l = await lot(t, m);
+    const ship = () => t.rows(
+      `insert into shipment (sales_order_line_id, product_lot_id, customer_name, qty, shipped_at, shipped_by)
+       values (t_order_line($1), $1, '거래처', 1, current_date, $2)`, [l.id, m.admin]);
+    const skip = (reason) => t.rows(
+      `insert into steril_report_skip (product_lot_id, reason, skipped_by) values ($1, $2, $3)`, [l.id, reason, m.admin]);
+    await t.rejects(ship, { message: '멸균 보고서가 없어' });
+    await t.rejects(() => skip('   '), { code: '23514' });
+
+    /* 출고 전에는 생략을 취소할 수 있다 - 그러면 다시 막힌다 */
+    await skip('멸균 선량 시험용 샘플');
+    t.eq(await t.val(`select lot_steril_ok($1)`, [l.id]), true, '생략하면 출고 가능');
+    await t.rows(`delete from steril_report_skip where product_lot_id = $1`, [l.id]);
+    await t.rejects(ship, { message: '멸균 보고서가 없어' });
+
+    await skip('멸균 선량 시험용 샘플');
+    await t.resolves(ship);
+    t.eq(await t.val(`select lot_steril_skip($1)`, [l.id]), '멸균 선량 시험용 샘플', '사유');
+    await t.rejects(() => t.rows(`delete from steril_report_skip where product_lot_id = $1`, [l.id]),
+      { message: '이미 출고해' });
+    await t.rejects(() => t.rows(`update steril_report_skip set reason = '바꿈' where product_lot_id = $1`, [l.id]),
+      { message: '고치지 않습니다' });
+    t.eq(Number(await t.val(
+      `select count(*) from audit_log where table_name = 'steril_report_skip' and record_id = $1`, [l.id])),
+      3, '생략 · 취소 · 다시 생략이 감사추적에 남는다');
+  },
+},
+
+{
   id: 'RH-04', expect: '확인',
   name: '대조가 짚는 공정 · 자재 · 설비가 바뀌면 대조가 풀리고, 짚지 않는 값은 그대로다',
   async run(t) {

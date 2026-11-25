@@ -58,7 +58,10 @@ export interface SpecRow {
 
 /** 다른 검토 줄을 사람이 읽는 한 문장으로. 출고 단추 옆 안내와 처리 함수의 거부 문구가 같다 */
 export function specMessage(r: SpecRow): string {
-  if (r.kind === 'STERIL') return '멸균 보고서가 없습니다. 멸균 위탁에서 회수일과 멸균 보고서 번호를 먼저 적으십시오';
+  if (r.kind === 'STERIL') {
+    return '멸균 보고서가 없습니다. 멸균 위탁에서 회수일과 멸균 보고서 번호를 먼저 적거나, '
+      + '보고서 없이 내보내는 로트면 멸균 보고서 대기에서 사유와 함께 생략하십시오';
+  }
   if (r.kind === 'BR' && r.actual === null) {
     return '제조기록서 재단 줄에 이 제조번호의 줄이 없습니다. 재단 기록서를 먼저 고치십시오';
   }

@@ -112,6 +112,51 @@ export async function updateSterilBatch(_p: FormState, form: FormData): Promise<
 }
 
 /* ---------------------------------------------------------------------------
+   멸균 보고서 생략 (0166 · 사용자 2026-11-25)
+
+   «멸균 선량 샘플 요청건이라 멸균 보고서 없이 출고가 된 제품이라.. 스킵할때는 어떤 사유로 멸균
+   보고서를 스킵했는지 적을수 있게». 사유를 적으면 그 로트는 보고서 없이 출고를 받는다. 아직 한 개도
+   내보내지 않았으면 생략을 취소할 수 있다 (DB 가 막는다 - 내보낸 뒤에는 출고의 근거다).
+--------------------------------------------------------------------------- */
+export async function skipSterilReport(_p: FormState, form: FormData): Promise<FormState> {
+  try {
+    const me = await mgr();
+    const id = String(form.get('id') ?? '');
+    const reason = String(form.get('reason') ?? '').trim();
+    if (!reason) return { error: '멸균 보고서를 생략하는 사유를 적으십시오' };
+    const lot = await withActor(me.id, async (db) => {
+      const no = await db.val<string>(`select lot_no from product_lot where id = $1`, [id]);
+      if (!no) throw new Error('제품 로트를 찾을 수 없습니다');
+      if (await db.val<string>(`select lot_steril_report($1)`, [id])) {
+        throw new Error(`제조번호 ${no}은(는) 이미 멸균 보고서가 적혀 있어 생략할 것이 없습니다`);
+      }
+      await db.rows(
+        `insert into steril_report_skip (product_lot_id, reason, skipped_by) values ($1, $2, $3)
+         on conflict (product_lot_id) do nothing`, [id, reason, me.id]);
+      return no;
+    }, { reason });
+    bump();
+    return { ok: true, message: `${lot} 의 멸균 보고서를 생략했습니다. 출고 가능 로트에 나옵니다.` };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
+export async function cancelSterilSkip(_p: FormState, form: FormData): Promise<FormState> {
+  try {
+    const me = await mgr();
+    const id = String(form.get('id') ?? '');
+    await withActor(me.id, (db) =>
+      db.rows(`delete from steril_report_skip where product_lot_id = $1`, [id]),
+    { reason: '멸균 보고서 생략 취소' });
+    bump();
+    return { ok: true, message: '멸균 보고서 생략을 취소했습니다. 다시 멸균 보고서 대기에 나옵니다.' };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
+/* ---------------------------------------------------------------------------
    출하 승인 (§4.5)
 
    품질책임자 계정은 열람 전용이다 (lib/roles.ts QP). 서면으로 승인한 내용을
