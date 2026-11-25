@@ -30,6 +30,8 @@ interface DmRow {
   /** 서면 허가증의 번호 (0095) */
   license_no: string | null;
   sheet_min: number | null; sheet_max: number | null; steril_box_qty: number | null;
+  /* 유효 크기(cm) · 원료 품목 (0164). numeric 은 문자열로 올 수 있다 */
+  usable_w: number | string | null; usable_h: number | string | null; raw_item_id: string | null;
   /* 장입 수량의 단위 (0101) */
   load_unit: string | null;
   item_code: string; item_name: string;
@@ -96,6 +98,7 @@ export async function DmrWorkbench({
               dm.expected_units, dm.sample_basis, dm.product_code, dm.product_name, dm.note,
               dm.license_no,
               dm.sheet_min, dm.sheet_max, dm.steril_box_qty, dm.load_unit,
+              dm.usable_w, dm.usable_h, dm.raw_item_id,
               u.full_name as verified_by_name, i.code as item_code, i.name as item_name,
               (select count(*)::int from dmr_operation o where o.device_master_id = dm.id) as op_count,
               (select count(*)::int from dmr_bom b
@@ -310,7 +313,12 @@ export async function DmrWorkbench({
                     <DmrNoteForm id={dm.id} note={dm.note} />
                     <DmrLimitsForm id={dm.id} sheetMin={dm.sheet_min}
                                    sheetMax={dm.sheet_max} boxQty={dm.steril_box_qty}
-                                   loadUnit={dm.load_unit} />
+                                   loadUnit={dm.load_unit}
+                                   usableW={dm.usable_w === null ? null : Number(dm.usable_w)}
+                                   usableH={dm.usable_h === null ? null : Number(dm.usable_h)}
+                                   rawItemId={dm.raw_item_id}
+                                   rawItems={d.items.filter((i) => i.type === 'RAW')
+                                     .map((i) => ({ id: i.id, code: i.code, name: i.name }))} />
                     <ExpectedUnitsForm id={dm.id} value={dm.expected_units} />
                     <SamplePlanForm id={dm.id} basis={dm.sample_basis}
                                     tiers={d.sampleTiers} />

@@ -1028,9 +1028,13 @@ export function OperationCard({ dm, op, items, editable, rangeable = false, equi
    범위는 여기서 정한다. 상한을 비우면 상한이 없다.
 --------------------------------------------------------------------------- */
 export function DmrLimitsForm({
-  id, sheetMin, sheetMax, boxQty, loadUnit,
+  id, sheetMin, sheetMax, boxQty, loadUnit, usableW, usableH, rawItemId, rawItems,
 }: {
   id: string; sheetMin: number | null; sheetMax: number | null; boxQty: number | null;
+  /** 한 장에서 쓸 수 있는 크기 (cm). 둘 다 비면 정하지 않은 것 */
+  usableW: number | null; usableH: number | null;
+  rawItemId: string | null;
+  rawItems: { id: string; code: string; name: string }[];
   /** 장입 수량의 단위 (0101). 비면 숫자만 보여 준다 */
   loadUnit: string | null;
 }) {
@@ -1069,11 +1073,29 @@ export function DmrLimitsForm({
         <input id={`${uid}-steril_box_qty`} name="steril_box_qty" type="number" min={1} defaultValue={boxQty ?? ''}
                placeholder="없음" className="input tnum" />
       </div>
+      <div className="w-28">
+        <label className="label" htmlFor={`${uid}-usable_w`}>유효 가로 (cm)</label>
+        <input id={`${uid}-usable_w`} name="usable_w" type="number" min={0.1} step={0.1}
+               defaultValue={usableW ?? ''} placeholder="없음" className="input tnum" />
+      </div>
+      <div className="w-28">
+        <label className="label" htmlFor={`${uid}-usable_h`}>유효 세로 (cm)</label>
+        <input id={`${uid}-usable_h`} name="usable_h" type="number" min={0.1} step={0.1}
+               defaultValue={usableH ?? ''} placeholder="없음" className="input tnum" />
+      </div>
+      <div className="w-64">
+        <label className="label" htmlFor={`${uid}-raw_item_id`}>원료 품목</label>
+        <select id={`${uid}-raw_item_id`} name="raw_item_id" defaultValue={rawItemId ?? ''}
+                className="input">
+          <option value="">정하지 않음</option>
+          {rawItems.map((i) => <option key={i.id} value={i.id}>{i.code} · {i.name}</option>)}
+        </select>
+      </div>
       <button type="submit" disabled={pending} className="btn-ghost">
         장입 범위 저장
       </button>
       <span className="pb-2 text-xs leading-relaxed text-faint">
-        범위를 벗어난 장수로는 발행되지 않습니다. 상한을 비우면 상한이 없습니다.
+        범위를 벗어난 장수로는 발행되지 않습니다. 상한을 비우면 상한이 없습니다. 유효 가로 · 세로는 둘 다 넣거나 둘 다 비웁니다.
       </span>
       <Msg state={state} className="w-full" />
     </form>

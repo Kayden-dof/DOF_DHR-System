@@ -861,15 +861,32 @@ export async function setDmrLimits(_p: FormState, form: FormData): Promise<FormS
     if (lo !== null && hi !== null && lo > hi) {
       return { error: '하한이 상한보다 클 수 없습니다' };
     }
+    /* 유효 크기(cm) - 소수 1자리까지. 서버에서 다시 검사한다 */
+    const size = (k: string): number | null | 'bad' => {
+      const v = String(form.get(k) ?? '').trim();
+      if (v === '') return null;
+      if (!/^\d+(\.\d)?$/.test(v)) return 'bad';
+      const n = Number(v);
+      return n > 0 ? n : 'bad';
+    };
+    const uw = size('usable_w');
+    const uh = size('usable_h');
+    if (uw === 'bad' || uh === 'bad') {
+      return { error: '유효 크기는 0보다 큰 숫자로, 소수 첫째 자리까지 넣으십시오' };
+    }
+    if ((uw === null) !== (uh === null)) {
+      return { error: '유효 가로 · 세로는 둘 다 넣거나 둘 다 비웁니다' };
+    }
+    const rawId = String(form.get('raw_item_id') ?? '').trim() || null;
     await withActor(me.id, (db) =>
       db.rows(
         `update device_master
             set sheet_min = $2, sheet_max = $3, steril_box_qty = $4,
-                load_unit = $5
+                load_unit = $5, usable_w = $6, usable_h = $7, raw_item_id = $8
           where id = $1`,
         [String(form.get('id') ?? ''), lo, hi, num('steril_box_qty'),
-         String(form.get('load_unit') ?? '').trim() || null]),
-      { reason: '제품표준서 장입 범위 · 멸균 박스 수량 변경' });
+         String(form.get('load_unit') ?? '').trim() || null, uw, uh, rawId]),
+      { reason: '제품표준서 장입 범위 · 유효 크기 · 원료 품목 · 멸균 박스 수량 변경' });
     path();
     return { ok: true, message: '장입 범위를 저장했습니다.' };
   } catch (e) {
