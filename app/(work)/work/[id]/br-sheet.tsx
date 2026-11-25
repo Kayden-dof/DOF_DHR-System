@@ -877,6 +877,15 @@ function FieldEditor({ cell, workDate, basis, busy, error, onSave, onCancel }: {
         </div>
       )}
 
+      {/* 제안 값 (별첨 머리 · 따르는 원액 로트의 관리번호 · 제조일자). 누르면 바로 저장 */}
+      {cell.hint && cell.v !== cell.hint && (
+        <button type="button" disabled={busy} onClick={() => onSave(cell.hint!)}
+                className="tile mt-3 w-full justify-start">
+          <span className="text-sm text-muted">이 원액 로트의 값</span>
+          <span className="font-mono text-base font-semibold text-ink">{cell.hint}</span>
+        </button>
+      )}
+
       {cell.k === 'text' && (
         <div className="mt-3">
           <textarea value={text} onChange={(ev) => setText(ev.target.value)} rows={3}

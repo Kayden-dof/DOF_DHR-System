@@ -98,6 +98,12 @@ export interface FormCell {
    * 사전에 좀 넣어놔주고»). 비어 있어도 단위가 보이고, 적은 값은 가운데에 선다.
    */
   ur?: boolean;
+  /**
+   * 적을 값의 제안 (별첨 머리의 관리번호 · 제조일자 = 따르는 원액 로트의 번호 · 제조일). 칸은 비어
+   * 있는 적는 칸이고, 편집기가 이 값을 한 번에 적는 단추로 내준다 (사용자 2026-11-25 «이부분도 내가
+   * 써야하지않아??»).
+   */
+  hint?: string;
 }
 
 /** 별첨이 따르는 원액 로트 (원액 제조 기록 · 0118 · 0119) */
@@ -869,11 +875,11 @@ export function fillForm(form: BrForm, given: FillData): {
      */
     const headSys = headField && d.solution
       ? (x.role === 'madeon' ? d.solution.made_on : d.solution.lot_no) : null;
-    if (headSys) {
-      c.sv = headSys;
-      Object.assign(c, { t: headSys, f: true, a: 'c' as const, b: false });
-      matRow.add(x.row);
-    }
+    /*
+     * 미리 채우지 않는다 (사용자 2026-11-25 «이부분도 내가 써야하지않아??»). 빈 적는 칸으로 두고,
+     * 편집기가 따르는 원액 로트의 번호 · 제조일을 한 번에 적는 단추로 내준다 (hint).
+     */
+    if (headSys) { c.hint = headSys; c.a = 'c'; }
     /*
      * 재단 줄(제조번호 · 모델명 · 수량)의 처음 값은 그 배치의 제품 로트다 (사용자 2026-11-25 «001에
      * 단일 형명으로 20개 제작 … 다른 규격이 생기면 002가 생기고 … 그 밑에 붙여줘야겠지?»). 전에는
