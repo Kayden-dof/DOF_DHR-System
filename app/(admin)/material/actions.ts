@@ -252,16 +252,25 @@ export async function receiveMaterial(_p: FormState, form: FormData): Promise<Fo
 export async function createOrder(_p: FormState, form: FormData): Promise<FormState> {
   try {
     const me = await mgr();
-    const poNo = String(form.get('po_no') ?? '').trim();
-    await withActor(me.id, (db) =>
-      db.rows(
+    const orderedAt = String(form.get('ordered_at') ?? '');
+    /*
+     * 발주번호는 채번 규칙이 발주일 기준으로 매긴다 (0163 · 사용자 2026-11-25 «채번 규칙으로»).
+     * 적어 넣었으면 그 번호를 쓴다 - 공급자가 정한 번호를 따라야 할 때.
+     */
+    const typed = String(form.get('po_no') ?? '').trim();
+    const poNo = await withActor(me.id, async (db) => {
+      const no = typed || (await db.val<string>(
+        `select next_number('PURCHASE_ORDER', null, $1::date)`, [orderedAt]));
+      await db.rows(
         `insert into purchase_order (po_no, item_id, supplier_id, qty, unit_price,
            ordered_at, expected_at, ordered_by)
          values ($1,$2,$3,$4,$5,$6::date,$7::date,$8)`,
-        [poNo, String(form.get('item_id') ?? ''), String(form.get('supplier_id') ?? ''),
+        [no, String(form.get('item_id') ?? ''), String(form.get('supplier_id') ?? ''),
          num(form.get('qty'), '수량'),
          numOrNull(form.get('unit_price'), '단가'),
-         String(form.get('ordered_at') ?? ''), txt(form.get('expected_at')), me.id]));
+         orderedAt, txt(form.get('expected_at')), me.id]);
+      return no;
+    });
     bump();
     return { ok: true, message: `발주 ${poNo}를 등록했습니다.` };
   } catch (e) {

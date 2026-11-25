@@ -19,6 +19,7 @@ export const NUMBERING_TARGETS = [
   { code: 'MATERIAL_LOT', label: '자재 로트번호',   note: 'material_lot.lot_no · 바코드 값' },
   { code: 'STERIL_BATCH', label: '멸균 배치번호',   note: 'steril_batch.batch_no' },
   { code: 'DEVIATION',    label: '일탈 번호',       note: '일탈 기록' },
+  { code: 'PURCHASE_ORDER', label: '발주번호',      note: 'purchase_order.po_no · 발주일 기준 (0163)' },
 ] as const;
 
 export const RESET_CYCLES = [
