@@ -106,7 +106,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
         ) : (
           <Table grow={0}>
             <thead><tr>
-              <Th>배치 (예정)</Th><Th>제품표준서</Th><Th>시작</Th><Th>멸균 발송</Th><Th>끝 (성적서)</Th>
+              <Th>배치 (예정)</Th><Th>제품표준서</Th><Th>시작</Th><Th>멸균 발송</Th><Th>끝 (멸균 보고서)</Th>
               <Th>확인할 곳</Th><Th>작업 지시</Th>
             </tr></thead>
             <tbody>
@@ -139,7 +139,13 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
       {cur && (
         <Panel title={`${cur.label} 일정표`}
                note={`${cur.dm_label} 공정 시간표 기준${cur.wo_no ? ` · 작업 지시 ${cur.wo_no}` : ''}${cur.note ? ` · ${cur.note}` : ''}`}
-               action={plan && <Link href={`/print/batch-plan/${cur.id}`} className="btn-ghost">일정표 인쇄</Link>}>
+               /* 계획 지우기는 판 머리에 (사용자 2026-11-25 «배치 계획 삭제는 불가능한가?» - 전에는 12일치 공정표 맨 아래에 있었다) */
+               action={(writable || plan) && (
+                 <span className="inline-flex items-center gap-3">
+                   {writable && <DeletePlan id={cur.id} label={cur.label} />}
+                   {plan && <Link href={`/print/batch-plan/${cur.id}`} className="btn-ghost">일정표 인쇄</Link>}
+                 </span>
+               )}>
           {!plan ? (
             <Empty hint="설정 > 제품표준서 > 공정 시간표에서 이 판의 시간표를 먼저 만듭니다.">이 판에는 공정 시간표가 없습니다</Empty>
           ) : (
@@ -148,7 +154,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
                 {[
                   ['시작', `${md(cur.start_on)} ${hhmm(cur.start_min)}`],
                   ['멸균 발송', `${md(addDays(cur.start_on, dayIndex(plan.sendEnd)))} ${hhmm(plan.sendEnd)}`],
-                  ['멸균 성적서 수령', md(addDays(cur.start_on, dayIndex(plan.last)))],
+                  ['멸균 보고서 수령', md(addDays(cur.start_on, dayIndex(plan.last)))],
                   ['전체 기간', `${dayIndex(plan.last) + 1}일`],
                   ['확인할 곳', `${flags.length}건`],
                 ].map(([l, v]) => (
@@ -167,7 +173,6 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
                 id: cur.id, label: cur.label, dm: cur.dm, start_on: cur.start_on,
                 start_time: hhmm(cur.start_min), wo: cur.wo, note: cur.note,
               }} />
-              <div className="px-4 pb-3"><DeletePlan id={cur.id} label={cur.label} /></div>
             </div>
           )}
         </Panel>
