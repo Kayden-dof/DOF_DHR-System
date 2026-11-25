@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { withActor, dbMessage } from '@/lib/db';
 import { requireRole } from '@/lib/session';
 import { brSheet, type BrSheet } from '@/lib/br-sheet';
+import type { FormState } from '@/lib/forms';
 
 /* ---------------------------------------------------------------------------
    관리자 기록서 정정 (0155 · 사용자 2026-11-20 «관리자는 수정 기록할수있게 열어줘»)
@@ -50,6 +51,34 @@ export async function saveRecordEntry(
       return brSheet(db, recordId, docId);
     }, { reason: `기록서 정정 · ${reason}` });
     return open(sheet);
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   관리자 강제 투입 (0165 · 사용자 2026-11-25 «강제로 투입을 더하는 형태로»)
+
+   종이를 옮겨 적을 때 기록서 칸에만 로트가 들어가고 투입이 없으면 재고가 줄지 않는다. 잠긴 일차여도
+   투입 한 줄을 사유와 함께 더한다 (force_material_issue). 재고에서 빠지고 정정 내역에 남는다.
+   인쇄 자료에는 들지 않는다. reason(감사추적 사유)은 DB 함수가 세운다.
+--------------------------------------------------------------------------- */
+export async function addForcedIssue(
+  recordId: string, woId: string, _p: FormState, form: FormData,
+): Promise<FormState> {
+  try {
+    const me = await requireRole(['SYS_ADMIN', 'PROD_MGR'], '생산관리자 또는 시스템관리자만 투입을 정정할 수 있습니다');
+    const lot = String(form.get('material_lot_id') ?? '');
+    const qty = Number(form.get('qty') ?? 0);
+    const why = String(form.get('why') ?? '').trim().slice(0, 500);
+    if (!lot) return { error: '자재 로트를 고르십시오' };
+    if (!Number.isFinite(qty) || qty <= 0) return { error: '수량은 0 보다 커야 합니다' };
+    if (!why) return { error: '왜 더하는지 적으십시오' };
+    await withActor(me.id, (db) =>
+      db.rows(`select force_material_issue($1,$2,$3,$4)`, [recordId, lot, qty, why]));
+    revalidatePath(`/production/${woId}`);
+    revalidatePath(`/production/${woId}/record/${recordId}`);
+    return { ok: true, message: '투입을 더했습니다.' };
   } catch (e) {
     return { error: dbMessage(e) };
   }

@@ -130,7 +130,8 @@ export async function dayRecordPayload(
                   from material_issue mi
                   join material_lot ml on ml.id = mi.material_lot_id
                   join item i on i.id = ml.item_id
-                 where mi.process_record_id = pr.id), '[]'::json) as issues,
+                 where mi.process_record_id = pr.id
+                   and not mi.forced), '[]'::json) as issues,  /* forced: 관리자 강제 투입 (0165) - 이미 나간 종이의 자료 식별자에 넣지 않는다 */
               /*
                * 멸균은 위탁이라 자재를 넣는 공정이 아니라 제품을 내보내는 공정이다.
                * 몇 개가 나갔는지가 기록서에 없으면 회수 수량과 대조할 근거가 없다.

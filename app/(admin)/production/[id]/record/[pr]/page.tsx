@@ -5,6 +5,7 @@ import Denied from '@/components/denied';
 import { withActor } from '@/lib/db';
 import { brSheet } from '@/lib/br-sheet';
 import RecordSheetClient from './sheet-client';
+import IssuePanel, { type IssueLot } from './issue-panel';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,6 +34,16 @@ export default async function RecordSheetPage({ params, searchParams }: {
          from process_record r join work_order w on w.id = r.work_order_id
          join dmr_operation o on o.id = r.operation_id join app_user u on u.id = r.worker_id
         where r.id = $1 and r.work_order_id = $2`, [pr, id]),
+    /* 이 공정 구성표 품목의 쓸 수 있는 로트 (투입 더하기 · 0165) */
+    lots: await db.rows<IssueLot>(
+      `select ml.id, i.code || ' ' || i.name as item, ml.lot_no,
+              rtrim(to_char(ml.qty_available, 'FM999999990.999'), '.') as left, i.usage_uom as uom
+         from process_record r
+         join dmr_bom b on b.operation_id = r.operation_id
+         join material_lot ml on ml.item_id = b.component_item_id
+         join item i on i.id = ml.item_id
+        where r.id = $1 and ml.status = 'AVAILABLE' and ml.qty_available > 0
+        order by i.code, ml.lot_no`, [pr]),
   }));
   if (!d.head) notFound();
   if (!d.sheet) {
@@ -44,8 +55,11 @@ export default async function RecordSheetPage({ params, searchParams }: {
     );
   }
   return (
-    <RecordSheetClient initial={{ ...d.sheet, locked: false }} recordId={pr} woId={id}
-                       title={`${d.head.batch_no} · ${d.head.day_no}일차 · ${d.head.op_name} · ${d.head.worker}`}
-                       locked={d.head.locked} />
+    <div className="space-y-3">
+      <RecordSheetClient initial={{ ...d.sheet, locked: false }} recordId={pr} woId={id}
+                         title={`${d.head.batch_no} · ${d.head.day_no}일차 · ${d.head.op_name} · ${d.head.worker}`}
+                         locked={d.head.locked} />
+      <IssuePanel recordId={pr} woId={id} lots={d.lots} />
+    </div>
   );
 }
