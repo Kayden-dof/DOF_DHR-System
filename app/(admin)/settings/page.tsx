@@ -28,7 +28,7 @@ export const dynamic = 'force-dynamic';
 export const metadata = { title: '설정' };
 
 interface Counts {
-  items: number; finished: number; suppliers: number;
+  items: number; finished: number; suppliers: number; approved: number;
   dmr: number; dmr_verified: number; users: number; rules: number;
   /* 첫 설정 차례표가 보는 것 (M5-3) */
   supplies: number; equipment: number; dmr_issuable: number; workers: number;
@@ -87,6 +87,7 @@ export default async function SettingsHome() {
       `select (select count(*)::int from item)                                   as items,
               (select count(*)::int from item where type='FIN')                  as finished,
               (select count(*)::int from supplier)                               as suppliers,
+              (select count(*)::int from supplier where status='APPROVED')       as approved,
               (select count(*)::int from device_master)                          as dmr,
               (select count(*)::int from device_master where verified_at is not null) as dmr_verified,
               (select count(*)::int from app_user where is_active)               as users,
@@ -187,7 +188,7 @@ export default async function SettingsHome() {
       empty: c.supplies === 0,
       blocks: '자재가 없으면 입고도 자재 구성표도 만들 수 없습니다' },
     { href: '/settings/suppliers', title: '공급자',
-      fact: `${c.suppliers}곳`,
+      fact: `${c.suppliers}곳 · 승인 ${c.approved}곳`,
       empty: c.suppliers === 0,
       blocks: '입고 등록에서 고를 공급자가 없습니다' },
     { href: '/equipment', title: '설비',
@@ -226,6 +227,7 @@ export default async function SettingsHome() {
    * 할 일이 있으면 그 수를 주황 조각으로 내고, 누르면 걸러 둔 목록으로 간다(to).
    * 판정이 아니라 셈이다 - 0 이면 그냥 지금 값을 적는다.
    */
+  const unapproved = c.suppliers - c.approved;
   const unverified = c.dmr - c.dmr_verified;
   const cards: { href: string; to?: string; title: string; value: string; note: string; tone: string }[] = [
     { href: '/settings/numbering', title: '채번 규칙',
@@ -238,7 +240,8 @@ export default async function SettingsHome() {
       value: `${c.items}종`, note: `완제품 형명 ${c.finished}종`, tone: 'quiet' },
     { href: '/settings/suppliers', title: '공급자',
       value: `${c.suppliers}곳`,
-      note: '입고 · 발주에서 고르는 곳', tone: 'quiet' },
+      note: unapproved > 0 ? `미승인 ${unapproved}곳 · 승인 ${c.approved}곳` : `승인 ${c.approved}곳`,
+      tone: unapproved > 0 ? 'warn' : 'quiet' },
     { href: '/settings/dmr', title: '제품표준서',
       value: `${c.dmr}개정`,
       note: c.dmr === 0 ? '등록 필요'

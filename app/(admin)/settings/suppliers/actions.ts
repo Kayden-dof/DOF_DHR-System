@@ -17,7 +17,8 @@ export async function saveSupplier(_p: FormState, form: FormData): Promise<FormS
     const me = await admin();
     const id = txt(form.get('id'));
     const fields = [
-      txt(form.get('name')), txt(form.get('contact_name')),
+      txt(form.get('name')), String(form.get('status') ?? 'PENDING'),
+      txt(form.get('approved_until')), txt(form.get('contact_name')),
       txt(form.get('contact_phone')), txt(form.get('contact_email')),
       txt(form.get('biz_no')), txt(form.get('address')),
       txt(form.get('payment_terms')), txt(form.get('note')),
@@ -26,16 +27,17 @@ export async function saveSupplier(_p: FormState, form: FormData): Promise<FormS
     if (id) {
       await withActor(me.id, (db) =>
         db.rows(
-          /* 승인 상태 · 승인기한은 손대지 않는다 - 품질 몫이라 화면에서 걷었다 (생산팀 전용 · 2026-11-25) */
-          `update supplier set name=$2, contact_name=$3,
-                  contact_phone=$4, contact_email=$5, biz_no=$6, address=$7,
-                  payment_terms=$8, note=$9
+          `update supplier set name=$2, status=$3, approved_until=$4::date, contact_name=$5,
+                  contact_phone=$6, contact_email=$7, biz_no=$8, address=$9,
+                  payment_terms=$10, note=$11
             where id=$1`, [id, ...fields]),
         /*
          * 왜 바꿨는가를 함께 싣는다 (0061 · 3차 검수 결함 7).
          *
-         * 연락처 · 결제 조건은 발주가 따라가는 값이다. 나중에 "왜 이 주소로
-         * 보냈나" 를 물었을 때, 언제 무엇이 바뀌었는지만으로는 답이 안 된다.
+         * 공급자 상태와 승인기한은 아래로 흐르는 값이다 - 미승인 공급자는
+         * 작업 지시 발행 화면에 경고로 뜬다. 나중에 "이 배치는 왜 미승인
+         * 공급자 자재로 나갔나" 를 물었을 때, 언제 무엇이 바뀌었는지만으로는
+         * 답이 안 된다.
          *
          * 등록에는 묻지 않는다. 만든 것 자체가 사유다.
          */
@@ -47,9 +49,9 @@ export async function saveSupplier(_p: FormState, form: FormData): Promise<FormS
     const code = String(form.get('code') ?? '').trim();
     await withActor(me.id, (db) =>
       db.rows(
-        `insert into supplier (code, name, contact_name, contact_phone,
+        `insert into supplier (code, name, status, approved_until, contact_name, contact_phone,
                 contact_email, biz_no, address, payment_terms, note)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9)`, [code, ...fields]));
+         values ($1,$2,$3,$4::date,$5,$6,$7,$8,$9,$10,$11)`, [code, ...fields]));
     revalidatePath('/settings/suppliers');
     return { ok: true, message: `${code} 공급자를 등록했습니다.` };
   } catch (e) {

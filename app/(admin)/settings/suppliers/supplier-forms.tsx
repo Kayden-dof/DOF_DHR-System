@@ -1,8 +1,10 @@
 'use client';
 
 import { useActionState, useId } from 'react';
-import type { FormState } from '@/lib/forms';
-import { Msg } from '@/components/ui';
+import { isPastKST } from '@/lib/kst';
+import { fmtDate } from '@/lib/fmt';
+import { SUPPLIER_STATUS, type FormState } from '@/lib/forms';
+import { Msg, Tag } from '@/components/ui';
 import { Unblock } from '@/components/unblock';
 import type { Fix } from '@/lib/unblock';
 import { Dialog, useDialog } from '@/components/dialog';
@@ -17,6 +19,8 @@ export interface SupplierRow {
 }
 
 export interface ItemOption { id: string; code: string; name: string; usage_uom: string; type: string }
+
+const statusOf = (c: string) => SUPPLIER_STATUS.find((s) => s.code === c);
 
 function Fields({ s }: { s?: SupplierRow }) {
   /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
@@ -34,6 +38,17 @@ function Fields({ s }: { s?: SupplierRow }) {
       <div className={s ? 'lg:col-span-2' : ''}>
         <label className="label" htmlFor={`${uid}-name`}>상호</label>
         <input id={`${uid}-name`} name="name" required defaultValue={s?.name} autoComplete="off" className="input" />
+      </div>
+      <div>
+        <label className="label" htmlFor={`${uid}-status`}>승인 상태</label>
+        <select id={`${uid}-status`} name="status" defaultValue={s?.status ?? 'PENDING'} className="input">
+          {SUPPLIER_STATUS.map((x) => <option key={x.code} value={x.code}>{x.label}</option>)}
+        </select>
+      </div>
+      <div>
+        <label className="label" htmlFor={`${uid}-approved_until`}>승인 만료일</label>
+        <input id={`${uid}-approved_until`} name="approved_until" type="date" defaultValue={s?.approved_until ?? ''}
+               className="input tnum" />
       </div>
       <div>
         <label className="label" htmlFor={`${uid}-contact_name`}>담당자</label>
@@ -96,6 +111,10 @@ export function NewSupplierForm() {
         <form action={action}>
       <h3 className="mb-3 text-sm font-semibold text-ink">새 공급자</h3>
       <Fields />
+      <p className="mt-3 rounded-md bg-canvas px-3 py-2 text-xs leading-relaxed text-muted">
+        미승인 공급자의 자재도 등록과 사용을 막지 않습니다. 작업 지시 발행 화면에서
+        <b className="text-ink"> 경고로만 </b>표시합니다. 차단은 S01~S05 다섯 가지뿐입니다.
+      </p>
       <Msg state={state} />
       <div className="mt-4 flex gap-2">
         <button type="submit" disabled={pending} className="btn-primary">등록</button>
@@ -114,12 +133,20 @@ export function SupplierRowView({ s, writable = true }: {
 }) {
   const [state, action, pending] = useActionState<FormState, FormData>(saveSupplier, {});
   const { open, setOpen } = useDialog(state);
+  const st = statusOf(s.status);
+  /* 날짜는 글자끼리 견준다. Date 로 바꾸면 자정 언저리에 하루 어긋난다 (lib/kst) */
+  const expired = isPastKST(s.approved_until);
 
   return (
     <>
       <tr>
         <td className="td font-mono font-semibold">{s.code}</td>
         <td className="td">{s.name}</td>
+        <td className="td">
+          <Tag tone={st?.tone ?? 'quiet'}>{st?.label ?? s.status}</Tag>
+          {expired && <Tag tone="danger">승인 만료</Tag>}
+        </td>
+        <td className="td tnum text-muted">{fmtDate(s.approved_until)}</td>
         <td className="td text-muted">
           {s.contact_name}
           {s.contact_phone ? ` · ${s.contact_phone}` : ''}

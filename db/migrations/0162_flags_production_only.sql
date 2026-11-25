@@ -4,10 +4,9 @@
    "품질이 하는 업무는 전부 배제하고, 생산의 관점에서 생산에 적극적인 서포트를 할 수 있는 시스템으로"
    → 제안 1단계 «걷기부터 시작». 0160 (출하 승인 걷음) 과 같은 결정의 줄기다.
 
-   ── 뺀다 (판정 · 자격 · 승인은 품질 몫이고, 품질은 이 시스템을 쓰지 않는다) ──
+   ── 뺀다 (설비 판정 · 자격 · 표준서 대조는 품질 몫이고, 품질은 이 시스템을 쓰지 않는다) ──
      기한 경과    설비를 쓴 날 유효한 밸리데이션 · 교정이 없었다 (0107)
      자격 없음    작업일에 그 공정 자격이 없었다 (0108)
-     미승인 공급자 공급자 상태 · 승인기한 (0113)
      표준서 밖    제품표준서에 걸리지 않은 설비 · 자재 구성표에 없는 자재 (0135)
    설비 밸리데이션 · 교정 기록과 현장 고르기 타일의 «기한 경과 · 표준서 밖» 표시는 그대로다 -
    쓰기 전에 보는 생산의 정보이고, 막지도 않는다. 이 목록(검토)에서만 뺀다.
@@ -15,6 +14,8 @@
    ── 남긴다 (생산이 제 기록을 고칠 수 있는 것) ──────────────────────────────
      review_flags_base (0156) 수량 불일치 · 구간 이탈 · 기입 누락 · 참조 불일치 · 예정 대비 재단
      기한 경과    유효기한이 지난 자재를 넣었다
+     미승인 공급자 공급자 상태 · 승인기한 (0113) - 공급자 승인은 걷지 않고 생산관리자도 한다
+                  (사용자 2026-11-25 «승인 단추는 두는데, 승인을 생산 관리자도 할수 있게 열어줘»)
      수량 불일치  제품 개수 기준 자재 (포장재 · 라벨)
    본문 · 정렬은 0161 그대로이고 갈래만 고른다. 편철 표지의 자료 식별자에 이 결과가 들어가지만
    운영에 발행된 표지는 아직 없다 (2026-11-25 기준 record_print 4줄 모두 제조기록서).
@@ -49,6 +50,32 @@ begin
    where pr.work_order_id = p_wo
      and ml.expiry_date is not null
      and ml.expiry_date < pr.work_date
+
+  union all
+
+  /*
+   * 공급자.
+   *
+   * 승인기한은 날짜라 그 날 유효했는지 물을 수 있다. 상태는 이력이 없어서
+   * 그 날 무엇이었는지 모른다 - 그래서 "지금" 이라고 밝혀 적는다.
+   */
+  select distinct '미승인 공급자'::text,
+         format('%s %s일차: %s %s - 공급자 %s %s',
+                o.code, pr.day_no, i.name, ml.lot_no, s.name,
+                case when s.approved_until is not null and s.approved_until < pr.work_date
+                     then '승인기한이 ' || to_char(s.approved_until, 'YYYY-MM-DD')
+                          || ' 로 투입일 ' || to_char(pr.work_date, 'YYYY-MM-DD') || ' 이전'
+                     else '상태가 지금 ' || s.status end),
+         pr.day_no, ml.lot_no
+    from material_issue mi
+    join process_record pr on pr.id = mi.process_record_id
+    join dmr_operation o on o.id = pr.operation_id
+    join material_lot ml on ml.id = mi.material_lot_id
+    join item i on i.id = ml.item_id
+    join supplier s on s.id = ml.supplier_id
+   where pr.work_order_id = p_wo
+     and (s.status <> 'APPROVED'
+          or (s.approved_until is not null and s.approved_until < pr.work_date))
 
   union all
 
