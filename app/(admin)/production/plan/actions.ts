@@ -34,6 +34,19 @@ export async function savePlan(_p: FormState, form: FormData): Promise<FormState
     if (!(startMin >= 0 && startMin < 1440)) return { error: '시작 시각을 입력하십시오' };
 
     const newId = await withActor(user.id, async (db) => {
+      /*
+       * 새로 고르거나 바꾼 판은 시행 중이어야 한다 (사용자 2026-11-25 «시행전인게 뜨면 안될거같은데»).
+       * 이미 그 판으로 잡아 둔 계획은 판을 그대로 두면 고칠 수 있다.
+       */
+      const before = id
+        ? await db.val<string>(`select device_master_id::text from batch_plan where id = $1::uuid`, [id]) : null;
+      if (dm !== before) {
+        const live = await db.val<boolean>(
+          `select verified_at is not null and status = 'ACTIVE'
+                  and effective_from is not null and effective_from <= (timezone('Asia/Seoul', now()))::date
+             from device_master where id = $1::uuid`, [dm]);
+        if (!live) throw new Error('시행 중인 제품표준서 판만 고를 수 있습니다. 시행 전 판은 제품표준서에서 시행일을 정한 뒤 고르십시오');
+      }
       if (id) {
         await db.rows(
           `update batch_plan set label = $2, device_master_id = $3::uuid, start_on = $4::date, start_min = $5,

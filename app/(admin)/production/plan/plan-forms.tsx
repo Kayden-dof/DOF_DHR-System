@@ -42,7 +42,7 @@ export function PlanForm({ dms, wos, value, suggest }: {
       <div className="min-w-[12rem]">
         <label className="label" htmlFor={`${uid}-d`}>제품표준서 판</label>
         <select id={`${uid}-d`} name="dm" className="input" value={dm} onChange={(e) => setDm(e.target.value)} required>
-          {dms.length === 0 && <option value="">시간표가 있는 판이 없습니다</option>}
+          {dms.length === 0 && <option value="">시행 중이고 시간표가 있는 판이 없습니다</option>}
           {dms.map((o) => <option key={o.id} value={o.id}>{o.label}{o.note ? ` (${o.note})` : ''}</option>)}
         </select>
       </div>

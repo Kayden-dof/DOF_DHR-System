@@ -68,6 +68,13 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
     return { plans, tls, dms, wos, today, cal: await loadCalendar(db) };
   });
 
+  /*
+   * 고를 판은 시행 중인 것만 (사용자 2026-11-25 «제품 표준서 판있잖아.. 시행전인게 뜨면 안될거같은데??»).
+   * 이미 그 판으로 잡아 둔 계획을 고칠 때는 그 판만 꼬리표와 함께 남긴다 - 빼면 저장할 때 판이 말없이 바뀐다.
+   */
+  const liveDms = d.dms.filter((o) => !o.note);
+  const dmsFor = (keep: string | null) =>
+    keep && !liveDms.some((o) => o.id === keep) ? [...liveDms, ...d.dms.filter((o) => o.id === keep)] : liveDms;
   const stepsOf = new Map(d.tls.map((t) => [t.dm, t.steps]));
   const planOf = new Map<string, Plan | null>(
     d.plans.map((p) => [p.id, planBatch(stepsOf.get(p.dm) ?? [], p.start_on, p.start_min, d.cal)]));
@@ -124,7 +131,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
         {writable && (
           <div className="border-t border-line-soft">
             <p className="px-4 pt-3 text-xs font-semibold text-ink">새 계획</p>
-            <PlanForm dms={d.dms} wos={d.wos} suggest={suggest} />
+            <PlanForm dms={liveDms} wos={d.wos} suggest={suggest} />
           </div>
         )}
       </Panel>
@@ -156,7 +163,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
           )}
           {writable && (
             <div className="border-t border-line-soft">
-              <PlanForm dms={d.dms} wos={d.wos} value={{
+              <PlanForm dms={dmsFor(cur.dm)} wos={d.wos} value={{
                 id: cur.id, label: cur.label, dm: cur.dm, start_on: cur.start_on,
                 start_time: hhmm(cur.start_min), wo: cur.wo, note: cur.note,
               }} />
