@@ -68,6 +68,7 @@ export const ACCESS_ROWS: AccessRow[] = [
   { group: '설비', label: '설비',        path: '/equipment',             marks: '●●-●X' },
   { group: '설비', label: '배치도',      path: '/equipment/plan',        marks: '●●-●X' },
 
+  { group: '출하', label: '수주',        path: '/shipping/orders',       marks: '●●-XX' },
   { group: '출하', label: '멸균 위탁',   path: '/shipping/steril',       marks: '●●-XX' },
   { group: '출하', label: '출고',        path: '/shipping/ship',         marks: '●●-XX' },
 
