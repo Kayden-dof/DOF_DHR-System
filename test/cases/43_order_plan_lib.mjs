@@ -3,7 +3,7 @@
 // 근거: 주문에서 생산 계획 · 자재 소요 예보 (lib/order-plan.ts)
 // =============================================================================
 
-import { proposeBatches, nextWorkday, addWorkdays, samplesFor, planNote, firstStepMin } from '../../lib/order-plan.ts';
+import { proposeBatches, nextWorkday, addWorkdays, samplesFor, planNote, firstStepMin, tooManyBatches, MAX_BATCHES } from '../../lib/order-plan.ts';
 import { DEFAULT_CALENDAR } from '../../lib/timeline.ts';
 
 const CAL = { ...DEFAULT_CALENDAR, holidays: ['2026-11-30'] };
@@ -137,6 +137,21 @@ export default [
     t.eq(firstStepMin(null), 480, '시간표 없음 480');
     t.eq(firstStepMin([]), 480, '빈 시간표 480');
     t.eq(firstStepMin([S('a', { s: 1440 + 600 }), S('b', { s: 2880 + 480 })]), 600, '둘째 날에 시작하는 첫 단계의 하루 안 시각');
+  },
+},
+
+{
+  id: 'OL-09', expect: '통과',
+  name: '한 번에 올리는 배치는 50 개까지 (넘으면 나눠 올린다)',
+  async run(t) {
+    t.eq(MAX_BATCHES, 50, '상한 50');
+    const at = proposeBatches(base({ units: 30 * 16 * 50 }));
+    t.eq(at.ok && at.batches.length, 50, '30장 x 50 배치는 꼭 50');
+    t.eq(tooManyBatches(at), false, '50 배치는 올린다');
+    const over = proposeBatches(base({ units: 30 * 16 * 50 + 1 }));
+    t.eq(over.ok && over.batches.length, 51, '하나 넘으면 51');
+    t.eq(tooManyBatches(over), true, '51 배치는 나눠 올린다');
+    t.eq(tooManyBatches(proposeBatches(base({ units: 0 }))), false, '제안이 서지 않으면 상한도 아니다');
   },
 },
 

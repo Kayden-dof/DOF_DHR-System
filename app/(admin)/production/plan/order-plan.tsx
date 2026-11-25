@@ -7,13 +7,15 @@ import { Msg, Tag } from '@/components/ui';
 import { Table, Th, Td } from '@/components/table';
 import { Dialog, useDialog } from '@/components/dialog';
 import { md, type Step, type WorkCalendar } from '@/lib/timeline';
-import { proposeBatches, type SampleTier } from '@/lib/order-plan';
+import { proposeBatches, tooManyBatches, TOO_MANY_BATCHES, type SampleTier } from '@/lib/order-plan';
 import { addPlansFromOrder } from './actions';
 
 /** 판 위 줄 하나. 서버가 읽어 넘기는 값이고, 제안은 여기서 다시 셈한다 (올릴 때는 서버가 또 셈한다) */
 export interface OrderPlanLine {
   lineId: string;
   dmId: string;
+  /** 이 줄에 쓰는 제품표준서 판 (제품 코드 · 판) */
+  dmLabel: string;
   customer: string;
   po: string;
   itemCode: string;
@@ -80,6 +82,8 @@ function LineRow({ line: l, calendar, today, occupied, writable }: {
     gapDays: gapOf(gap),
   }), [u, gap, l, calendar, today]);
 
+  /* 한 번에 올리는 배치 수의 상한 (서버도 같은 셈으로 거부한다) */
+  const tooMany = tooManyBatches(p);
   /* 겹침: 제안 배치의 [시작일, 작업 끝날] 안에 이미 있는 계획 · 진행 중 지시의 시작일이 드는가. 막지 않는다 */
   const clash = p.ok
     ? [...new Set(p.batches.flatMap((b) =>
@@ -92,9 +96,12 @@ function LineRow({ line: l, calendar, today, occupied, writable }: {
         {l.customer}<br /><span className="font-mono">{l.po}</span>
         {l.multiWo && <> <Tag tone="warn">여러 줄에 걸린 지시</Tag></>}
       </Td>
-      <Td nowrap><span className="font-mono">{l.itemCode}</span></Td>
       <Td nowrap>
-        <span className="tnum">{l.leftQty.toLocaleString('ko-KR')} · {l.covered.toLocaleString('ko-KR')}</span>
+        <span className="font-mono">{l.itemCode}</span>
+        <div className="text-xs text-muted">{l.dmLabel}</div>
+      </Td>
+      <Td nowrap>
+        <span className="tnum">{l.leftQty.toLocaleString('ko-KR')}개 · {l.covered.toLocaleString('ko-KR')}개</span>
         {l.fgStock > 0 && <><br /><span className="text-muted">완제품 재고 {l.fgStock.toLocaleString('ko-KR')}개</span></>}
       </Td>
       <Td nowrap>{l.dueOn ? <span className="tnum">{md(l.dueOn)}</span> : '-'}</Td>
@@ -115,7 +122,9 @@ function LineRow({ line: l, calendar, today, occupied, writable }: {
             <br />
             <span className="tnum text-muted">
               {p.batches.map((b) => md(b.startOn)).join(' · ')} 시작
-              {p.lateDays != null && p.lateDays > 0 && <span className="text-warn"> · 납기 {p.lateDays}일 넘김 예상</span>}
+              {p.lateDays != null && (p.lateDays > 0
+                ? <span className="text-warn"> · 납기 {p.lateDays}일 넘김 예상</span>
+                : <> · 여유 {-p.lateDays}일</>)}
             </span>
             {p.noSteril && <> <Tag tone="quiet">멸균 기간은 셈에 없음</Tag></>}
             {clash.length > 0 && <><br /><span className="text-warn">겹침: {clash.join(' · ')}</span></>}
@@ -133,11 +142,13 @@ function LineRow({ line: l, calendar, today, occupied, writable }: {
                 <label className="label" htmlFor={`${uid}-g`}>배치 간격 (근무일)</label>
                 <input id={`${uid}-g`} className="input" type="number" min={0} step={1} inputMode="numeric" value={gap}
                        onChange={(e) => setGap(e.target.value)} />
+                {l.defaultGap != null && <p className="mt-1 text-xs text-faint">지난 배치 기준 {l.defaultGap}일</p>}
               </>
             )}
           </Td>
           <Td nowrap>
-            {p.ok && (
+            {tooMany && <span className="block whitespace-normal text-warn">{TOO_MANY_BATCHES}</span>}
+            {p.ok && !tooMany && (
               <>
                 <button type="button" className="btn-primary" onClick={() => setOpen(true)}>일정에 올리기</button>
                 <Dialog open={open} onClose={() => setOpen(false)} title={`${l.po} 일정에 올리기`}>

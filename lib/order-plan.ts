@@ -145,6 +145,11 @@ export function proposeBatches(input: ProposeInput): Proposal {
   };
 }
 
+/** 한 번에 올리는 배치 수의 상한. 한 번 제출이 만드는 계획 수의 모양이다 - 넘으면 만들 개수를 나눠 올린다 (0167) */
+export const MAX_BATCHES = 50;
+export const TOO_MANY_BATCHES = `한 번에 ${MAX_BATCHES} 배치까지 올릴 수 있습니다. 만들 개수를 나눠 올리십시오`;
+export const tooManyBatches = (p: Proposal): boolean => p.ok && p.batches.length > MAX_BATCHES;
+
 export function planNote(p: Extract<Proposal, { ok: true }>, i: number, n: number): string {
   return `장당 ${p.perSheet}개 · ${p.units}개 + 시료 ${p.samples}개 → ${p.sheets}장 · ${i}/${n}`;
 }

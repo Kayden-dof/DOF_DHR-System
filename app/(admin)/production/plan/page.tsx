@@ -5,7 +5,7 @@ import { PageShell } from '@/components/shell';
 import { Panel, Empty, Tag } from '@/components/ui';
 import { Table, Th, Td } from '@/components/table';
 import { RowLink } from '@/components/row-link';
-import { withActor } from '@/lib/db';
+import { withActor, type Db } from '@/lib/db';
 import { loadCalendar, tidySteps } from '@/lib/timeline-db';
 import { firstStepMin } from '@/lib/order-plan';
 import {
@@ -31,17 +31,47 @@ export const metadata = { title: '일정' };
 
 interface PlanRowDb {
   id: string; label: string; dm: string; dm_label: string; start_on: string; start_min: number;
-  wo: string | null; wo_no: string | null; batch_no: string | null; note: string;
+  sheets: number | null;
+  wo: string | null; wo_no: string | null; batch_no: string | null; wo_dm: string | null; wo_status: string | null;
+  note: string;
 }
 
 interface OrderLineDb {
   line_id: string; customer_name: string; customer_po_no: string; due_on: string | null; item_code: string;
-  left_qty: number; covered: number; fg_stock: number; dm: string; per_sheet: number | null;
+  left_qty: number; covered: number; fg_stock: number; dm: string; dm_label: string; per_sheet: number | null;
   sheet_min: number | null; sheet_max: number | null; multi_wo: boolean;
 }
 interface DmInfoDb {
   dm: string; sized: boolean; tiers: { min: number; max: number | null; samples: number }[];
   gap_from: string | null; gap_to: string | null;
+}
+
+/* 주문에서 계획 판의 읽기 (0164): 제안 대상 줄 · 그 판의 시료 구간 · 최근 지시의 근무 기간 · 진행 중 지시의 시작일 */
+async function readOrderPlan(db: Db) {
+  const lines = await db.rows<OrderLineDb>(
+    `select line_id::text, customer_name, customer_po_no, to_char(due_on, 'YYYY-MM-DD') as due_on, item_code,
+            left_qty, covered, fg_stock, dm_id::text as dm, dm_label, per_sheet, sheet_min, sheet_max, multi_wo
+       from order_plan_lines()`);
+  const dmInfo = lines.length ? await db.rows<DmInfoDb>(
+    `select dm.id::text as dm, dm.usable_w is not null as sized,
+            coalesce((select json_agg(json_build_object('min', sp.min_qty, 'max', sp.max_qty, 'samples', sp.sample_qty)
+                                      order by sp.min_qty)
+                        from sample_plan sp where sp.device_master_id = dm.id), '[]'::json) as tiers,
+            to_char(g.f, 'YYYY-MM-DD') as gap_from, to_char(g.l, 'YYYY-MM-DD') as gap_to
+       from device_master dm
+       left join lateral (
+         select min(pr.work_date) as f, max(pr.work_date) as l from process_record pr
+          where pr.work_order_id = (select wo.id from work_order wo
+                                     where wo.status = 'DONE'
+                                       and wo.device_master_id in (select d2.id from device_master d2 where d2.item_id = dm.item_id)
+                                     order by wo.issued_at desc limit 1)) g on true
+      where dm.id = any($1::uuid[])`, [[...new Set(lines.map((x) => x.dm))]]) : [];
+  const running = lines.length ? await db.rows<{ id: string; name: string; start_on: string }>(
+    `select wo.id::text as id, wo.batch_no as name,
+            to_char(coalesce((select min(pr.work_date) from process_record pr where pr.work_order_id = wo.id),
+                             timezone('Asia/Seoul', wo.issued_at)::date), 'YYYY-MM-DD') as start_on
+       from work_order wo where wo.status in ('ISSUED', 'IN_PROCESS', 'CUT')`) : [];
+  return { lines, dmInfo, running };
 }
 
 export default async function PlanPage({ searchParams }: { searchParams: Promise<{ id?: string }> }) {
@@ -54,8 +84,9 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
     const plans = await db.rows<PlanRowDb>(
       `select p.id, p.label, p.device_master_id as dm,
               coalesce(dm.product_code, i.code) || ' ' || dm.revision as dm_label,
-              to_char(p.start_on, 'YYYY-MM-DD') as start_on, p.start_min,
-              p.work_order_id as wo, wo.wo_no, wo.batch_no, p.note
+              to_char(p.start_on, 'YYYY-MM-DD') as start_on, p.start_min, p.sheets,
+              p.work_order_id as wo, wo.wo_no, wo.batch_no, wo.device_master_id as wo_dm, wo.status::text as wo_status,
+              p.note
          from batch_plan p
          join device_master dm on dm.id = p.device_master_id
          join item i on i.id = dm.item_id
@@ -77,31 +108,20 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
          from work_order wo where wo.status not in ('DONE', 'CANCELLED')
         order by wo.issued_at desc limit 100`);
     const today = (await db.val<string>(`select to_char(timezone('Asia/Seoul', now()), 'YYYY-MM-DD')`)) ?? '';
-    /* 주문에서 계획 (0164): 제안 대상 줄 · 그 판의 시료 구간 · 최근 지시의 근무 기간 · 진행 중 지시의 시작일 */
-    const lines = await db.rows<OrderLineDb>(
-      `select line_id::text, customer_name, customer_po_no, to_char(due_on, 'YYYY-MM-DD') as due_on, item_code,
-              left_qty, covered, fg_stock, dm_id::text as dm, per_sheet, sheet_min, sheet_max, multi_wo
-         from order_plan_lines()`);
-    const dmInfo = lines.length ? await db.rows<DmInfoDb>(
-      `select dm.id::text as dm, dm.usable_w is not null as sized,
-              coalesce((select json_agg(json_build_object('min', sp.min_qty, 'max', sp.max_qty, 'samples', sp.sample_qty)
-                                        order by sp.min_qty)
-                          from sample_plan sp where sp.device_master_id = dm.id), '[]'::json) as tiers,
-              to_char(g.f, 'YYYY-MM-DD') as gap_from, to_char(g.l, 'YYYY-MM-DD') as gap_to
-         from device_master dm
-         left join lateral (
-           select min(pr.work_date) as f, max(pr.work_date) as l from process_record pr
-            where pr.work_order_id = (select wo.id from work_order wo
-                                       where wo.status = 'DONE'
-                                         and wo.device_master_id in (select d2.id from device_master d2 where d2.item_id = dm.item_id)
-                                       order by wo.issued_at desc limit 1)) g on true
-        where dm.id = any($1::uuid[])`, [[...new Set(lines.map((x) => x.dm))]]) : [];
-    const running = lines.length ? await db.rows<{ id: string; name: string; start_on: string }>(
-      `select wo.id::text as id, wo.batch_no as name,
-              to_char(coalesce((select min(pr.work_date) from process_record pr where pr.work_order_id = wo.id),
-                               timezone('Asia/Seoul', wo.issued_at)::date), 'YYYY-MM-DD') as start_on
-         from work_order wo where wo.status in ('ISSUED', 'IN_PROCESS', 'CUT')`) : [];
-    return { plans, tls, dms, wos, today, cal: await loadCalendar(db), lines, dmInfo, running };
+    /*
+     * 주문에서 계획의 읽기는 savepoint 안에서 한다. 여기서 던져도 트랜잭션을 되살려 배치 계획 · 달력은 그리고,
+     * 판 자리에는 읽지 못했다는 안내만 낸다 (0167). 오류는 삼키지 않고 로그에 남긴다.
+     */
+    await db.rows('savepoint order_plan');
+    let order: Awaited<ReturnType<typeof readOrderPlan>> | null = null;
+    try {
+      order = await readOrderPlan(db);
+      await db.rows('release savepoint order_plan');
+    } catch (e) {
+      console.error('주문에서 계획을 읽지 못했습니다', e);
+      await db.rows('rollback to savepoint order_plan');
+    }
+    return { plans, tls, dms, wos, today, cal: await loadCalendar(db), order };
   });
 
   /*
@@ -111,10 +131,21 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
   const liveDms = d.dms.filter((o) => !o.note);
   const dmsFor = (keep: string | null) =>
     keep && !liveDms.some((o) => o.id === keep) ? [...liveDms, ...d.dms.filter((o) => o.id === keep)] : liveDms;
+  /*
+   * 고치는 계획의 이은 지시는 끝났거나 취소됐어도 목록에 남긴다 (0167) - 빼면 저장할 때 지시가 말없이 풀린다.
+   * 판을 남기는 dmsFor 와 같은 꼴.
+   */
+  const wosFor = (p: PlanRowDb): WoOption[] =>
+    p.wo && !d.wos.some((w) => w.id === p.wo)
+      ? [...d.wos, {
+          id: p.wo, dm: p.wo_dm ?? p.dm,
+          label: `${p.wo_no} · ${p.batch_no}${p.wo_status === 'DONE' ? ' (종료)' : p.wo_status === 'CANCELLED' ? ' (취소)' : ''}`,
+        }]
+      : d.wos;
   const stepsOf = new Map(d.tls.map((t) => [t.dm, tidySteps(t.steps)]));
   /* 주문에서 계획: 줄마다 판의 시간표 · 시료 구간 · 간격 기본값을 붙인다 */
-  const infoOf = new Map(d.dmInfo.map((x) => [x.dm, x]));
-  const orderLines: OrderPlanLine[] = d.lines.map((x) => {
+  const infoOf = new Map((d.order?.dmInfo ?? []).map((x) => [x.dm, x]));
+  const orderLines: OrderPlanLine[] = (d.order?.lines ?? []).map((x) => {
     const info = infoOf.get(x.dm);
     const steps = stepsOf.get(x.dm);
     /* 시간표 없는 판의 간격: 가장 최근 종료 지시의 첫 ~ 마지막 기록일 사이 근무일 수 */
@@ -124,7 +155,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
       for (let day = info.gap_from; day <= info.gap_to; day = addDays(day, 1)) if (!isOff(day, d.cal)) defaultGap++;
     }
     return {
-      lineId: x.line_id, dmId: x.dm, customer: x.customer_name, po: x.customer_po_no, itemCode: x.item_code,
+      lineId: x.line_id, dmId: x.dm, dmLabel: x.dm_label, customer: x.customer_name, po: x.customer_po_no, itemCode: x.item_code,
       dueOn: x.due_on, leftQty: x.left_qty, covered: x.covered, fgStock: x.fg_stock, perSheet: x.per_sheet,
       sized: info?.sized ?? false, sheetMin: x.sheet_min, sheetMax: x.sheet_max, multiWo: x.multi_wo,
       tiers: info?.tiers ?? [], steps: steps?.length ? steps : null,
@@ -136,7 +167,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
   const linkedWo = new Set(d.plans.flatMap((p) => (p.wo ? [p.wo] : [])));
   const occupied: Occupied[] = [
     ...d.plans.map((p) => ({ on: p.start_on, name: p.label })),
-    ...d.running.filter((r) => !linkedWo.has(r.id)).map((r) => ({ on: r.start_on, name: r.name })),
+    ...(d.order?.running ?? []).filter((r) => !linkedWo.has(r.id)).map((r) => ({ on: r.start_on, name: r.name })),
   ];
   const planOf = new Map<string, Plan | null>(
     d.plans.map((p) => [p.id, planBatch(stepsOf.get(p.dm) ?? [], p.start_on, p.start_min, d.cal)]));
@@ -163,7 +194,9 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
       nav={<SubNav items={PRODUCTION_NAV} />}
     >
       <Panel title="주문에서 계획" note={orderLines.length ? `줄 ${orderLines.length}` : undefined}>
-        {orderLines.length === 0 ? (
+        {!d.order ? (
+          <Empty hint="화면을 새로 고쳐도 같으면 시스템관리자에게 알리십시오. 아래 배치 계획은 그대로 쓸 수 있습니다.">주문에서 계획을 읽지 못했습니다</Empty>
+        ) : orderLines.length === 0 ? (
           <Empty hint="주문이 들어오고 그 형명이 드는 제품표준서 판이 시행 중이면 여기에 제안이 나옵니다.">계획을 올릴 주문 줄이 없습니다</Empty>
         ) : (
           <OrderPlan lines={orderLines} calendar={d.cal} today={d.today} occupied={occupied} writable={writable} />
@@ -176,7 +209,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
         ) : (
           <Table grow={0}>
             <thead><tr>
-              <Th>배치 (예정)</Th><Th>제품표준서</Th><Th>시작</Th><Th>멸균 발송</Th><Th>끝 (멸균 보고서)</Th>
+              <Th>배치 (예정)</Th><Th>제품표준서</Th><Th>장수</Th><Th>시작</Th><Th>멸균 발송</Th><Th>끝 (멸균 보고서)</Th>
               <Th>확인할 곳</Th><Th>작업 지시</Th>
             </tr></thead>
             <tbody>
@@ -187,6 +220,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
                   <RowLink key={p.id} href={`/production/plan?id=${p.id}`}>
                     <Td><span className="font-mono">{p.label}</span>{cur?.id === p.id && <> <Tag tone="info">보는 중</Tag></>}</Td>
                     <Td>{p.dm_label}</Td>
+                    <Td nowrap>{p.sheets == null ? '-' : <span className="tnum">{p.sheets}장</span>}</Td>
                     <Td nowrap><span className="tnum">{md(p.start_on)} {hhmm(p.start_min)}</span></Td>
                     <Td nowrap>{pl ? <span className="tnum">{md(addDays(p.start_on, dayIndex(pl.sendEnd)))} {hhmm(pl.sendEnd)}</span> : '시간표 없음'}</Td>
                     <Td nowrap>{pl ? <span className="tnum">{md(addDays(p.start_on, dayIndex(pl.last)))}</span> : ''}</Td>
@@ -240,7 +274,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
           )}
           {writable && (
             <div className="border-t border-line-soft">
-              <PlanForm dms={dmsFor(cur.dm)} wos={d.wos} value={{
+              <PlanForm dms={dmsFor(cur.dm)} wos={wosFor(cur)} value={{
                 id: cur.id, label: cur.label, dm: cur.dm, start_on: cur.start_on,
                 start_time: hhmm(cur.start_min), wo: cur.wo, note: cur.note,
               }} />
