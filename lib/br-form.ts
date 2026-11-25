@@ -291,6 +291,8 @@ export function fillForm(form: BrForm, given: FillData): {
     cell: FormCell; id: string; role?: string; section: Section; lb: string; row: string; left?: string;
     /** 같은 줄 칸들의 인쇄 글 (빈 수치 칸의 단위를 기준 칸에서 읽는다) */
     sibs: string[];
+    /** 그 줄 양식 글자 크기. 빈 칸에 적은 값도 이 크기로 쓴다 */
+    sz: number;
   }[] = [];
   const signs: {
     rows: string[]; cell: FormCell; role: 'worker' | 'date'; sz: number; id: string; lb: string;
@@ -500,6 +502,7 @@ export function fillForm(form: BrForm, given: FillData): {
           cand.push({
             cell: c, id: `p${pi}t${ti}r${ri}c${c.c}`, role, section, lb, row: rowKey(ri), left,
             sibs: row.cells.filter((o) => o !== c).map((o) => o.t ?? ''),
+            sz,
           });
         }
 
@@ -808,6 +811,12 @@ export function fillForm(form: BrForm, given: FillData): {
       if (u) c.u = u;
     }
     if (k === 'time' && t.includes('/')) c.dt = true;
+    /*
+     * 빈 칸은 양식에서 글자 크기 없이 뽑혀 기본 10 으로 그려졌다. 그 칸에 적은 값(«65 rpm»)만 옆 칸
+     * («시작 ~ 종료», 양식 글 11)보다 작게 보였다 (사용자 2026-11-25 «RPM 글자크기 왜 달라?»).
+     * 적는 값은 그 줄 양식 글자와 같은 크기로 쓴다.
+     */
+    if (!t && c.s === undefined) c.s = x.sz;
     if (k === 'text' && t) c.u = t;      // 앞머리 (GM · PD)
     /*
      * 별첨 머리의 관리번호 · 제조일자: 따르는 원액 로트의 번호 · 제조일이 처음 값이다
