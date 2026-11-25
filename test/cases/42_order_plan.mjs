@@ -5,7 +5,7 @@
 // 판의 유효 크기 · 원료 품목 칸, 계획의 장수와 주문 줄, 장당 개수.
 // =============================================================================
 
-import { masterData as master, newWorkOrder, reverify } from '../fixtures.mjs';
+import { masterData as master, newMaterialLot, newWorkOrder, reverify, REAGENT_TIERS } from '../fixtures.mjs';
 
 /** 꺼진 PD 형명 체계를 켜고, 끝에 되돌린다 (40_sales_order 꼴) */
 async function withScheme(t, fn) {
@@ -205,6 +205,159 @@ export default [
           t.eq(await covered(t, l2), 0, '다른 형명 로트만 있으면 0');
         }
       } finally { await tidy(t, m, mine); await restoreDm(t, m, old); }
+    });
+  },
+},
+
+{
+  id: 'OP-05', expect: '통과',
+  name: '계획 · 지시가 쓸 자재를 재고 · 발주중과 맞대 부족을 센다',
+  async run(t) {
+    const m = await master(t);
+    await withScheme(t, async () => {
+      /* 이 시험만의 시약 · 원료 품목을 새로 세워 다른 시험의 재고와 섞이지 않게 한다 */
+      const tag = Math.random().toString(36).slice(2, 7).toUpperCase();
+      const mk = (code, type) => t.val(
+        `insert into item (code, name, type, purchase_uom, usage_uom, conversion)
+         values ($1,$1,$2::item_type,'EA','EA',1) returning id`, [code, type]);
+      const rg = await mk('RG-OP5-' + tag, 'REAGENT');
+      const rw = await mk('RM-OP5-' + tag, 'RAW');
+      const oldRaw = await t.val(`select raw_item_id from device_master where id = $1`, [m.dm]);
+      const mine = { plans: [], lines: [], wos: [], lots: [] };
+      const lotIds = []; const poIds = []; const bomIds = [];
+      let old;
+      const day = 3;
+      const iso = (d) => new Date(d).toISOString().slice(0, 10);
+      const need = (src) => t.rows(`select * from material_needs(current_date + $1::int, current_date + $1::int) where source = $2`, [day, src]);
+      const short = async (id, band = null) =>
+        (await t.rows(`select * from material_shortage(current_date + $1::int, current_date + $1::int)
+                        where item_id = $2 and band is not distinct from $3`, [day, id, band]))[0];
+      const lot = async (item, qty, opts = {}) => {
+        const id = await newMaterialLot(t, m, item, { qty, ...opts });
+        lotIds.push(id); return id;
+      };
+      try {
+        /* 구성표: 시약은 장입 구간(11~20장 2), 판의 원료는 raw_item_id */
+        const op = m.ops['WS-DX2401-03'];
+        const bom = await t.val(`insert into dmr_bom (operation_id, component_item_id, basis) values ($1,$2,'SHEET_TIER') returning id`, [op, rg]);
+        bomIds.push(bom);
+        for (const x of REAGENT_TIERS) {
+          await t.rows(`insert into dmr_bom_tier (dmr_bom_id, min_sheets, max_sheets, qty) values ($1,$2,$3,$4)`,
+            [bom, x.min_sheets, x.max_sheets, x.qty]);
+        }
+        await t.rows(`update device_master set raw_item_id = $2 where id = $1`, [m.dm, rw]);
+        old = await putInForce(t, m);
+
+        const code = 'PD05050510';
+        await item(t, code);
+        const per = await t.val(`select model_per_sheet($1, (select id from item where code = $2))`, [m.dm, code]);
+        const line = await orderLine(t, m, code, 'OP05-A', 1000);
+        mine.lines.push(line);
+        const p = await t.val(
+          `insert into batch_plan (label, device_master_id, start_on, sheets, sales_order_line_id, created_by)
+           values ('OP05-' || $5::text, $1, current_date + $2::int, 12, $3, $4) returning id`, [m.dm, day, line, m.admin, tag]);
+        mine.plans.push(p);
+
+        /* 같은 판의 다른 진행 중 지시(앞 시험이 남긴 것)가 시약을 쓰므로 그 몫을 따로 안다 */
+        const woBase = (await need('WO')).filter((x) => x.item_id === rg).reduce((a, x) => a + Number(x.qty), 0);
+
+        /* 1. 계획이 쓸 시약 */
+        const r1 = (await need('PLAN')).filter((x) => x.item_id === rg && x.source_id === p);
+        t.eq(r1.length, 1, '계획의 시약 줄 하나');
+        t.eq(Number(r1[0].qty), 2, '12장은 11~20 구간이라 시약 2');
+        t.eq(r1[0].unit_known, true, '장입 구간 품목은 개수를 몰라도 안다');
+        t.eq(r1[0].source_label, 'OP05-' + tag, '출처 이름은 계획 이름');
+        /* 개수 비례 품목은 이은 줄의 장당 개수로 센다 */
+        const pouch = (await need('PLAN')).find((x) => x.item_id === m.pouch && x.source_id === p);
+        t.eq(Number(pouch.qty), 12 * per, '포장재는 장수 x 장당 개수 x 1');
+        t.eq(pouch.unit_known, true, '이은 줄이 있으면 개수를 안다');
+        /* 판의 원료: 이은 줄 형명의 두께 구간 · 장수 */
+        const raw1 = (await need('PLAN')).find((x) => x.item_id === rw && x.source_id === p);
+        t.eq(raw1.band, '0510', '원료 줄의 두께 구간');
+        t.eq(Number(raw1.qty), 12, '원료는 장수');
+
+        /* 2. 재고 - 기한이 필요일 전에 끝나는 로트는 세지 않는다 */
+        await lot(rg, 1);
+        await t.rows(`update material_lot set expiry_date = current_date + 1 where id = $1`, [await lot(rg, 50)]);
+        let s = await short(rg);
+        t.eq(Number(s.need_qty), 2 + woBase, '필요 = 계획 2 + 다른 지시의 몫');
+        t.eq(Number(s.stock_qty), 1, '기한 없는 1 만 센다 (기한이 필요일 전인 50 은 뺀다)');
+        t.eq(Number(s.on_order_qty), 0, '발주 없음');
+        t.eq(Number(s.short_qty), Math.max(0, 2 + woBase - 1), '부족 = 필요 - 재고 1');
+        t.eq(s.unknown, false, '모르는 것 없음');
+        t.eq(iso(s.first_need_on), await t.val(`select (current_date + $1::int)::text`, [day]), '처음 필요한 날');
+
+        /* 3. 발주중 */
+        const po = await t.val(
+          `insert into purchase_order (po_no, item_id, supplier_id, qty, ordered_at, expected_at, ordered_by)
+           values ('PO-OP5-' || $4::text, $1, $2, 5, current_date, current_date + 2, $3) returning id`,
+          [rg, m.supplier, m.admin, tag]);
+        poIds.push(po);
+        s = await short(rg);
+        t.eq(Number(s.on_order_qty), 5, '발주중 5 (입고 0)');
+        t.eq(Number(s.short_qty), Math.max(0, 2 + woBase - 1 - 5), '부족 = 필요 - 재고 - 발주중 5');
+        t.eq(iso(s.next_expected_on), await t.val(`select (current_date + 2)::text`), '다음 입고 예정일');
+        t.eq(s.order_by, null, '리드타임이 없으면 발주 기한은 비운다');
+        await t.rows(`update item set lead_days = 7 where id = $1`, [rg]);
+        s = await short(rg);
+        t.eq(iso(s.order_by), await t.val(`select (current_date + $1::int - 7)::text`, [day]), '발주 기한은 필요일 - 리드타임');
+
+        /* 4. 원료는 두께 구간별로 맞댄다 */
+        await lot(rw, 5, { thickness_band: '0510' });
+        await lot(rw, 50, { thickness_band: '1020' });
+        const sr = await short(rw, '0510');
+        t.eq(Number(sr.need_qty), 12, '원료 필요 12');
+        t.eq(Number(sr.stock_qty), 5, '같은 두께 구간 재고 5 만');
+        t.eq(Number(sr.short_qty), 7, '부족 7');
+        t.eq(sr.item_type, 'RAW', '품목 종류');
+
+        /* 5. 이은 줄이 없는 계획은 개수 비례 품목을 모른다 */
+        const p2 = await t.val(
+          `insert into batch_plan (label, device_master_id, start_on, sheets, created_by)
+           values ('OP05B-' || $4::text, $1, current_date + $2::int, 12, $3) returning id`, [m.dm, day, m.admin, tag]);
+        mine.plans.push(p2);
+        const pouch2 = (await need('PLAN')).find((x) => x.item_id === m.pouch && x.source_id === p2);
+        t.eq(pouch2.unit_known, false, '줄이 없으면 개수를 모른다');
+        t.eq(pouch2.qty, null, '수량은 비운다');
+        t.eq((await short(m.pouch)).unknown, true, '부족 셈은 모름으로 짚는다');
+        await t.rows(`delete from batch_plan where id = any($1::uuid[])`, [mine.plans]);
+        mine.plans.length = 0;
+
+        /* 6. 진행 중 지시: 필요 - (투입 - 반납) */
+        const wo = await newWorkOrder(t, m, { sheets: 12 });
+        mine.wos.push(wo.id);
+        const w1 = (await need('WO')).filter((x) => x.item_id === rg && x.source_id === wo.id);
+        t.eq(w1.length, 1, '지시의 시약 줄 하나');
+        t.eq(Number(w1[0].qty), 2, '투입 전 필요 2');
+        t.eq(w1[0].source_label, wo.batchNo, '출처 이름은 배치번호');
+        const wp = (await need('WO')).find((x) => x.item_id === m.pouch && x.source_id === wo.id);
+        t.eq(wp.unit_known, false, '예정 개수가 없는 지시의 개수 비례 품목은 모른다');
+        t.eq((await need('WO')).some((x) => x.item_id === rw && x.source_id === wo.id), false, '지시의 원료는 넣지 않는다');
+        const pr = await t.val(
+          `insert into process_record (work_order_id, operation_id, day_no, work_date, worker_id, started_at, ended_at)
+           values ($1,$2,1,current_date,$3,now(),now()) returning id`, [wo.id, op, m.worker]);
+        const mi = await t.val(
+          `insert into material_issue (process_record_id, material_lot_id, qty, issued_by)
+           values ($1,$2,1,$3) returning id`, [pr, lotIds[0], m.admin]);
+        const w2 = (await need('WO')).filter((x) => x.item_id === rg && x.source_id === wo.id);
+        t.eq(Number(w2[0].qty), 1, '1 투입하면 필요가 1 로 준다');
+        await t.rows(
+          `insert into stock_movement (material_lot_id, type, qty, work_order_id, material_issue_id, reason_code, registered_by)
+           values ($1,'RETURN',1,$2,$3,'계량오차',$4)`, [lotIds[0], wo.id, mi, m.admin]);
+        const w3 = (await need('WO')).filter((x) => x.item_id === rg && x.source_id === wo.id);
+        t.eq(Number(w3[0].qty), 2, '1 을 반납하면 다시 2');
+      } finally {
+        await tidy(t, m, mine);
+        await t.setActor(m.admin);
+        for (const id of bomIds) {
+          await t.rows(`delete from dmr_bom_tier where dmr_bom_id = $1`, [id]);
+          await t.rows(`delete from dmr_bom where id = $1`, [id]);
+        }
+        await t.rows(`update purchase_order set status = 'CANCELLED' where id = any($1::uuid[])`, [poIds]);
+        await t.rows(`update material_lot set qty_available = 0, status = 'CONSUMED' where id = any($1::uuid[])`, [lotIds]);
+        await t.rows(`update device_master set raw_item_id = $2 where id = $1`, [m.dm, oldRaw]);
+        if (old) await restoreDm(t, m, old);
+      }
     });
   },
 },

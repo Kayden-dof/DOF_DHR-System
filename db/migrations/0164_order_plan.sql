@@ -232,3 +232,135 @@ begin
     execute 'grant execute on function order_plan_lines() to app_readonly';
   end if;
 end $$;
+
+/* === 7. 자재 필요 (저장하지 않고 센다) ===================================== */
+/*
+ * 기간 [p_from, p_to] 안에 드는 계획과, 지금 진행 중인 지시가 앞으로 쓸 자재. 아무것도 막지 않고 보이기만 한다.
+ *   PLAN - 지시 없는 계획 중 장수가 있고 시작일이 기간 안인 것. 판의 구성표대로 센다.
+ *          장입 구간 품목은 장수로, 개수 비례 품목은 이은 줄 형명의 장당 개수로. 줄이 없으면 개수를 몰라 비운다.
+ *          판의 원료 품목은 장수만큼 (두께 구간은 이은 줄 형명의 것).
+ *   WO   - 끝나지 않은 지시. 구성표 필요량에서 이미 투입한 순량(투입 - 반납)을 뺀 나머지. 원료는 지시가 이미
+ *          로트를 골랐으므로 넣지 않는다. 예정 개수가 없는 지시의 개수 비례 품목은 개수를 몰라 비운다.
+ * 구매 · 입고 · 재고는 모두 사용 단위라 환산하지 않는다 (0102).
+ */
+create or replace function material_needs(p_from date, p_to date)
+returns table (item_id uuid, band text, need_on date, qty numeric, unit_known boolean,
+               source text, source_id uuid, source_label text)
+language sql stable
+set search_path = pg_catalog, public, pg_temp as $fn$
+  with plans as (
+    select bp.id, bp.label, bp.sheets, bp.start_on, bp.device_master_id,
+           sl.item_id as line_item, i.code as line_code
+      from batch_plan bp
+      left join sales_order_line sl on sl.id = bp.sales_order_line_id
+      left join item i on i.id = sl.item_id
+     where bp.work_order_id is null and bp.sheets is not null
+       and bp.start_on between p_from and p_to
+  ),
+  plan_bom as (
+    select p.id, p.label, p.sheets, p.start_on, p.line_item,
+           b.component_item_id, b.basis, o.id as op_id,
+           case when b.basis = 'SHEET_TIER' then required_qty(o.id, b.component_item_id, p.sheets, 0)
+                when p.line_item is not null and model_per_sheet(p.device_master_id, p.line_item) is not null
+                  then required_qty(o.id, b.component_item_id, p.sheets,
+                                    p.sheets * model_per_sheet(p.device_master_id, p.line_item))
+           end as q
+      from plans p
+      join dmr_operation o on o.device_master_id = p.device_master_id
+      join dmr_bom b on b.operation_id = o.id
+  ),
+  wo_bom as (
+    select wo.id, wo.batch_no, b.component_item_id,
+           sum(case when b.basis = 'PER_UNIT' and wo.planned_units is null then 0
+                    else coalesce(required_qty(o.id, b.component_item_id, wo.sheet_count, coalesce(wo.planned_units, 0)), 0)
+               end) as known_need,
+           bool_or(b.basis = 'PER_UNIT' and wo.planned_units is null) as unk
+      from work_order wo
+      join dmr_operation o on o.device_master_id = wo.device_master_id
+      join dmr_bom b on b.operation_id = o.id
+     where wo.status not in ('DONE', 'CANCELLED')
+     group by wo.id, wo.batch_no, b.component_item_id
+  ),
+  issued as (
+    select pr.work_order_id as wo_id, ml.item_id,
+           sum(mi.qty - coalesce((select sum(sm.qty) from stock_movement sm
+                                   where sm.material_issue_id = mi.id and sm.type = 'RETURN'), 0)) as net
+      from material_issue mi
+      join process_record pr on pr.id = mi.process_record_id
+      join material_lot ml on ml.id = mi.material_lot_id
+     group by pr.work_order_id, ml.item_id
+  )
+  select pb.component_item_id, null::text, pb.start_on, pb.q, pb.q is not null,
+         'PLAN'::text, pb.id, pb.label
+    from plan_bom pb
+  union all
+  select dm.raw_item_id, case when p.line_code is null then null else model_band(p.line_code) end,
+         p.start_on, p.sheets::numeric, true, 'PLAN'::text, p.id, p.label
+    from plans p join device_master dm on dm.id = p.device_master_id
+   where dm.raw_item_id is not null
+  union all
+  select w.component_item_id, null::text, p_from, w.known_need - coalesce(x.net, 0), true,
+         'WO'::text, w.id, w.batch_no
+    from wo_bom w left join issued x on x.wo_id = w.id and x.item_id = w.component_item_id
+   where w.known_need - coalesce(x.net, 0) > 0
+  union all
+  select w.component_item_id, null::text, p_from, null::numeric, false,
+         'WO'::text, w.id, w.batch_no
+    from wo_bom w
+   where w.unk
+$fn$;
+comment on function material_needs(date, date) is
+  '기간 안의 계획과 진행 중인 지시가 쓸 자재. 계획은 구성표 · 장당 개수로, 지시는 필요 - 투입 순량. 모르면 qty null (0164)';
+
+/* === 8. 자재 부족 (재고 · 발주중과 맞댄다) ================================= */
+/*
+ * (품목, 두께 구간) 마다 필요 합을 재고(필요일에 기한이 남은 AVAILABLE 로트)와 발주중(ORDERED 의 남은 양)에 맞댄다.
+ * 원료는 두께 구간이 있으면 같은 두께 구간 로트만 센다. 부족이 있는 것, 발주 기한이 이른 것부터.
+ */
+create or replace function material_shortage(p_from date, p_to date)
+returns table (item_id uuid, item_code text, item_name text, item_type text, usage_uom text, band text,
+               need_qty numeric, unknown boolean, first_need_on date, stock_qty numeric,
+               on_order_qty numeric, next_expected_on date, short_qty numeric, lead_days int, order_by date)
+language sql stable
+set search_path = pg_catalog, public, pg_temp as $fn$
+  with n as (
+    select m.item_id, m.band,
+           coalesce(sum(m.qty) filter (where m.unit_known), 0) as need_qty,
+           bool_or(not m.unit_known) as unk,
+           min(m.need_on) as first_need_on
+      from material_needs(p_from, p_to) m
+     group by m.item_id, m.band
+  ),
+  r as (
+    select i.id, i.code, i.name, i.type::text as type, i.usage_uom, n.band, n.need_qty, n.unk, n.first_need_on,
+           (select coalesce(sum(ml.qty_available), 0) from material_lot ml
+             where ml.item_id = n.item_id and ml.status = 'AVAILABLE'
+               and (ml.expiry_date is null or ml.expiry_date >= n.first_need_on)
+               and (i.type <> 'RAW' or n.band is null or ml.thickness_band = n.band)) as stock_qty,
+           (select coalesce(sum(po.qty - po_received(po.id)), 0) from purchase_order po
+             where po.item_id = n.item_id and po.status = 'ORDERED') as on_order_qty,
+           (select min(po.expected_at) from purchase_order po
+             where po.item_id = n.item_id and po.status = 'ORDERED') as next_expected_on,
+           i.lead_days
+      from n join item i on i.id = n.item_id
+  )
+  select r.id, r.code, r.name, r.type, r.usage_uom, r.band, r.need_qty, coalesce(r.unk, false), r.first_need_on,
+         r.stock_qty, r.on_order_qty, r.next_expected_on,
+         greatest(0, r.need_qty - r.stock_qty - r.on_order_qty),
+         r.lead_days, r.first_need_on - r.lead_days
+    from r
+   order by (greatest(0, r.need_qty - r.stock_qty - r.on_order_qty) > 0) desc,
+            r.first_need_on - r.lead_days nulls last, r.code
+$fn$;
+comment on function material_shortage(date, date) is
+  '자재 부족 셈. 필요 - 재고(필요일에 기한이 남은 것) - 발주중. 막지 않고 보이기만 한다 (0164)';
+
+grant execute on function material_needs(date, date) to app_role;
+grant execute on function material_shortage(date, date) to app_role;
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'app_readonly') then
+    execute 'grant execute on function material_needs(date, date) to app_readonly';
+    execute 'grant execute on function material_shortage(date, date) to app_readonly';
+  end if;
+end $$;
