@@ -862,22 +862,24 @@ export async function setDmrLimits(_p: FormState, form: FormData): Promise<FormS
       return { error: '하한이 상한보다 클 수 없습니다' };
     }
     /* 유효 크기(cm) - 소수 1자리까지. 서버에서 다시 검사한다 */
-    const size = (k: string): number | null | 'bad' => {
+    const size = (k: string) => {
       const v = String(form.get(k) ?? '').trim();
       if (v === '') return null;
-      if (!/^\d+(\.\d)?$/.test(v)) return 'bad';
       const n = Number(v);
-      return n > 0 ? n : 'bad';
+      return /^\d+(\.\d)?$/.test(v) && n > 0 ? n : undefined;
     };
     const uw = size('usable_w');
     const uh = size('usable_h');
-    if (uw === 'bad' || uh === 'bad') {
+    if (uw === undefined || uh === undefined) {
       return { error: '유효 크기는 0보다 큰 숫자로, 소수 첫째 자리까지 넣으십시오' };
     }
     if ((uw === null) !== (uh === null)) {
       return { error: '유효 가로 · 세로는 둘 다 넣거나 둘 다 비웁니다' };
     }
     const rawId = String(form.get('raw_item_id') ?? '').trim() || null;
+    if (rawId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawId)) {
+      return { error: '원료 품목을 다시 고르십시오' };
+    }
     await withActor(me.id, (db) =>
       db.rows(
         `update device_master

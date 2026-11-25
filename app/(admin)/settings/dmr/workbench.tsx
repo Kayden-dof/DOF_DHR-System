@@ -32,6 +32,7 @@ interface DmRow {
   sheet_min: number | null; sheet_max: number | null; steril_box_qty: number | null;
   /* 유효 크기(cm) · 원료 품목 (0164). numeric 은 문자열로 올 수 있다 */
   usable_w: number | string | null; usable_h: number | string | null; raw_item_id: string | null;
+  raw_item_code: string | null; raw_item_name: string | null;
   /* 장입 수량의 단위 (0101) */
   load_unit: string | null;
   item_code: string; item_name: string;
@@ -68,6 +69,16 @@ const currentOf = (revs: DmRow[]) => revs
 
 type Search = Promise<{ dm?: string }>;
 
+/* 원료 품목 목록. 지정된 품목이 쓰지 않음으로 바뀌었어도 값이 지워지지 않게 남긴다 */
+function rawOptions(dm: DmRow, items: ItemOption[]) {
+  const list = items.filter((i) => i.type === 'RAW')
+    .map((i) => ({ id: i.id, code: i.code, name: i.name }));
+  if (dm.raw_item_id && dm.raw_item_code && !list.some((i) => i.id === dm.raw_item_id)) {
+    list.push({ id: dm.raw_item_id, code: dm.raw_item_code, name: `${dm.raw_item_name ?? ''} (쓰지 않음)` });
+  }
+  return list;
+}
+
 export async function DmrWorkbench({
   userId, dmParam, productParam, base, writable = true, fixes,
 }: {
@@ -99,6 +110,7 @@ export async function DmrWorkbench({
               dm.license_no,
               dm.sheet_min, dm.sheet_max, dm.steril_box_qty, dm.load_unit,
               dm.usable_w, dm.usable_h, dm.raw_item_id,
+              ri.code as raw_item_code, ri.name as raw_item_name,
               u.full_name as verified_by_name, i.code as item_code, i.name as item_name,
               (select count(*)::int from dmr_operation o where o.device_master_id = dm.id) as op_count,
               (select count(*)::int from dmr_bom b
@@ -110,6 +122,7 @@ export async function DmrWorkbench({
          from device_master dm
          join item i on i.id = dm.item_id
          left join app_user u on u.id = dm.verified_by
+         left join item ri on ri.id = dm.raw_item_id
         order by i.code, dm.revision desc`);
 
     /*
@@ -317,8 +330,7 @@ export async function DmrWorkbench({
                                    usableW={dm.usable_w === null ? null : Number(dm.usable_w)}
                                    usableH={dm.usable_h === null ? null : Number(dm.usable_h)}
                                    rawItemId={dm.raw_item_id}
-                                   rawItems={d.items.filter((i) => i.type === 'RAW')
-                                     .map((i) => ({ id: i.id, code: i.code, name: i.name }))} />
+                                   rawItems={rawOptions(dm, d.items)} />
                     <ExpectedUnitsForm id={dm.id} value={dm.expected_units} />
                     <SamplePlanForm id={dm.id} basis={dm.sample_basis}
                                     tiers={d.sampleTiers} />
