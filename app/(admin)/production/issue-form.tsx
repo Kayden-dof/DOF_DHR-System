@@ -27,6 +27,8 @@ export interface RawLotOpt {
 }
 export interface UserOpt { id: string; full_name: string; roles: string[] }
 export interface FinOpt { id: string; code: string; name: string }
+/** 열린 주문 줄. dm_ids = 그 줄의 형명을 만드는 제품표준서들 (0159) */
+export interface OrderLineOpt { id: string; label: string; dm_ids: string[] }
 
 /* ---------------------------------------------------------------------------
    작업 지시 발행
@@ -35,8 +37,10 @@ export interface FinOpt { id: string; code: string; name: string }
    장입 장수를 넣으면 자재 구성표로 소요량을 미리 계산해 보여 준다. 이 값이
    작업 지시서에 인쇄된다. 경고는 표시만 하고 발행을 막지 않는다 (§2).
 --------------------------------------------------------------------------- */
-export default function IssueForm({ masters, rawLots, finished, users, today, fixes, me }: {
+export default function IssueForm({ masters, rawLots, finished, users, today, fixes, me, orderLines = [] }: {
   masters: DmOpt[]; rawLots: RawLotOpt[]; finished: FinOpt[];
+  /** 이 배치로 채울 수 있는 열린 주문 줄 (0159 · 고르기는 권고) */
+  orderLines?: OrderLineOpt[];
   users: UserOpt[]; today: string;
   /** 발행이 막혔을 때 푸는 자리. 서버가 권한을 보고 정한다 (lib/unblock.ts) */
   fixes?: { dmr: Fix; material: Fix };
@@ -79,6 +83,11 @@ export default function IssueForm({ masters, rawLots, finished, users, today, fi
     ? (ready.length === 1 ? ready[0] : undefined)
     : ready.find((m) => m.id === dm);
   /* 고른 제품표준서가 정한 장입 범위. 고르기 전에는 울타리만 안다 (0069) */
+  /*
+   * 이 제품 형명의 열린 주문 줄 (0159 · 사용자 2026-11-25 «작업지시서는 주문 줄을 고르는걸 권고 하는쪽으로»).
+   * 고르지 않아도 발행된다 - 내부에서 내는 배치다.
+   */
+  const fit = orderLines.filter((l) => !!dmSel && l.dm_ids.includes(dmSel.id));
   const lo = dmSel?.sheet_min ?? 1;
   const hi = dmSel?.sheet_max ?? null;
 
@@ -257,6 +266,25 @@ export default function IssueForm({ masters, rawLots, finished, users, today, fi
             어떤 형명이 몇 개 나올지는 {dmSel?.split_op ?? '제조번호 부여'}에서 정해집니다.
             지시서에는 개수만 나가고, 형명별 수량은 그 기록에 남습니다.
           </p>
+        </div>
+        <div className="lg:col-span-3">
+          <p className="label">주문 줄 <span className="text-faint">(권고)</span></p>
+          {!dmSel ? (
+            <p className="text-xs text-muted">제품표준서를 고르면 그 제품 형명의 열린 주문 줄이 나옵니다.</p>
+          ) : fit.length === 0 ? (
+            <p className="text-xs text-muted">이 제품 형명의 열린 주문이 없습니다. 내부 발행으로 남습니다.</p>
+          ) : (
+            <>
+              <div className="grid gap-1 sm:grid-cols-2">
+                {fit.map((l) => (
+                  <label key={l.id} className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" name="so_line" value={l.id} /> {l.label}
+                  </label>
+                ))}
+              </div>
+              <p className="mt-1 text-xs text-muted">이 배치로 채울 주문 줄을 고릅니다. 고르지 않으면 내부 발행으로 남습니다.</p>
+            </>
+          )}
         </div>
 
         <div>

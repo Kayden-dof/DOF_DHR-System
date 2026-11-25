@@ -165,3 +165,44 @@ export async function saveCustomer(_p: FormState, form: FormData): Promise<FormS
     return { error: dbMessage(e) };
   }
 }
+
+/* ---------------------------------------------------------------------------
+   작업 지시에 주문 줄 걸기 · 떼기 (0159 · 사용자 2026-11-25 «작업지시서를 주문줄에 걸고 … 권고»)
+
+   발행 때 고르지 않았거나 나중에 주문이 들어온 배치를 배치 화면에서 잇는다. 형명 · 취소 여부는 DB 가
+   본다 (trg_wo_so_line_rules). 떼기는 사유를 적고 되돌리지 않는다.
+--------------------------------------------------------------------------- */
+export async function linkWorkOrderLine(_p: FormState, form: FormData): Promise<FormState> {
+  try {
+    const me = await mgr();
+    const wo = String(form.get('work_order_id') ?? '');
+    const line = String(form.get('sales_order_line_id') ?? '');
+    if (!line) return { error: '걸 주문 줄을 고르십시오' };
+    await withActor(me.id, (db) => db.rows(
+      `insert into work_order_so_line (work_order_id, sales_order_line_id, linked_by) values ($1,$2,$3)`,
+      [wo, line, me.id]));
+    revalidatePath(`/production/${wo}`);
+    bump();
+    return { ok: true, message: '주문 줄을 걸었습니다.' };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
+export async function unlinkWorkOrderLine(_p: FormState, form: FormData): Promise<FormState> {
+  try {
+    const me = await mgr();
+    const reason = String(form.get('reason') ?? '').trim();
+    if (!reason) return { error: '떼는 사유를 적으십시오' };
+    const wo = String(form.get('work_order_id') ?? '');
+    await withActor(me.id, (db) => db.rows(
+      `update work_order_so_line set unlinked_at = now(), unlinked_by = $2, unlink_reason = $3
+        where id = $1 and unlinked_at is null`,
+      [String(form.get('id') ?? ''), me.id, reason]), { reason });
+    revalidatePath(`/production/${wo}`);
+    bump();
+    return { ok: true, message: '주문 줄을 뗐습니다. 이미 나간 출고는 그대로입니다.' };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}

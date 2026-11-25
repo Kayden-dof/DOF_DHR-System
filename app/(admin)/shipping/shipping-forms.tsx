@@ -448,7 +448,13 @@ export interface ShipLine {
   id: string; customer_po_no: string; customer_name: string; code: string; name: string;
   qty: number; shipped: number; left: number;
 }
-export interface ShipLot extends PlOpt { review: SpecRow[]; blocked: string | null }
+export interface ShipLot extends PlOpt {
+  review: SpecRow[]; blocked: string | null;
+  /** 이 주문 줄에 걸린 배치의 로트인가 (0159) */
+  for_line?: boolean;
+  /** 이 배치가 걸린 다른 주문 (고객 발주번호). 막지 않고 표시만 한다 */
+  other_orders?: string | null;
+}
 
 const REVIEW_SHORT: Record<SpecRow['kind'], string> = {
   LOT: '로트', DMR: '지시서', BAND: '두께', BR: '기록서', STERIL: '멸균',
@@ -496,7 +502,11 @@ export function ShipList({ lots, line, today }: { lots: ShipLot[]; line: ShipLin
                   className={`cursor-pointer ${open ? 'bg-brand-soft/60' : ''}`}
                 >
                   <td className="td font-mono font-semibold">{l.lot_no}</td>
-                  <td className="td font-mono text-muted">{l.batch_no}</td>
+                  <td className="td">
+                    <div className="font-mono text-muted">{l.batch_no}</div>
+                    {l.for_line && <Tag tone="info">이 주문 배치</Tag>}
+                    {!l.for_line && l.other_orders && <Tag tone="quiet">다른 주문 배치 {l.other_orders}</Tag>}
+                  </td>
                   <td className="td tnum text-right font-semibold">{l.qty_available}</td>
                   <td className="td tnum ">
                     <span className={days <= 60 ? 'font-semibold text-warn' : ''}>

@@ -11,6 +11,7 @@ import Denied from '@/components/denied';
 import { ChangeNote } from '@/components/change-note';
 import { Panel, Empty, Tag, Field } from '@/components/ui';
 import WorkRequestForm, { type ReqValue } from './request-form';
+import { OrderLinks, type OrderLinkRow } from './order-links';
 import {
   CutForm, LotStatusForm, LotDeleteForm, CancelForm, WoNoForm, ForceReasonForm, FinishForm, RetrieveForm, EndForWorkerForm, DayPrintLink,
   BatchNoForm, IssuedAtForm, ForceTimesForm, FixRecordForm,
@@ -219,6 +220,27 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
            고를 형명은 이 제품의 것만이다 (0138 dm_models) */
         `select m.id, m.code, m.name, model_band(m.code) as band, i.udi_di as udi
            from dm_models($1) m join item i on i.id = m.id order by m.code`, [wo.device_master_id]),
+      /* 이 배치로 채우는 주문 줄 · 더 걸 수 있는 열린 줄 (0159) */
+      orderLinks: await db.rows<OrderLinkRow>(
+        `select w.id, o.customer_po_no || ' · ' || c.name || ' · ' || i.code || ' · 남음 ' || so_line_left(l.id) as label
+           from work_order_so_line w
+           join sales_order_line l on l.id = w.sales_order_line_id
+           join sales_order o on o.id = l.sales_order_id
+           join customer c on c.id = o.customer_id
+           join item i on i.id = l.item_id
+          where w.work_order_id = $1 and w.unlinked_at is null
+          order by w.linked_at`, [id]),
+      orderLinkOpts: await db.rows<OrderLinkRow>(
+        `select l.id, o.customer_po_no || ' · ' || c.name || ' · ' || i.code || ' · 남음 ' || so_line_left(l.id) as label
+           from sales_order_line l
+           join sales_order o on o.id = l.sales_order_id
+           join customer c on c.id = o.customer_id
+           join item i on i.id = l.item_id
+          where o.cancelled_at is null and l.cancelled_at is null and so_line_left(l.id) > 0
+            and exists (select 1 from dm_models($2) d where d.id = l.item_id)
+            and not exists (select 1 from work_order_so_line w
+                             where w.work_order_id = $1 and w.sales_order_line_id = l.id and w.unlinked_at is null)
+          order by o.due_on nulls last, o.customer_po_no, l.seq`, [id, wo.device_master_id]),
       today: await db.val<string>(`select to_char(timezone('Asia/Seoul', now()),'YYYY-MM-DD')`),
       /* 마감 안 된 공정 · 남은 로트 - 배치 종료의 «아직 남은 것» (lib/batch-open) */
       openSteps: await openSteps(db, id),
@@ -478,6 +500,9 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
             )}
             <div className="text-xs text-muted">생산 {wo.prod_name} · 품질 {wo.qa_name}</div>
           </Field>
+        </div>
+        <div className="border-t border-line-soft px-4 py-3">
+          <OrderLinks woId={wo.id} linked={d.orderLinks} options={d.orderLinkOpts} readOnly={readOnly} />
         </div>
       </Panel>
 

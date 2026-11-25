@@ -32,7 +32,11 @@ const STATUS: Record<string, { label: string; tone: string }> = {
 
 interface OrderRow extends OrderHead {
   status: string; cancel_reason: string | null;
-  lines: (LineRow & { shipments: { shipped_at: string; lot_no: string; qty: number }[] })[];
+  lines: (LineRow & {
+    shipments: { shipped_at: string; lot_no: string; qty: number }[];
+    /** 이 줄을 채우려고 낸 배치 (작업 지시에 건 것 · 0159) */
+    batches: string | null;
+  })[];
 }
 
 export default async function SalesOrdersPage() {
@@ -49,6 +53,9 @@ export default async function SalesOrdersPage() {
                          'id', l.id, 'code', i.code, 'name', i.name, 'qty', l.qty,
                          'shipped', so_line_shipped(l.id), 'left', so_line_left(l.id),
                          'cancelled', l.cancelled_at is not null,
+                         'batches', (select string_agg(wo.batch_no, ', ' order by wo.batch_no)
+                                       from work_order_so_line w join work_order wo on wo.id = w.work_order_id
+                                      where w.sales_order_line_id = l.id and w.unlinked_at is null),
                          'shipments', coalesce((
                            select json_agg(json_build_object(
                                     'shipped_at', sh.shipped_at::text, 'lot_no', pl.lot_no, 'qty', sh.qty)
@@ -173,6 +180,7 @@ function OrderCard({ o, viewer, models }: { o: OrderRow; viewer: boolean; models
               <th className="th text-right">주문</th>
               <th className="th text-right">출고</th>
               <th className="th text-right">남음</th>
+              <th className="th">배치</th>
               <th className="th">출고 내역</th>
               <th className="th" />
             </tr>
@@ -189,6 +197,7 @@ function OrderCard({ o, viewer, models }: { o: OrderRow; viewer: boolean; models
                 <td className={`td tnum text-right font-semibold ${l.left < 0 ? 'text-warn' : ''}`}>
                   {l.cancelled ? '취소' : l.left.toLocaleString()}
                 </td>
+                <td className="td font-mono text-xs">{l.batches ?? <span className="text-faint">-</span>}</td>
                 <td className="td text-xs">
                   {l.shipments.length === 0 ? <span className="text-faint">-</span> : (
                     <details>

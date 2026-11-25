@@ -10,7 +10,7 @@ import { PageShell, FilterBar } from '@/components/shell';
 import { Table, Th, Td, IdCell, TwoLine, ActionTh, RowLink } from '@/components/table';
 import { fixAt } from '@/lib/unblock';
 import IssueForm, {
-  type DmOpt, type RawLotOpt, type UserOpt, type FinOpt,
+  type DmOpt, type RawLotOpt, type UserOpt, type FinOpt, type OrderLineOpt,
 } from './issue-form';
 
 export const dynamic = 'force-dynamic';
@@ -144,6 +144,18 @@ export default async function ProductionPage({ searchParams }: { searchParams: S
         where u.is_active group by u.id order by u.full_name`),
     // 예정 형명 후보. 같은 두께 구간이면 크기별로만 갈리므로 완제품 전부를
     // 내주고 화면에서 걸러 고르게 한다.
+    /* 이 배치로 채울 수 있는 열린 주문 줄 - 발행 폼이 제품마다 거른다 (0159) */
+    orderLines: await db.rows<OrderLineOpt>(
+      `select l.id,
+              o.customer_po_no || ' · ' || c.name || ' · ' || i.code || ' · 남음 ' || so_line_left(l.id) as label,
+              array(select dm.id from device_master dm
+                     where exists (select 1 from dm_models(dm.id) d where d.id = l.item_id)) as dm_ids
+         from sales_order_line l
+         join sales_order o on o.id = l.sales_order_id
+         join customer c on c.id = o.customer_id
+         join item i on i.id = l.item_id
+        where o.cancelled_at is null and l.cancelled_at is null and so_line_left(l.id) > 0
+        order by o.due_on nulls last, o.customer_po_no, l.seq`),
     finished: await db.rows<FinOpt>(
       `select id, code, name from item where type = 'FIN' and is_active order by code`),
     today: await db.val<string>(`select to_char(timezone('Asia/Seoul', now()),'YYYY-MM-DD')`),
@@ -193,7 +205,8 @@ export default async function ProductionPage({ searchParams }: { searchParams: S
         공정 기록 입력은 현장 화면에서 합니다.
       </>}
       action={readOnly ? null : (<IssueForm masters={d.masters} rawLots={d.rawLots} finished={d.finished}
-                         users={d.users} today={d.today ?? ''} fixes={fixes} me={user.id} />)}
+                         users={d.users} today={d.today ?? ''} fixes={fixes} me={user.id}
+                         orderLines={d.orderLines} />)}
       nav={<SubNav items={PRODUCTION_NAV} />}
     >
       {/*

@@ -94,9 +94,26 @@ export default async function ShipPage({ searchParams }: { searchParams: Search 
     let lots: ShipLot[] = [];
     if (line) {
       const cache = new Map<string, CutRowCell[][]>();
-      const base = await db.rows<PlOpt>(
-        `${LOTS} and pl.item_id = $1 and lot_steril_report(pl.id) is not null
-          order by pl.expiry_date, pl.lot_no`, [line.item_id]);
+      /*
+       * 이 주문 줄에 걸린 배치(작업 지시)의 로트를 먼저 (0159 · 사용자 «작업지시서를 주문줄에 걸고»). 다른 주문에
+       * 걸린 배치의 로트도 재고가 있으면 내보낸다 («꼭 작업지시서에 엮인 주문줄이 아니어도 나갈수있도록») - 표시만 한다.
+       */
+      const base = await db.rows<PlOpt & { for_line: boolean; other_orders: string | null }>(
+        `select x.* from (
+           ${LOTS} and pl.item_id = $1 and lot_steril_report(pl.id) is not null
+         ) x
+         cross join lateral (
+           select exists (select 1 from work_order_so_line w
+                           where w.work_order_id = x.wo_id and w.sales_order_line_id = $2
+                             and w.unlinked_at is null) as for_line,
+                  (select string_agg(distinct o.customer_po_no, ', ')
+                     from work_order_so_line w
+                     join sales_order_line sl on sl.id = w.sales_order_line_id
+                     join sales_order o on o.id = sl.sales_order_id
+                    where w.work_order_id = x.wo_id and w.unlinked_at is null
+                      and w.sales_order_line_id <> $2) as other_orders
+         ) k
+         order by k.for_line desc, x.expiry_date, x.lot_no`, [line.item_id, line.id]);
       for (const l of base) {
         const review = await shipReview(db, l.id, line.id, cache);
         const bad = review.find((r) => r.ok === false);

@@ -127,7 +127,9 @@ export default [
     // 배치에서 갈라져 나온 것은 전부 비었다
     for (const tbl of ['work_order', 'product_lot', 'process_record', 'material_issue',
                        'material_lot', 'stock_movement', 'record_print', 'day_lock',
-                       'shipment', 'steril_batch']) {
+                       'shipment', 'steril_batch',
+                       /* 0159 - 작업 지시 이음 · 주문 장부 */
+                       'work_order_so_line', 'sales_order_line', 'sales_order', 'customer']) {
       t.eq(await t.val(`select count(*)::int from ${tbl}`), 0, `${tbl} 가 비어야 한다`);
     }
 

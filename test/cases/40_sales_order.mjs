@@ -329,4 +329,79 @@ export default [
   },
 },
 
+
+{
+  id: 'SO-15', expect: '통과 · 예외',
+  name: '작업지시서 하나에 주문 줄을 여럿 걸고, 같은 줄은 한 번만',
+  async run(t) {
+    const m = await master(t);
+    const { lines } = await order(t, m, { po: 'SO15', lines: [['PD05050510', 10]] });
+    const lines2 = (await order(t, m, { po: 'SO15B', lines: [['PD05050510', 20]] })).lines;
+    const { wo } = await readyLot(t, m);
+    const link = (line) => t.rows(
+      `insert into work_order_so_line (work_order_id, sales_order_line_id, linked_by) values ($1,$2,$3)`,
+      [wo.id, line, m.admin]);
+    await t.resolves(() => link(lines.PD05050510));
+    await t.resolves(() => link(lines2.PD05050510));
+    await t.rejects(() => link(lines.PD05050510), { code: '23505' });
+    t.eq(await t.val(`select count(*)::int from work_order_so_line where work_order_id = $1`, [wo.id]), 2, '두 줄');
+  },
+},
+
+{
+  id: 'SO-16', expect: '예외',
+  name: '작업지시서에는 그 제품의 형명 줄만, 취소된 주문 줄은 걸지 않는다',
+  async run(t) {
+    const m = await master(t);
+    await t.rows(
+      `insert into item (code, name, type, purchase_uom, usage_uom, shelf_life_months)
+       values ('SOX9999', '다른 제품 완제품', 'FIN', 'EA', 'EA', 24) on conflict do nothing`);
+    const other = (await order(t, m, { po: 'SO16', lines: [['SOX9999', 5]] })).lines.SOX9999;
+    const { order: o, lines } = await order(t, m, { po: 'SO16B', lines: [['PD05050510', 5]] });
+    const { wo } = await readyLot(t, m);
+    const link = (line) => t.rows(
+      `insert into work_order_so_line (work_order_id, sales_order_line_id, linked_by) values ($1,$2,$3)`,
+      [wo.id, line, m.admin]);
+    await t.rejects(() => link(other), { code: 'P0001', message: '형명이 아닙니다' });
+    await t.rows(`update sales_order set cancelled_at = now(), cancel_reason = '시험' where id = $1`, [o]);
+    await t.rejects(() => link(lines.PD05050510), { code: 'P0001', message: '취소' });
+  },
+},
+
+{
+  id: 'SO-17', expect: '예외 · 통과',
+  name: '작업지시서의 주문 줄 떼기는 사유가 있어야 하고 되돌리지 않는다, 뗀 뒤 다시 걸 수 있다',
+  async run(t) {
+    const m = await master(t);
+    const { lines } = await order(t, m, { po: 'SO17', lines: [['PD05050510', 10]] });
+    const { wo } = await readyLot(t, m);
+    const ins = () => t.val(
+      `insert into work_order_so_line (work_order_id, sales_order_line_id, linked_by) values ($1,$2,$3) returning id`,
+      [wo.id, lines.PD05050510, m.admin]);
+    const id = await ins();
+    await t.rejects(() => t.rows(`update work_order_so_line set unlinked_at = now() where id = $1`, [id]), { code: '23514' });
+    await t.rows(`update work_order_so_line set unlinked_at = now(), unlink_reason = '시험' where id = $1`, [id]);
+    await t.rejects(
+      () => t.rows(`update work_order_so_line set unlinked_at = null, unlink_reason = null where id = $1`, [id]),
+      { code: 'P0001' });
+    await t.resolves(ins);
+  },
+},
+
+{
+  id: 'SO-18', expect: '통과',
+  name: '작업지시서에 걸린 주문 줄이 아니어도 재고가 있으면 출고한다',
+  async run(t) {
+    const m = await master(t);
+    const a = (await order(t, m, { po: 'SO18A', lines: [['PD05050510', 10]] })).lines.PD05050510;
+    const b = (await order(t, m, { po: 'SO18B', lines: [['PD05050510', 10]] })).lines.PD05050510;
+    const { lot, wo } = await readyLot(t, m);
+    await t.rows(
+      `insert into work_order_so_line (work_order_id, sales_order_line_id, linked_by) values ($1,$2,$3)`,
+      [wo.id, a, m.admin]);
+    await t.resolves(() => ship(t, m, lot, b, 3));
+    t.eq(await t.val(`select so_line_left($1)`, [b]), 7, '걸리지 않은 주문에서 준다');
+  },
+},
+
 ];

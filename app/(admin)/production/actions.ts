@@ -121,7 +121,15 @@ export async function issueWorkOrder(_p: FormState, form: FormData): Promise<For
          String(form.get('issued_by_qa') ?? ''),
          units]);
 
-      return { id: row!.id, woNo, batchNo, planned: units };
+      /* 이 배치로 채울 주문 줄 (0159 · 고르기는 권고, 비면 내부 발행) */
+      const lines = form.getAll('so_line').map(String).filter(Boolean);
+      for (const line of lines) {
+        await db.rows(
+          `insert into work_order_so_line (work_order_id, sales_order_line_id, linked_by) values ($1,$2,$3)`,
+          [row!.id, line, me.id]);
+      }
+
+      return { id: row!.id, woNo, batchNo, planned: units, lines: lines.length };
     });
 
     bump(out.id);
@@ -130,6 +138,7 @@ export async function issueWorkOrder(_p: FormState, form: FormData): Promise<For
       message:
         `지시서 ${out.woNo} · 배치 ${out.batchNo}를 발행했습니다. ` +
         (out.planned ? `예정 ${out.planned}개. ` : '') +
+        (out.lines ? `주문 줄 ${out.lines}개에 걸었습니다. ` : '') +
         '작업 지시서를 인쇄해 현장에 내리십시오.',
       /*
        * 발행 뒤 인쇄로 가는 길 (UI/UX 검수 2026-11-11). 전에는 «인쇄해 내리십시오»
