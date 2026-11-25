@@ -160,7 +160,6 @@ export default [
     /*
      * force_correct_reason(0128) · force_correct_times(0131) ·
      * force_correct_lot_supplier(0135) · force_br_entry(0155) 만 이름으로 뺀다.
-     * dm_in_force(0164)는 «시행 중인 판인가» 를 읽기만 하는 함수라 이름에 force 가 든 것뿐이다.
      * force_br_entry 는 사용자 2026-11-20 «관리자는 수정 기록할수있게 열어줘» 로 연 문이다 -
      * 잠금을 풀지 않고 기록서 칸 하나를 사유와 함께 고친다 (FB-01 이 잠금이 그대로인지 본다).
      * 사용자 결정(2026-11-10 «강제 정정이 좀 필요하겠네» · «시작 종료일도 기록지에»
@@ -171,8 +170,7 @@ export default [
       `select count(*)::int from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace
         where ns.nspname = 'public'
           and p.proname not in ('force_correct_reason', 'force_correct_times',
-                                'force_correct_lot_supplier', 'force_br_entry',
-                                'dm_in_force')
+                                'force_correct_lot_supplier', 'force_br_entry')
           and (p.proname ilike '%unlock%' or p.proname ilike '%force%'
                or p.proname ilike '%override%' or p.proname ilike '%skip_valid%')`);
     t.eq(n, 0, '해제·우회 함수 수');

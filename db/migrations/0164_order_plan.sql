@@ -60,7 +60,7 @@ create index if not exists batch_plan_so_line on batch_plan (sales_order_line_id
 
 /* === 3. 판이 시행 중인가 · 장당 개수 ======================================= */
 
-create or replace function dm_in_force(p_dm uuid)
+create or replace function dm_effective(p_dm uuid)
 returns boolean language sql stable
 set search_path = pg_catalog, public, pg_temp as $$
   select coalesce((select verified_at is not null and status = 'ACTIVE'
@@ -68,7 +68,7 @@ set search_path = pg_catalog, public, pg_temp as $$
                           and effective_from <= (timezone('Asia/Seoul', now()))::date
                      from device_master where id = p_dm), false)
 $$;
-comment on function dm_in_force(uuid) is
+comment on function dm_effective(uuid) is
   '시행 중인 판인가. 확인되고 ACTIVE 이며 시행일이 오늘(서울) 이전 (0164)';
 
 create or replace function model_per_sheet(p_dm uuid, p_item uuid)
@@ -87,12 +87,12 @@ end $$;
 comment on function model_per_sheet(uuid, uuid) is
   '원료 한 장에서 그 형명이 몇 개 나오는가. 유효 크기를 형명 크기로 나눈 몫, 돌려 놓은 것과 큰 쪽. 모르면 null (0164)';
 
-grant execute on function dm_in_force(uuid) to app_role;
+grant execute on function dm_effective(uuid) to app_role;
 grant execute on function model_per_sheet(uuid, uuid) to app_role;
 do $$
 begin
   if exists (select 1 from pg_roles where rolname = 'app_readonly') then
-    execute 'grant execute on function dm_in_force(uuid) to app_readonly';
+    execute 'grant execute on function dm_effective(uuid) to app_readonly';
     execute 'grant execute on function model_per_sheet(uuid, uuid) to app_readonly';
   end if;
 end $$;
