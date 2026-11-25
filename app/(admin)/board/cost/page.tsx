@@ -166,7 +166,8 @@ export default async function CostPage() {
           </Empty>
         ) : (
           <div className="qd-table-scroll">
-            <table className="qd-table qd-table--hangul">
+            {/* 숫자 표 - 남는 폭을 모든 열에 고르게 (data-grow="0" · 사용자 2026-11-25 «표 너비도 다시 다듬자») */}
+            <table className="qd-table qd-table--hangul" data-grow="0">
               <thead>
                 <tr>
                   <th className="th">배치</th>
@@ -215,7 +216,8 @@ export default async function CostPage() {
           </Empty>
         ) : (
           <div className="qd-table-scroll">
-            <table className="qd-table qd-table--hangul" data-grow="2">
+            {/* 숫자 표 - 형명 열만 넓어지지 않게 남는 폭을 고르게 (사용자 2026-11-25) */}
+            <table className="qd-table qd-table--hangul" data-grow="0">
               <thead>
                 <tr>
                   <th className="th">제조번호</th>

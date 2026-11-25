@@ -162,6 +162,27 @@ async function seedMasterData(t) {
   await rule('STERIL_BATCH', 'ST-{YY}{MM}-{SEQ:3}', 3);
   await rule('DEVIATION',    'DV-{YY}-{SEQ:3}', 3);
 
+  /*
+   * 출고는 주문 줄로만 한다 (0159 · 사용자 2026-11-25). 출고가 주제가 아닌 시험이 출고를 적을 때
+   * 그 로트 형명의 주문 줄을 바로 낸다 - insert 의 값 자리에서 t_order_line($1) 로 부른다.
+   * 시험 DB 에만 있는 함수다 (이관에 넣지 않는다). 부를 때마다 주문서를 새로 낸다.
+   */
+  await t.exec(`
+    create or replace function t_order_line(p_lot uuid) returns uuid
+    language plpgsql as $fn$
+    declare v_c uuid; v_o uuid; v_l uuid;
+    begin
+      select id into v_c from customer where name = '시험 거래처' and biz_no is null limit 1;
+      if v_c is null then
+        insert into customer (name, created_by) values ('시험 거래처', '${admin}') returning id into v_c;
+      end if;
+      insert into sales_order (customer_id, customer_po_no, ordered_on, created_by)
+      values (v_c, 'T-' || substr(md5(random()::text), 1, 10), current_date, '${admin}') returning id into v_o;
+      insert into sales_order_line (sales_order_id, item_id, qty)
+      select v_o, item_id, 100000 from product_lot where id = p_lot returning id into v_l;
+      return v_l;
+    end $fn$`);
+
   return {
     admin, qa, worker, worker2,
     supplier, supplierPending,

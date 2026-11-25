@@ -76,8 +76,8 @@ export default [
     const m = await master(t);
     const l = await lot(t, m);
     const ship = () => t.rows(
-      `insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by)
-       values ($1, '거래처', 1, current_date, $2)`, [l.id, m.admin]);
+      `insert into shipment (sales_order_line_id, product_lot_id, customer_name, qty, shipped_at, shipped_by)
+       values (t_order_line($1), $1, '거래처', 1, current_date, $2)`, [l.id, m.admin]);
     await t.rejects(ship, { message: '멸균 보고서가 없어 출고할 수 없습니다' });
     /* 멸균 회수만 되고 보고서 번호가 비었으면 아직이다 */
     const sb = await t.val(

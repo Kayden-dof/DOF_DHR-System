@@ -419,9 +419,9 @@ export default [
       `select qty_available from product_lot where id=$1`, [b.lotA]));
 
     await t.rows(
-      `insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by,
+      `insert into shipment (sales_order_line_id, product_lot_id, customer_name, qty, shipped_at, shipped_by,
                              release_request_no)
-       values ($1,'거래처갑',10,current_date,$2,$3)`,
+       values (t_order_line($1), $1,'거래처갑',10,current_date,$2,$3)`,
       [b.lotA, m.admin, await requestNo(t, m, b.wo.id, 'sh03')]);
 
     t.eq(Number(await t.val(`select qty_available from product_lot where id=$1`, [b.lotA])),
@@ -437,9 +437,9 @@ export default [
     const b = await batch(t, m);
     const no = await requestNo(t, m, b.wo.id, 'sh04');
     await t.rejects(
-      () => t.rows(`insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by,
+      () => t.rows(`insert into shipment (sales_order_line_id, product_lot_id, customer_name, qty, shipped_at, shipped_by,
                                           release_request_no)
-                    values ($1,'거래처을',9999,current_date,$2,$3)`, [b.lotA, m.admin, no]),
+                    values (t_order_line($1), $1,'거래처을',9999,current_date,$2,$3)`, [b.lotA, m.admin, no]),
       { code: 'P0001', message: '출하 가능 수량' });
   },
 },
@@ -471,12 +471,12 @@ export default [
     const b = await batch(t, m);
     await sterilReport(t, m, b.wo.id);
     await t.resolves(
-      () => t.rows(`insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by)
-                    values ($1,'거래처병',1,current_date,$2)`, [b.lotA, m.admin]));
+      () => t.rows(`insert into shipment (sales_order_line_id, product_lot_id, customer_name, qty, shipped_at, shipped_by)
+                    values (t_order_line($1), $1,'거래처병',1,current_date,$2)`, [b.lotA, m.admin]));
     await t.resolves(
-      () => t.rows(`insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by,
+      () => t.rows(`insert into shipment (sales_order_line_id, product_lot_id, customer_name, qty, shipped_at, shipped_by,
                                           release_request_no)
-                    values ($1,'거래처병',1,current_date,$2,'   ')`, [b.lotA, m.admin]));
+                    values (t_order_line($1), $1,'거래처병',1,current_date,$2,'   ')`, [b.lotA, m.admin]));
   },
 },
 
@@ -491,15 +491,15 @@ export default [
     const m = await master(t);
     const b = await batch(t, m);
     await t.resolves(
-      () => t.rows(`insert into shipment (product_lot_id, customer_name, qty, shipped_at,
+      () => t.rows(`insert into shipment (sales_order_line_id, product_lot_id, customer_name, qty, shipped_at,
                                           shipped_by, release_request_no)
-                    values ($1,'거래처정',1,current_date,$2,'RR-지어낸-01')`,
+                    values (t_order_line($1), $1,'거래처정',1,current_date,$2,'RR-지어낸-01')`,
                    [b.lotA, m.admin]));
     const no = await requestNo(t, m, b.wo.id, 'sh07');
     await t.rows(
-      `insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by,
+      `insert into shipment (sales_order_line_id, product_lot_id, customer_name, qty, shipped_at, shipped_by,
                              release_request_no)
-       values ($1,'거래처정',1,current_date,$2,$3)`, [b.lotA, m.admin, no]);
+       values (t_order_line($1), $1,'거래처정',1,current_date,$2,$3)`, [b.lotA, m.admin, no]);
   },
 },
 
@@ -511,9 +511,9 @@ export default [
     const b = await batch(t, m);
     const no = await requestNo(t, m, b.wo.id, 'sh08');
     const id = await t.val(
-      `insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by,
+      `insert into shipment (sales_order_line_id, product_lot_id, customer_name, qty, shipped_at, shipped_by,
                              release_request_no)
-       values ($1,'거래처무',1,current_date,$2,$3) returning id`, [b.lotA, m.admin, no]);
+       values (t_order_line($1), $1,'거래처무',1,current_date,$2,$3) returning id`, [b.lotA, m.admin, no]);
 
     /* 거래처 오기 정정 같은 정상 작업은 막지 않는다 */
     await t.rows(`update shipment set customer_name='거래처무역' where id=$1`, [id]);

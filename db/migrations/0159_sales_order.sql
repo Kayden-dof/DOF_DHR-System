@@ -213,3 +213,92 @@ end $fn$;
 drop trigger if exists sales_order_rules on sales_order;
 create trigger sales_order_rules before update on sales_order
   for each row execute function trg_so_rules();
+
+
+/* === 7. 출고는 주문 줄로 · 형명 일괄 검토 ================================= */
+/*
+ * 출고 전에 주문 형명을 맞대 본다 (사용자 «발주 형명이 맞는지 작업지시서 및 제조기록서 일괄 검토해서
+ * 출고시 오규격이 나가지 않도록»). DB 가 표에서 볼 수 있는 셋을 여기서 본다:
+ *   LOT   제품 로트 형명      로트 품목 = 주문 줄 품목
+ *   DMR   작업지시서 제품     주문 형명이 그 지시의 제품표준서 형명 (dm_models)
+ *   BAND  작업지시서 원료 두께 원료 로트 thickness_band = model_band(주문 형명). 한쪽이 비면 null(볼 수 없음)
+ * 제조기록서 재단 줄의 모델명은 칸 자리를 양식 코드가 알아서 처리 함수(ship)가 본다 (lib/ship-check.ts).
+ */
+create or replace function ship_spec_check(p_lot uuid, p_line uuid)
+returns table (kind text, label text, expected text, actual text, ok boolean)
+language sql stable
+set search_path = pg_catalog, public, pg_temp as $fn$
+  with x as (
+    select li.id as line_item, li.code as line_code, pi.id as lot_item, pi.code as lot_code,
+           wo.device_master_id as dm, coalesce(dm.product_code, di.code) as dm_code,
+           nullif(btrim(coalesce(ml.thickness_band, '')), '') as band,
+           model_band(li.code) as want_band
+      from sales_order_line l
+      join item li on li.id = l.item_id
+      cross join product_lot pl
+      join item pi on pi.id = pl.item_id
+      join work_order wo on wo.id = pl.work_order_id
+      join device_master dm on dm.id = wo.device_master_id
+      join item di on di.id = dm.item_id
+      join material_lot ml on ml.id = wo.material_lot_id
+     where l.id = p_line and pl.id = p_lot
+  )
+  select 'LOT', '제품 로트 형명', line_code, lot_code, line_item = lot_item from x
+  union all
+  select 'DMR', '작업지시서 제품', line_code, dm_code,
+         exists (select 1 from dm_models(x.dm) d where d.id = x.line_item) from x
+  union all
+  select 'BAND', '작업지시서 원료 두께', want_band, band,
+         case when band is null or want_band is null then null else band = want_band end from x
+$fn$;
+comment on function ship_spec_check(uuid, uuid) is
+  '출고 전 형명 검토 (0159). 제품 로트 형명 · 작업지시서 제품 · 원료 두께. ok 가 false 면 출고하지 않고, null 은 볼 수 없음';
+grant execute on function ship_spec_check(uuid, uuid) to app_role;
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'app_readonly') then
+    execute 'grant execute on function ship_spec_check(uuid, uuid) to app_readonly';
+  end if;
+end $$;
+
+create or replace function trg_shipment_order_line()
+returns trigger language plpgsql
+set search_path = pg_catalog, public, pg_temp as $fn$
+declare v_line_cancel timestamptz; v_order_cancel timestamptz; v_po text; v_lot text; r record;
+begin
+  if tg_op = 'UPDATE' then
+    if new.sales_order_line_id is not distinct from old.sales_order_line_id then return new; end if;
+    if new.sales_order_line_id is null then
+      raise exception '출고에서 주문 줄을 뗄 수 없습니다. 맞는 주문 줄로 바꾸십시오';
+    end if;
+    if nullif(btrim(coalesce(current_setting('app.change_reason', true), '')), '') is null then
+      raise exception '출고의 주문을 바꾸려면 사유를 적으십시오';
+    end if;
+  elsif new.sales_order_line_id is null then
+    raise exception '출고는 주문 줄을 골라야 합니다. 수주에서 주문을 먼저 적으십시오';
+  end if;
+
+  select l.cancelled_at, o.cancelled_at, o.customer_po_no
+    into v_line_cancel, v_order_cancel, v_po
+    from sales_order_line l join sales_order o on o.id = l.sales_order_id
+   where l.id = new.sales_order_line_id;
+  if v_order_cancel is not null then
+    raise exception '주문 %은(는) 취소되어 출고를 붙일 수 없습니다', v_po;
+  end if;
+  if v_line_cancel is not null then
+    raise exception '주문 %의 그 형명 줄은 취소되어 출고를 붙일 수 없습니다', v_po;
+  end if;
+
+  for r in select * from ship_spec_check(new.product_lot_id, new.sales_order_line_id) c where c.ok is false loop
+    select lot_no into v_lot from product_lot where id = new.product_lot_id;
+    raise exception '제조번호 %의 %이(가) 주문과 다릅니다 (주문 % · 실제 %). 오규격은 출고하지 않습니다',
+      v_lot, r.label, r.expected, coalesce(r.actual, '없음');
+  end loop;
+  return new;
+end $fn$;
+comment on function trg_shipment_order_line() is
+  '출고는 살아 있는 주문 줄로만, 형명 검토(ship_spec_check)가 다르면 거부. 주문 바꾸기는 사유 필수 (0159)';
+
+drop trigger if exists shipment_order_line on shipment;
+create trigger shipment_order_line before insert or update of sales_order_line_id on shipment
+  for each row execute function trg_shipment_order_line();

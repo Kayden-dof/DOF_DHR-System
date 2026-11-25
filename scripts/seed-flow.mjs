@@ -43,6 +43,22 @@ async function as(userId, fn) {
 }
 
 const one = async (sql, p = []) => (await client.query(sql, p)).rows[0];
+
+/**
+ * 출고는 주문 줄로만 한다 (0159 · 사용자 2026-11-25). 그 거래처 · 그 로트 형명으로 주문서를 한 장 내고
+ * 줄 id 를 돌려준다. as() 안에서 부른다 (주문서를 적은 사람 = 출고한 사람).
+ */
+async function orderLineFor(userId, lotId, customer, qty) {
+  const c = (await one(`select id from customer where name = $1 order by created_at limit 1`, [customer]))?.id
+    ?? (await one(`insert into customer (name, created_by) values ($1,$2) returning id`, [customer, userId])).id;
+  const o = (await one(
+    `insert into sales_order (customer_id, customer_po_no, ordered_on, created_by)
+     values ($1, 'DEMO-' || substr(md5(random()::text), 1, 8), (timezone('Asia/Seoul', now()))::date, $2)
+     returning id`, [c, userId])).id;
+  return (await one(
+    `insert into sales_order_line (sales_order_id, item_id, qty)
+     select $1, item_id, $3 from product_lot where id = $2 returning id`, [o, lotId, qty])).id;
+}
 const val = async (sql, p = []) => Object.values((await one(sql, p)) ?? {})[0];
 const all = async (sql, p = []) => (await client.query(sql, p)).rows;
 
@@ -619,11 +635,11 @@ const ship = lots[0];
 const requestNo = await releaseRequest(wo.id, wo.batch_no, [{ id: ship.id, qty: 40 }]);
 if (requestNo) say(`출하 승인 요청서 ${requestNo} 발행`);
 
-await as(mgrUser.id, () =>
+await as(mgrUser.id, async () =>
   client.query(
     `insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by,
-                           release_request_no, unit_from, unit_to)
-     values ($1,$2,$3,(timezone('Asia/Seoul', now()))::date,$4,$5,$6,$7)`,
+                           release_request_no, unit_from, unit_to, sales_order_line_id)
+     values ($1,$2,$3,(timezone('Asia/Seoul', now()))::date,$4,$5,$6,$7,$8)`,
     /*
      * 승인서 번호 없이는 출고가 기록되지 않는다 (0026).
      *
@@ -632,7 +648,8 @@ await as(mgrUser.id, () =>
      * 나온다.
      */
     [ship.id, '서울대학교병원', 40, mgrUser.id, requestNo,
-     ship.qty_sample + 1, ship.qty_sample + 40]));
+     ship.qty_sample + 1, ship.qty_sample + 40,
+     await orderLineFor(mgrUser.id, ship.id, '서울대학교병원', 40)]));
 say(`출고 ${ship.lot_no} 40개 (${ship.qty_sample + 1}~${ship.qty_sample + 40}번) · 서울대학교병원`);
 
 /* --- 제품 부적합 ---------------------------------------------------------- */
@@ -1008,12 +1025,13 @@ async function history(day, sheets, cuts, extra = {}) {
      * 가리키는 종이도 없어서, 시연에서 그 번호로 인쇄물을 찾으면 안 나왔다.
      */
     const rr = await releaseRequest(woId, batchNo, [{ id: lot.id, qty: extra.shipQty }]);
-    await as(mgrUser.id, () => client.query(
+    await as(mgrUser.id, async () => client.query(
       `insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by,
-                             release_request_no, unit_from, unit_to)
-       values ($1,$2,$3,$4::date,$5,$6,$7,$8)`,
+                             release_request_no, unit_from, unit_to, sales_order_line_id)
+       values ($1,$2,$3,$4::date,$5,$6,$7,$8,$9)`,
       [lot.id, extra.customer ?? '서울대학교병원', extra.shipQty, day, mgrUser.id, rr,
-       lot.qty_sample + 1, lot.qty_sample + extra.shipQty]));
+       lot.qty_sample + 1, lot.qty_sample + extra.shipQty,
+       await orderLineFor(mgrUser.id, lot.id, extra.customer ?? '서울대학교병원', extra.shipQty)]));
   }
 
   if (extra.scrap) {

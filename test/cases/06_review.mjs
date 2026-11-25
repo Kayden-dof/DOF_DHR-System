@@ -592,9 +592,9 @@ export default [
     t.eq(await t.val(`select next_unit_seq($1)`, [lot]), 3, '시료 2개 다음');
 
     await t.rows(
-      `insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by,
+      `insert into shipment (sales_order_line_id, product_lot_id, customer_name, qty, shipped_at, shipped_by,
                              release_request_no, unit_from, unit_to)
-       values ($1,'A병원',10,current_date,$2,$3,3,12)`,
+       values (t_order_line($1), $1,'A병원',10,current_date,$2,$3,3,12)`,
       [lot, m.admin, await releaseRequestNo(t, m, wo.id, 'sn01')]);
 
     t.eq(await t.val(`select next_unit_seq($1)`, [lot]), 13, '나간 범위 다음');
@@ -614,17 +614,17 @@ export default [
       `select cut_product_lot($1,$2,$3,$4,current_date)`, [wo.id, m.fin, 40, 2]);
 
     await t.rows(
-      `insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by,
+      `insert into shipment (sales_order_line_id, product_lot_id, customer_name, qty, shipped_at, shipped_by,
                              release_request_no, unit_from, unit_to)
-       values ($1,'A병원',10,current_date,$2,$3,3,12)`,
+       values (t_order_line($1), $1,'A병원',10,current_date,$2,$3,3,12)`,
       [lot, m.admin, await releaseRequestNo(t, m, wo.id, 'sn02a')]);
 
     const rr2 = await releaseRequestNo(t, m, wo.id, 'sn02b');
     await t.rejects(
       () => t.rows(
-        `insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by,
+        `insert into shipment (sales_order_line_id, product_lot_id, customer_name, qty, shipped_at, shipped_by,
                                release_request_no, unit_from, unit_to)
-         values ($1,'B병원',5,current_date,$2,$3,10,14)`, [lot, m.admin, rr2]),
+         values (t_order_line($1), $1,'B병원',5,current_date,$2,$3,10,14)`, [lot, m.admin, rr2]),
       { code: 'P0001', message: '겹칩니다' });
     await t.setActor(null);
   },
@@ -644,16 +644,16 @@ export default [
     const rr = await releaseRequestNo(t, m, wo.id, 'sn03');
     await t.rejects(
       () => t.rows(
-        `insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by,
+        `insert into shipment (sales_order_line_id, product_lot_id, customer_name, qty, shipped_at, shipped_by,
                                release_request_no, unit_from, unit_to)
-         values ($1,'A병원',2,current_date,$2,$3,1,2)`, [lot, m.admin, rr]),
+         values (t_order_line($1), $1,'A병원',2,current_date,$2,$3,1,2)`, [lot, m.admin, rr]),
       { code: 'P0001', message: '시료' });
 
     await t.rejects(
       () => t.rows(
-        `insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by,
+        `insert into shipment (sales_order_line_id, product_lot_id, customer_name, qty, shipped_at, shipped_by,
                                release_request_no, unit_from, unit_to)
-         values ($1,'A병원',5,current_date,$2,$3,38,42)`, [lot, m.admin, rr]),
+         values (t_order_line($1), $1,'A병원',5,current_date,$2,$3,38,42)`, [lot, m.admin, rr]),
       { code: 'P0001', message: '개까지입니다' });
     await t.setActor(null);
   },
@@ -673,9 +673,9 @@ export default [
     const rr = await releaseRequestNo(t, m, wo.id, 'sn04');
     await t.rejects(
       () => t.rows(
-        `insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by,
+        `insert into shipment (sales_order_line_id, product_lot_id, customer_name, qty, shipped_at, shipped_by,
                                release_request_no, unit_from, unit_to)
-         values ($1,'A병원',7,current_date,$2,$3,3,12)`, [lot, m.admin, rr]),
+         values (t_order_line($1), $1,'A병원',7,current_date,$2,$3,3,12)`, [lot, m.admin, rr]),
       { code: 'P0001', message: '출고 수량' });
     await t.setActor(null);
   },
@@ -759,9 +759,9 @@ export default [
     const lotNo = await t.val(`select lot_no from product_lot where id = $1`, [lot]);
 
     await t.rows(
-      `insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by,
+      `insert into shipment (sales_order_line_id, product_lot_id, customer_name, qty, shipped_at, shipped_by,
                              release_request_no, unit_from, unit_to)
-       values ($1,'A병원',10,current_date,$2,$3,3,12)`,
+       values (t_order_line($1), $1,'A병원',10,current_date,$2,$3,3,12)`,
       [lot, m.admin, await releaseRequestNo(t, m, wo.id, 'bd01')]);
 
     const at = async (n) => (await t.rows(
