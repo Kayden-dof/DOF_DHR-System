@@ -809,6 +809,21 @@ const pt = (v: number) => `${v}pt`;
  */
 const SYS_BLUE = '#1d4ed8';
 
+/*
+ * 단위를 칸 오른쪽에 미리 (사용자 2026-11-25 «이런거 단위 우측 정렬로 사전에 좀 넣어놔주고»).
+ * 비어 있으면 단위만 양식 글처럼 오른쪽에, 적었으면 값은 가운데 · 단위는 그 자리 그대로.
+ */
+function UnitRight({ t, u }: { t: string; u: string }) {
+  const v = t === u ? '' : t.endsWith(` ${u}`) ? t.slice(0, -(u.length + 1)) : t;
+  return (
+    <>
+      {v}
+      <span style={{ position: 'absolute', right: pt(4), top: '50%', transform: 'translateY(-50%)',
+                     color: '#000', fontWeight: 400 }}> {u}</span>
+    </>
+  );
+}
+
 /** 양식 글 가운데 시스템이 적은 조각(■ 1 L)만 파랗게 */
 function marked(text: string, tokens: string[]) {
   const out: React.ReactNode[] = [];
@@ -946,15 +961,19 @@ export function FormBody({ page, size, formPage, onCell, active }: {
                         /* 시스템 값이 있는 칸(sv)은 고칠 수 있을 뿐 빈 칸이 아니다 */
                         /* 비어 있는 서명 · 확인자 칸은 해당할 때 적는 칸처럼 점선으로 */
                         ? (c.v || (c.sv !== undefined && !(c.sg && !c.sv)) || c.off ? 'done'
-                          : c.op || c.sg ? 'cond' : 'open') : undefined}
+                          /* 작업자 · 일자 서명 칸은 꼭 적는 칸 (사용자 2026-11-25). 확인자 칸만 해당할 때 */
+                          : c.op || c.ck ? 'cond' : 'open') : undefined}
                       data-active={onCell && c.id && c.id === active ? '' : undefined}
                       onClick={onCell && c.id ? () => onCell(c) : undefined}
                       style={{
                         textAlign: c.a === 'l' ? 'left' : c.a === 'r' ? 'right' : 'center',
                         fontSize: pt(c.s ?? 10), fontWeight: c.b ? 700 : 400,
                         color: c.f ? SYS_BLUE : undefined,
+                        ...(c.ur && c.u ? { position: 'relative' as const, paddingRight: pt(18) } : {}),
                       }}>
-                    {c.tk?.length ? marked(c.t ?? '', c.tk) : (c.t ?? '')}
+                    {c.tk?.length ? marked(c.t ?? '', c.tk)
+                      : c.ur && c.u ? <UnitRight t={c.t ?? ''} u={c.u} />
+                      : (c.t ?? '')}
                   </td>
                 ))}
               </tr>

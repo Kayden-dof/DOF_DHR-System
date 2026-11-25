@@ -93,6 +93,11 @@ export interface FormCell {
   bs?: { id: string; base: number; lo: number; hi: number; u: string };
   /** 기준 생산량 칸 (정제수 줄 결과). 값은 양식 허용범위의 기준 L */
   bb?: number;
+  /**
+   * 단위를 칸 오른쪽에 미리 둔다 (세부공정 결과 수치 칸 · 사용자 2026-11-25 «이런거 단위 우측 정렬로
+   * 사전에 좀 넣어놔주고»). 비어 있어도 단위가 보이고, 적은 값은 가운데에 선다.
+   */
+  ur?: boolean;
 }
 
 /** 별첨이 따르는 원액 로트 (원액 제조 기록 · 0118 · 0119) */
@@ -349,7 +354,7 @@ export function fillForm(form: BrForm, given: FillData): {
     const val = own && own.value !== '' ? own.value : '';
     Object.assign(cell, {
       t: val ? `${val} ${uom}`.trim() : sys, f: true, a: 'c' as const, b: false, s: sz,
-      id, k: 'number' as const, u: uom || undefined, sv: sys, lb, v: val || undefined,
+      id, k: 'number' as const, u: uom || undefined, sv: sys, lb, v: val || undefined, ur: true,
     });
     if (own && val && val !== qty) {
       changes.push({
@@ -847,6 +852,10 @@ export function fillForm(form: BrForm, given: FillData): {
       if (u) c.u = u;
     }
     if (k === 'time' && t.includes('/')) c.dt = true;
+    /* «시작 : ~ 종료 :» 는 가운데에 (사용자 2026-11-25 «이거 정렬 좀 해주고») */
+    if (k === 'time') c.a = 'c';
+    /* 세부공정 결과 수치 칸은 단위를 오른쪽에 미리 둔다 (사용자 2026-11-25) */
+    if (k === 'number' && x.section === 'step') c.ur = true;
     /*
      * 빈 칸은 양식에서 글자 크기 없이 뽑혀 기본 10 으로 그려졌다. 그 칸에 적은 값(«65 rpm»)만 옆 칸
      * («시작 ~ 종료», 양식 글 11)보다 작게 보였다 (사용자 2026-11-25 «RPM 글자크기 왜 달라?»).
@@ -1076,11 +1085,19 @@ export function fixedEquipCodes(form: BrForm): string[] {
 
 /** 사람이 적을 칸 목록 (화면이 몇 칸 적었는지 센다). 서명 칸은 적을 칸이 아니다 (0140) */
 export function fieldsOf(pages: FormPage[]) {
-  /* 시스템 값을 덮어쓸 수 있는 칸(sv · 서명 · 결과)은 적을 칸이 아니다 */
+  /* 시스템이 셈해 덮어쓸 수 있는 결과 칸(sv)은 적을 칸이 아니다 */
   /* 같은 묶음의 다른 칸이 골라진 표시 칸(off)도 적을 칸이 아니다 */
+  /*
+   * 작업(검사)자 · 일자 서명 칸은 적을 칸이다 (사용자 2026-11-25 «작업자 및 일자는 선택 아냐..
+   * 필수로 입력하게 해줘야 함»). 시스템이 미리 채웠으면 적은 것으로 센다 (cellDone). 확인자 ·
+   * 확인일자는 확인하는 사람이 있을 때 적는 칸이라 세지 않는다.
+   */
   return pages.flatMap((p) => p.tables.flatMap((t) => t.rows.flatMap((r) =>
-    r.cells.filter((c) => c.id && !c.sg && c.sv === undefined && !c.off))));
+    r.cells.filter((c) => c.id && !c.off && (c.sg ? !c.ck : c.sv === undefined)))));
 }
+
+/** 적힌 칸인가 - 적은 값, 서명 칸이면 시스템이 미리 채운 값도 */
+export const cellDone = (c: FormCell) => !!(c.v || (c.sg && c.sv));
 
 /** 머리 · 꼬리 글 가운데 쪽 번호 ("1 / 2", "1 / __") */
 export const isPageLabel = (t: string) => /^\d+\s*\/\s*(\d+|_+)$/.test(t.trim());

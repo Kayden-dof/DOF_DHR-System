@@ -19,7 +19,7 @@
 --------------------------------------------------------------------------- */
 import type { Db } from './db';
 import {
-  fillForm, fieldsOf, type BrForm, type Entry, type FillData, type FillIssue, type FillReturn, type FormPage,
+  fillForm, fieldsOf, cellDone, type BrForm, type Entry, type FillData, type FillIssue, type FillReturn, type FormPage,
   type SignChange, type SolutionFill, type CutLot,
 } from './br-form';
 
@@ -246,7 +246,7 @@ export async function solutionSheet(db: Db, lotId: string, docId?: string | null
     }
     return {
       docId: doc.id, docNo: doc.doc_no, label: formLabel(doc.title, false).replace(/^별첨 · /, ''), main: i === 0,
-      inUse: true, total: need.length, done: need.filter((c) => c.v).length,
+      inUse: true, total: need.length, done: need.filter(cellDone).length,
     };
   });
   const doc = docs[at];
@@ -366,7 +366,7 @@ export async function brSheet(db: Db, recordId: string, docId?: string | null): 
     const all = linked ? [] : fieldsOf(filled.pages);
     const need = all.filter((c) => !c.op);
     /* 아직 적지 않은 꼭 적을 칸 - 원액 로트를 따르는 별첨이면 그 로트 기록서의 것 */
-    const pend = fieldsOf(filled.pages).filter((c) => !c.op && !c.v).map((c) => c.lb ?? '칸');
+    const pend = fieldsOf(filled.pages).filter((c) => !c.op && !cellDone(c)).map((c) => c.lb ?? '칸');
     if (i === at) {
       shown = filled.pages;
       changes = filled.changes;
@@ -377,7 +377,7 @@ export async function brSheet(db: Db, recordId: string, docId?: string | null): 
       docId: doc.id, docNo: doc.doc_no, label: formLabel(doc.title, i === 0), main: i === 0,
       /* 별첨은 적은 칸이 있거나 따르는 원액 로트가 있을 때 쓰인다 */
       inUse: i === 0 || Object.keys(entries).length > 0 || !!sol,
-      total: need.length, done: need.filter((c) => c.v).length,
+      total: need.length, done: need.filter(cellDone).length,
       missing: pend,
       lot: linked && sol?.lotId ? { id: sol.lotId, no: sol.info.lot_no } : undefined,
     };
