@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { withActor, dbMessage } from '@/lib/db';
-import { requireUser, hasRole } from '@/lib/session';
+import { requireRole } from '@/lib/session';
 import type { FormState } from '@/lib/forms';
 
 /* ---------------------------------------------------------------------------
@@ -10,13 +10,7 @@ import type { FormState } from '@/lib/forms';
    고치고 지울 수 있고, 고친 것은 감사추적에 남는다.
 --------------------------------------------------------------------------- */
 
-async function planner() {
-  const user = await requireUser();
-  if (!hasRole(user, 'SYS_ADMIN', 'PROD_MGR')) {
-    throw new Error('생산관리자 또는 시스템관리자만 일정을 고칠 수 있습니다');
-  }
-  return user;
-}
+const planner = () => requireRole(['SYS_ADMIN', 'PROD_MGR'], '생산관리자 또는 시스템관리자만 일정을 고칠 수 있습니다');
 
 const done = () => { revalidatePath('/production/plan'); revalidatePath('/production'); };
 const minOf = (v: FormDataEntryValue | null) => {

@@ -3,7 +3,7 @@ import { requireUser } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import { fmtDate, fmtDateTime, chem } from '@/lib/fmt';
 import { logPrint, printGate, viewParam } from '@/lib/print';
-import Denied from '@/components/denied';
+import { PrintDenied } from '@/components/denied';
 import PrintFrame, { Sheet, SignRow, FormSheet } from '@/components/print-frame';
 import { type BrForm, type FillReturn, type CutLot } from '@/lib/br-form';
 import { fillOne, linkedSolution, type SolutionLink } from '@/lib/br-sheet';
@@ -186,13 +186,7 @@ export default async function DayRecordSheet({ params, searchParams }: {
   const sp = await searchParams;
   const view = viewParam(sp.view);
   const { denied } = await printGate(!!view);
-  if (denied) {
-    return (
-      <Denied what="인쇄물" need="생산관리자 · 시스템관리자 또는 품질책임자">
-        이미 나간 종이는 인쇄 이력의 <b>보기</b>로 여십시오.
-      </Denied>
-    );
-  }
+  if (denied) return <PrintDenied />;
   /* 확인해 볼 항목에서 열었으면 그 항목이 가리키는 칸을 표시한다 (열람에서만 · «종류|ref») */
   return <DayRecordDoc id={id} dayNo={Number(day)} worker={worker} view={view}
                        hl={view && typeof sp.hl === 'string' ? sp.hl : undefined} />;

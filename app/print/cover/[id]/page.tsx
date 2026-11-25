@@ -5,7 +5,7 @@ import { openSteps } from '@/lib/batch-open';
 import { fmtDate, chem } from '@/lib/fmt';
 import { logPrint, printGate, viewParam } from '@/lib/print';
 import { chunkRows } from '@/lib/print-pages';
-import Denied from '@/components/denied';
+import { PrintDenied } from '@/components/denied';
 import PrintFrame, { Sheet, SignRow, SelfIssue } from '@/components/print-frame';
 import { getBrand } from '@/lib/brand';
 
@@ -55,13 +55,7 @@ export default async function CoverSheet({ params, searchParams }: {
   const { id } = await params;
   const view = viewParam((await searchParams).view);
   const { denied } = await printGate(!!view);
-  if (denied) {
-    return (
-      <Denied what="인쇄물" need="생산관리자 · 시스템관리자 또는 품질책임자">
-        이미 나간 종이는 인쇄 이력의 <b>보기</b>로 여십시오.
-      </Denied>
-    );
-  }
+  if (denied) return <PrintDenied />;
   const user = await requireUser();
   /* 보존 기간은 설정에서 온다 (§2.0 · GMP 점검 A6). 코드가 정하지 않는다 */
   const { recordRetentionYears } = await getBrand();

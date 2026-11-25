@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { withActor, dbMessage } from '@/lib/db';
-import { requireUser, hasRole } from '@/lib/session';
+import { requireRole } from '@/lib/session';
 import type { FormState } from '@/lib/forms';
 import {
   CLEAN_CLASSES, MIN_RECT_MM, parseRects, snap, type Rect,
@@ -15,13 +15,7 @@ import {
    또는 시스템관리자. 지운 방 · 옮긴 자리는 모두 감사추적에 이전 값과 함께 남는다.
 --------------------------------------------------------------------------- */
 
-async function admin() {
-  const user = await requireUser();
-  if (!hasRole(user, 'SYS_ADMIN', 'PROD_MGR')) {
-    throw new Error('생산관리자 또는 시스템관리자만 배치도를 고칠 수 있습니다');
-  }
-  return user;
-}
+const admin = () => requireRole(['SYS_ADMIN', 'PROD_MGR'], '생산관리자 또는 시스템관리자만 배치도를 고칠 수 있습니다');
 
 const txt = (v: FormDataEntryValue | null) => {
   const s = String(v ?? '').trim();

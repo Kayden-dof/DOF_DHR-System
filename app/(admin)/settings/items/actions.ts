@@ -2,16 +2,12 @@
 
 import { revalidatePath } from 'next/cache';
 import { withActor, dbMessage } from '@/lib/db';
-import { requireUser, hasRole } from '@/lib/session';
+import { requireRole } from '@/lib/session';
 import { ITEM_TYPES, type FormState } from '@/lib/forms';
 
-async function admin() {
-  const user = await requireUser();
-  // 생산 품목 셋업은 생산관리자의 일이다 (사용자 지시 2026-08-27).
-  // 계정 · 채번 · 공급자는 여전히 시스템관리자만 만진다.
-  if (!hasRole(user, 'SYS_ADMIN', 'PROD_MGR')) throw new Error('생산관리자 또는 시스템관리자만 기준정보를 관리할 수 있습니다');
-  return user;
-}
+// 생산 품목 셋업은 생산관리자의 일이다 (사용자 지시 2026-08-27).
+// 계정 · 채번 · 공급자는 여전히 시스템관리자만 만진다.
+const admin = () => requireRole(['SYS_ADMIN', 'PROD_MGR'], '생산관리자 또는 시스템관리자만 기준정보를 관리할 수 있습니다');
 
 const num = (v: FormDataEntryValue | null) => {
   const s = String(v ?? '').trim();

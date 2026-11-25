@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { withActor, dbMessage } from '@/lib/db';
-import { requireUser, hasRole } from '@/lib/session';
+import { requireRole, requireUser, hasRole } from '@/lib/session';
 import { hashPin } from '@/lib/auth';
 import type { FormState } from '@/lib/forms';
 import { ROLE_LABEL, ROLE_ORDER } from '@/lib/roles';
@@ -29,13 +29,7 @@ import { ROLE_LABEL, ROLE_ORDER } from '@/lib/roles';
    개발 계정 표시도 같다. 비밀번호 초기화 권한이 거기 매여 있어(setPin),
    그것을 켤 수 있으면 남의 이름으로 기록을 남길 수 있게 된다.
 --------------------------------------------------------------------------- */
-async function admin() {
-  const user = await requireUser();
-  if (!hasRole(user, 'SYS_ADMIN', 'PROD_MGR')) {
-    throw new Error('생산관리자 또는 시스템관리자만 계정을 관리할 수 있습니다');
-  }
-  return user;
-}
+const admin = () => requireRole(['SYS_ADMIN', 'PROD_MGR'], '생산관리자 또는 시스템관리자만 계정을 관리할 수 있습니다');
 
 export async function createUser(_prev: FormState, form: FormData): Promise<FormState> {
   try {

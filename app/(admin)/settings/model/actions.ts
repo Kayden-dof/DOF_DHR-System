@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { withActor, dbMessage } from '@/lib/db';
-import { requireUser, hasRole } from '@/lib/session';
+import { requireRole } from '@/lib/session';
 import type { FormState } from '@/lib/forms';
 
 /* ---------------------------------------------------------------------------
@@ -23,13 +23,7 @@ import type { FormState } from '@/lib/forms';
    걸어 둔 이유가 그것이다 (0081). 여기서도 그 사실을 화면이 말한다.
 --------------------------------------------------------------------------- */
 
-async function admin() {
-  const user = await requireUser();
-  if (!hasRole(user, 'SYS_ADMIN')) {
-    throw new Error('시스템관리자만 형명 체계를 정할 수 있습니다');
-  }
-  return user;
-}
+const admin = () => requireRole(['SYS_ADMIN'], '시스템관리자만 형명 체계를 정할 수 있습니다');
 
 const txt = (v: FormDataEntryValue | null) => String(v ?? '').trim();
 const int = (v: FormDataEntryValue | null, label: string): number => {

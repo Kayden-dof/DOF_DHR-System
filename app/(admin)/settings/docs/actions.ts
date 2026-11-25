@@ -2,20 +2,14 @@
 
 import { revalidatePath } from 'next/cache';
 import { withActor, dbMessage } from '@/lib/db';
-import { requireUser, hasRole } from '@/lib/session';
+import { requireRole } from '@/lib/session';
 import type { FormState } from '@/lib/forms';
 
 /*
  * 개정 제안은 생산을 맡은 사람이 낸다 (시스템관리자 · 생산관리자).
  * 품질책임자는 읽기 전용 세션이라 DB 가 쓰기를 받지 않는다 - 제안을 받는 쪽이다.
  */
-async function writer() {
-  const user = await requireUser();
-  if (!hasRole(user, 'SYS_ADMIN', 'PROD_MGR')) {
-    throw new Error('시스템관리자 또는 생산관리자가 개정 제안을 낼 수 있습니다');
-  }
-  return user;
-}
+const writer = () => requireRole(['SYS_ADMIN', 'PROD_MGR'], '시스템관리자 또는 생산관리자가 개정 제안을 낼 수 있습니다');
 
 const txt = (v: FormDataEntryValue | null) => String(v ?? '').trim();
 

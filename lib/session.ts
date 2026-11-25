@@ -344,6 +344,19 @@ export function hasRole(user: SessionUser, ...roles: RoleCode[]): boolean {
   return roles.some((r) => user.roles.includes(r));
 }
 
+/*
+ * 서버 액션의 문지기 (최적화 2026-11-25).
+ *
+ * 액션 파일마다 «로그인 확인 → 역할 확인 → 아니면 그 화면의 말로 던진다» 를
+ * 대여섯 줄씩 따로 적고 있었다. 던지는 말은 화면마다 달라 부르는 쪽이 넘긴다.
+ * 판정은 hasRole 그대로다 - 실제 차단은 여전히 DB 가 한다.
+ */
+export async function requireRole(roles: RoleCode[], denied: string): Promise<SessionUser> {
+  const user = await requireUser();
+  if (!hasRole(user, ...roles)) throw new Error(denied);
+  return user;
+}
+
 /* ---------------------------------------------------------------------------
    자동 잠금을 걸지 않는가 (0153 · 사용자 2026-11-20)
 

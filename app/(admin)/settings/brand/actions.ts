@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { withActor, dbMessage } from '@/lib/db';
-import { requireUser, hasRole } from '@/lib/session';
+import { requireRole } from '@/lib/session';
 import type { FormState } from '@/lib/forms';
 
 /* ---------------------------------------------------------------------------
@@ -35,13 +35,7 @@ const KINDS: Record<string, string> = {
 /** PNG 는 이 여덟 바이트로 시작한다. 이름만 .png 인 파일을 걸러 낸다 */
 const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
-async function admin() {
-  const user = await requireUser();
-  if (!hasRole(user, 'SYS_ADMIN')) {
-    throw new Error('시스템관리자만 회사 표시를 바꿀 수 있습니다');
-  }
-  return user;
-}
+const admin = () => requireRole(['SYS_ADMIN'], '시스템관리자만 회사 표시를 바꿀 수 있습니다');
 
 function bump() {
   /* 머리줄 · 바닥글 · 로그인 · 인쇄물이 전부 이 값을 쓴다 */

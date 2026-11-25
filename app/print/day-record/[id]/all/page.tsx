@@ -3,7 +3,7 @@ import { requireUser } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import { PrintBar, PrintBundle } from '@/components/print-frame';
 import { printGate } from '@/lib/print';
-import Denied from '@/components/denied';
+import { PrintDenied } from '@/components/denied';
 import { DayRecordDoc } from '../[day]/[worker]/page';
 
 export const dynamic = 'force-dynamic';
@@ -51,13 +51,7 @@ export default async function DayRecordBundle({ params }: {
    * 단추 자리에는 발행은 생산관리자가 한다고 적힌다 (lib/print.ts).
    */
   const { denied } = await printGate(false);
-  if (denied) {
-    return (
-      <Denied what="인쇄물" need="생산관리자 · 시스템관리자 또는 품질책임자">
-        이미 나간 종이는 인쇄 이력의 <b>보기</b>로 여십시오.
-      </Denied>
-    );
-  }
+  if (denied) return <PrintDenied />;
   const user = await requireUser();
   const { id } = await params;
 

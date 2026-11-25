@@ -4,7 +4,7 @@ import { requireUser } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import { fmtDate } from '@/lib/fmt';
 import { logPrint, printGate, viewParam } from '@/lib/print';
-import Denied from '@/components/denied';
+import { PrintDenied } from '@/components/denied';
 import PrintFrame, { SignRow } from '@/components/print-frame';
 
 export const dynamic = 'force-dynamic';
@@ -46,13 +46,7 @@ export default async function LabelRequestSheet({ params, searchParams }: {
   const { id } = await params;
   const view = viewParam((await searchParams).view);
   const { denied } = await printGate(!!view);
-  if (denied) {
-    return (
-      <Denied what="인쇄물" need="생산관리자 · 시스템관리자 또는 품질책임자">
-        이미 나간 종이는 인쇄 이력의 <b>보기</b>로 여십시오.
-      </Denied>
-    );
-  }
+  if (denied) return <PrintDenied />;
   const user = await requireUser();
 
   const d = await withActor(user.id, async (db) => {

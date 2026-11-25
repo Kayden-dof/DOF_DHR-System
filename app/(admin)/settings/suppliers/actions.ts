@@ -2,14 +2,10 @@
 
 import { revalidatePath } from 'next/cache';
 import { withActor, dbMessage } from '@/lib/db';
-import { requireUser, hasRole } from '@/lib/session';
+import { requireRole } from '@/lib/session';
 import type { FormState } from '@/lib/forms';
 
-async function admin() {
-  const user = await requireUser();
-  if (!hasRole(user, 'SYS_ADMIN')) throw new Error('시스템관리자만 공급자를 관리할 수 있습니다');
-  return user;
-}
+const admin = () => requireRole(['SYS_ADMIN'], '시스템관리자만 공급자를 관리할 수 있습니다');
 
 const txt = (v: FormDataEntryValue | null) => {
   const s = String(v ?? '').trim();
