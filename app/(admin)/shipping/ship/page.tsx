@@ -99,7 +99,7 @@ export default async function ShipPage({ searchParams }: { searchParams: Search 
        * 걸린 배치의 로트도 재고가 있으면 내보낸다 («꼭 작업지시서에 엮인 주문줄이 아니어도 나갈수있도록») - 표시만 한다.
        */
       const base = await db.rows<PlOpt & { for_line: boolean; other_orders: string | null }>(
-        `select x.* from (
+        `select x.*, k.for_line, k.other_orders from (
            ${LOTS} and pl.item_id = $1 and lot_steril_report(pl.id) is not null
          ) x
          cross join lateral (
@@ -111,7 +111,8 @@ export default async function ShipPage({ searchParams }: { searchParams: Search 
                      join sales_order_line sl on sl.id = w.sales_order_line_id
                      join sales_order o on o.id = sl.sales_order_id
                     where w.work_order_id = x.wo_id and w.unlinked_at is null
-                      and w.sales_order_line_id <> $2) as other_orders
+                      and w.sales_order_line_id <> $2
+                      and sl.cancelled_at is null and o.cancelled_at is null) as other_orders
          ) k
          order by k.for_line desc, x.expiry_date, x.lot_no`, [line.item_id, line.id]);
       for (const l of base) {

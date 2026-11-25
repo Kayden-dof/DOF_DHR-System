@@ -12,7 +12,7 @@
 
 import type { Db } from './db';
 import { brSheet } from './br-sheet';
-import { cutRowCheck, type CutRowCell, type SpecRow } from './ship-check';
+import { brReview, type CutRowCell, type SpecRow } from './ship-check';
 
 /** 그 배치 재단 공정 기록마다의 재단 칸. 재단 기록이 없거나 양식에 재단 표가 없으면 빈 배열 */
 export async function cutCellsOf(db: Db, woId: string): Promise<CutRowCell[][]> {
@@ -52,13 +52,7 @@ export async function shipReview(
     sets = await cutCellsOf(db, lot.wo);
     cache?.set(lot.wo, sets);
   }
-  const results = sets.map((cells) => cutRowCheck(cells, lot.lot_no, lot.idx, lot.code));
-  const bad = results.find((r) => r.ok === false);
-  const br: SpecRow = {
-    kind: 'BR', label: '제조기록서 재단 줄 모델명', expected: lot.code,
-    actual: bad ? bad.actual : (results.find((r) => r.ok)?.actual ?? null),
-    ok: bad ? false : results.some((r) => r.ok) ? true : null,
-  };
+  const br = brReview(sets, lot.lot_no, lot.idx, lot.code);
   return [
     ...spec, br,
     { kind: 'STERIL', label: '멸균 보고서', expected: null, actual: lot.report, ok: !!lot.report },

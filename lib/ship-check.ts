@@ -64,3 +64,30 @@ export function specMessage(r: SpecRow): string {
   }
   return `${r.label}이(가) 주문과 다릅니다 (주문 ${r.expected ?? '-'} · 실제 ${r.actual || '없음'}). 오규격은 출고하지 않습니다`;
 }
+
+/**
+ * 배치의 재단 기록(회차마다 한 묶음)을 모두 보고 이 로트의 재단 줄 모델명을 판정한다.
+ * 재단을 여러 날에 하면 회차마다 그날 로트를 적으므로, 제조번호가 맞는 줄을 모든 회차에서 먼저 모은다 -
+ * 맞는 줄이 있으면 그 줄들만 보고(하나라도 모델명이 다르면 다름), 어느 회차에도 없을 때만 칸이 빈
+ * n번째 줄(cutRowCheck)로 가고, 그것도 없으면 막는다. 재단 기록서가 없으면 볼 수 없음.
+ */
+export function brReview(sets: CutRowCell[][], lotNo: string, lotIndex: number, orderCode: string): SpecRow {
+  const base = { kind: 'BR' as const, label: '제조기록서 재단 줄 모델명', expected: orderCode };
+  const live = sets.filter((s) => s.length > 0);
+  if (live.length === 0) return { ...base, actual: null, ok: null };
+
+  const want = alnum(lotNo);
+  const found = live.flatMap((cells) => cells
+    .filter((c) => c.role === 'cutlot' && alnum(c.value) === want)
+    .map((c) => cells.find((x) => x.row === c.row && x.role === 'model')?.value ?? ''));
+  if (found.length > 0) {
+    const bad = found.find((v) => alnum(v) !== alnum(orderCode));
+    return bad !== undefined ? { ...base, actual: bad, ok: false } : { ...base, actual: found[0], ok: true };
+  }
+
+  const nth = live.map((cells) => cutRowCheck(cells, lotNo, lotIndex, orderCode)).filter((r) => r.row !== null);
+  const wrong = nth.find((r) => r.ok === false);
+  if (wrong) return { ...base, actual: wrong.actual, ok: false };
+  if (nth.length > 0) return { ...base, actual: nth[0].actual, ok: true };
+  return { ...base, actual: null, ok: false };
+}

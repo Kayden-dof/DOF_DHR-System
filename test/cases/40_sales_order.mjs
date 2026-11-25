@@ -218,7 +218,7 @@ export default [
     t.eq(await t.val(`select so_line_left($1)`, [lines.PD05050510]), -5, '남음');
     t.eq(await t.val(`select so_status($1)`, [o]), 'DONE', '상태');
     await t.rejects(
-      () => t.rows(`update sales_order_line set qty = 9 where id = $1`, [lines.PD05050510]),
+      () => t.rows(`update sales_order_line set qty = 4 where id = $1`, [lines.PD05050510]),
       { code: 'P0001', message: '줄일 수 없' });
   },
 },
@@ -401,6 +401,98 @@ export default [
       [wo.id, a, m.admin]);
     await t.resolves(() => ship(t, m, lot, b, 3));
     t.eq(await t.val(`select so_line_left($1)`, [b]), 7, '걸리지 않은 주문에서 준다');
+  },
+},
+
+
+{
+  id: 'SO-19', expect: '통과 · 예외',
+  name: '넘게 나간 줄도 주문 수량을 늘리는 고치기는 받고, 더 줄이는 것만 막는다',
+  async run(t) {
+    const m = await master(t);
+    const { lines } = await order(t, m, { po: 'SO19', lines: [['PD05050510', 5]] });
+    const { lot } = await readyLot(t, m);
+    await ship(t, m, lot, lines.PD05050510, 10);
+    const set = (q) => t.rows(`update sales_order_line set qty = $2 where id = $1`, [lines.PD05050510, q]);
+    await t.resolves(() => set(8));
+    await t.rejects(() => set(7), { code: 'P0001', message: '줄일 수 없' });
+    await t.resolves(() => set(12));
+    await t.rejects(() => set(9), { code: 'P0001', message: '줄일 수 없' });
+  },
+},
+
+{
+  id: 'SO-20', expect: '통과 · 예외',
+  name: '취소한 형명 줄은 같은 주문에 다시 더할 수 있고, 살아 있는 같은 형명 줄은 하나',
+  async run(t) {
+    const m = await master(t);
+    const { order: o, lines } = await order(t, m, { po: 'SO20', lines: [['PD05050510', 5], ['PD10150510', 5]] });
+    await t.rows(`update sales_order_line set cancelled_at = now(), cancel_reason = '시험' where id = $1`, [lines.PD05050510]);
+    const add = () => t.rows(
+      `insert into sales_order_line (sales_order_id, item_id, qty, seq)
+       values ($1, (select id from item where code = 'PD05050510'), 7, 3)`, [o]);
+    await t.resolves(add);
+    await t.rejects(add, { code: '23505' });
+  },
+},
+
+{
+  id: 'SO-21', expect: '확인',
+  name: '원료 두께는 영문 · 숫자만 견준다 (05-10 = 0510)',
+  async run(t) {
+    const m = await master(t);
+    const { lines } = await order(t, m, { po: 'SO21', lines: [['PD05050510', 10]] });
+    const { lot } = await readyLot(t, m, { band: '05-10' });
+    const off = (await t.rows(`select id from model_scheme where prefix = 'PD' and not is_active`)).map((x) => x.id);
+    await t.rows(`update model_scheme set is_active = true where id = any($1::uuid[])`, [off]);
+    try {
+      t.eq(await t.val(`select ok from ship_spec_check($1,$2) where kind = 'BAND'`, [lot, lines.PD05050510]),
+        true, '표기만 다른 두께');
+    } finally {
+      await t.rows(`update model_scheme set is_active = false where id = any($1::uuid[])`, [off]);
+    }
+  },
+},
+
+{
+  id: 'SC-06', expect: '확인',
+  name: '재단 기록이 여러 회차면 제조번호가 맞는 줄만 보고, 어느 회차에도 없을 때만 막는다',
+  async run(t) {
+    const { brReview } = await import('../../lib/ship-check.ts');
+    const rec = (rows) => rows.flatMap(([lot, model], i) => [
+      { row: i, role: 'cutlot', value: lot }, { row: i, role: 'model', value: model }]);
+    /* 첫날 로트 1~3, 둘째 날 기록서 1~3 줄에 그날 로트 4~6 을 손으로 적었다 */
+    const sets = [
+      rec([['P-1', 'PD05050510'], ['P-2', 'PD05050510'], ['P-3', 'PD10150510']]),
+      rec([['P-4', 'PD05050510'], ['P-5', 'PD05050510'], ['P-6', 'PD10150510']]),
+    ];
+    const r = (lot, idx, code) => { const x = brReview(sets, lot, idx, code); return `${x.ok}/${x.actual}`; };
+    t.eq(r('P-1', 0, 'PD05050510'), 'true/PD05050510', '첫 회차에만 있는 로트');
+    t.eq(r('P-5', 4, 'PD05050510'), 'true/PD05050510', '둘째 회차에만 있는 로트');
+    t.eq(r('P-3', 2, 'PD05050510'), 'false/PD10150510', '모델명이 다르면 다름');
+    t.eq(r('P-9', 8, 'PD05050510'), 'false/null', '어느 회차에도 없으면 막는다');
+    t.eq(brReview([], 'P-1', 0, 'PD05050510').ok, null, '재단 기록서가 없으면 볼 수 없음');
+  },
+},
+
+{
+  id: 'SC-07', expect: '확인',
+  name: '기록서 채우기가 재단 줄의 제조번호 · 모델명 · 수량을 돌려주고, 적은 값이 이긴다',
+  async run(t) {
+    /* 칸 이름(제조번호 · 모델명 · 수량)이 역할로 읽히지 않으면 출고 검토가 조용히 «볼 수 없음» 이 된다 */
+    const { fillForm } = await import('../../lib/br-form.ts');
+    const row = () => ({ h: 20, cells: [{ c: 0 }, { c: 1 }, { c: 2 }] });
+    const form = { page: { w: 800, h: 600 }, pages: [{ texts: [], tables: [{
+      x: 0, y: 0, w: 300, cols: [100, 100, 100],
+      rows: [{ h: 20, cells: [{ c: 0, t: '제조번호' }, { c: 1, t: '모델명' }, { c: 2, t: '수량' }] }, row(), row()] }] }] };
+    const base = { batchNo: 'B1', productLotNo: null, productModel: null, rawItemCode: 'RM', rawLotNo: 'RL',
+      sheets: 1, loadUnit: null, worker: '갑', workDate: '2026-11-25', issues: [], notes: [],
+      cutLots: [{ lot_no: 'P-1', code: 'PD05050510', qty: 20 }, { lot_no: 'P-2', code: 'PD10150510', qty: 5 }] };
+    const flat = (cut) => cut.map((c) => `${c.row}${c.role}=${c.value}`).join(' ');
+    t.eq(flat(fillForm(form, { ...base, entries: {} }).cut),
+      '0cutlot=P-1 0model=PD05050510 0qty=20 1cutlot=P-2 1model=PD10150510 1qty=5', '채운 값');
+    const written = fillForm(form, { ...base, entries: { p0t0r1c1: { value: 'PD99999999', by: '갑', at: '2026-11-25' } } });
+    t.eq(written.cut.find((c) => c.row === 0 && c.role === 'model')?.value, 'PD99999999', '적은 값이 이긴다');
   },
 },
 

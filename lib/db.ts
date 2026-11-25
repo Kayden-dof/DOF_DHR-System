@@ -197,7 +197,7 @@ const CONSTRAINT_LABEL: Record<string, string> = {
   app_user_idle_lock_pad_min_check: '현장 화면 잠금 시간은 30분까지, 정해 둔 값 가운데에서 고릅니다',
   /* 수주 (0159) */
   sales_order_live_uk: '이 거래처에 같은 고객 발주번호의 주문이 이미 있습니다',
-  sales_order_line_sales_order_id_item_id_key: '한 주문서에 같은 형명은 한 줄만 적습니다',
+  sales_order_line_live_uk: '한 주문서에 같은 형명은 한 줄만 적습니다 (취소한 줄은 세지 않습니다)',
   sales_order_line_qty_check: '주문 수량은 1 이상이어야 합니다',
   customer_biz_no_uk: '같은 사업자등록번호의 거래처가 이미 있습니다',
 };

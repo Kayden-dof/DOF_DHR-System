@@ -191,7 +191,9 @@ export function EditOrder({ order, lines, models }: { order: OrderHead; lines: L
                   <span className="font-mono">{l.code}</span> · {l.name}
                   {l.shipped > 0 && <span className="ml-2 text-xs text-muted">출고 {l.shipped}</span>}
                 </label>
-                <input id={`${uid}-${l.id}`} name={`qty_${l.id}`} type="number" min={Math.max(1, l.shipped)} step="1"
+                {/* 넘게 나간 줄은 지금 수량이 하한이다 - 늘리는 것만 받는다 (DB 도 같다) */}
+                <input id={`${uid}-${l.id}`} name={`qty_${l.id}`} type="number"
+                       min={Math.min(l.qty, Math.max(1, l.shipped))} step="1"
                        required defaultValue={l.qty} className="input tnum" />
               </div>
             ))}

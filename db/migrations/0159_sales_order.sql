@@ -78,11 +78,14 @@ create table if not exists sales_order_line (
   seq            int  not null default 0,
   cancelled_at   timestamptz,
   cancel_reason  text,
-  check (cancelled_at is null or btrim(coalesce(cancel_reason, '')) <> ''),
-  unique (sales_order_id, item_id)
+  check (cancelled_at is null or btrim(coalesce(cancel_reason, '')) <> '')
 );
 comment on table sales_order_line is
-  '주문서의 형명 줄 (수주 · 0159). 한 주문서에 같은 형명은 한 줄';
+  '주문서의 형명 줄 (수주 · 0159). 한 주문서에 살아 있는 같은 형명은 한 줄';
+/* 취소한 줄의 형명은 같은 주문에 다시 더할 수 있다 - 취소는 되돌리지 않고 «줄을 새로 더하십시오» 로 안내한다 */
+alter table sales_order_line drop constraint if exists sales_order_line_sales_order_id_item_id_key;
+create unique index if not exists sales_order_line_live_uk
+  on sales_order_line (sales_order_id, item_id) where cancelled_at is null;
 
 
 /* === 4. 감사 · 지우기 차단 · 권한 ======================================== */
@@ -183,7 +186,8 @@ begin
       raise exception '이미 % 개가 출고된 줄이라 취소할 수 없습니다. 남은 양만 줄이려면 수량을 고치십시오',
         v_shipped;
     end if;
-    if new.qty < v_shipped then
+    /* 넘게 나간 줄(설계가 받는다)도 늘리는 고치기는 받는다. 나간 양 아래로 더 줄이는 것만 막는다 */
+    if new.qty < v_shipped and new.qty < old.qty then
       raise exception '이미 % 개가 출고되어 수량을 %(으)로 줄일 수 없습니다', v_shipped, new.qty;
     end if;
     if old.cancelled_at is not null and new.cancelled_at is null then
@@ -249,7 +253,10 @@ set search_path = pg_catalog, public, pg_temp as $fn$
          exists (select 1 from dm_models(x.dm) d where d.id = x.line_item) from x
   union all
   select 'BAND', '작업지시서 원료 두께', want_band, band,
-         case when band is null or want_band is null then null else band = want_band end from x
+         /* 영문 · 숫자만 견준다 - 원료 로트에 '05-10' 으로 적어도 '0510' 과 같다 */
+         case when band is null or want_band is null then null
+              else upper(regexp_replace(band, '[^0-9A-Za-z]', '', 'g'))
+                 = upper(regexp_replace(want_band, '[^0-9A-Za-z]', '', 'g')) end from x
 $fn$;
 comment on function ship_spec_check(uuid, uuid) is
   '출고 전 형명 검토 (0159). 제품 로트 형명 · 작업지시서 제품 · 원료 두께. ok 가 false 면 출고하지 않고, null 은 볼 수 없음';
