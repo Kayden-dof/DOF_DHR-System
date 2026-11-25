@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 
 /* ---------------------------------------------------------------------------
-   개체 번호 찾기
+   제조번호 찾기 (전에는 «개체 번호 찾기» · 라벨이 제조번호 단위가 되어 이름을 바꿈, 사용자 2026-11-25)
 
    라벨에 적힌 번호 하나로 그 제품이 어디서 나와 어디로 갔는지 되짚는 자리다.
    전화가 와서 "이 번호가 뭡니까" 를 묻는 순간에 쓴다.
@@ -72,10 +72,10 @@ export default function FindUnit() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        aria-label="개체 번호 찾기"
+        aria-label="제조번호 찾기"
         className="btn-ghost hidden items-center gap-2 sm:flex"
       >
-        개체 번호 찾기
+        제조번호 찾기
         <kbd className="rounded-md border border-line bg-canvas px-1.5 py-0.5 font-mono
                         text-xs leading-none text-muted">Ctrl K</kbd>
       </button>
@@ -84,15 +84,15 @@ export default function FindUnit() {
         <div
           role="dialog"
           aria-modal="true"
-          aria-label="개체 번호 찾기"
+          aria-label="제조번호 찾기"
           onMouseDown={(e) => { if (e.target === e.currentTarget) setOpen(false); }}
           className="fixed inset-0 z-[80] flex items-start justify-center bg-ink/25 px-5 pt-[18vh]"
         >
           <form onSubmit={submit}
                 className="w-full max-w-lg rounded-xl border border-line bg-surface p-4 shadow-[var(--sh-3)]">
-            <h2 className="text-sm font-semibold text-ink">개체 번호 찾기</h2>
+            <h2 className="text-sm font-semibold text-ink">제조번호 찾기</h2>
             <p className="mt-1 text-xs leading-relaxed text-muted">
-              라벨의 번호를 그대로 적으십시오. 제조번호만 적어도 됩니다.
+              라벨에 찍힌 제조번호를 그대로 적으십시오.
             </p>
 
             <div className="mt-3 flex gap-2">
@@ -105,8 +105,8 @@ export default function FindUnit() {
                 value={sn}
                 onChange={(e) => setSn(e.target.value)}
                 autoComplete="off"
-                aria-label="개체 번호"
-                placeholder="P2608-0004-007 또는 P2608-0004"
+                aria-label="제조번호"
+                placeholder="GM-26111001"
                 className="input flex-1 font-mono"
               />
               <button type="submit" className="btn-primary shrink-0">찾기</button>

@@ -249,13 +249,13 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
     <PageShell
       section="경영"
       title="경영 현황"
-      lede="오늘 · 이번 주 · 달별 순서로 놓았습니다. 개체 번호로 그 제품이 어디서 나와 어디로 갔는지 찾을 수 있습니다."
+      lede="오늘 · 이번 주 · 달별 순서로 놓았습니다. 제조번호로 그 제품이 어디서 나와 어디로 갔는지 찾을 수 있습니다."
       stats={<StatStrip items={stats} />}
       nav={<SubNav items={boardNav(hasRole(user, 'SYS_ADMIN', 'PROD_MGR', 'VIEWER'))} />}
     >
 
       {/* ------------------------------------------------------------------
-        * 개체 번호 찾기 결과
+        * 제조번호 찾기 결과
         *
         * 입력 칸은 머리줄로 옮겼다 (components/find-unit.tsx). 여기 큰 판으로
         * 두었더니 평소에는 빈 칸 하나만 덩그러니 떠 있었고, 자리를 많이 먹으면서
@@ -265,7 +265,7 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
         * 찾은 것이 없으면 이 판 자체가 나오지 않는다.
         * ---------------------------------------------------------------- */}
       {sn && (
-      <Panel title="개체 번호 찾기"
+      <Panel title="제조번호 찾기"
              note={<span className="font-mono">{sn}</span>}>
         {(
           d.unit.length === 0 ? (
