@@ -3,7 +3,8 @@
 import { useActionState, useEffect, useId, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { FormState } from '@/lib/forms';
-import { Msg } from '@/components/ui';
+import { Msg, Caution } from '@/components/ui';
+import { Dialog, useDialog } from '@/components/dialog';
 import { DOW } from '@/lib/timeline';
 import { savePlan, deletePlan, saveCalendar } from './actions';
 
@@ -75,16 +76,32 @@ export function PlanForm({ dms, wos, value, suggest }: {
   );
 }
 
-export function DeletePlan({ id, label }: { id: string; label: string }) {
+/*
+ * 계획 삭제 (사용자 2026-11-25 «삭제 기능은?»). 옅은 글귀 «계획 지우기» 는 판 머리에 있어도 눈에 띄지 않았다.
+ * 빨간 단추로 세우고, 되돌릴 수 없는 일이라 브라우저 confirm 대신 다른 삭제 · 취소와 같은 Dialog 에서 묻는다.
+ */
+export function DeletePlan({ id, label, wo }: { id: string; label: string; wo: string | null }) {
   const [state, action, pending] = useActionState<FormState, FormData>(deletePlan, {});
+  const { open, setOpen } = useDialog(state);
   useGo(state);
   return (
-    <form action={action} className="inline-flex items-center gap-2"
-          onSubmit={(e) => { if (!confirm(`계획 ${label} 을 지울까요? 계획만 지워지고 작업 지시 · 기록은 그대로입니다.`)) e.preventDefault(); }}>
-      <input type="hidden" name="id" value={id} />
-      <button type="submit" className="qd-text-action" disabled={pending}>계획 지우기</button>
-      <Msg state={state} />
-    </form>
+    <>
+      <button type="button" onClick={() => setOpen(true)} className="btn-danger">계획 삭제</button>
+      <Dialog open={open} onClose={() => setOpen(false)} title={`계획 ${label} 삭제`}>
+        <form action={action}>
+          <input type="hidden" name="id" value={id} />
+          <Caution>
+            이 배치 계획과 일정표만 지워지고 되돌릴 수 없습니다.
+            {wo ? ` 이은 작업 지시 ${wo} 와 그 제조기록서는 그대로 남습니다.` : ' 작업 지시 · 제조기록서에는 영향이 없습니다.'}
+          </Caution>
+          <Msg state={state} />
+          <div className="mt-4 flex gap-2">
+            <button type="submit" disabled={pending} className="btn-danger">삭제한다</button>
+            <button type="button" onClick={() => setOpen(false)} className="btn-ghost">닫기</button>
+          </div>
+        </form>
+      </Dialog>
+    </>
   );
 }
 

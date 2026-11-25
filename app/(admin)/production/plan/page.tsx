@@ -139,11 +139,12 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
       {cur && (
         <Panel title={`${cur.label} 일정표`}
                note={`${cur.dm_label} 공정 시간표 기준${cur.wo_no ? ` · 작업 지시 ${cur.wo_no}` : ''}${cur.note ? ` · ${cur.note}` : ''}`}
-               /* 계획 지우기는 판 머리에 (사용자 2026-11-25 «배치 계획 삭제는 불가능한가?» - 전에는 12일치 공정표 맨 아래에 있었다) */
+               /* 계획 삭제는 판 머리에 빨간 단추로 (사용자 2026-11-25 «배치 계획 삭제는 불가능한가?» · «삭제 기능은?»
+                  - 전에는 12일치 공정표 맨 아래, 그다음엔 옅은 글귀였다) */
                action={(writable || plan) && (
-                 <span className="inline-flex items-center gap-3">
-                   {writable && <DeletePlan id={cur.id} label={cur.label} />}
+                 <span className="inline-flex items-center gap-2">
                    {plan && <Link href={`/print/batch-plan/${cur.id}`} className="btn-ghost">일정표 인쇄</Link>}
+                   {writable && <DeletePlan id={cur.id} label={cur.label} wo={cur.wo_no} />}
                  </span>
                )}>
           {!plan ? (
@@ -212,17 +213,17 @@ function ScheduleTable({ start, plan, cal }: { start: string; plan: Plan; cal: W
     const cont = carried(plan, k);
     const off = isOff(date, cal);
     body.push(
-      <tr key={`d${k}`} className="bg-surface-sub">
+      <tr key={`day-${k}`} className="bg-surface-sub">
         <td colSpan={5} className={`td font-semibold ${off ? 'text-danger' : 'text-ink'}`}>
           {md(date)} · {k + 1}일차{off ? ' · 휴무' : ''}
         </td>
       </tr>);
     if (!rs.length && !cont.length) {
-      body.push(<tr key={`e${k}`}><td className="td text-muted" colSpan={5}>작업 없음</td></tr>);
+      body.push(<tr key={`none-${k}`}><td className="td text-muted" colSpan={5}>작업 없음</td></tr>);
     }
     for (const r of cont) {
       body.push(
-        <tr key={`c${k}-${r.x.id}`} className="text-muted">
+        <tr key={`cont-${k}-${r.x.id}`} className="text-muted">
           <td className="td whitespace-nowrap">계속</td>
           <td className="td">{r.x.p}</td>
           <td className="td">{r.x.n} 진행 중</td>
@@ -233,7 +234,7 @@ function ScheduleTable({ start, plan, cal }: { start: string; plan: Plan; cal: W
     for (const r of rs) {
       const endTxt = dayIndex(r.e) === k ? hhmm(r.e) : `${md(addDays(start, dayIndex(r.e)))} ${hhmm(r.e)}`;
       body.push(
-        <tr key={r.x.id}>
+        <tr key={`step-${r.x.id}`}>
           <td className="td whitespace-nowrap tnum">{hhmm(r.s)}~{endTxt}</td>
           <td className="td whitespace-nowrap">
             <i className="mr-1.5 inline-block size-2.5 rounded-sm align-middle" style={{ background: procColor(r.x.p) }} />{r.x.p}
