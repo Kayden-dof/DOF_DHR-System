@@ -20,8 +20,6 @@ export const isOff = (v: Verdict) => v !== 'MATCH';
 
 export const VERDICT_ORDER: Verdict[] = ['MISMATCH', 'MISSING', 'UNDEFINED', 'BR_ONLY', 'FLOW', 'MATCH'];
 
-export const DOC_KIND_LABEL = { WS: '작업표준서', BR: '제조기록서' } as const;
-
 export type ReqKind = 'VALUE' | 'FIELD' | 'FLOW' | 'CRITERIA' | 'DOC' | 'OTHER';
 export const REQ_KIND_LABEL: Record<ReqKind, string> = {
   VALUE: '값 정정',

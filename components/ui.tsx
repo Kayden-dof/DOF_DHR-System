@@ -207,36 +207,6 @@ export function Progress({ done, total, width = 'var(--qd-carnet-progress-width)
   );
 }
 
-/** 숫자 하나를 크게 보여 주는 칸. 현황과 요약 줄에 쓴다. */
-export function Stat({
-  label, value, unit, tone = 'ink', href,
-}: {
-  label: string; value: React.ReactNode; unit?: string;
-  tone?: 'ink' | 'brand' | 'warn' | 'danger' | 'info'; href?: string;
-}) {
-  const color = {
-    ink: 'text-ink', brand: 'text-brand', warn: 'text-warn',
-    danger: 'text-danger', info: 'text-info',
-  }[tone];
-
-  const body = (
-    <>
-      <div className="qd-kpi-label" data-hangul={tagHangul(label)}>{label}</div>
-      <div className="mt-1.5 flex items-baseline gap-1">
-        <span className={`qd-kpi-value tnum ${color}`}>{value}</span>
-        {unit && <span className="qd-kpi-unit">{unit}</span>}
-      </div>
-    </>
-  );
-
-  if (!href) return <div className="qd-kpi">{body}</div>;
-  return (
-    <a href={href} className="qd-kpi qd-kpi--link">
-      {body}
-    </a>
-  );
-}
-
 /*
  * 배지는 정본 `.qd-tag` 다 (모노 · 헤어라인 테두리 · 모서리 6). 크기 · 글꼴 · 색은
  * 거기서 온다. 뜻(ok · warn …)은 이 시스템의 말이고 색 이름(green · copper …)은

@@ -201,7 +201,6 @@ html[data-theme='light'] {
   text-transform: none;
   word-spacing: var(--qd-hangul-word-space);
 }
-.qd-rail-org--accent { color: var(--qd-accent); }
 
 /* ── 스크롤 구역 ───────────────────────────────────────────────────────────── */
 .qd-rail-nav {
@@ -213,22 +212,6 @@ html[data-theme='light'] {
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
-}
-
-/* ── 묶음 이름표 ───────────────────────────────────────────────────────────── */
-.qd-nav-group {
-  padding: 12px 14px 4px;
-  font-family: var(--qd-font-mono);
-  font-size: 12px;
-  letter-spacing: 1.6px;
-  text-transform: uppercase;
-  color: var(--qd-muted);
-  user-select: none;
-}
-.qd-nav-group[data-hangul] {
-  letter-spacing: 0;
-  text-transform: none;
-  word-spacing: var(--qd-hangul-word-space);
 }
 
 /* ── 항목 ──────────────────────────────────────────────────────────────────
@@ -311,31 +294,6 @@ html[data-theme='light'] {
 /* 2026-09-27 걷은 금점의 다리(.qd-nav-dot { display: none })는 2026-09-28 에 지웠습니다.
    받는 세 제품 마크업에서 금점을 모두 걷었습니다(docs/08-paper.md). */
 
-.qd-nav-badge {
-  flex-shrink: 0;
-  padding: 2px 8px;
-  font-family: var(--qd-font-mono);
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.4;
-  border-radius: 9999px;
-  min-width: 22px;
-  text-align: center;
-  color: var(--qd-on-accent);
-  background: var(--qd-danger);
-}
-
-/* 조용한 배지. 「3」 같은 숫자가 아니라 「26일」 처럼 읽는 말이 들어가는 자리입니다.
-   빨간 알약으로 만들면 급하지 않은 것이 급해 보이고, 열 칸에 열 개가 켜집니다. */
-.qd-nav-badge--quiet {
-  background: transparent;
-  border: 1px solid var(--qd-border);
-  border-radius: 6px; /* 배지 = 6 (2026-09-14, 각진 것은 포털뿐) */
-  color: var(--qd-subtle);
-  font-weight: 400;
-  min-width: 0;
-}
-
 /* ── 판 번호 줄 ────────────────────────────────────────────────────────────
    왼쪽에 이름 · 오른쪽에 판. 금은 판 쪽에만 씁니다. */
 .qd-rail-version {
@@ -370,47 +328,6 @@ html[data-theme='light'] {
   align-items: stretch;
   flex-shrink: 0;
   margin: 12px 0;
-}
-.qd-rail-theme {
-  flex: 1;
-  box-sizing: border-box;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 14px;
-  background: transparent;
-  border: 1px solid var(--qd-border);
-  border-radius: 10px;
-  color: var(--qd-subtle);
-  font-family: var(--qd-font-mono);
-  font-size: 12px;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: border-color 0.15s ease, color 0.15s ease;
-}
-.qd-rail-theme:hover { border-color: var(--qd-accent); color: var(--qd-text); }
-.qd-rail-theme b { font-weight: 500; color: var(--qd-accent); }
-
-/* 이 자리는 기준 제품에서 테마 토글이지만, 제품에 따라 «막힘» 같은 상태를
-   넣기도 합니다(Q-Sonar 는 발송 막힘). 정본이 톤을 안 열어 주면 제품이
-   인라인으로 덮게 되고, 그러면 정본을 안 쓰는 것과 같습니다. */
-/* 🔑 --qd-warn 은 q-design.state.css 가 내는데 그 파일을 «모든» 제품이 받지는
-      않습니다. 값을 못 찾으면 이 두 줄이 통째로 무효가 되어 톤이 조용히 사라집니다.
-      그래서 여기서도 값을 들고 있습니다(Z 사다리와 같은 이유). */
-.qd-rail-theme[data-tone='warning'] { border-color: color-mix(in srgb, var(--qd-warn, var(--qa-warning, #c9a87a)) 45%, transparent); }
-.qd-rail-theme[data-tone='warning'] b { color: var(--qd-warn, var(--qa-warning, #c9a87a)); }
-.qd-rail-theme[data-tone='danger'] { border-color: color-mix(in srgb, var(--qd-danger) 45%, transparent); }
-.qd-rail-theme[data-tone='danger'] b { color: var(--qd-danger); }
-/* 왼쪽 이름표는 라틴(Theme)이라 자간이 살지만, 오른쪽 값은 한글일 수 있습니다
-   (「어둡게」·「밝게」·「기기따름」). 값 쪽만 자간을 풀 수 있게 열어 둡니다 -
-   실측에서 Q-Forge 의 그 한 줄이 「어 둡 게」로 벌어져 있었습니다. */
-.qd-rail-theme [data-hangul],
-.qd-rail-theme b[data-hangul] {
-  letter-spacing: 0;
-  text-transform: none;
-  word-spacing: var(--qd-hangul-word-space);
 }
 
 .qd-rail-iconbtn {
@@ -527,7 +444,6 @@ html[data-theme='light'] {
   .qd-rail-mark { width: 52px; }
   .qd-rail-version { display: none; }
   .qd-rail-row { margin-top: 6px; margin-bottom: 6px; }
-  .qd-rail-theme { padding: 6px 12px; }
   .qd-rail-foot { padding-top: 8px; }
   .qd-rail-user { margin-bottom: 6px; }
 }

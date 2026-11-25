@@ -92,24 +92,7 @@
   --qd-z-toast: var(--qd-z-toast-src, var(--qa-z-toast, 10000));
   --qd-z-blocking: var(--qd-z-blocking-src, var(--qa-z-blocking, 10001));
 }
-
-/* Existing canonical roles subscribe to the same live component tokens. */
-.qd-table-scroll--tall { max-height: var(--qd-table-scroll-max-height); overflow: auto; }
-.qd-table-scroll-header { position: sticky; top: 0; z-index: var(--qd-table-header-layer); background: var(--qd-surface); }
-.qd-table-sticky-first { position: sticky; left: 0; z-index: calc(var(--qd-table-header-layer) - 1); background: var(--qd-surface); }
-.qd-table-description { min-width: var(--qd-table-description-min-width); }
-.qd-table-group-label { display: inline-block; position: sticky; left: var(--qd-space-3); }
-@media print {
-  .qd-table-scroll-header { position: static; }
-  .qd-table-sticky-first { position: static; }
-  .qd-table-group-label { position: static; }
-  .qd-table-scroll--tall { max-height: none; overflow: visible; }
-}
 :where(.qd-phosphor-icon[data-qd-default-size]) { width: var(--qd-icon-size); height: var(--qd-icon-size); }
-.qd-icon--sm { width: var(--qd-icon-size-sm); height: var(--qd-icon-size-sm); }
-.qd-btn { min-height: var(--qd-control-height); padding: var(--qd-control-pad-y) var(--qd-control-pad-x); border-radius: var(--qd-radius); font-size: var(--qd-control-size); }
-.qd-btn--sm { min-height: var(--qd-control-height-sm); padding: var(--qd-control-pad-sm-y) var(--qd-control-pad-sm-x); font-size: var(--qd-control-size); }
-.qd-input { display: block; border-radius: var(--qd-radius); font-size: var(--qd-control-size); background: var(--qd-surface); color: var(--qd-text); }
 .qd-section-title { font-size: var(--qd-section-size); }
 .qd-field-label, .qd-tag { font-size: var(--qd-caption-size); }
 /* 알약은 글자 수와 상관없이 같은 크기(2026-10-27 오너 지시 «알약 크기를 정본에서 통일성 있게»). 한 표 칸에서
@@ -150,7 +133,7 @@
 /* 글 폭 칸 안의 단추 · 글 단추는 낱말 사이에서 꺾이지 않는다. 기초(foundation.css)가 단추를 normal 로 두는 것은
    좁은 칸에서 한 글자씩 끊기지 않게 한 것인데, 글 폭(1%) 칸은 내용 폭을 그대로 받으므로 «변경 항목 0» 이 두 줄로 꺾였다 (2026-10-28) */
 html .qd-table:not(.qd-table--editable) > :is(thead, tbody, tfoot) > tr > :is(th, td):not(.qd-col-grow) :is(.qd-btn, .qd-text-action) { white-space: nowrap; }
-.qd-table td, .qd-table .qd-td { padding: var(--qd-table-pad-y) var(--qd-table-pad-x); }
+.qd-table td { padding: var(--qd-table-pad-y) var(--qd-table-pad-x); }
 .qd-kpi-value { font-size: var(--qd-kpi-size); }
 @container (width < 260px) { .qd-kpi-value { font-size: var(--qd-kpi-size-lg); } }
 @container (width < 200px) { .qd-kpi-value { font-size: var(--qd-kpi-size-md); } }
@@ -171,26 +154,7 @@ html[data-theme='light'] {
   --qd-warn: var(--qd-warn-src, var(--qa-warning, #7a5a28));
   --qd-info: var(--qd-info-src, var(--qa-blue, #3d5f8a));
 }
-
-/* Native controls and adapter controls share the same non-interactive states. */
-.qd-input::placeholder { color: var(--qd-muted); opacity: 1; }
-.qd-input:disabled {
-  background: var(--qd-bg) !important;
-  border-color: var(--qd-border) !important;
-  color: var(--qd-muted) !important;
-  cursor: not-allowed;
-}
-/* 잠긴 칸(읽기 전용)도 적는 칸과 달라 보여야 한다. 흰 상자 · 진한 테두리 그대로면 «적어야 하나, 이미 적혔나» 가
-   갈리지 않는다(2026-10-27 폼 배치 점검). 꺼진 칸과 같은 바탕과 옅은 테두리를 쓰고, 값은 고를 수 있게 둔다. */
-.qd-input[readonly] {
-  background: var(--qd-bg) !important;
-  border-color: var(--qd-border) !important;
-  cursor: default;
-}
-/* 잠긴 칸 · 꺼진 칸에는 회색 안내를 띄우지 않는다. 빈 칸의 «예: …» 가 적힌 값처럼 읽힌다
-   (우리 디자인 규칙 S10 · 2026-10-27). 아뜰리에는 In · Txt 부품이 안내를 빼고, 두 제품은 이 줄이 가린다. */
-.qd-input:is([readonly], :disabled)::placeholder { color: transparent; }
-.qd-control-icon, .qd-dialog-close, .qd-mobile-menu {
+.qd-dialog-close {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -206,7 +170,7 @@ html[data-theme='light'] {
   cursor: pointer;
   transition: color var(--qd-motion-fast), background var(--qd-motion-fast);
 }
-.qd-control-icon:hover, .qd-dialog-close:hover, .qd-mobile-menu:hover {
+.qd-dialog-close:hover {
   color: var(--qd-text);
   background: var(--qd-surface2);
 }
@@ -244,12 +208,12 @@ html[data-theme='light'] {
 }
 
 /* Backdrops do not blur the work underneath. Content surfaces are opaque. */
-.qd-dialog-backdrop, .qd-drawer-backdrop {
+.qd-dialog-backdrop {
   background: var(--qd-backdrop);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
-.qd-dialog-content, .qd-drawer-content {
+.qd-dialog-content {
   box-sizing: border-box;
   min-width: 0;
   padding: var(--qd-overlay-padding);
@@ -263,9 +227,9 @@ html[data-theme='light'] {
 }
 .qd-dialog-content { width: 100%; max-width: var(--qd-dialog-width); }
 .qd-dialog-content--wide { --qd-dialog-width: 672px; }
-.qd-dialog-content[data-layout='sections'], .qd-drawer-content[data-layout='sections'] { padding: 0; }
-.qd-dialog-header, .qd-drawer-header { display: flex; align-items: flex-start; gap: var(--qd-space-3); }
-.qd-dialog-title, .qd-drawer-title {
+.qd-dialog-content[data-layout='sections'] { padding: 0; }
+.qd-dialog-header { display: flex; align-items: flex-start; gap: var(--qd-space-3); }
+.qd-dialog-title {
   min-width: 0;
   margin: 0;
   color: var(--qd-text);
@@ -277,12 +241,9 @@ html[data-theme='light'] {
   text-transform: none;
   overflow-wrap: anywhere;
 }
-.qd-dialog-description, .qd-toast-description { color: var(--qd-muted); font-size: var(--qd-caption-size); line-height: 1.6; }
-.qd-control-label { color: var(--qd-subtle); font-size: var(--qd-caption-size); font-weight: 500; line-height: 1.6; letter-spacing: 0; }
-.qd-text-action--sm { padding: var(--qd-space-1) var(--qd-space-2); font-size: var(--qd-caption-size); }
-.qd-text-action--regular { min-height: var(--qd-control-height); }
-.qd-dialog-body, .qd-drawer-body { min-width: 0; min-height: 0; }
-.qd-dialog-actions, .qd-drawer-actions {
+.qd-dialog-description { color: var(--qd-muted); font-size: var(--qd-caption-size); line-height: 1.6; }
+.qd-dialog-body { min-width: 0; min-height: 0; }
+.qd-dialog-actions {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
@@ -293,7 +254,7 @@ html[data-theme='light'] {
 :where(.qd-dialog-content, .qd-drawer-content)[data-layout='sections'] > :where(.qd-dialog-header, .qd-drawer-header) { border-bottom: 1px solid var(--qd-border); }
 :where(.qd-dialog-content, .qd-drawer-content)[data-layout='sections'] > :where(.qd-dialog-actions, .qd-drawer-actions) { border-top: 1px solid var(--qd-border); }
 
-.qd-popover, .qd-tooltip {
+.qd-popover {
   box-sizing: border-box;
   max-width: calc(100vw - 32px);
   padding: var(--qd-space-3);
@@ -309,20 +270,6 @@ html[data-theme='light'] {
   overflow-wrap: anywhere;
 }
 .qd-popover { font-size: var(--qd-control-size); }
-.qd-combobox-option {
-  display: flex;
-  align-items: center;
-  min-height: var(--qd-control-height-sm);
-  padding: var(--qd-space-2) var(--qd-space-3);
-  border-radius: var(--qd-radius);
-  color: var(--qd-text);
-  font-size: var(--qd-control-size);
-  cursor: pointer;
-}
-.qd-combobox-option[data-active='true'], .qd-combobox-option[aria-selected='true'] {
-  background: var(--qd-surface2);
-  font-weight: 600;
-}
 
 /* Feedback conveys meaning through text and an icon as well as color. */
 .qd-notice, .qd-toast {
@@ -347,23 +294,15 @@ html[data-theme='light'] {
 /* The dismiss control keeps its full target but centres on the first text line,
    so a one-line toast is not stretched to the control height. */
 .qd-toast > .qd-dialog-close { margin-block: calc((var(--qd-toast-line) - var(--qd-control-height)) / 2); }
-.qd-toast > .qd-text-action { margin-block: calc((var(--qd-toast-line) - var(--qd-control-height-sm)) / 2); }.qd-field-error { margin-top: var(--qd-field-gap) !important; color: var(--qd-danger); font-size: var(--qd-caption-size); line-height: 1.6 !important; letter-spacing: 0 !important; }
-.qd-field-hint { margin-top: var(--qd-space-1); color: var(--qd-muted); font-size: var(--qd-caption-size); line-height: 1.6; }
+.qd-toast > .qd-text-action { margin-block: calc((var(--qd-toast-line) - var(--qd-control-height-sm)) / 2); }
 /* Equivalent fields use the same label gap and multiline baseline in every product. */
 .qd-field-label { margin-bottom: var(--qd-field-gap); }
-.qd-field-stack { display: grid; gap: var(--qd-field-gap); }
-.qd-field-stack > :is(.qd-field-error, .qd-field-hint) { margin: 0 !important; }
-textarea.qd-input { --qd-control-height: var(--qd-textarea-min-height); min-height: var(--qd-textarea-min-height); }
-select.qd-input { appearance: auto !important; background-image: none !important; padding-right: var(--qd-select-end-padding) !important; }
 .qd-table th { letter-spacing: 0; text-transform: none; }
 .qd-progress { display: block; overflow: hidden; height: var(--qd-progress-height, 6px); border-radius: var(--qd-radius); background: var(--qd-surface2); }
 /* 진행 막대 채움은 transform(scaleX) 으로 움직이는 쪽으로 간다(2026-11-04 · impeccable 감사 40번). 채우는 쪽은 width 100% 에
    transform: scaleX(비율) 을 인라인으로 준다(아뜰리에 ProgressBar 가 그렇게 한다). 너비 전환은 프레임마다 배치를 다시 재므로 빼야 하지만,
    width 만 주는 사용처(카르넷 Progress · 메종)가 scaleX 로 바뀔 때까지는 둘 다 둔다. 그 뒤에 width 를 빼는 것이 40번의 끝이다. */
 .qd-progress-fill { display: block; height: 100%; border-radius: inherit; background: var(--qd-status, var(--qd-accent)); transform-origin: left; transition: width var(--qd-motion-normal) var(--qd-ease), transform var(--qd-motion-normal) var(--qd-ease); }
-.qd-step { color: var(--qd-muted); font-size: var(--qd-control-size); line-height: 1.6; }
-.qd-step[aria-current='step'], .qd-step[data-state='active'] { color: var(--qd-text); font-weight: 600; }
-.qd-skeleton { border-radius: var(--qd-radius); background: var(--qd-surface2); animation: qd-skeleton-pulse 1.6s ease-in-out infinite; }
 @keyframes qd-skeleton-pulse { 50% { opacity: 0.5; } }
 
 /* 카드 · 판 · 구역 카드는 장부형: 면 · 옆 선 · 아래 선 · 모서리 없이 **위 괘선 하나**
@@ -389,92 +328,30 @@ select.qd-input { appearance: auto !important; background-image: none !important
   --qd-card-radius: var(--qd-radius-card, var(--qd-radius));
   --qd-card-fill: var(--qd-surface);
 }
-/* Repeated rows remain governed by q-design.list. 면이 없으니 표의 따라오는 머리글이 덮을 바탕은 화면 바탕입니다. */
-.qd-card {
-  min-width: 0;
-  border: 1px solid var(--qd-border);
-  border-width: var(--qd-card-rule, 1px 0 0);
-  border-radius: var(--qd-card-radius, 0);
-  background: var(--qd-card-face, transparent);
-  --qd-table-fill: var(--qd-card-fill, var(--qd-bg));
-  color: var(--qd-text);
-  box-shadow: none;
-}
-.qd-card-header, .qd-card-content, .qd-card-footer { padding: var(--qd-space-6); }
-.qd-card-header + .qd-card-content, .qd-card-content + .qd-card-footer { padding-top: 0; }
-.qd-card-title { margin: 0; font-size: var(--qd-section-size); font-weight: 600; line-height: 1.4; letter-spacing: 0; }
-.qd-card-description { margin-top: var(--qd-space-1); color: var(--qd-muted); font-size: var(--qd-caption-size); line-height: 1.6; }
-
-.qd-choice-hit { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: var(--qd-space-2); min-width: var(--qd-control-height); min-height: var(--qd-control-height); cursor: pointer; }
-.qd-radio { width: var(--qd-choice-glyph-size); height: var(--qd-choice-glyph-size); margin: 0; accent-color: var(--qd-accent); color-scheme: inherit; flex-shrink: 0; }
-.qd-radio:focus-visible { outline: 2px solid var(--qd-accent); outline-offset: 2px; }
-.qd-choice-hit:has(> .qd-radio:disabled) { cursor: not-allowed; }
-.qd-choice { min-height: var(--qd-control-height-sm); border: 1px solid var(--qd-ctl); border-radius: var(--qd-radius); background: var(--qd-surface); color: var(--qd-text); font-size: var(--qd-control-size); padding: var(--qd-space-2) var(--qd-space-3); }
-.qd-choice[aria-pressed='true'], .qd-choice[data-state='checked'], .qd-choice--selected { color: var(--qd-text); background: var(--qd-surface2); border-color: var(--qd-accent); font-weight: 600; }
-.qd-checkbox { width: var(--qd-choice-glyph-size); height: var(--qd-choice-glyph-size); border: 1px solid var(--qd-ctl); accent-color: var(--qd-accent); }
-.qd-checkbox-mark { width: var(--qd-choice-glyph-size); height: var(--qd-choice-glyph-size); border: 1px solid var(--qd-ctl); border-radius: 4px; background: var(--qd-surface); color: var(--qd-text); }
-.qd-checkbox:checked + .qd-checkbox-mark, .qd-checkbox-mark[data-state='checked'] { background: var(--qd-accent); border-color: var(--qd-accent); color: var(--qd-bg); }
-.qd-checkbox:indeterminate + .qd-checkbox-mark { background: var(--qd-accent); border-color: var(--qd-accent); color: var(--qd-bg); }
-.qd-checkbox:not(:checked):not(:indeterminate) + .qd-checkbox-mark .qd-checkbox-icon { visibility: hidden; }
-.qd-choice-hit > .qd-checkbox:has(+ .qd-checkbox-mark) { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: inherit; }
-.qd-choice-hit > .qd-checkbox-mark { display: inline-flex; align-items: center; justify-content: center; pointer-events: none; }
-.qd-checkbox:focus-visible + .qd-checkbox-mark { outline: 2px solid var(--qd-accent); outline-offset: 2px; }
-.qd-checkbox:disabled + .qd-checkbox-mark { background: var(--qd-bg); color: var(--qd-muted); }
-.qd-choice-hit > .qd-checkbox:disabled { cursor: not-allowed; }
-.qd-checkbox-icon { width: calc(var(--qd-choice-glyph-size) * .75); height: calc(var(--qd-choice-glyph-size) * .75); }
-.qd-calendar-day {
-  display: inline-flex; align-items: center; justify-content: center;
-  min-width: var(--qd-control-height); min-height: var(--qd-control-height);
-  border: 1px solid transparent; border-radius: var(--qd-radius);
-  background: transparent; color: var(--qd-text); font-size: var(--qd-control-size);
-  font-variant-numeric: tabular-nums; cursor: pointer;
-}
-.qd-calendar-day:hover:not(:disabled) { background: var(--qd-surface2); }
-.qd-calendar-day[data-outside='true'] { color: var(--qd-muted); }
-.qd-calendar-day[data-weekday='0'] { color: var(--qd-danger); }
-.qd-calendar-day[data-weekday='6'] { color: var(--qd-info); }
-.qd-calendar-day[data-in-range='true'] { background: var(--qd-surface2); }
-.qd-calendar-day[aria-current='date'] { border-color: var(--qd-ctl); }
-.qd-calendar-day[aria-pressed='true'] { background: var(--qd-text); color: var(--qd-bg); font-weight: 600; }
-.qd-calendar-weekday { color: var(--qd-muted); text-align: center; font-size: var(--qd-caption-size); line-height: 1.6; }
-
-.qd-mobile-header { position: sticky; top: 0; display: flex; align-items: center; gap: var(--qd-space-3); min-height: var(--qd-mobile-header-height); padding: var(--qd-space-2) var(--qd-space-4); border-bottom: 1px solid var(--qd-border); background: var(--qd-bg); color: var(--qd-text); }
-.qd-mobile-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--qd-section-size); font-weight: 600; }
-
-/* 머리줄의 «뒤로» 는 폰에서만 보인다(아래 640 분기). 기본값은 분기보다 앞에 둬야 분기가 이긴다 */
-.qd-mobile-back { display: none; }
 @media (max-width: 640px) {
   :root { --qd-overlay-padding: 20px; }
-  .qd-dialog-actions, .qd-drawer-actions { row-gap: var(--qd-space-3); }
+  .qd-dialog-actions { row-gap: var(--qd-space-3); }
   /* 탭이 많은 화면(카르넷 설정 14개)은 폰에서 한 줄로 두고 옆으로 민다. 쌓이면 머리만 195px 를 먹었다
      (2026-10-27 카르넷 정밀 감사 U11). 잘린 쪽은 data-cut 마스크(foundation.css)가 말하고, 켜진 탭은 제품
      스크립트가 보이는 자리로 민다. 옆으로 넘겨 보는 내용(캐러셀 · F8)이 아니라 차림표다 */
   .qd-tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
   .qd-tabs > * { flex: 0 0 auto; }
   .qd-tabs::-webkit-scrollbar { display: none; }
-  /* 폰에서는 떠 있는 «뒤로» 대신 머리줄의 단추로(2026-10-27 카르넷 정밀 감사 U13). 떠 있는 단추가 표 끝 칸 · 지표를
-     덮었다. 모양은 메뉴 단추(.qd-mobile-menu)와 같고, 넓은 화면에서는 숨는다 */
-  .qd-mobile-back { display: inline-flex; }
-}
-.qd-pager[data-layout="contained"] {
-  margin-top: 0;
-  padding: var(--qd-space-4);
 }
 @media (pointer: coarse) {
-  .qd-btn, .qd-input, .qd-text-action, .qd-choice, .qd-combobox-option { min-height: var(--qd-control-height); }
-  .qd-filter-input, .qd-filter-select, .qd-filter-submit, .qd-filter-clear, .qd-pager-btn, .qd-tab { min-height: var(--qd-control-height); }
+  .qd-text-action { min-height: var(--qd-control-height); }
+  .qd-filter-clear, .qd-tab { min-height: var(--qd-control-height); }
   .qd-filter-clear { display: inline-flex; align-items: center; }
-  .qd-control-icon, .qd-dialog-close, .qd-mobile-menu { min-width: var(--qd-control-height); min-height: var(--qd-control-height); }
+  .qd-dialog-close { min-width: var(--qd-control-height); min-height: var(--qd-control-height); }
 }
 @media (prefers-reduced-motion: reduce) {
   :root { --qd-motion-fast: 0ms; --qd-motion-normal: 0ms; }
-  .qd-skeleton, .qd-field-error { animation: none !important; }
   /* Utility animation classes come after this layer. Explicitly stop them so
      their keyframe transforms cannot displace centered dialogs. */
-  .qd-dialog-content, .qd-drawer-content, .qd-dialog-backdrop, .qd-drawer-backdrop { animation: none !important; transition-duration: 0ms !important; }
+  .qd-dialog-content, .qd-dialog-backdrop { animation: none !important; transition-duration: 0ms !important; }
 }
 @media print {
-  .qd-dialog-backdrop, .qd-drawer-backdrop, .qd-toast, .qd-mobile-header { display: none; }
+  .qd-dialog-backdrop, .qd-toast { display: none; }
 }
 
 /* Visible native file controls share the same outer target as custom triggers.

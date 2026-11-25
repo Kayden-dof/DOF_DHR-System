@@ -1,5 +1,5 @@
 import React from 'react';
-import { requireUser, hasRole, blocksScreen } from '@/lib/session';
+import { requireUser, blocksScreen } from '@/lib/session';
 import Link from 'next/link';
 import { withUser } from '@/lib/db';
 import { fmtDate } from '@/lib/fmt';

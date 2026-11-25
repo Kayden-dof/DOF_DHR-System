@@ -1,4 +1,4 @@
-import { requireUser, hasRole, blocksScreen } from '@/lib/session';
+import { requireUser, blocksScreen } from '@/lib/session';
 import Denied from '@/components/denied';
 import { withActor } from '@/lib/db';
 import { PageShell } from '@/components/shell';

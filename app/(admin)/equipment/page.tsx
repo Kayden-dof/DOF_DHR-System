@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { requireUser, hasRole, canWrite, blocksScreen } from '@/lib/session';
+import { requireUser, canWrite, blocksScreen } from '@/lib/session';
 import { fixAt } from '@/lib/unblock';
 import { Unblock } from '@/components/unblock';
 import { withUser } from '@/lib/db';

@@ -2,7 +2,6 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { requireUser } from '@/lib/session';
 import { withActor } from '@/lib/db';
-import { fmtDate } from '@/lib/fmt';
 import { WO_STATUS_LABEL } from '@/lib/forms';
 import { Tag } from '@/components/ui';
 import ScanBox from './scan-box';

@@ -4,7 +4,7 @@ import { todayKST } from '@/lib/kst';
 import { requireUser, hasRole } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import { getBrand } from '@/lib/brand';
-import { fmtDate, chem } from '@/lib/fmt';
+import { chem } from '@/lib/fmt';
 import { Tag } from '@/components/ui';
 import { WO_STATUS_LABEL } from '@/lib/forms';
 import WorkPanel, {

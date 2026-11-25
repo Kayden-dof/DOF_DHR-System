@@ -5,7 +5,7 @@ import { withUser } from '@/lib/db';
 import type { RoleCode } from '@/lib/roles';
 import { fmtDate, fmtDateTime } from '@/lib/fmt';
 import Denied from '@/components/denied';
-import { Panel, Empty, Tag, Field } from '@/components/ui';
+import { Panel, Empty, Field } from '@/components/ui';
 import { PageShell } from '@/components/shell';
 import { SubNav } from '../../../nav';
 import { TRACE_NAV } from '../../../sections';

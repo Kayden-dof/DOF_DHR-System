@@ -1,7 +1,6 @@
-import Link from 'next/link';
-import { requireUser, hasRole, canWrite, blocksScreen } from '@/lib/session';
+import { requireUser, canWrite, blocksScreen } from '@/lib/session';
 import { withUser } from '@/lib/db';
-import { fmtDate, fmtDateTime } from '@/lib/fmt';
+import { fmtDate } from '@/lib/fmt';
 import { WO_STATUS_LABEL } from '@/lib/forms';
 import Denied from '@/components/denied';
 import { Panel, Empty, Tag } from '@/components/ui';

@@ -32,6 +32,3 @@ export function createIcon(name: string, shape: ReactNode) {
   Icon.displayName = name;
   return Icon;
 }
-
-/** Kept for source compatibility with product icon slots. */
-export type LucideIcon = ReturnType<typeof createIcon>;

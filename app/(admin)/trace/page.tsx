@@ -1,9 +1,8 @@
 import Link from 'next/link';
-import { requireUser, hasRole, blocksScreen } from '@/lib/session';
+import { requireUser, blocksScreen } from '@/lib/session';
 import { withUser } from '@/lib/db';
-import { fmtDate, fmtDateTime } from '@/lib/fmt';
 import Denied from '@/components/denied';
-import { Panel, Empty, Tag, Field } from '@/components/ui';
+import { Panel, Empty, Tag } from '@/components/ui';
 import { PageShell } from '@/components/shell';
 import { SubNav } from '../nav';
 import { TRACE_NAV } from '../sections';

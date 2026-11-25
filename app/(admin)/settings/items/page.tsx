@@ -1,4 +1,4 @@
-import { requireUser, hasRole, blocksScreen } from '@/lib/session';
+import { requireUser, blocksScreen } from '@/lib/session';
 import { fixAt } from '@/lib/unblock';
 import Denied from '@/components/denied';
 import { withActor } from '@/lib/db';

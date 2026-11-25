@@ -1,4 +1,4 @@
-import { requireUser, hasRole, canWrite, blocksScreen } from '@/lib/session';
+import { requireUser, canWrite, blocksScreen } from '@/lib/session';
 import { fixAt } from '@/lib/unblock';
 import Denied from '@/components/denied';
 import { PageShell } from '@/components/shell';

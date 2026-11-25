@@ -20,7 +20,3 @@ export const cycleLabel = (c: string | null | undefined) =>
 export const NO_EXPIRY = '9999-12-31';
 
 export const isNoExpiry = (d: string | null | undefined) => !!d && d >= '9000-01-01';
-
-/** 만료일 글자. «기한 없음» 을 날짜로 내보내지 않는다 */
-export const validText = (d: string | null | undefined) =>
-  !d ? '' : isNoExpiry(d) ? '기한 없음' : d.slice(0, 10);

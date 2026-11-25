@@ -9,7 +9,7 @@ import { WO_STATUS_LABEL, PL_STATUS_LABEL } from '@/lib/forms';
 import { KIND_LABEL, viewHref } from '@/lib/print';
 import Denied from '@/components/denied';
 import { ChangeNote } from '@/components/change-note';
-import { Panel, Empty, Tag, Field, Caution } from '@/components/ui';
+import { Panel, Empty, Tag, Field } from '@/components/ui';
 import WorkRequestForm, { type ReqValue } from './request-form';
 import {
   CutForm, LotStatusForm, LotDeleteForm, CancelForm, WoNoForm, ForceReasonForm, FinishForm, RetrieveForm, EndForWorkerForm, DayPrintLink,

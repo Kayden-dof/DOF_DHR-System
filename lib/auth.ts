@@ -45,5 +45,3 @@ export async function verifyPin(pin: string, stored: string | null): Promise<boo
   }
   return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
-
-export { PIN_MIN_LENGTH } from './auth-const';

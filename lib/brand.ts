@@ -131,7 +131,7 @@ export const getBrand = cache(async (): Promise<Brand> => {
    화면이 자기 계산을 따로 두면 두 벌이 되고, 두 벌은 갈라진다 (§10).
    계산만 떼어 내고 여기서 다시 내보낸다 - 부르는 자리는 그대로 둔다.
 --------------------------------------------------------------------------- */
-export { brandVars, darkTone, brandSteps, type Step } from './tone';
+export { brandVars, darkTone } from './tone';
 
 
 /* ---------------------------------------------------------------------------

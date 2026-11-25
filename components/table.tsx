@@ -108,18 +108,6 @@ export function TwoLine({
   );
 }
 
-/** 맨 오른쪽 동작 칸. 표가 가로로 넘쳐도 붙어 있는다. */
-export function ActionTd({ children }: { children: React.ReactNode }) {
-  return (
-    <td className="td sticky right-0 bg-[var(--qd-table-fill,var(--color-surface))] text-right">
-      {/* 손이 얹히거나 초점이 오면 나온다. 자리는 늘 차지한다 (globals.css) */}
-      <span className="row-action inline-flex items-center justify-end gap-1.5">
-        {children}
-      </span>
-    </td>
-  );
-}
-
 export function ActionTh() {
   return <th className="th sticky right-0" scope="col" aria-label="동작" />;
 }

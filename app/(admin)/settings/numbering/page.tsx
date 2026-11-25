@@ -1,4 +1,4 @@
-import { requireUser, hasRole, canWrite, blocksScreen } from '@/lib/session';
+import { requireUser, canWrite, blocksScreen } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import { NUMBERING_TARGETS } from '@/lib/forms';
 import Denied from '@/components/denied';

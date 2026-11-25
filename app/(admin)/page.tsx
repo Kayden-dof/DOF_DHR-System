@@ -2,9 +2,9 @@ import Link from 'next/link';
 import { requireUser, hasRole } from '@/lib/session';
 import { withUser } from '@/lib/db';
 import { getBrand } from '@/lib/brand';
-import { fmtDate, fmtTime } from '@/lib/fmt';
+import { fmtDate } from '@/lib/fmt';
 import {
-  NUMBERING_TARGETS, M1_CRITICAL_TARGETS, WO_STATUS_LABEL, PL_STATUS_LABEL, tableLabel,
+  NUMBERING_TARGETS, M1_CRITICAL_TARGETS, WO_STATUS_LABEL, PL_STATUS_LABEL,
 } from '@/lib/forms';
 import { Panel, Empty, Tag, Progress } from '@/components/ui';
 import { PageShell, StatStrip, type StatItem } from '@/components/shell';

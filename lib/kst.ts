@@ -59,13 +59,6 @@ export function yearKST(): number {
   }).format(new Date()));
 }
 
-/** 한국 시각으로 지금 시(0~23). 인사말처럼 때를 가르는 자리에 쓴다 */
-export function hourKST(): number {
-  return Number(new Intl.DateTimeFormat('en-US', {
-    timeZone: KST, hour: 'numeric', hour12: false,
-  }).format(new Date()));
-}
-
 /**
  * 날짜 문자열이 오늘보다 앞서는가. 유효기한 · 승인기한 판정에 쓴다.
  *
@@ -76,7 +69,6 @@ export function isPastKST(date: string | null | undefined): boolean {
   return !!date && date.slice(0, 10) < todayKST();
 }
 
-/** 오늘부터 며칠 안인가. 유효기한 임박 표시에 쓴다 */
 /**
  * 오늘부터 그 날짜까지 며칠인가. 지난 날짜는 음수다.
  *
@@ -88,12 +80,4 @@ export function daysUntilKST(date: string | null | undefined): number | null {
   if (!date) return null;
   const at = (d: string) => Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10), 12);
   return Math.round((at(date.slice(0, 10)) - at(todayKST())) / 86_400_000);
-}
-
-export function withinDaysKST(date: string | null | undefined, days: number): boolean {
-  if (!date) return false;
-  const limit = new Intl.DateTimeFormat('sv-SE', { timeZone: KST })
-    .format(new Date(Date.now() + days * 86_400_000));
-  const d = date.slice(0, 10);
-  return d >= todayKST() && d <= limit;
 }

@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { requireUser } from '@/lib/session';
-import { withActor, dbMessage } from '@/lib/db';
+import { withActor } from '@/lib/db';
 import { fmtDate, fmtDateTime, chem } from '@/lib/fmt';
 import { logPrint, printGate, viewParam } from '@/lib/print';
 import Denied from '@/components/denied';

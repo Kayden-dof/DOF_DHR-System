@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import { requireUser } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import { openSteps } from '@/lib/batch-open';
-import { fmtDate, fmtDateTime, chem } from '@/lib/fmt';
+import { fmtDate, chem } from '@/lib/fmt';
 import { logPrint, printGate, viewParam } from '@/lib/print';
 import { chunkRows } from '@/lib/print-pages';
 import Denied from '@/components/denied';
