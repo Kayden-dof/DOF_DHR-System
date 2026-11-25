@@ -187,7 +187,7 @@ export default function ReceiveForm({ items, suppliers, orders, today, presetPo,
                   onChange={(e) => setSupplierId(e.target.value)} className="input">
             {suppliers.map((s) => (
               <option key={s.id} value={s.id}>
-                {s.name}{s.status === 'SUSPENDED' ? ' (정지)' : s.status !== 'APPROVED' ? ' (미승인)' : ''}
+                {s.name}
               </option>
             ))}
           </select>

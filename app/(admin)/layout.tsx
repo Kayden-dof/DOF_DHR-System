@@ -151,7 +151,6 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         { href: '/board', label: '경영 현황' },
         { href: '/production', label: '생산' },
         { href: '/trace', label: '조회' },
-        { href: '/settings/audit', label: '감사추적' },
       ]
     : [
         { href: '/', label: '현황' },

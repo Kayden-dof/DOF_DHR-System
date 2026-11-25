@@ -80,7 +80,7 @@ export default async function SuppliersPage({ searchParams }: {
     <PageShell
       section="설정"
       title="공급자 · 단가 · 사용기간"
-      lede="승인 상태는 경고 표시에만 쓰입니다. 미승인 공급자의 자재도 등록과 사용을 막지 않습니다."
+      lede="자재를 사 오는 곳입니다. 입고와 발주에서 고릅니다."
       action={writable ? <NewSupplierForm /> : null}
       nav={<SubNav items={settingsNav(user.seat, user.screens)} />}
     >
@@ -97,8 +97,6 @@ export default async function SuppliersPage({ searchParams }: {
                 <tr>
                   <th className="th">코드</th>
                   <th className="th">상호</th>
-                  <th className="th">승인</th>
-                  <th className="th">만료일</th>
                   <th className="th">담당</th>
                   <th className="th text-right">자재 로트</th>
                   {writable && <th className="th" />}

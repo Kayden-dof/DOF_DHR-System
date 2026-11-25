@@ -214,7 +214,11 @@ export default [
 
 {
   id: 'RH-09', expect: '확인',
-  name: '공정에 걸리지 않은 설비 · 구성표에 없는 자재를 쓰면 검토가 «표준서 밖» 으로 짚는다 (0135)',
+  /*
+   * 0162 (생산팀 전용 · 사용자 2026-11-25): 제품표준서와 견주는 판정은 품질 몫이라 확인해 볼
+   * 항목에서 뺐다. 전에는 «표준서 밖» 으로 짚었다 (0135). 고른 기록은 그대로 남는다.
+   */
+  name: '공정에 걸리지 않은 설비 · 구성표에 없는 자재를 써도 기록은 남고 «표준서 밖» 으로 짚지 않는다 (0162)',
   async run(t) {
     const m = await master(t);
     const wo = await newWorkOrder(t, m);
@@ -228,11 +232,13 @@ export default [
       [wo.id, m.ops['WS-DX2401-03'], m.admin, eq]);
     await t.rows(`insert into material_issue (process_record_id, material_lot_id, qty, issued_by)
                   values ($1, $2, 1, $3)`, [pr, lot, m.admin]);
+    t.eq(await t.val(`select equipment_ref from process_record where id = $1`, [pr]), eq,
+         '고른 설비는 기록된다');
+    t.eq(Number(await t.val(`select count(*) from material_issue where process_record_id = $1`, [pr])), 1,
+         '고른 자재도 기록된다');
     const flags = await t.rows(
       `select detail, ref from review_flags($1) where kind = '표준서 밖' order by ref`, [wo.id]);
-    t.eq(flags.length, 2, '설비 하나 · 자재 하나');
-    t.eq(flags.some((f) => f.ref === 'RH-X1' && f.detail.includes('걸리지 않은 설비')), true, '설비');
-    t.eq(flags.some((f) => f.detail.includes('자재 구성표에 없는 자재')), true, '자재');
+    t.eq(flags.length, 0, '«표준서 밖» 으로 짚지 않는다');
     await t.setActor(null);
   },
 },

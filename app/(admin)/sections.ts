@@ -16,7 +16,6 @@ export const PRODUCTION_NAV: NavItem[] = [
   { href: '/production', label: '작업 지시' },
   { href: '/production/plan', label: '일정' },
   { href: '/production/setup', label: '제품' },
-  { href: '/production/deviation', label: '일탈' },
 ];
 
 export const MATERIAL_NAV: NavItem[] = [
@@ -51,7 +50,6 @@ export const SHIPPING_NAV: NavItem[] = [
  */
 export const TRACE_NAV: NavItem[] = [
   { href: '/trace', label: '계보 추적' },
-  { href: '/trace/verify', label: '인쇄물' },
 ];
 
 /**
@@ -82,7 +80,6 @@ export const SETTINGS_NAV: NavItem[] = [
   { href: '/settings/brand', label: '회사 표시', group: '시스템' },
   { href: '/settings/numbering', label: '채번 규칙', group: '시스템' },
   { href: '/settings/backup', label: '백업', group: '시스템' },
-  { href: '/settings/audit', label: '감사추적', group: '시스템' },
 ];
 
 /**

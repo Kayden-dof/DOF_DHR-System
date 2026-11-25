@@ -9,7 +9,7 @@ import { MATERIAL_NAV } from '../sections';
 import { fmtDate } from '@/lib/fmt';
 import { daysUntilKST } from '@/lib/kst';
 import { MATERIAL_STATUS_LABEL } from '@/lib/forms';
-import { Panel, Empty, Truncated, Tag } from '@/components/ui';
+import { Panel, Empty, Truncated } from '@/components/ui';
 import { Table, Th, Td, IdCell, TwoLine } from '@/components/table';
 import ReceiveForm, { type ItemOpt, type SupplierOpt, type OrderOpt } from './receive-form';
 import AmendLotForm, { DeleteLotForm } from './amend-form';
@@ -225,7 +225,6 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
                         <Td>
                           <div className="flex items-center gap-1.5 text-sm">
                             {l.supplier_name}
-                            {l.supplier_status !== 'APPROVED' && <Tag tone="warn">미승인</Tag>}
                           </div>
                           <div className="font-mono text-xs text-faint">{l.supplier_lot_no}</div>
                         </Td>

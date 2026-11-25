@@ -57,7 +57,6 @@ export const ACCESS_ROWS: AccessRow[] = [
   { group: '생산', label: '작업 지시',   path: '/production',            marks: '●●-●●' },
   { group: '생산', label: '일정',        path: '/production/plan',       marks: '●●-●●' },
   { group: '생산', label: '제품',        path: '/production/setup',      marks: '●●-XX' },
-  { group: '생산', label: '일탈',        path: '/production/deviation',  marks: '●●-XX' },
 
   { group: '자재', label: '자재 로트',   path: '/material',              marks: '●●-●X' },
   { group: '자재', label: '품목',        path: '/material/items',        marks: '●●-XX' },

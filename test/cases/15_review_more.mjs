@@ -55,7 +55,11 @@ export default [
 
 {
   id: 'RM-02', expect: '확인',
-  name: '승인되지 않은 공급자의 자재가 들어가면 짚고, 승인되면 사라진다',
+  /*
+   * 0162 (생산팀 전용 · 사용자 2026-11-25): 공급자 승인은 품질 몫이라 확인해 볼 항목에서 뺐다.
+   * 전에는 «미승인 공급자» 로 짚었다 (0113). 이제는 승인 전이든 승인기한이 지났든 짚지 않는다.
+   */
+  name: '승인되지 않은 공급자의 자재가 들어가도 확인해 볼 항목으로 짚지 않는다 (0162)',
   async run(t) {
     const m = await master(t);
     const wo = await newWorkOrder(t, m);
@@ -71,27 +75,15 @@ export default [
       `insert into material_issue (process_record_id, material_lot_id, qty, issued_by)
        values ($1,$2,1,$3)`, [pr, lot, m.admin]);
 
-    const hit = await flags(t, wo.id, '미승인 공급자', 'ML-PENDING-01');
-    t.eq(hit.length, 1, '미승인 공급자를 짚는다');
-    t.ok(hit[0].includes('PENDING'), '상태를 적는다');
+    t.eq((await flags(t, wo.id, '미승인 공급자', 'ML-PENDING-01')).length, 0,
+         '승인 전 공급자를 짚지 않는다');
 
-    /*
-     * 승인하면 사라진다. 이것이 중요하다 - 풀 수 없는 표시는 늘 떠 있게 되고,
-     * 늘 떠 있는 표시는 아무도 안 본다 (0107 · 0108 이 같은 판단을 했다).
-     */
+    /* 승인기한이 투입일 이전이어도 짚지 않는다 */
     await t.rows(
-      `update supplier set status = 'APPROVED', approved_until = current_date + 365
+      `update supplier set status = 'APPROVED', approved_until = current_date - 1
         where id = $1`, [m.supplierPending]);
     t.eq((await flags(t, wo.id, '미승인 공급자', 'ML-PENDING-01')).length, 0,
-         '승인하면 사라진다');
-
-    /* 승인기한이 투입일 이전이면 다시 짚는다 - 날짜는 그 날을 물을 수 있다 */
-    await t.rows(
-      `update supplier set approved_until = current_date - 1 where id = $1`,
-      [m.supplierPending]);
-    const late = await flags(t, wo.id, '미승인 공급자', 'ML-PENDING-01');
-    t.eq(late.length, 1, '승인기한이 지났으면 짚는다');
-    t.ok(late[0].includes('승인기한'), '기한을 적는다');
+         '승인기한이 지나도 짚지 않는다');
     await t.setActor(null);
   },
 },

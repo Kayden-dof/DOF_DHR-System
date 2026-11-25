@@ -14,7 +14,7 @@ export interface FlagRow { kind: string; detail: string; day_no: number | null; 
  *   기입 누락     비었거나 «-» 인 자재 칸
  *   (시스템 시작 · 종료 시각으로 짚던 시각 모순 · 종료 미기입은 0156 에서 뺐다 - 적힌 기록의 문제만)
  *   참조 불일치   그 로트가 적힌 칸
- *   기한 경과     그 설비가 적힌 칸
+ *   기한 경과     그 로트가 적힌 칸 (유효기한이 지난 자재. 설비 밸리데이션 기한은 0162 에서 뺐다)
  */
 const OP = /[A-Z]{2,}-[A-Z0-9]+-\d+/g;
 const squash = (s?: string) => (s ?? '').replace(/[\s()·]/g, '').toLowerCase();
