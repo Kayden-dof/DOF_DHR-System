@@ -26,7 +26,15 @@
   --qd-backdrop-filter: none;
   --qd-surface-filter: none;
   --qd-root-size: 16px;
-  --qd-date-control-min-width: 150px;
+  /* 날짜 · 시각 칸이 값을 다 보이는 가장 좁은 폭 (2026-11-25 · 사용자 «적용일 월도 글이 짤리는데»).
+     Chrome 이 스스로 잡는 폭을 쟀다 - 14px 에서 날짜 149 · 시각 127 · 일시 224 · 초까지 247.
+     em 이라 칸 자신의 글자 크기를 따른다. 현장(.touch · 18px)에서는 그만큼 넓다. */
+  --qd-date-control-min-width: 10.75em;
+  --qd-time-control-min-width: 9.25em;
+  --qd-datetime-control-min-width: 16.25em;
+  --qd-datetime-seconds-control-min-width: 17.75em;
+  /* 입력칸 격자의 칸 하나가 줄어들 수 있는 바닥. 날짜가 다 보이는 폭이다 */
+  --qd-field-min-width: var(--qd-date-control-min-width);
   --qd-font-family-ui: var(--qa-font-pretendard, 'Pretendard Variable'), 'Pretendard Variable', Pretendard, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', sans-serif;
   --qd-font-family-mono: 'JetBrains Mono', Consolas, Menlo, ui-monospace, 'Pretendard Variable', Pretendard, monospace;
   --qd-font-family-display: var(--qa-font-cormorant, var(--font-cormorant, 'Cormorant Garamond')), 'Cormorant Garamond', var(--qa-font-pretendard, 'Pretendard Variable'), 'Pretendard Variable', Pretendard, Georgia, serif;
@@ -385,6 +393,67 @@ html label:has(> input[type='file'].sr-only:focus-visible) {
   html .grid:is(:has(> .qd-field), :has(> .qd-kpi))[class*="grid-cols-6"] { --qd-grid-columns: 6; }
   /* A spanning field is a full row at every width, never an implicit column. */
   html .grid:has(> .qd-field) > [class*="col-span-"] { grid-column: 1 / -1; }
+  /* ---------------------------------------------------------------------------
+     입력칸 격자 (2026-11-25 · 사용자 «시험일자 글도 짤리고, 안전성시험보고서나 적용일 월도
+     글이 짤리는데»)
+
+     화면은 칸 수를 `sm:grid-cols-2 2xl:grid-cols-5` 처럼 «화면 폭» 에 걸어 둔다. 같은 폼이
+     나란히 선 두 판이나 대화 창 안에 들어가면 화면은 넓어도 격자는 좁아서, 칸 하나가
+     80px 까지 줄고 날짜가 «2026. 11» 에서 · 자리 표시가 «STB-2026-0» 에서 잘렸다.
+
+     그 칸 수를 «상한» 으로 읽는다. 칸 하나가 --qd-field-min-width(날짜가 다 보이는 폭)
+     보다 좁아지면 한 줄에 덜 세우고 다음 줄로 넘긴다. 격자가 넉넉하면 지금과 똑같이
+     그 수만큼 선다. 남는 칸 자리는 비워 둔다(auto-fill) - 칸 수보다 적게 든 줄이 옆으로
+     늘어나 모양이 바뀌지 않게.
+
+     · 대상: 이름표(.label) · 입력칸(.input) 을 바로 품은 칸들로 된 격자. 열 폭을 손으로 적은
+       격자(grid-cols-[12rem_1fr]) 와 인라인 style 로 열을 정한 격자는 건드리지 않는다.
+     · 칸 수 셈의 틈은 넉넉히 2rem 으로 잡는다. 실제 틈(gap-2 · gap-3 · gap-5)이 그보다
+       작으므로 넓은 자리에서 칸 수가 정한 수를 넘지도 모자라지도 않는다(틈 4~24px 검산).
+     · 셋 이상을 걸친 칸(col-span-3 이상 · full)은 «줄 끝까지» 로 읽는다. 칸 수가 줄어든
+       자리에서 걸친 수가 남은 칸보다 많으면 보이지 않는 열이 생겨 격자가 옆으로 넘친다.
+     · 종이(@media print)는 이 규칙 밖이다.
+  --------------------------------------------------------------------------- */
+  html .grid { --qd-field-columns: 1; }
+  html .grid[class~='grid-cols-2'] { --qd-field-columns: 2; }
+  html .grid[class~='grid-cols-3'] { --qd-field-columns: 3; }
+  html .grid[class~='grid-cols-4'] { --qd-field-columns: 4; }
+  html .grid[class~='grid-cols-5'] { --qd-field-columns: 5; }
+  html .grid[class~='grid-cols-6'] { --qd-field-columns: 6; }
+  html .grid[class~='grid-cols-7'] { --qd-field-columns: 7; }
+  @media (min-width: 40rem) {
+    html .grid[class~='sm:grid-cols-2'] { --qd-field-columns: 2; }
+    html .grid[class~='sm:grid-cols-3'] { --qd-field-columns: 3; }
+    html .grid[class~='sm:grid-cols-4'] { --qd-field-columns: 4; }
+    html .grid[class~='sm:grid-cols-5'] { --qd-field-columns: 5; }
+    html .grid[class~='sm:grid-cols-6'] { --qd-field-columns: 6; }
+  }
+  @media (min-width: 64rem) {
+    html .grid[class~='lg:grid-cols-2'] { --qd-field-columns: 2; }
+    html .grid[class~='lg:grid-cols-3'] { --qd-field-columns: 3; }
+    html .grid[class~='lg:grid-cols-4'] { --qd-field-columns: 4; }
+    html .grid[class~='lg:grid-cols-5'] { --qd-field-columns: 5; }
+    html .grid[class~='lg:grid-cols-6'] { --qd-field-columns: 6; }
+  }
+  @media (min-width: 80rem) {
+    html .grid[class~='xl:grid-cols-2'] { --qd-field-columns: 2; }
+  }
+  @media (min-width: 96rem) {
+    html .grid[class~='2xl:grid-cols-3'] { --qd-field-columns: 3; }
+    html .grid[class~='2xl:grid-cols-4'] { --qd-field-columns: 4; }
+    html .grid[class~='2xl:grid-cols-5'] { --qd-field-columns: 5; }
+  }
+  html .grid:has(> * > :is(.label, .input)):not([class*='grid-cols-['], .qd-grid-kpi, .qd-grid-stat) {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, max(var(--qd-field-min-width),
+      calc((100% - (var(--qd-field-columns) - 1) * 2rem) / var(--qd-field-columns) - .5px))), 1fr));
+  }
+  /* 일시 칸이 든 격자는 그 칸이 다 보이는 폭을 칸 하나의 바닥으로 삼는다 */
+  html .grid:has(> * > .input[type='datetime-local']) { --qd-field-min-width: var(--qd-datetime-control-min-width); }
+  html .grid:has(> * > .input[type='datetime-local'][step='1']) { --qd-field-min-width: var(--qd-datetime-seconds-control-min-width); }
+  html .grid:has(> * > :is(.label, .input)):not([class*='grid-cols-['])
+    > :is([class*='col-span-3'], [class*='col-span-4'], [class*='col-span-5'], [class*='col-span-6'], [class*='col-span-full']) {
+    grid-column: 1 / -1;
+  }
   :where(.qd-responsive-grid, .qd-intrinsic-grid, .qd-grid-kpi, .qd-grid-stat, .grid:has(> .qd-field), .grid:has(> .qd-kpi)) > *,
   :where(.qd-field, [data-shell], .qd-card, .qd-panel, .qd-dialog-body, .qd-drawer-body) {
     min-inline-size: 0;
@@ -1332,6 +1401,23 @@ input, textarea, [contenteditable] { caret-color: var(--color-brand); }
   .input:focus { border-color: var(--color-brand); box-shadow: var(--ring); }
   .input:disabled { background: var(--color-canvas); color: var(--color-faint); cursor: not-allowed; }
   .input::placeholder { color: var(--color-faint); }
+  /* 칸보다 긴 값 · 자리 표시는 칼로 자른 듯 끊지 않고 «…» 로 맺는다 (초점이 없을 때) */
+  .input { text-overflow: ellipsis; }
+
+  /*
+   * 날짜 · 시각 칸은 값이 다 보이는 폭 밑으로 줄지 않는다 (2026-11-25 · 사용자 «적용일 월도
+   * 글이 짤리는데»). 칸을 감싼 이름표 상자도 같은 폭을 바닥으로 삼는다 - 화면이 상자에 w-36
+   * 처럼 폭을 적어 두어도 칸이 상자 밖으로 삐져나오거나 «2026. 11» 에서 잘리지 않는다.
+   * 격자 안에서는 칸 하나가 이 폭보다 좁아지지 않는다 (위 «입력칸 격자»).
+   */
+  .input:is([type='date'], [type='month']),
+  :has(> .label + .input:is([type='date'], [type='month'])) { min-inline-size: var(--qd-date-control-min-width); }
+  .input[type='time'],
+  :has(> .label + .input[type='time']) { min-inline-size: var(--qd-time-control-min-width); }
+  .input[type='datetime-local'],
+  :has(> .label + .input[type='datetime-local']) { min-inline-size: var(--qd-datetime-control-min-width); }
+  .input[type='datetime-local'][step='1'],
+  :has(> .label + .input[type='datetime-local'][step='1']) { min-inline-size: var(--qd-datetime-seconds-control-min-width); }
 
   /* 읽기 전용 값. 입력칸처럼 생겼지만 만질 수 없다.
      입력칸과 나란히 서므로 모서리도 입력칸과 같은 10 이다 (2026-09-24 · 전에는 6) */

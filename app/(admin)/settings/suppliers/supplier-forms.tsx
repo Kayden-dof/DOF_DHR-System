@@ -216,7 +216,12 @@ export function PriceForm({ items, suppliers, today }: {
    */
   return (
     <form action={action} className="p-4">
-      <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-4">
+      {/*
+        * 단가 · 적용일을 한 칸 안의 작은 격자로 묶어 두었더니, 나란히 선 두 판 안에서 그
+        * 칸이 140px 로 줄어 적용일이 «2026» 까지만 보였다 (사용자 2026-11-25). 네 칸을 같은
+        * 격자의 칸으로 두고 줄 바꿈은 입력칸 격자 규칙에 맡긴다.
+        */}
+      <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-5">
         <div className="lg:col-span-2">
           <label className="label" htmlFor={`${uid}-item_id`}>품목</label>
           <select id={`${uid}-item_id`} name="item_id" required defaultValue="" className="input">
@@ -233,15 +238,13 @@ export function PriceForm({ items, suppliers, today }: {
             {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="label" htmlFor={`${uid}-price`}>단가</label>
-            <input id={`${uid}-price`} name="price" type="number" step="any" min="0" required className="input tnum" />
-          </div>
-          <div>
-            <label className="label" htmlFor={`${uid}-effective_from`}>적용일</label>
-            <input id={`${uid}-effective_from`} name="effective_from" type="date" defaultValue={today} required className="input tnum" />
-          </div>
+        <div>
+          <label className="label" htmlFor={`${uid}-price`}>단가</label>
+          <input id={`${uid}-price`} name="price" type="number" step="any" min="0" required className="input tnum" />
+        </div>
+        <div>
+          <label className="label" htmlFor={`${uid}-effective_from`}>적용일</label>
+          <input id={`${uid}-effective_from`} name="effective_from" type="date" defaultValue={today} required className="input tnum" />
         </div>
       </div>
       <p className="mt-3 text-xs leading-relaxed text-muted">

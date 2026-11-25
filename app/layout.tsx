@@ -85,7 +85,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           __html: `:root{${brandVars(brandColor)}${mark ? `;${mark}` : ''}}`,
         }} />
       </head>
-      <body>
+      {/*
+        * 맞춤법 검사를 끈다 (사용자 2026-11-25 스크린샷 · 형명 칸 «PD1018202» 밑의 빨간 물결).
+        * 칸 대부분이 형명 · 로트 · 문서 번호라 검사기가 맞는 값에 줄을 긋는다. 속성은
+        * 자손에게 물려 내려가므로 여기 한 곳이면 모든 칸에 닿는다.
+        */}
+      <body spellCheck={false}>
         <TopProgressBar className="top-progress" />
         <StickyFocusGuard />
         {children}

@@ -31,6 +31,11 @@ function LineInput({ k, models, onRemove }: { k: number; models: ModelOpt[]; onR
   const found = find ? findModel(find, models) : undefined;
   useEffect(() => { if (found) setItemId(found.id); }, [found]);
 
+  /*
+   * 안내 글은 형명 칸 «밑의 줄» 에 따로 둔다 (사용자 2026-11-25 스크린샷). 칸 안에 두면
+   * 아래 끝 정렬(items-end) 때문에 형명 칸만 글 높이만큼 떠서 옆 두 칸과 이름표 · 칸 높이가
+   * 어긋났다. 좁은 화면(한 줄 한 칸)에서는 글이 형명 칸 바로 밑에 그대로 선다.
+   */
   return (
     <div className="grid items-end gap-2 sm:grid-cols-[12rem_1fr_7rem_auto]">
       <div>
@@ -47,8 +52,10 @@ function LineInput({ k, models, onRemove }: { k: number; models: ModelOpt[]; onR
             <option key={o.id} value={o.id}>{o.code} · {o.name}{o.udi ? ` · UDI ${o.udi}` : ''}</option>
           ))}
         </select>
-        {find && !found && <p className="mt-1 text-xs text-warn">맞는 형명이 없습니다.</p>}
       </div>
+      {find && !found && (
+        <p className="text-xs text-warn sm:col-start-2 sm:row-start-2">맞는 형명이 없습니다.</p>
+      )}
       <div>
         <label className="label" htmlFor={`${uid}-qty`}>수량</label>
         <input id={`${uid}-qty`} name={`line_qty_${k}`} type="number" min="1" step="1" className="input tnum" />

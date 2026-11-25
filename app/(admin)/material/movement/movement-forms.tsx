@@ -75,7 +75,8 @@ export function MovementForm({ lots, orders, fix }: {
         </div>
         <div>
           <label className="label" htmlFor={`${uid}-qty`}>
-            수량 {type === 'ADJUSTMENT' ? '(늘리면 +, 줄이면 -)' : `(${lot?.usage_uom ?? ''})`}
+            {/* 로트를 고르기 전에는 단위가 없다 - 빈 괄호 «수량 ()» 를 띄우지 않는다 */}
+            수량 {type === 'ADJUSTMENT' ? '(늘리면 +, 줄이면 -)' : lot?.usage_uom ? `(${lot.usage_uom})` : ''}
           </label>
           <input id={`${uid}-qty`} name="qty" type="number" step="any" required className="input tnum" />
         </div>
