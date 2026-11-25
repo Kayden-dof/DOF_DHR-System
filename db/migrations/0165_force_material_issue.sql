@@ -111,9 +111,10 @@ begin
   if v_item is null then
     raise exception '자재 로트를 찾을 수 없습니다';
   end if;
+  /* 구성표 밖 자재도 받는다 (현장 투입의 «전체 자재 로트 보기» 와 같다 · 0135). 정정 내역에 표시만 남긴다 */
   if not exists (select 1 from dmr_bom b
                   where b.operation_id = r.operation_id and b.component_item_id = v_item) then
-    raise exception '이 공정의 자재 구성표에 없는 자재입니다';
+    v_label := v_label || ' (구성표 밖)';
   end if;
 
   perform set_config('app.change_reason', '투입 정정 · ' || v_why, true);

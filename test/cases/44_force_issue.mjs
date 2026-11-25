@@ -164,7 +164,7 @@ export default [
 
 {
   id: 'FI-04', expect: '거부',
-  name: '작업자 · 빈 사유 · 구성표 밖 자재 · 0 수량 · 모자란 잔여는 거부',
+  name: '작업자 · 빈 사유 · 0 수량 · 모자란 잔여는 거부',
   async run(t) {
     const m = await master(t);
     const s = await setup(t, m, { locked: true });
@@ -174,14 +174,28 @@ export default [
     await t.rejects(() => force(t, s.mgr, s.pr, s.lot, 0.8, '  '), { message: '왜 더하는지 적으십시오' });
     await t.rejects(() => force(t, s.mgr, s.pr, s.lot, 0), { message: '수량은 0 보다 커야 합니다' });
     await t.rejects(() => force(t, s.mgr, s.pr, s.lot, -1), { message: '수량은 0 보다 커야 합니다' });
-    await t.rejects(() => force(t, s.mgr, s.pr, s.a, 1),
-      { message: '이 공정의 자재 구성표에 없는 자재입니다' });
     await t.rejects(() => force(t, s.mgr, '00000000-0000-0000-0000-000000000000', s.lot, 1),
       { message: '공정 기록을 찾을 수 없습니다' });
     await t.rejects(() => force(t, s.mgr, s.pr, s.lot, 9));
     t.eq(await left(t, s.lot), 5, '거부된 것은 재고를 줄이지 않는다');
     t.eq(await t.val(`select count(*)::int from record_correction
                        where process_record_id = $1 and field = 'material_issue'`, [s.pr]), 0, '정정 내역도 없다');
+  },
+},
+
+{
+  id: 'FI-06', expect: '통과',
+  name: '구성표 밖 자재도 받는다 - 재고에서 빠지고 정정 내역에 (구성표 밖) 이 붙는다',
+  async run(t) {
+    const m = await master(t);
+    const s = await setup(t, m, { locked: true });
+    const before = await left(t, s.a);   // 원액 원료로 3 이 이미 빠져 있다
+    const id = (await force(t, s.mgr, s.pr, s.a, 1))[0].id;
+    t.eq(await t.val(`select forced from material_issue where id = $1`, [id]), true, '강제 투입 줄');
+    t.eq(await left(t, s.a), before - 1, '재고에서 빠진다');
+    const nv = await t.val(
+      `select new_value from record_correction where process_record_id = $1 and field = 'material_issue'`, [s.pr]);
+    t.ok(nv.endsWith(' (구성표 밖)'), '정정 내역 끝에 (구성표 밖): ' + nv);
   },
 },
 

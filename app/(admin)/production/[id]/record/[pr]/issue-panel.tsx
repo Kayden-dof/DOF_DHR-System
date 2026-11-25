@@ -5,9 +5,9 @@ import { Msg } from '@/components/ui';
 import type { FormState } from '@/lib/forms';
 import { addForcedIssue } from '../../../record-actions';
 
-export type IssueLot = { id: string; item: string; lot_no: string; left: string; uom: string };
+export type IssueLot = { id: string; item: string; lot_no: string; left: string; uom: string; outside: boolean };
 
-/* 투입 더하기 (관리자 정정 · 0165) - 이 공정 구성표 품목의 쓸 수 있는 로트를 골라 투입 한 줄을 더한다 */
+/* 투입 더하기 (관리자 정정 · 0165) -  투입 한 줄을 더한다 */
 export default function IssuePanel({ recordId, woId, lots }: {
   recordId: string; woId: string; lots: IssueLot[];
 }) {
@@ -31,7 +31,7 @@ export default function IssuePanel({ recordId, woId, lots }: {
               {lots.length === 0 ? '쓸 수 있는 로트가 없습니다' : '로트를 고르십시오'}
             </option>
             {lots.map((l) => (
-              <option key={l.id} value={l.id}>{l.item} · {l.lot_no} · 잔여 {l.left} {l.uom}</option>
+              <option key={l.id} value={l.id}>{l.item} · {l.lot_no} · 잔여 {l.left} {l.uom}{l.outside ? ' · 구성표 밖' : ''}</option>
             ))}
           </select>
         </div>

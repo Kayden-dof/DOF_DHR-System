@@ -34,16 +34,18 @@ export default async function RecordSheetPage({ params, searchParams }: {
          from process_record r join work_order w on w.id = r.work_order_id
          join dmr_operation o on o.id = r.operation_id join app_user u on u.id = r.worker_id
         where r.id = $1 and r.work_order_id = $2`, [pr, id]),
-    /* 이 공정 구성표 품목의 쓸 수 있는 로트 (투입 더하기 · 0165) */
+    /* 쓸 수 있는 로트: 이 공정 구성표 품목 먼저, 그 밖의 로트는 «구성표 밖» 으로 (투입 더하기 · 0165) */
     lots: await db.rows<IssueLot>(
       `select ml.id, i.code || ' ' || i.name as item, ml.lot_no,
-              rtrim(to_char(ml.qty_available, 'FM999999990.999'), '.') as left, i.usage_uom as uom
+              rtrim(to_char(ml.qty_available, 'FM999999990.999'), '.') as left, i.usage_uom as uom,
+              not exists (select 1 from dmr_bom b where b.operation_id = r.operation_id
+                             and b.component_item_id = ml.item_id) as outside
          from process_record r
-         join dmr_bom b on b.operation_id = r.operation_id
-         join material_lot ml on ml.item_id = b.component_item_id
+         cross join material_lot ml
          join item i on i.id = ml.item_id
         where r.id = $1 and ml.status = 'AVAILABLE' and ml.qty_available > 0
-        order by i.code, ml.lot_no`, [pr]),
+          and (ml.expiry_date is null or ml.expiry_date >= (timezone('Asia/Seoul', now()))::date)
+        order by outside, i.code, ml.lot_no`, [pr]),
   }));
   if (!d.head) notFound();
   if (!d.sheet) {
