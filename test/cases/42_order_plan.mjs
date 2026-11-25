@@ -101,6 +101,29 @@ export default [
 },
 
 {
+  id: 'OP-06b', expect: '통과',
+  name: '주문 줄이 0159 규칙에 걸려 걸리지 않아도 계획 잇기는 그대로 된다',
+  async run(t) {
+    const m = await master(t);
+    await withScheme(t, async () => {
+      const code = await t.val(`select code from dm_models($1) limit 1`, [m.dm]);
+      const line = await orderLine(t, m, code, 'OP06B');
+      const p = await plan(t, m, { line });
+      await t.setActor(m.admin);
+      await t.rows(`update sales_order_line set cancelled_at = now(), cancel_reason = '시험 취소' where id = $1`, [line]);
+      const wo = await newWorkOrder(t, m);
+      await t.setActor(m.admin);
+      await t.rows(`update batch_plan set work_order_id = $1 where id = $2`, [wo.id, p]);
+      t.eq(await t.val(`select work_order_id from batch_plan where id = $1`, [p]), wo.id, '계획 잇기는 그대로');
+      t.eq(await t.val(
+        `select count(*)::int from work_order_so_line where work_order_id = $1 and unlinked_at is null`, [wo.id]),
+        0, '취소된 줄은 지시에 걸리지 않는다');
+      await t.rows(`delete from batch_plan where id = $1`, [p]);
+    });
+  },
+},
+
+{
   id: 'OP-00', expect: '거부',
   name: '원료 품목 칸에는 원료(RAW) 품목만',
   async run(t) {

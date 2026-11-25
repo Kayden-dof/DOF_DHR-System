@@ -55,7 +55,7 @@ begin
 end $$;
 comment on column batch_plan.sheets is '이 계획이 돌릴 원료 장수 (0164)';
 comment on column batch_plan.sales_order_line_id is '이 계획이 어느 주문 줄을 위한 것인가 (0164)';
-create index if not exists batch_plan_so_line on batch_plan (sales_order_line_id)
+create index if not exists batch_plan_so_line_idx on batch_plan (sales_order_line_id)
   where sales_order_line_id is not null;
 
 /* === 3. 판이 시행 중인가 · 장당 개수 ======================================= */
@@ -77,8 +77,8 @@ set search_path = pg_catalog, public, pg_temp as $$
 declare vw numeric; vh numeric; w numeric; h numeric; n int;
 begin
   select usable_w, usable_h into vw, vh from device_master where id = p_dm;
-  select p.value into w from model_parts((select code from item where id = p_item)) p where p.role = 'WIDTH' limit 1;
-  select p.value into h from model_parts((select code from item where id = p_item)) p where p.role = 'HEIGHT' limit 1;
+  select p.value into w from model_parts((select code from item where id = p_item)) p where p.role = 'WIDTH' order by p.seq limit 1;
+  select p.value into h from model_parts((select code from item where id = p_item)) p where p.role = 'HEIGHT' order by p.seq limit 1;
   if vw is null or vh is null or w is null or h is null or w <= 0 or h <= 0 then return null; end if;
   n := greatest(floor(vw / w) * floor(vh / h), floor(vw / h) * floor(vh / w));
   if n < 1 then return null; end if;
@@ -129,7 +129,9 @@ begin
   begin
     insert into work_order_so_line (work_order_id, sales_order_line_id, linked_by)
     values (new.work_order_id, new.sales_order_line_id, v_user);
-  exception when others then null;
+  exception when raise_exception then
+    /* 0159 의 규칙(취소된 줄 · 판 밖 형명)에 걸린 것만 건너뛴다. 나머지 오류는 그대로 올린다 */
+    raise warning '주문 줄을 작업 지시에 걸지 못했습니다 (계획 잇기는 그대로): %', sqlerrm;
   end;
   return new;
 end $$;
