@@ -138,3 +138,97 @@ end $$;
 drop trigger if exists batch_plan_attach_line on batch_plan;
 create trigger batch_plan_attach_line after update of work_order_id on batch_plan
   for each row execute function trg_batch_plan_attach_line();
+
+/* === 5. 덮인 개수 (저장하지 않고 센다) ===================================== */
+/*
+ * 주문 줄 하나가 이미 얼마나 덮였는가. 아무것도 막지 않고 보이기만 한다.
+ *   - 지시 w (취소 아님 · 줄이 살아 있게 걸림):
+ *       그 줄 형명의 제품 로트가 있으면 그 로트들 남은 양 x 줄 left / 같은 형명으로 걸린 살아 있는 줄들 left 합
+ *       로트가 하나도 없으면(재단 전) ⌊지시 장수 x 줄 left / 걸린 살아 있는 줄 전부 left 합 x 장당 개수⌋
+ *       로트는 있는데 그 형명이 아니면 0
+ *       left 합이 0 이면 그 지시 몫은 0 (0 으로 나누지 않는다)
+ *   - 지시 없는 이은 계획: 장수 x 장당 개수
+ */
+create or replace function so_line_covered(p_line uuid)
+returns int language sql stable
+set search_path = pg_catalog, public, pg_temp as $fn$
+  with l as (select id, item_id from sales_order_line where id = p_line),
+  w as (
+    select wo.id, wo.sheet_count, wo.device_master_id
+      from work_order wo
+     where wo.status <> 'CANCELLED'
+       and exists (select 1 from work_order_so_line x
+                    where x.work_order_id = wo.id and x.sales_order_line_id = p_line and x.unlinked_at is null)
+  ),
+  share as (
+    select case
+      when exists (select 1 from product_lot pl where pl.work_order_id = w.id) then
+        case
+          when not exists (select 1 from product_lot pl, l where pl.work_order_id = w.id and pl.item_id = l.item_id) then 0::numeric
+          else coalesce((select sum(pl.qty_available) from product_lot pl, l
+                          where pl.work_order_id = w.id and pl.item_id = l.item_id), 0)
+               * so_line_left(p_line)
+               / nullif((select sum(so_line_left(x.sales_order_line_id))
+                           from work_order_so_line x join sales_order_line sl on sl.id = x.sales_order_line_id, l
+                          where x.work_order_id = w.id and x.unlinked_at is null and sl.item_id = l.item_id), 0)
+        end
+      else
+        floor(w.sheet_count::numeric * so_line_left(p_line)
+              * coalesce((select model_per_sheet(w.device_master_id, l.item_id) from l), 0)
+              / nullif((select sum(so_line_left(x.sales_order_line_id))
+                          from work_order_so_line x
+                         where x.work_order_id = w.id and x.unlinked_at is null), 0))
+      end as n
+    from w
+  )
+  select (coalesce((select sum(floor(coalesce(n, 0))) from share), 0)
+        + coalesce((select sum(bp.sheets * coalesce(model_per_sheet(bp.device_master_id, l.item_id), 0))
+                      from batch_plan bp, l
+                     where bp.sales_order_line_id = p_line and bp.work_order_id is null and bp.sheets is not null), 0))::int
+$fn$;
+comment on function so_line_covered(uuid) is
+  '그 주문 줄이 이미 덮인 개수. 걸린 지시의 몫 + 지시 없는 이은 계획. 막지 않고 보이기만 한다 (0164)';
+
+/* === 6. 제안 대상 줄 ======================================================= */
+create or replace function order_plan_lines()
+returns table (line_id uuid, order_id uuid, customer_name text, customer_po_no text, due_on date,
+               item_id uuid, item_code text, line_qty int, left_qty int, covered int, fg_stock int,
+               dm_id uuid, dm_label text, per_sheet int, sheet_min int, sheet_max int, band text, multi_wo boolean)
+language sql stable
+set search_path = pg_catalog, public, pg_temp as $fn$
+  select l.id, o.id, c.name, o.customer_po_no, o.due_on,
+         l.item_id, i.code, l.qty, so_line_left(l.id), so_line_covered(l.id),
+         (select coalesce(sum(pl.qty_available), 0)::int from product_lot pl where pl.item_id = l.item_id),
+         d.id, coalesce(d.product_code, di.code) || ' ' || d.revision,
+         model_per_sheet(d.id, l.item_id), d.sheet_min, d.sheet_max, model_band(i.code),
+         exists (select 1 from work_order_so_line x
+                  where x.sales_order_line_id = l.id and x.unlinked_at is null
+                    and exists (select 1 from work_order_so_line y
+                                 where y.work_order_id = x.work_order_id and y.id <> x.id and y.unlinked_at is null))
+    from sales_order_line l
+    join sales_order o on o.id = l.sales_order_id
+    join customer c on c.id = o.customer_id
+    join item i on i.id = l.item_id
+    join lateral (select dm.*
+                    from device_master dm
+                   where dm_effective(dm.id)
+                     and exists (select 1 from dm_models(dm.id) m where m.id = l.item_id)
+                   order by dm.effective_from desc, (model_per_sheet(dm.id, l.item_id) is not null) desc, dm.id
+                   limit 1) d on true
+    join item di on di.id = d.item_id
+   where l.cancelled_at is null and o.cancelled_at is null
+     and so_line_left(l.id) > 0
+   order by o.due_on nulls last, o.customer_po_no
+$fn$;
+comment on function order_plan_lines() is
+  '생산 계획을 제안할 주문 줄. 남은 수량이 있고 그 형명이 드는 시행 중인 판이 있는 줄. fg_stock 은 보이기만 한다 (0164)';
+
+grant execute on function so_line_covered(uuid) to app_role;
+grant execute on function order_plan_lines() to app_role;
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'app_readonly') then
+    execute 'grant execute on function so_line_covered(uuid) to app_readonly';
+    execute 'grant execute on function order_plan_lines() to app_readonly';
+  end if;
+end $$;
