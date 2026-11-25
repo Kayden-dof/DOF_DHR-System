@@ -1085,7 +1085,8 @@ export function DmrLimitsForm({
       </div>
       <div className="w-64">
         <label className="label" htmlFor={`${uid}-raw_item_id`}>원료 품목</label>
-        <select id={`${uid}-raw_item_id`} name="raw_item_id" defaultValue={rawItemId ?? ''}
+        <select key={rawItemId ?? ''} id={`${uid}-raw_item_id`} name="raw_item_id"
+                defaultValue={rawItemId ?? ''}
                 className="input">
           <option value="">정하지 않음</option>
           {rawItems.map((i) => <option key={i.id} value={i.id}>{i.code} · {i.name}</option>)}
