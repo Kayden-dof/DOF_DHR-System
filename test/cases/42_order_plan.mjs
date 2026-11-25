@@ -47,9 +47,29 @@ async function putInForce(t, m) {
 }
 async function restoreDm(t, m, old) {
   await t.rows(
-    `update device_master set usable_w = $2, usable_h = $3, effective_from = $4 where id = $1`,
-    [m.dm, old.usable_w, old.usable_h, old.effective_from]);
+    `update device_master set usable_w = $2, usable_h = $3, effective_from = $4,
+            status = $5, verified_by = $6, verified_at = $7 where id = $1`,
+    [m.dm, old.usable_w, old.usable_h, old.effective_from, old.status, old.verified_by, old.verified_at]);
 }
+/** 시험이 만든 계획 · 줄 · 지시 이음 · 지시를 뒷시험이 보지 않게 치운다 (지울 수 없는 것은 취소 · 뗌 · 0 으로) */
+async function tidy(t, m, { plans = [], lines = [], wos = [], lots = [] } = {}) {
+  await t.setActor(m.admin);
+  for (const id of plans) await t.rows(`delete from batch_plan where id = $1`, [id]);
+  await t.rows(
+    `update work_order_so_line set unlinked_at = now(), unlinked_by = $2, unlink_reason = '시험 뒷정리'
+      where sales_order_line_id = any($1::uuid[]) and unlinked_at is null`, [lines, m.admin]);
+  await t.rows(
+    `update sales_order_line set cancelled_at = now(), cancel_reason = '시험 뒷정리'
+      where id = any($1::uuid[]) and cancelled_at is null`, [lines]);
+  await t.rows(
+    `update sales_order set cancelled_at = now(), cancel_reason = '시험 뒷정리'
+      where id in (select sales_order_id from sales_order_line where id = any($1::uuid[])) and cancelled_at is null`, [lines]);
+  for (const id of lots) await t.rows(`update product_lot set qty_available = 0 where id = $1`, [id]);
+  for (const id of wos) await t.rows(
+    `update work_order set status = 'CANCELLED', cancelled_reason = '시험 뒷정리' where id = $1 and status <> 'CANCELLED'`, [id]);
+}
+const fgStock = (t, code) => t.val(
+  `select coalesce(sum(qty_available),0)::int from product_lot where item_id = (select id from item where code = $1)`, [code]);
 /** 판 안 형명 가운데 장당 개수가 나오는 첫 형명 */
 async function pickCode(t, m) {
   for (const r of await t.rows(`select code from dm_models($1)`, [m.dm])) {
@@ -111,27 +131,33 @@ export default [
     const m = await master(t);
     await withScheme(t, async () => {
       const old = await putInForce(t, m);
+      const mine = { plans: [], lines: [], wos: [], lots: [] };
       try {
         const { code, per } = await pickCode(t, m);
+        const stock0 = await fgStock(t, code);
         const l1 = await orderLine(t, m, code, 'OP03-A', 100);
+        mine.lines.push(l1);
         t.eq(await covered(t, l1), 0, '아무것도 없으면 0');
         const r0 = await planRow(t, l1);
         t.ok(r0, '시행 중인 판이 있으면 제안 대상 줄에 나온다');
         t.eq(r0.left_qty, 100, 'left 100');
         t.eq(r0.covered, 0, 'covered 0');
         t.eq(r0.per_sheet, per, '장당 개수');
-        t.eq(r0.fg_stock >= 0, true, 'fg_stock 은 보이기만 한다');
+        t.eq(r0.fg_stock, stock0, 'fg_stock 은 그 형명 제품 로트 남은 양 합 (보이기만 한다)');
         t.eq(r0.multi_wo, false, '지시가 없으면 multi_wo 아님');
 
         const p = await plan(t, m, { sheets: 3, line: l1 });
+        mine.plans.push(p);
         t.eq(await covered(t, l1), 3 * per, '지시 없는 이은 계획은 장수 x 장당 개수');
 
         const wo = await newWorkOrder(t, m, { sheets: 10 });
+        mine.wos.push(wo.id);
         await hang(t, m, wo.id, l1);
         t.eq(await covered(t, l1), 3 * per + 10 * per, '재단 전 지시(10장)는 지시 장수 x 장당 개수');
         t.eq((await planRow(t, l1)).multi_wo, false, '한 줄만 걸린 지시는 multi_wo 아님');
 
         const l2 = await orderLine(t, m, code, 'OP03-B', 100);
+        mine.lines.push(l2);
         await hang(t, m, wo.id, l2);
         t.eq(await covered(t, l1), 3 * per + 5 * per, '같은 형명 줄이 둘이면 지시 몫이 반씩');
         t.eq((await planRow(t, l1)).multi_wo, true, '다른 줄에도 걸린 지시가 있으면 multi_wo');
@@ -142,8 +168,7 @@ export default [
         await t.rows(`update sales_order_line set cancelled_at = now(), cancel_reason = '시험 취소' where id = $1`, [l1]);
         t.eq(await covered(t, l1), 3 * per, '줄이 모두 left 0 이어도 0 으로 나누지 않는다 (지시 몫 0, 이은 계획만 남는다)');
         t.eq(await planRow(t, l1), undefined, '취소한 줄은 빠진다 (둘째)');
-        await t.rows(`delete from batch_plan where id = $1`, [p]);
-      } finally { await restoreDm(t, m, old); }
+      } finally { await tidy(t, m, mine); await restoreDm(t, m, old); }
     });
   },
 },
@@ -155,26 +180,31 @@ export default [
     const m = await master(t);
     await withScheme(t, async () => {
       const old = await putInForce(t, m);
+      const mine = { plans: [], lines: [], wos: [], lots: [] };
       try {
         const { code } = await pickCode(t, m);
+        const stock0 = await fgStock(t, code);
         const l1 = await orderLine(t, m, code, 'OP04', 100);
+        mine.lines.push(l1);
         const wo = await newWorkOrder(t, m, { sheets: 10 });
+        mine.wos.push(wo.id);
         await hang(t, m, wo.id, l1);
         const itemId = await t.val(`select id from item where code = $1`, [code]);
-        await t.rows(
+        mine.lots.push(await t.val(
           `insert into product_lot (work_order_id, lot_no, item_id, qty_produced, qty_available, manufactured_on, expiry_date, registered_by)
-           values ($1, $2, $3, 20, 12, current_date, current_date + 365, $4)`,
-          [wo.id, 'OP04-' + Math.random().toString(36).slice(2, 8), itemId, m.admin]);
+           values ($1, $2, $3, 20, 12, current_date, current_date + 365, $4) returning id`,
+          [wo.id, 'OP04-' + Math.random().toString(36).slice(2, 8), itemId, m.admin]));
         t.eq(await covered(t, l1), 12, '재단한 지시는 로트의 남은 양');
-        t.eq((await planRow(t, l1)).fg_stock >= 12, true, 'fg_stock 은 로트 남은 양을 보인다');
+        t.eq((await planRow(t, l1)).fg_stock - stock0, 12, 'fg_stock 은 로트 남은 양만큼 늘어 보인다');
         /* 로트가 다른 형명이면 그 지시는 이 줄에 0 */
         const other = (await t.rows(`select code from dm_models($1) where code <> $2 limit 1`, [m.dm, code]))[0];
         if (other) {
           const l2 = await orderLine(t, m, other.code, 'OP04-B', 100);
+          mine.lines.push(l2);
           await hang(t, m, wo.id, l2);
           t.eq(await covered(t, l2), 0, '다른 형명 로트만 있으면 0');
         }
-      } finally { await restoreDm(t, m, old); }
+      } finally { await tidy(t, m, mine); await restoreDm(t, m, old); }
     });
   },
 },

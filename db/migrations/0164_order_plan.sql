@@ -167,15 +167,15 @@ set search_path = pg_catalog, public, pg_temp as $fn$
           when not exists (select 1 from product_lot pl, l where pl.work_order_id = w.id and pl.item_id = l.item_id) then 0::numeric
           else coalesce((select sum(pl.qty_available) from product_lot pl, l
                           where pl.work_order_id = w.id and pl.item_id = l.item_id), 0)
-               * so_line_left(p_line)
-               / nullif((select sum(so_line_left(x.sales_order_line_id))
+               * greatest(0, so_line_left(p_line))
+               / nullif((select sum(greatest(0, so_line_left(x.sales_order_line_id)))
                            from work_order_so_line x join sales_order_line sl on sl.id = x.sales_order_line_id, l
                           where x.work_order_id = w.id and x.unlinked_at is null and sl.item_id = l.item_id), 0)
         end
       else
-        floor(w.sheet_count::numeric * so_line_left(p_line)
+        floor(w.sheet_count::numeric * greatest(0, so_line_left(p_line))
               * coalesce((select model_per_sheet(w.device_master_id, l.item_id) from l), 0)
-              / nullif((select sum(so_line_left(x.sales_order_line_id))
+              / nullif((select sum(greatest(0, so_line_left(x.sales_order_line_id)))
                           from work_order_so_line x
                          where x.work_order_id = w.id and x.unlinked_at is null), 0))
       end as n
