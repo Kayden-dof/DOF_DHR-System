@@ -29,6 +29,10 @@ export default [
     t.eq(sheetsOf(proposeBatches(base({ sheetMax: 20 }))), [20, 20, 20, 3], '상한 20 → 20 · 20 · 20 · 3');
     t.eq(sheetsOf(proposeBatches(base({ sheetMin: 5 }))), [30, 30, 5], '나머지가 하한 5 보다 적으면 5');
     t.eq(sheetsOf(proposeBatches(base({ sheetMax: null }))), [63], '상한이 없으면 한 배치');
+    t.eq(sheetsOf(proposeBatches(base({ units: 20, sheetMin: 5 }))), [5], '배치 하나여도 하한 5');
+    t.eq(sheetsOf(proposeBatches(base({ units: 20, sheetMin: 5, sheetMax: null }))), [5], '상한 없어도 하한 5');
+    t.eq(sheetsOf(proposeBatches(base({ units: 480 }))), [30], '정확히 상한 30장은 한 배치');
+    t.eq(sheetsOf(proposeBatches(base({ units: 481 }))), [30, 1], '상한 하나 넘으면 둘');
   },
 },
 
@@ -40,6 +44,10 @@ export default [
     t.eq(samplesFor(50, tiers), 3, '50개 → 3');
     t.eq(samplesFor(51, tiers), 5, '51개 → 5');
     t.eq(samplesFor(0, tiers), 0, '0개 → 0');
+    const hi = [{ min: 10, max: 50, samples: 2 }];
+    t.eq(samplesFor(9, hi), 0, '구간 밑 → 0');
+    t.eq(samplesFor(10, hi), 2, '구간 하한 포함');
+    t.eq(samplesFor(51, hi), 0, '구간 위 → 0');
     t.eq(samplesFor(10, []), 0, '구간이 없으면 0');
     const p = proposeBatches(base({ units: 100, perSheet: 10, sheetMax: 5, sampleTiers: tiers }));
     t.eq(p.ok, true, '제안이 선다');
@@ -104,6 +112,10 @@ export default [
     t.eq(one({}).lateDays, null, '납기 없음');
     t.eq(one({}).noSteril, false, '외부 단계가 있다');
     t.eq(one({ steps: [S('a')] }).noSteril, true, '외부 단계가 없다');
+    t.eq(one({ steps: null }).noSteril, true, '시간표 없음도 멸균 위탁 없음');
+    const mid = one({ steps: [S('a', { s: 480, d: 960 })] }).batches[0];
+    t.eq(mid.workEndOn, '2026-12-01', '24:00 에 끝나는 작업은 그날 끝');
+    t.eq(mid.lastOn, '2026-12-01', '끝 시각은 그 직전 분의 날');
     const g = proposeBatches(base({ units: 10, perSheet: 20, gapDays: 3, dueOn: '2026-12-01' }));
     t.eq(g.lateDays, 3, '시간표 없이 간격만: 마지막 시작일 + 간격 3 근무일');
   },

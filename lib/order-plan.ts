@@ -46,6 +46,7 @@ export type Proposal =
   | { ok: true; perSheet: number; units: number; samples: number; sheets: number; batches: ProposedBatch[]; lateDays: number | null; noSteril: boolean }
   | { ok: false; reason: 'no-size' | 'no-units' };
 
+/* 계획의 끝 분은 «끝나는 순간» 이라 그 직전 분의 날이 끝나는 날이다 (24:00 은 그날) */
 /** 근무일이면 그날, 아니면 다음 근무일 */
 export function nextWorkday(ymd: string, cal: WorkCalendar): string {
   let d = ymd;
@@ -66,13 +67,14 @@ export function samplesFor(units: number, tiers: SampleTier[]): number {
   return t ? t.samples : 0;
 }
 
-/** 장수를 배치로 나눈다: 상한씩, 나머지가 하한보다 적으면 하한으로 */
+/** 장수를 배치로 나눈다: 상한씩, 나머지가 하한보다 적으면 하한으로 (배치가 하나여도 하한) */
 function splitSheets(total: number, min: number | null, max: number | null): number[] {
-  if (!max || max <= 0 || total <= max) return [total];
+  const lift = (n: number) => (min && n < min ? min : n);
+  if (!max || max <= 0 || total <= max) return [lift(total)];
   const out: number[] = [];
   let left = total;
   while (left > max) { out.push(max); left -= max; }
-  out.push(min && left < min ? min : left);
+  out.push(lift(left));
   return out;
 }
 
@@ -113,8 +115,8 @@ export function proposeBatches(input: ProposeInput): Proposal {
     const b: ProposedBatch = { sheets, units: sheets * perSheet, samples: sm[i], startOn, workEndOn: null, lastOn: null };
     const plan = hasSteps ? planBatch(steps!, startOn, startMin, calendar) : null;
     if (plan) {
-      b.workEndOn = addDays(startOn, dayIndex(plan.sendEnd));
-      b.lastOn = addDays(startOn, dayIndex(plan.last));
+      b.workEndOn = addDays(startOn, dayIndex(Math.max(0, plan.sendEnd - 1)));
+      b.lastOn = addDays(startOn, dayIndex(Math.max(0, plan.last - 1)));
       startOn = nextWorkday(addDays(b.workEndOn, 1), calendar);
     } else if (gapDays != null) {
       startOn = addWorkdays(startOn, gapDays, calendar);
