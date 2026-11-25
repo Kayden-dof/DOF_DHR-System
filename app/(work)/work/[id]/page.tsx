@@ -72,6 +72,8 @@ export default async function WorkBatchPage({ params }: { params: Promise<{ id: 
                     'item_name', ci.name, 'usage_uom', ci.usage_uom,
                     'alt_uom', ci.alt_uom, 'alt_ratio', ci.alt_ratio,
                     'basis', b.basis::text, 'lot_tracked', ci.lot_tracked,
+                    /* 원액(20X PBS) - 재고가 없으면 투입 화면에서 만든다 (사용자 2026-11-25) */
+                    'solution', ci.type = 'SOLUTION', 'shelf_life_months', ci.shelf_life_months,
                     'required', required_qty(o.id, b.component_item_id, $2, 0),
                     'required_max', required_qty_max(o.id, b.component_item_id, $2))
                     order by ci.code)
@@ -138,7 +140,12 @@ export default async function WorkBatchPage({ params }: { params: Promise<{ id: 
           order by pr.day_no, pr.attempt`, [id]),
       lots: await db.rows<LotOpt>(
         `select ml.id, ml.lot_no, i.id as item_id, i.code as item_code, i.name as item_name,
-                i.usage_uom, ml.qty_available, ml.expiry_date
+                i.usage_uom, ml.qty_available, ml.expiry_date,
+                i.type = 'SOLUTION' as solution,
+                /* 원액 로트면 PBS 제조기록서에 적은 칸 수 - 0 이면 아직 적지 않았다 */
+                case when ml.made_on is not null then
+                  (select count(*)::int from solution_br_entry e
+                    where e.material_lot_id = ml.id and e.value <> '') end as sheet_entries
            from material_lot ml join item i on i.id = ml.item_id
           where ml.status = 'AVAILABLE' and ml.qty_available > 0 and i.type <> 'RAW'
           order by i.code, ml.expiry_date nulls last, ml.lot_no`),

@@ -5,6 +5,8 @@ import { ROLE_LABEL } from './roles';
  */
 export type FormState = {
   ok?: boolean; message?: string; error?: string; href?: string;
+  /** 만든 것의 id (원액 제조 → 그 로트의 제조기록서로 가는 길) */
+  id?: string;
   /** 공정 마감 뒤 그 기록의 일차 - 여러 날 공정이 끝나는 일차로 갔으면 화면이 따라간다 (0148) */
   day?: number;
 };

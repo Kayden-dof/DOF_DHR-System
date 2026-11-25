@@ -7,15 +7,16 @@ import { solutionSheet, type BrSheet } from '@/lib/br-sheet';
 /* ---------------------------------------------------------------------------
    원액 로트의 PBS 제조기록서 (0145 · 사용자 2026-11-20 «원액 제조 때»)
 
-   원액을 만드는 사람(생산관리자 · 시스템관리자 · makeSolutionLot 와 같다)이 적는다.
+   원액을 만드는 사람(작업자 · 생산관리자 · 시스템관리자 · makeSolutionLot 와 같다)이 적는다.
+   현장 작업자도 알칼리 처리 준비에서 20X PBS 를 만들고 이 기록서를 적는다 (사용자 2026-11-25).
    칸은 solution_br_entry 에 적고, 누가 · 언제는 DB 가 정한다. 서명 칸을 고칠 때의 사유는
    현장 기록서와 같이 받아 감사추적에 남긴다.
 --------------------------------------------------------------------------- */
 
 async function writer() {
   const user = await requireUser();
-  if (!hasRole(user, 'SYS_ADMIN', 'PROD_MGR')) {
-    throw new Error('원액 제조기록서는 생산관리자 또는 시스템관리자가 적습니다');
+  if (!hasRole(user, 'SYS_ADMIN', 'PROD_MGR', 'WORKER')) {
+    throw new Error('원액 제조기록서는 작업자 · 생산관리자 · 시스템관리자가 적습니다');
   }
   return user;
 }

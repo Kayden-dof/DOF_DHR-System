@@ -134,8 +134,13 @@ export function MovementForm({ lots, orders, fix }: {
    사용기간이 비어 있는 품목이면 유효기간이 비어 선다. 막지 않고, 그렇다고
    미리 적어 준다. 단가 없는 원료가 섞여도 같다 - 결과 문구가 말한다.
 --------------------------------------------------------------------------- */
-export function SolutionLotForm({ items, lots, fix }: {
+export function SolutionLotForm({ items, lots, fix, fixed = false }: {
   items: SolutionItemOpt[]; lots: LotOpt[]; fix?: Fix;
+  /**
+   * 품목을 하나로 정해 둔다 - 현장 알칼리 처리에서 재고가 없는 그 원액을 만든다 (사용자 2026-11-25).
+   * 라벨 인쇄는 관리 화면 몫이라 내지 않는다.
+   */
+  fixed?: boolean;
 }) {
   /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
   const uid = useId();
@@ -157,12 +162,19 @@ export function SolutionLotForm({ items, lots, fix }: {
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="sm:col-span-2">
           <label className="label" htmlFor={`${uid}-item_id`}>원액 품목</label>
-          <select id={`${uid}-item_id`} name="item_id" required value={item?.id ?? ''}
-                  onChange={(e) => setItemId(e.target.value)} disabled={none} className="input">
-            {items.map((i) => (
-              <option key={i.id} value={i.id}>{i.code} · {i.name}</option>
-            ))}
-          </select>
+          {fixed && item ? (
+            <>
+              <input type="hidden" name="item_id" value={item.id} />
+              <p id={`${uid}-item_id`} className="input bg-canvas">{item.code} · {item.name}</p>
+            </>
+          ) : (
+            <select id={`${uid}-item_id`} name="item_id" required value={item?.id ?? ''}
+                    onChange={(e) => setItemId(e.target.value)} disabled={none} className="input">
+              {items.map((i) => (
+                <option key={i.id} value={i.id}>{i.code} · {i.name}</option>
+              ))}
+            </select>
+          )}
           {item && (
             <p className="mt-1 text-xs leading-relaxed text-faint">
               {item.shelf_life_months
@@ -217,7 +229,7 @@ export function SolutionLotForm({ items, lots, fix }: {
       </p>
 
       <Msg state={state} />
-      {state.ok && state.href && (
+      {state.ok && state.href && !fixed && (
         <div className="mt-2">
           <Link href={state.href} className="btn-ghost">라벨 인쇄</Link>
         </div>

@@ -312,9 +312,11 @@ export function BrSheetView({ sheet, onSheet, onClose, busy, ctx, endSlot, readO
           <p className="mb-2 px-1 text-sm text-muted">
             {sheet.linked ? (
               <>
-                이 별첨은 원액 로트 {sheet.solutionLot ?? ''} 의 PBS 제조기록서입니다. 원액을 만든 생산관리자가{' '}
+                이 별첨은 원액 로트 {sheet.solutionLot ?? ''} 의 PBS 제조기록서입니다.{' '}
                 {sheet.solutionLotId ? (
-                  <a href={`/material/solution/${sheet.solutionLotId}`} className="font-semibold text-brand underline">
+                  <a href={ctx.woId ? `/work/solution/${sheet.solutionLotId}?wo=${ctx.woId}`
+                                    : `/material/solution/${sheet.solutionLotId}`}
+                     className="font-semibold text-brand underline">
                     원액 로트 제조기록서
                   </a>
                 ) : '재고 증감 화면의 원액 로트'}

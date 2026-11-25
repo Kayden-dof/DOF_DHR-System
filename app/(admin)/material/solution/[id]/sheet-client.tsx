@@ -10,8 +10,10 @@ import { loadSolutionSheet, saveSolutionEntry } from '../actions';
  * 현장 기록서 화면을 그대로 쓴다 - 칸을 누르면 아래에 적는 칸, 파란 글씨가 적은 값.
  * 저장 · 불러오기만 원액 로트로 간다 (SheetApi). 공정 기록이 아니므로 설비 · 투입은 없다.
  */
-export default function SolutionSheetClient({ initial, lotId, lots, canWrite }: {
+export default function SolutionSheetClient({ initial, lotId, lots, canWrite, back = '/material/movement' }: {
   initial: BrSheet; lotId: string; lots: SheetLot[]; canWrite: boolean;
+  /** 닫으면 돌아갈 곳. 현장에서 열었으면 그 배치 화면 */
+  back?: string;
 }) {
   const router = useRouter();
   const [sheet, setSheet] = useState(initial);
@@ -23,7 +25,7 @@ export default function SolutionSheetClient({ initial, lotId, lots, canWrite }: 
     <BrSheetView
       sheet={sheet}
       onSheet={setSheet}
-      onClose={() => router.push('/material/movement')}
+      onClose={() => router.push(back)}
       busy={false}
       ctx={ctx}
       readOnly={!canWrite}

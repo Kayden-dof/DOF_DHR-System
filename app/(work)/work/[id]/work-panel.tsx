@@ -9,6 +9,7 @@ import { fmtDateTime } from '@/lib/fmt';
 import { Msg, Tag } from '@/components/ui';
 import NumPad, { PresetPicker } from '@/components/num-pad';
 import { Dialog } from '@/components/dialog';
+import { SolutionLotForm } from '@/app/(admin)/material/movement/movement-forms';
 import {
   BrSheetView, SheetViewer, useBrSheet, emptyOf, formEmpty, type EquipOpt, type SheetCtx,
 } from './br-sheet';
@@ -43,7 +44,9 @@ export interface Op {
          /** 작업표준서가 범위로 준 양의 위쪽 끝 (0128). 범위가 아니면 required 와 같다 */
          required_max?: string | null;
          /** 거짓이면 로트 없이 쓰는 소모품. 투입을 적지 않고 로트 칸은 공란이다 (0129) */
-         lot_tracked?: boolean }[];
+         lot_tracked?: boolean;
+         /** 원액(20X PBS). 재고가 없으면 투입 화면에서 만든다 (사용자 2026-11-25) */
+         solution?: boolean; shelf_life_months?: number | null }[];
   /** 이 공정에 걸린 설비. 비어 있으면 화면에 칸이 나오지 않는다 */
   equipment: { id: string; code: string; name: string; valid_until: string | null;
                /** 검교정 주기 (0126). NONE 이면 짚지 않는다 */
@@ -67,6 +70,8 @@ export interface Rec {
 export interface LotOpt {
   id: string; lot_no: string; item_id: string; item_code: string; item_name: string;
   usage_uom: string; qty_available: string; expiry_date: string | null;
+  /** 원액 로트인가, 그 PBS 제조기록서에 적은 칸 수 (0 이면 아직) */
+  solution?: boolean; sheet_entries?: number | null;
 }
 export interface PersonOpt { id: string; full_name: string }
 export interface PlOpt {
@@ -1460,6 +1465,59 @@ function MaterialForm({ woId, rec, op, lots, sheets, loadUnit, expiryWarnDays }:
     </div>
   );
 
+  /*
+   * 원액(20X PBS)은 재고부터 보인다 (사용자 2026-11-25 «최초로 20X PBS 를 입력할때 재고가 있으면
+   * 재고번호를 띄우는걸로 하고, 없으면 제조기록서를 작성하는쪽으로»). 이 기록에 아직 넣지 않은 원액만
+   * 본다. 재고가 없으면 그 자리에서 만든다 - 원료가 차감되고 원액 로트가 서며, 서면 이 자리에 재고로
+   * 나온다. 그 로트의 PBS 제조기록서는 현장 원액 화면(/work/solution/[id])에서 적는다.
+   */
+  const solutionNeeds = op.bom.filter((b) => b.solution && !recordedItems.has(b.item_id));
+  const solutionBlock = solutionNeeds.length === 0 ? null : (
+    <div className="space-y-3">
+      {solutionNeeds.map((b) => {
+        const stock = lots.filter((l) => l.item_id === b.item_id && Number(l.qty_available) > 0);
+        return stock.length > 0 ? (
+          <div key={b.item_id}
+               className="rounded-lg border border-line bg-surface-sub px-3.5 py-3 text-sm leading-relaxed text-ink">
+            <p><b>{b.item_name}</b> 재고가 있습니다. 쓸 로트를 고르십시오.</p>
+            <ul className="mt-2 space-y-2">
+              {stock.map((l) => (
+                <li key={l.id} className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <button type="button" onClick={() => setLotId(l.id)} data-on={lotId === l.id}
+                          className="tile font-mono text-base font-semibold">
+                    {l.lot_no}
+                  </button>
+                  <span className="text-xs text-muted">
+                    잔여 <span className="tnum">{Number(l.qty_available)}</span> {l.usage_uom}
+                    {l.expiry_date && <> · 기한 <span className="tnum">{fmtDate(l.expiry_date)}</span></>}
+                  </span>
+                  <Link href={`/work/solution/${l.id}?wo=${woId}`}
+                        className="text-xs font-semibold text-brand underline">
+                    {l.sheet_entries ? '제조기록서 보기' : '제조기록서 아직 · 적기'}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <div key={b.item_id}
+               className="rounded-lg border border-warn/40 bg-warn-bg px-3.5 py-3 text-sm leading-relaxed text-ink">
+            <p><b>{b.item_name}</b> 재고가 없습니다. 지금 만들고 그 로트의 제조기록서를 적으십시오.</p>
+            <p className="mt-1 text-xs text-muted">
+              만들면 원료가 차감되고 원액 로트가 섭니다. 그 로트가 이 자리에 재고로 나오고, 거기서
+              제조기록서로 갑니다.
+            </p>
+            <div className="mt-2 rounded-lg border border-line bg-surface">
+              <SolutionLotForm fixed lots={lots.filter((l) => !l.solution)}
+                               items={[{ id: b.item_id, code: b.item_code, name: b.item_name,
+                                         usage_uom: b.usage_uom, shelf_life_months: b.shelf_life_months ?? null }]} />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+
   const widen = !all && lots.length > listed.length && (
     <button type="button" onClick={() => setAll(true)} className="btn-ghost w-full">
       전체 자재 로트 보기 ({lots.length - listed.length})
@@ -1471,6 +1529,7 @@ function MaterialForm({ woId, rec, op, lots, sheets, loadUnit, expiryWarnDays }:
     const allNoLot = op.bom.length > 0 && op.bom.every((b) => b.lot_tracked === false);
     return (
       <div className="space-y-4 py-4">
+        {solutionBlock}
         {guide}
         <p className="text-sm leading-relaxed text-muted">
           {allNoLot
@@ -1483,6 +1542,9 @@ function MaterialForm({ woId, rec, op, lots, sheets, loadUnit, expiryWarnDays }:
   }
 
   return (
+    <>
+    {/* 원액 제조 폼은 그 자체가 폼이라 투입 폼 밖에 둔다 */}
+    {solutionBlock && <div className="pt-4">{solutionBlock}</div>}
     <form action={action} className="space-y-4 py-4">
       <input type="hidden" name="work_order_id" value={woId} />
       <input type="hidden" name="process_record_id" value={rec.id} />
@@ -1578,6 +1640,7 @@ function MaterialForm({ woId, rec, op, lots, sheets, loadUnit, expiryWarnDays }:
         {pending ? '기록하는 중' : '자재 기록'}
       </button>
     </form>
+    </>
   );
 }
 
@@ -1880,9 +1943,8 @@ function CloseDayCard({ woId, day, batchNo, openOps, dayDate }: {
                 </span>
                 {f.lot && (
                   <span className="block text-xs">
-                    이 별첨은 원액 로트 <b className="font-mono">{f.lot.no}</b> 의 제조기록서입니다. 원액을 만든
-                    생산관리자가{' '}
-                    <a href={`/material/solution/${f.lot.id}`} className="font-semibold text-brand underline">
+                    이 별첨은 원액 로트 <b className="font-mono">{f.lot.no}</b> 의 제조기록서입니다.{' '}
+                    <a href={`/work/solution/${f.lot.id}?wo=${woId}`} className="font-semibold text-brand underline">
                       원액 로트 제조기록서
                     </a>
                     에서 적습니다.

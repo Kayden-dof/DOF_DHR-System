@@ -13,6 +13,18 @@ async function mgr() {
   return user;
 }
 
+/*
+ * 원액 제조는 현장 작업자도 한다 (사용자 2026-11-25 «현장에서 작업자도»). 작업표준서 WS-DX2401-03 의
+ * 준비 «20X PBS 제조(필요 시)» 는 알칼리 처리를 하는 사람이 한다. 다른 자재 관리는 그대로 관리자만.
+ */
+async function solutionMaker() {
+  const user = await requireUser();
+  if (!hasRole(user, 'SYS_ADMIN', 'PROD_MGR', 'WORKER')) {
+    throw new Error('원액은 작업자 · 생산관리자 · 시스템관리자가 만듭니다');
+  }
+  return user;
+}
+
 const txt = (v: FormDataEntryValue | null) => {
   const s = String(v ?? '').trim();
   return s === '' ? null : s;
@@ -314,7 +326,7 @@ export async function moveStock(_p: FormState, form: FormData): Promise<FormStat
 --------------------------------------------------------------------------- */
 export async function makeSolutionLot(_p: FormState, form: FormData): Promise<FormState> {
   try {
-    const me = await mgr();
+    const me = await solutionMaker();
     const itemId = String(form.get('item_id') ?? '').trim();
     if (!itemId) return { error: '제조할 원액 품목을 고르십시오' };
     const madeOn = String(form.get('made_on') ?? '').trim();
@@ -361,6 +373,8 @@ export async function makeSolutionLot(_p: FormState, form: FormData): Promise<Fo
       return { id, lot };
     });
     bump();
+    /* 현장 투입 화면이 새 원액 로트를 재고로 바로 보이게 (사용자 2026-11-25) */
+    revalidatePath('/work', 'layout');
 
     const lot = made.lot;
     /* 비어 있는 것은 비었다고 적는다. 지어내지 않는다 (§8.5) */
@@ -375,6 +389,7 @@ export async function makeSolutionLot(_p: FormState, form: FormData): Promise<Fo
       message: `원액 로트 ${lot?.lot_no ?? ''} 등록. 제조량 ${qty} ${lot?.usage_uom ?? ''}, ` +
                `원료 ${lots.length}종이 차감되었습니다. ${expiry} ${price}`,
       href: `/print/label/${made.id}`,
+      id: made.id,
     };
   } catch (e) {
     return { error: dbMessage(e) };
