@@ -52,8 +52,8 @@ export default async function NeedsPage({ searchParams }: { searchParams: Promis
   /* 한 트랜잭션에서 두 함수를 한 번씩만 읽는다 (줄마다 묻지 않는다) */
   const d = await withUser(user, async (db) => ({
     short: await db.rows<ShortRow>(
-      `select * from material_shortage($1::date, $1::date + $2::int)
-        order by item_type, item_code, band nulls last`, [from, days]),
+      /* 순서는 함수가 정한다: 부족한 줄이 먼저, 그 안에서 발주 마감이 이른 순 */
+      `select * from material_shortage($1::date, $1::date + $2::int)`, [from, days]),
     needs: await db.rows<NeedRow>(
       `select * from material_needs($1::date, $1::date + $2::int)
         order by need_on, source_label`, [from, days]),
@@ -133,14 +133,14 @@ export default async function NeedsPage({ searchParams }: { searchParams: Promis
                         <div className="font-mono text-xs text-faint">{r.item_code}</div>
                       </td>
                       <td className="td tnum text-right">
-                        {r.need_qty == null ? '-' : `${qty(num(r.need_qty))} ${r.usage_uom}`}
+                        {r.need_qty == null || (num(r.need_qty) === 0 && r.unknown) ? '-' : `${qty(num(r.need_qty))} ${r.usage_uom}`}
                         {r.unknown && <div className="text-xs text-warn">개수 미정 몫 있음</div>}
                       </td>
                       <td className="td tnum text-muted">{md(r.first_need_on)}</td>
                       <td className="td tnum text-right">{qty(num(r.stock_qty))} {r.usage_uom}</td>
                       <td className="td tnum text-right text-muted">
                         {onOrder > 0
-                          ? <>{qty(onOrder)}{r.next_expected_on ? ` (${md(r.next_expected_on)})` : ''}</>
+                          ? <>{qty(onOrder)} {r.usage_uom}{r.next_expected_on ? ` (${md(r.next_expected_on)})` : ''}</>
                           : '-'}
                       </td>
                       <td className="td tnum text-right font-semibold">
