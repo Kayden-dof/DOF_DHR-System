@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { withActor, dbMessage, type Db } from '@/lib/db';
-import { requireUser, hasRole } from '@/lib/session';
+import { requireRole } from '@/lib/session';
 import type { FormState } from '@/lib/forms';
 
 /* ---------------------------------------------------------------------------
@@ -12,13 +12,7 @@ import type { FormState } from '@/lib/forms';
    (so_line_left · so_status). 지우지 않는다 - 잘못 받은 주문은 사유와 함께 취소한다.
 --------------------------------------------------------------------------- */
 
-async function mgr() {
-  const user = await requireUser();
-  if (!hasRole(user, 'SYS_ADMIN', 'PROD_MGR')) {
-    throw new Error('생산관리자 또는 시스템관리자만 수주를 다룰 수 있습니다');
-  }
-  return user;
-}
+const mgr = () => requireRole(['SYS_ADMIN', 'PROD_MGR'], '생산관리자 또는 시스템관리자만 수주를 다룰 수 있습니다');
 
 const txt = (v: FormDataEntryValue | null) => {
   const s = String(v ?? '').trim();

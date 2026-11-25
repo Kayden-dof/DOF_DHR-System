@@ -1,7 +1,9 @@
+import Link from 'next/link';
 import { requireUser, blocksScreen } from '@/lib/session';
 import { fixAt } from '@/lib/unblock';
 import { Unblock } from '@/components/unblock';
 import Denied from '@/components/denied';
+import { isViewerOnly } from '@/lib/roles';
 import { withActor } from '@/lib/db';
 import { PageShell } from '@/components/shell';
 import { SubNav } from '../../nav';
@@ -9,7 +11,11 @@ import { SHIPPING_NAV } from '../../sections';
 import { fmtDate } from '@/lib/fmt';
 import { PL_STATUS_LABEL } from '@/lib/forms';
 import { Panel, Empty, Tag } from '@/components/ui';
-import { ShipList, type PlOpt } from '../shipping-forms';
+import { shipReview } from '@/lib/ship-review';
+import { specMessage, type CutRowCell } from '@/lib/ship-check';
+import {
+  ShipList, RelinkShipment, type PlOpt, type ShipLine, type ShipLot, type RelinkOpt,
+} from '../shipping-forms';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,78 +26,196 @@ export const dynamic = 'force-dynamic';
  */
 export const metadata = { title: '출고' };
 
+/* ---------------------------------------------------------------------------
+   출고 (0159 · 0160 · 사용자 2026-11-25)
+
+   «출고할때 발주 업체리스트에서 선택하고, 발주 형명이 맞는지 작업지시서 및 제조기록서 일괄
+   검토해서 출고시 오규격이 나가지 않도록». 발주 업체 → 그 업체의 열린 주문 줄 → 그 형명의
+   출고 가능 로트(멸균 보고서가 적힌 것) 차례로 고른다. 고른 것은 주소(?c= · ?l=)에 남는다.
+--------------------------------------------------------------------------- */
+
 interface ShipRow {
   id: string; customer_name: string; qty: number; shipped_at: string;
-  lot_no: string; item_code: string; item_name: string;
+  lot_no: string; item_code: string; item_name: string; item_id: string;
   batch_no: string; shipped_by_name: string;
   /** 그 로트의 멸균 보고서 번호 (0160) */
   report: string | null;
+  /** 나간 주문 (고객 발주번호) · 그 줄 */
+  po: string | null; line_id: string | null;
 }
+interface OpenLine extends ShipLine { item_id: string; due_on: string | null }
 
-export default async function ShipPage() {
+type Search = Promise<{ c?: string; l?: string }>;
+
+const LOTS = `
+  select pl.id, pl.lot_no, i.code as item_code, i.name as item_name,
+         pl.qty_available, pl.qty_sample, wo.batch_no, wo.id as wo_id, pl.status::text as status,
+         pl.expiry_date, pl.manufactured_on,
+         pl.release_approved_by, pl.release_approved_on::text as release_approved_on,
+         coalesce((select sum(sh.qty)::int from shipment sh where sh.product_lot_id = pl.id), 0) as shipped,
+         lot_steril_report(pl.id) as report
+    from product_lot pl
+    join item i on i.id = pl.item_id
+    join work_order wo on wo.id = pl.work_order_id
+   where pl.qty_available > 0
+     and pl.status in ('PACKED','STERILIZING','TESTED','RELEASE_APPROVED')`;
+
+export default async function ShipPage({ searchParams }: { searchParams: Search }) {
   const user = await requireUser();
   /* 열람자에게 열어 둔 화면이 아니다. 주소를 직접 쳐도 들어가지 못한다 */
   if (blocksScreen(user, '/shipping/ship')) return <Denied what="이 화면" need="생산관리자 또는 시스템관리자" />;
+  const viewer = isViewerOnly(user.roles);
+  const sp = await searchParams;
+  const cId = sp.c ?? '';
+  const lId = sp.l ?? '';
 
+  const d = await withActor(user.id, async (db) => {
+    const customers = await db.rows<{ id: string; name: string; lines: number }>(
+      `select c.id, c.name, count(*)::int as lines
+         from customer c
+         join sales_order o on o.customer_id = c.id and o.cancelled_at is null
+         join sales_order_line l on l.sales_order_id = o.id and l.cancelled_at is null
+        where so_line_left(l.id) > 0
+        group by c.id, c.name order by c.name`);
+    /* 열린 주문 줄 전부 - 업체의 줄 목록과 출고 이력의 «주문 바꾸기» 가 함께 쓴다 */
+    const open = await db.rows<OpenLine & { customer_id: string }>(
+      `select l.id, o.customer_po_no, c.name as customer_name, c.id as customer_id, i.code, i.name, l.item_id,
+              l.qty, so_line_shipped(l.id) as shipped, so_line_left(l.id) as left, o.due_on::text as due_on
+         from sales_order_line l
+         join sales_order o on o.id = l.sales_order_id
+         join customer c on c.id = o.customer_id
+         join item i on i.id = l.item_id
+        where o.cancelled_at is null and l.cancelled_at is null
+        order by o.due_on nulls last, o.customer_po_no, l.seq`);
+    const lines = open.filter((x) => x.customer_id === cId && x.left > 0);
+    const line = lines.find((x) => x.id === lId) ?? null;
 
-  const d = await withActor(user.id, async (db) => ({
-    /*
-     * 포장 이후 출하 가능 수량이 남은 로트 (0160 · 사용자 2026-11-25 «멸균 입고가 되면 멸균보고서를
-     * 넣어야지만 출하가 가능»). 멸균 보고서(회수된 멸균 위탁의 번호)가 있으면 출고할 수 있고, 없으면
-     * 아래 «멸균 보고서 대기» 에 무엇이 남았는지 보인다. 막는 자리는 DB 다 (shipment_needs_steril_report).
-     */
-    lots: await db.rows<PlOpt>(
-      `select pl.id, pl.lot_no, i.code as item_code, i.name as item_name,
-              pl.qty_available, pl.qty_sample, wo.batch_no, wo.id as wo_id, pl.status::text as status,
-              pl.expiry_date, pl.manufactured_on,
-              pl.release_approved_by, pl.release_approved_on::text as release_approved_on,
-              coalesce((select sum(sh.qty)::int from shipment sh
-                         where sh.product_lot_id = pl.id), 0) as shipped,
-              lot_steril_report(pl.id) as report
-         from product_lot pl
-         join item i on i.id = pl.item_id
-         join work_order wo on wo.id = pl.work_order_id
-        where pl.qty_available > 0
-          and pl.status in ('PACKED','STERILIZING','TESTED','RELEASE_APPROVED')
-        order by pl.expiry_date, pl.lot_no`),
-    shipments: await db.rows<ShipRow>(
-      `select lot_steril_report(sh.product_lot_id) as report, sh.id, sh.customer_name, sh.qty,
-              sh.shipped_at::text as shipped_at,
-              sh.unit_from, sh.unit_to,
-              pl.lot_no, i.code as item_code, i.name as item_name,
-              wo.batch_no, u.full_name as shipped_by_name
-         from shipment sh
-         join product_lot pl on pl.id = sh.product_lot_id
-         join item i on i.id = pl.item_id
-         join work_order wo on wo.id = pl.work_order_id
-         join app_user u on u.id = sh.shipped_by
-        order by sh.shipped_at desc, sh.id desc limit 100`),
-    today: await db.val<string>(`select to_char(timezone('Asia/Seoul', now()),'YYYY-MM-DD')`),
-  }));
+    /* 고른 줄의 형명으로 나갈 수 있는 로트와 그 검토 */
+    let lots: ShipLot[] = [];
+    if (line) {
+      const cache = new Map<string, CutRowCell[][]>();
+      const base = await db.rows<PlOpt>(
+        `${LOTS} and pl.item_id = $1 and lot_steril_report(pl.id) is not null
+          order by pl.expiry_date, pl.lot_no`, [line.item_id]);
+      for (const l of base) {
+        const review = await shipReview(db, l.id, line.id, cache);
+        const bad = review.find((r) => r.ok === false);
+        lots.push({ ...l, review, blocked: bad ? specMessage(bad) : null });
+      }
+    }
 
-  const ready = d.lots.filter((l) => l.report);
-  const waiting = d.lots.filter((l) => !l.report);
+    return {
+      customers, open, lines, line, lots,
+      waiting: await db.rows<PlOpt>(
+        `${LOTS} and lot_steril_report(pl.id) is null order by pl.expiry_date, pl.lot_no`),
+      shipments: await db.rows<ShipRow>(
+        `select lot_steril_report(sh.product_lot_id) as report, sh.id, sh.customer_name, sh.qty,
+                sh.shipped_at::text as shipped_at,
+                pl.lot_no, i.code as item_code, i.name as item_name, pl.item_id,
+                wo.batch_no, u.full_name as shipped_by_name,
+                o.customer_po_no as po, sh.sales_order_line_id as line_id
+           from shipment sh
+           join product_lot pl on pl.id = sh.product_lot_id
+           join item i on i.id = pl.item_id
+           join work_order wo on wo.id = pl.work_order_id
+           join app_user u on u.id = sh.shipped_by
+           left join sales_order_line sl on sl.id = sh.sales_order_line_id
+           left join sales_order o on o.id = sl.sales_order_id
+          order by sh.shipped_at desc, sh.id desc limit 100`),
+      today: await db.val<string>(`select to_char(timezone('Asia/Seoul', now()),'YYYY-MM-DD')`),
+    };
+  });
+
+  const relinkFor = (s: ShipRow): RelinkOpt[] => d.open
+    .filter((x) => x.item_id === s.item_id && x.id !== s.line_id)
+    .map((x) => ({ id: x.id, label: `${x.customer_po_no} · ${x.customer_name} · 남음 ${x.left.toLocaleString()}` }));
 
   return (
     <PageShell
       section="출하"
       title="출고"
-      lede="멸균 보고서가 적힌 제품 로트만 출고할 수 있습니다. 출하 가능 수량을 넘길 수 없습니다."
+      lede="발주 업체와 주문 줄을 고르면 그 형명의 출고 가능 로트와 형명 검토가 나옵니다. 검토가 다른 로트는 출고하지 않습니다."
       nav={<SubNav items={SHIPPING_NAV} />}
     >
-
-      <Panel title="출고 가능" note="유효기한이 이른 것부터">
-        {ready.length === 0 ? (
-          <Empty hint="멸균 위탁에서 회수일과 멸균 보고서 번호를 적으면 여기 나옵니다."
-                 action={<Unblock fix={fixAt(user, '/shipping/steril')} todo="멸균 위탁 보기" />}>
-            출고할 수 있는 제품 로트가 없습니다.
+      <Panel title="발주 업체" note="출고할 주문이 남은 거래처">
+        {d.customers.length === 0 ? (
+          <Empty hint="수주에서 고객 주문을 먼저 적으면 여기 나옵니다."
+                 action={<Unblock fix={fixAt(user, '/shipping/orders')} todo="수주 보기" />}>
+            출고할 주문이 없습니다.
           </Empty>
         ) : (
-          <ShipList lots={ready} today={d.today ?? ''} />
+          <div className="flex flex-wrap gap-2">
+            {d.customers.map((c) => (
+              <Link key={c.id} href={`/shipping/ship?c=${c.id}`}
+                    className={c.id === cId ? 'btn-primary' : 'btn-ghost'}>
+                {c.name} <span className="ml-1 tnum text-xs opacity-80">{c.lines}줄</span>
+              </Link>
+            ))}
+          </div>
         )}
       </Panel>
 
-      {waiting.length > 0 && (
+      {cId && (
+        <Panel title="주문 줄" note="고르면 그 형명의 출고 가능 로트가 아래에 나옵니다">
+          {d.lines.length === 0 ? (
+            <Empty>이 거래처에 출고할 주문 줄이 없습니다.</Empty>
+          ) : (
+            <div className="qd-table-scroll">
+              <table className="qd-table qd-table--hangul">
+                <thead>
+                  <tr>
+                    <th className="th">고객 발주번호</th>
+                    <th className="th">형명</th>
+                    <th className="th text-right">주문</th>
+                    <th className="th text-right">출고</th>
+                    <th className="th text-right">남음</th>
+                    <th className="th">납품요청일</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {d.lines.map((x) => {
+                    const href = `/shipping/ship?c=${cId}&l=${x.id}`;
+                    const on = x.id === lId;
+                    return (
+                      <tr key={x.id} className={on ? 'bg-brand-soft/60' : ''}>
+                        <td className="td font-mono font-semibold"><Link href={href}>{x.customer_po_no}</Link></td>
+                        <td className="td">
+                          <Link href={href}>
+                            <div className="font-mono text-sm">{x.code}</div>
+                            <div className="text-xs text-faint">{x.name}</div>
+                          </Link>
+                        </td>
+                        <td className="td tnum text-right">{x.qty.toLocaleString()}</td>
+                        <td className="td tnum text-right text-muted">{x.shipped.toLocaleString()}</td>
+                        <td className="td tnum text-right font-semibold">{x.left.toLocaleString()}</td>
+                        <td className="td tnum">{x.due_on ? fmtDate(x.due_on) : ''}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Panel>
+      )}
+
+      {d.line && (
+        <Panel title={`출고 가능 로트 · ${d.line.code}`}
+               note="멸균 보고서가 적힌 로트 · 유효기한이 이른 것부터. 검토 칸에 마우스를 올리면 주문과 실제 값이 보입니다">
+          {d.lots.length === 0 ? (
+            <Empty hint="멸균 위탁에서 회수일과 멸균 보고서 번호를 적으면 여기 나옵니다."
+                   action={<Unblock fix={fixAt(user, '/shipping/steril')} todo="멸균 위탁 보기" />}>
+              이 형명으로 출고할 수 있는 로트가 없습니다.
+            </Empty>
+          ) : viewer ? (
+            <Empty>열람 계정은 출고를 기록하지 않습니다.</Empty>
+          ) : (
+            <ShipList lots={d.lots} line={d.line} today={d.today ?? ''} />
+          )}
+        </Panel>
+      )}
+
+      {d.waiting.length > 0 && (
         <Panel title="멸균 보고서 대기" note="멸균 위탁에서 회수일과 멸균 보고서 번호를 적으면 출고할 수 있습니다">
           <div className="qd-table-scroll">
             <table className="qd-table qd-table--hangul" data-grow="2">
@@ -105,7 +229,7 @@ export default async function ShipPage() {
                 </tr>
               </thead>
               <tbody>
-                {waiting.map((l) => (
+                {d.waiting.map((l) => (
                   <tr key={l.id}>
                     <td className="td font-mono font-semibold">{l.lot_no}</td>
                     <td className="td">
@@ -127,7 +251,7 @@ export default async function ShipPage() {
 
       <Panel title="출고 이력">
         {d.shipments.length === 0 ? (
-          <Empty hint="위에서 거래처와 수량을 적어 출고하면 여기 남습니다.">
+          <Empty hint="위에서 발주 업체 · 주문 줄 · 로트를 골라 출고하면 여기 남습니다.">
             출고 기록이 없습니다.
           </Empty>
         ) : (
@@ -137,12 +261,14 @@ export default async function ShipPage() {
                 <tr>
                   <th className="th">출고일</th>
                   <th className="th">거래처</th>
+                  <th className="th">주문</th>
                   <th className="th">제조번호</th>
                   <th className="th">형명</th>
                   <th className="th">배치</th>
                   <th className="th">멸균 보고서</th>
                   <th className="th text-right">수량</th>
                   <th className="th">기록자</th>
+                  <th className="th" />
                 </tr>
               </thead>
               <tbody>
@@ -150,6 +276,7 @@ export default async function ShipPage() {
                   <tr key={s.id}>
                     <td className="td tnum ">{fmtDate(s.shipped_at)}</td>
                     <td className="td text-sm">{s.customer_name}</td>
+                    <td className="td font-mono text-sm">{s.po ?? <span className="text-faint">-</span>}</td>
                     <td className="td font-mono font-semibold">{s.lot_no}</td>
                     <td className="td text-sm">{s.item_name}</td>
                     <td className="td font-mono text-muted">{s.batch_no}</td>
@@ -158,6 +285,11 @@ export default async function ShipPage() {
                     </td>
                     <td className="td tnum text-right font-semibold">{s.qty}</td>
                     <td className="td text-muted">{s.shipped_by_name}</td>
+                    <td className="td text-right">
+                      {!viewer && s.line_id && (
+                        <RelinkShipment id={s.id} current={s.po ?? '-'} options={relinkFor(s)} />
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

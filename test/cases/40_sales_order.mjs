@@ -9,7 +9,7 @@
 
 import { masterData as master, newMaterialLot, newWorkOrder, sterilReport } from '../fixtures.mjs';
 import { gtinOf, findModel } from '../../lib/model-find.ts';
-import { cutRowCheck } from '../../lib/ship-check.ts';
+import { cutRowCheck, specMessage } from '../../lib/ship-check.ts';
 
 /* 이 파일의 거래처 하나. 다른 시험의 거래처와 사업자번호가 겹치지 않게 */
 let CUSTOMER;
@@ -312,6 +312,20 @@ export default [
     t.eq(`${miss.ok}/${miss.row}/${miss.actual}`, 'false/null/null', '둘째 로트인데 줄이 하나');
     const nth = cutRowCheck(one, 'P1', 0, 'PD05050510');
     t.eq(`${nth.ok}/${nth.row}`, 'true/2', '제조번호 칸이 비면 첫째 로트 = 첫째 줄');
+  },
+},
+
+
+{
+  id: 'SC-05', expect: '확인',
+  name: '다른 검토 줄은 주문 형명과 실제 값을 함께 말한다',
+  async run(t) {
+    const m = specMessage({ kind: 'BAND', label: '작업지시서 원료 두께', expected: '0510', actual: '1015', ok: false });
+    t.ok(m.includes('작업지시서 원료 두께') && m.includes('주문 0510') && m.includes('실제 1015'), m);
+    t.ok(specMessage({ kind: 'BR', label: '제조기록서 재단 줄 모델명', expected: 'PD05050510', actual: null, ok: false })
+      .includes('이 제조번호의 줄이 없습니다'), '재단 줄이 없을 때');
+    t.ok(specMessage({ kind: 'STERIL', label: '멸균 보고서', expected: null, actual: null, ok: false })
+      .includes('멸균 보고서가 없습니다'), '멸균 보고서');
   },
 },
 

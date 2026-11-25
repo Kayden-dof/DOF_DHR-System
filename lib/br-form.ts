@@ -22,6 +22,8 @@
    그 투입이 없었던 것처럼 읽힌다.
 --------------------------------------------------------------------------- */
 
+import type { CutRowCell } from './ship-check';
+
 export interface FormCell {
   c: number; cs?: number; rs?: number;
   t?: string; a?: 'l' | 'c' | 'r'; b?: boolean; s?: number;
@@ -279,6 +281,8 @@ function rowUnit(texts: string[]): string | null {
 /** 양식 한 벌을 채운 사본. 원본은 건드리지 않는다 */
 export function fillForm(form: BrForm, given: FillData): {
   pages: FormPage[]; placed: Set<number>; lost: string[]; changes: SignChange[];
+  /** 재단 줄 칸 (0159) */
+  cut: CutRowCell[];
 } {
   /* 반납한 양을 뺀 투입 (netIssues). 아래의 투입은 모두 이것이다 */
   const d: FillData = given.returns?.length
@@ -904,6 +908,17 @@ export function fillForm(form: BrForm, given: FillData): {
     }
   }
 
+  /*
+   * 재단 줄의 제조번호 · 모델명 · 수량 (적은 값, 없으면 채운 값). 출고 전 형명 검토가 읽는다
+   * (0159 · lib/ship-check.ts). row 는 재단 표의 적는 줄 차례(위에서부터 0).
+   */
+  const cut: CutRowCell[] = cand
+    .filter((x) => x.section === 'cut' && (x.role === 'cutlot' || x.role === 'model' || x.role === 'qty'))
+    .map((x) => ({
+      row: cutRows.indexOf(x.row), role: x.role as CutRowCell['role'],
+      value: (x.cell.v ?? '') || (x.cell.sv ?? ''),
+    }));
+
   /* 수량 합계: 위 줄들의 수량 칸(적은 값 · 시스템 값)을 더한다. 더할 것이 없으면 비워 둔다 */
   for (const s of sums) {
     const nums = s.from.filter((c) => c.k === 'number' && (c.v || c.sv));
@@ -993,7 +1008,7 @@ export function fillForm(form: BrForm, given: FillData): {
   }
 
   /* 특이사항 칸이 없는 양식이면 부르는 쪽이 장 아래에 적는다 */
-  return { pages, placed, lost: noteCell ? [] : lines, changes };
+  return { pages, placed, lost: noteCell ? [] : lines, changes, cut };
 }
 
 /* ---------------------------------------------------------------------------

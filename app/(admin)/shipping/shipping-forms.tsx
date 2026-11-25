@@ -11,7 +11,9 @@ import { PL_STATUS_LABEL } from '@/lib/forms';
 import Toasts from '@/components/toast';
 import { Unblock } from '@/components/unblock';
 import type { Fix } from '@/lib/unblock';
-import { createSterilBatch, updateSterilBatch, approveRelease, ship } from './actions';
+import { createSterilBatch, updateSterilBatch, approveRelease, ship, relinkShipment } from './actions';
+import { Dialog, useDialog } from '@/components/dialog';
+import type { SpecRow } from '@/lib/ship-check';
 
 export interface PlOpt {
   id: string; lot_no: string; item_code: string; item_name: string;
@@ -433,32 +435,52 @@ export function ApproveForm({ lot, today }: { lot: PlOpt; today: string }) {
 
 
 /* ---------------------------------------------------------------------------
-   출고 가능 목록 · 행을 누르면 아래로 입력칸이 펼쳐진다
+   출고 - 고른 주문 줄의 형명으로 나갈 수 있는 로트 (0159 · 사용자 2026-11-25)
 
-   처음에는 행 끝 "출고 기록" 단추가 옆으로 좁은 폼을 열었다. 칸이 눌려서
-   읽기도 쓰기도 어려웠다 (사용자 지적). 행 전체를 누르게 하고, 입력은 그 행
-   바로 아래에 표 전체 폭으로 펼친다.
+   «출고할때 발주 업체리스트에서 선택하고, 발주 형명이 맞는지 작업지시서 및 제조기록서 일괄
+   검토해서 출고시 오규격이 나가지 않도록». 로트마다 검토 다섯 칸을 보이고, 다른 칸이 있으면 출고
+   단추를 끄고 단추 옆에 무엇이 다른지 적는다. 처리 함수와 DB 도 같은 검토로 막는다.
 
-   출하 승인은 시스템 밖이다 (0160 · 생산팀 전용). 멸균 보고서가 적힌 로트만 이 목록에
-   오고, 출고에는 출하 업체 · 수량 · 출고일만 적는다.
+   행을 누르면 그 아래로 입력칸이 표 전체 폭으로 펼쳐진다 (사용자 지적 - 옆으로 좁은 폼은 읽기도
+   쓰기도 어려웠다).
 --------------------------------------------------------------------------- */
-export function ShipList({ lots, today }: {
-  lots: PlOpt[]; today: string;
-}) {
+export interface ShipLine {
+  id: string; customer_po_no: string; customer_name: string; code: string; name: string;
+  qty: number; shipped: number; left: number;
+}
+export interface ShipLot extends PlOpt { review: SpecRow[]; blocked: string | null }
+
+const REVIEW_SHORT: Record<SpecRow['kind'], string> = {
+  LOT: '로트', DMR: '지시서', BAND: '두께', BR: '기록서', STERIL: '멸균',
+};
+
+function ReviewMarks({ review }: { review: SpecRow[] }) {
+  return (
+    <span className="inline-flex flex-wrap gap-1">
+      {review.map((r) => (
+        <span key={r.kind} title={`${r.label}: 주문 ${r.expected ?? '-'} · 실제 ${r.actual ?? '-'}`}>
+          <Tag tone={r.ok === false ? 'danger' : r.ok ? 'ok' : 'faint'}>
+            {REVIEW_SHORT[r.kind]} {r.ok === false ? '다름' : r.ok ? '맞음' : '볼 수 없음'}
+          </Tag>
+        </span>
+      ))}
+    </span>
+  );
+}
+
+export function ShipList({ lots, line, today }: { lots: ShipLot[]; line: ShipLine; today: string }) {
   const [openId, setOpenId] = useState<string | null>(null);
 
   return (
     <div className="qd-table-scroll">
-      <table className="qd-table qd-table--hangul" data-grow="2">
+      <table className="qd-table qd-table--hangul" data-grow="3">
         <thead>
           <tr>
             <th className="th">제조번호</th>
-            <th className="th">형명</th>
             <th className="th">배치</th>
             <th className="th text-right">출하 가능</th>
-            <th className="th text-right">기출고</th>
             <th className="th">유효기한</th>
-            <th className="th">멸균 보고서</th>
+            <th className="th">형명 검토</th>
             <th className="th w-0" />
           </tr>
         </thead>
@@ -474,20 +496,15 @@ export function ShipList({ lots, today }: {
                   className={`cursor-pointer ${open ? 'bg-brand-soft/60' : ''}`}
                 >
                   <td className="td font-mono font-semibold">{l.lot_no}</td>
-                  <td className="td">
-                    <div className="text-sm">{l.item_name}</div>
-                    <div className="font-mono text-xs text-faint">{l.item_code}</div>
-                  </td>
                   <td className="td font-mono text-muted">{l.batch_no}</td>
                   <td className="td tnum text-right font-semibold">{l.qty_available}</td>
-                  <td className="td tnum text-right text-muted">{l.shipped || ''}</td>
                   <td className="td tnum ">
                     <span className={days <= 60 ? 'font-semibold text-warn' : ''}>
                       {fmtDate(l.expiry_date)}
                     </span>
                     <span className="ml-1 text-faint">{days}일</span>
                   </td>
-                  <td className="td font-mono">{l.report ?? ''}</td>
+                  <td className="td"><ReviewMarks review={l.review} /></td>
                   <td className="td text-right">
                     <span aria-hidden
                           className={`inline-block text-faint transition-transform ${
@@ -498,8 +515,8 @@ export function ShipList({ lots, today }: {
                 </tr>
                 {open && (
                   <tr>
-                    <td colSpan={8} className="border-b border-line bg-canvas p-0">
-                      <ShipRowForm lot={l} today={today} />
+                    <td colSpan={6} className="border-b border-line bg-canvas p-0">
+                      <ShipRowForm lot={l} line={line} today={today} />
                     </td>
                   </tr>
                 )}
@@ -512,29 +529,30 @@ export function ShipList({ lots, today }: {
   );
 }
 
-function ShipRowForm({ lot, today }: { lot: PlOpt; today: string }) {
+function ShipRowForm({ lot, line, today }: { lot: ShipLot; line: ShipLine; today: string }) {
   /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
   const uid = useId();
 
   const [state, action, pending] = useActionState<FormState, FormData>(ship, {});
-  const [qty, setQty] = useState(String(lot.qty_available));
+  /* 수량은 주문 남은 양과 출하 가능 수량 가운데 작은 값으로 시작한다 */
+  const [qty, setQty] = useState(String(Math.max(1, Math.min(lot.qty_available, line.left))));
+  const over = Number(qty) > line.left;
 
   return (
     <form action={action} className="px-5 py-4">
       <input type="hidden" name="product_lot_id" value={lot.id} />
+      <input type="hidden" name="sales_order_line_id" value={line.id} />
       <p className="text-sm font-semibold text-ink">
-        <span className="font-mono">{lot.lot_no}</span> 출고 기록
+        <span className="font-mono">{lot.lot_no}</span> → {line.customer_name} · 주문{' '}
+        <span className="font-mono">{line.customer_po_no}</span>
       </p>
       <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div>
-          <label className="label" htmlFor={`${uid}-customer_name`}>출하 업체</label>
-          <input id={`${uid}-customer_name`} name="customer_name" required autoComplete="off" className="input" />
-        </div>
         <div>
           <label className="label" htmlFor={`${uid}-qty`}>수량 (최대 {lot.qty_available})</label>
           <input id={`${uid}-qty`} name="qty" type="number" min={1} max={lot.qty_available}
                  value={qty} onChange={(e) => setQty(e.target.value)}
                  required className="input tnum" />
+          {over && <p className="mt-1 text-xs text-warn">주문 남은 양({line.left})보다 많습니다.</p>}
         </div>
         <div>
           <label className="label" htmlFor={`${uid}-shipped_at`}>출고일</label>
@@ -542,22 +560,60 @@ function ShipRowForm({ lot, today }: { lot: PlOpt; today: string }) {
                  className="input tnum" />
         </div>
         <div className="flex items-end">
-          <button type="submit" disabled={pending} className="btn-primary w-full">
+          <button type="submit" disabled={pending || !!lot.blocked} className="btn-primary w-full">
             {pending ? '기록 중' : '출고 기록'}
           </button>
         </div>
       </div>
-      {/*
-        * 출고 단추 옆 안내 (UI/UX 검수 2026-11-11). 전에는 무엇이 줄고 되돌릴 수
-        * 있는지를 말하지 않았다. 출고를 지우는 자리는 없다.
-        */}
       <div className="mt-2">
-        <Caution>
-          출고를 기록하면 이 제조번호의 출하 가능 수량이 그만큼 줄고 그 거래처로 나간 것으로
-          남습니다. <b>되돌릴 수 없습니다.</b> 멸균 보고서가 적힌 로트만 이 목록에 나옵니다.
-        </Caution>
+        {lot.blocked ? (
+          <p role="alert" className="text-sm font-semibold text-danger">{lot.blocked}</p>
+        ) : (
+          <Caution>
+            출고를 기록하면 이 제조번호의 출하 가능 수량과 주문 {line.customer_po_no}의 남은 양이 그만큼 줄고,{' '}
+            {line.customer_name}(으)로 나간 것으로 남습니다. <b>되돌릴 수 없습니다.</b>
+          </Caution>
+        )}
       </div>
       <Msg state={state} />
     </form>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   출고의 주문 바꾸기 (0159 · 사용자 2026-11-25 «허용»). 같은 형명의 열린 주문 줄로만, 사유 필수
+--------------------------------------------------------------------------- */
+export interface RelinkOpt { id: string; label: string }
+
+export function RelinkShipment({ id, current, options }: { id: string; current: string; options: RelinkOpt[] }) {
+  const uid = useId();
+  const [state, action, pending] = useActionState<FormState, FormData>(relinkShipment, {});
+  const { open, setOpen } = useDialog(state);
+  if (options.length === 0) return null;
+  return (
+    <>
+      <button onClick={() => setOpen(true)} className="qd-text-action">주문 바꾸기</button>
+      <Dialog open={open} onClose={() => setOpen(false)} title="출고의 주문 바꾸기">
+        <form action={action}>
+          <input type="hidden" name="id" value={id} />
+          <p className="mb-3 text-sm">지금 주문 <span className="font-mono">{current}</span></p>
+          <label className="label" htmlFor={`${uid}-l`}>바꿀 주문 줄</label>
+          <select id={`${uid}-l`} name="sales_order_line_id" required defaultValue="" className="input">
+            <option value="">선택하십시오</option>
+            {options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+          </select>
+          <label className="label mt-3" htmlFor={`${uid}-r`}>사유</label>
+          <textarea id={`${uid}-r`} name="reason" required rows={2} className="input" />
+          <p className="mt-2 text-xs leading-relaxed text-muted">
+            앞 주문의 남은 양이 돌아오고 바꾼 주문에서 줄어듭니다. 출고 기록의 거래처 이름은 그대로 남습니다.
+          </p>
+          <Msg state={state} />
+          <div className="mt-4 flex gap-2">
+            <button type="submit" disabled={pending} className="btn-primary">바꾼다</button>
+            <button type="button" onClick={() => setOpen(false)} className="btn-ghost">닫기</button>
+          </div>
+        </form>
+      </Dialog>
+    </>
   );
 }

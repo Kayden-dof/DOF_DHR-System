@@ -45,3 +45,22 @@ export function cutRowCheck(cells: CutRowCell[], lotNo: string, lotIndex: number
   const actual = cell(row, 'model');
   return { ok: alnum(actual) === alnum(orderCode), actual, row };
 }
+
+/** 출고 전 형명 검토 한 줄 (DB ship_spec_check 셋 + 제조기록서 재단 줄 + 멸균 보고서) */
+export interface SpecRow {
+  kind: 'LOT' | 'DMR' | 'BAND' | 'BR' | 'STERIL';
+  label: string;
+  expected: string | null;
+  actual: string | null;
+  /** true 맞음 · false 다름 · null 볼 수 없음 */
+  ok: boolean | null;
+}
+
+/** 다른 검토 줄을 사람이 읽는 한 문장으로. 출고 단추 옆 안내와 처리 함수의 거부 문구가 같다 */
+export function specMessage(r: SpecRow): string {
+  if (r.kind === 'STERIL') return '멸균 보고서가 없습니다. 멸균 위탁에서 회수일과 멸균 보고서 번호를 먼저 적으십시오';
+  if (r.kind === 'BR' && r.actual === null) {
+    return '제조기록서 재단 줄에 이 제조번호의 줄이 없습니다. 재단 기록서를 먼저 고치십시오';
+  }
+  return `${r.label}이(가) 주문과 다릅니다 (주문 ${r.expected ?? '-'} · 실제 ${r.actual || '없음'}). 오규격은 출고하지 않습니다`;
+}

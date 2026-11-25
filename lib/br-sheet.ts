@@ -22,6 +22,7 @@ import {
   fillForm, fieldsOf, cellDone, type BrForm, type Entry, type FillData, type FillIssue, type FillReturn, type FormPage,
   type SignChange, type SolutionFill, type CutLot,
 } from './br-form';
+import type { CutRowCell } from './ship-check';
 
 /** 한 공정의 양식 하나 - 고르는 단추 · 빈 칸 수에 쓴다 */
 export interface BrFormTab {
@@ -86,6 +87,8 @@ export interface BrSheet {
   linked?: boolean;
   /** 그 원액 로트 id - 적는 화면(/material/solution/[id])으로 가는 길 */
   solutionLotId?: string | null;
+  /** 본 기록서 재단 줄의 제조번호 · 모델명 · 수량 (0159 · 출고 전 형명 검토) */
+  cut?: CutRowCell[];
 }
 
 interface FormRow { id: string; doc_no: string; title: string | null; form: BrForm }
@@ -398,6 +401,7 @@ export async function brSheet(db: Db, recordId: string, docId?: string | null): 
     changes, people: [...new Set(people)], mine: r.mine === true,
     /* 보이는 별첨이 원액 로트를 따르면 여기서는 보기만 (0145) */
     linked: at > 0 && !!sol, solutionLot: sol?.info.lot_no ?? null, solutionLotId: sol?.lotId ?? null,
+    cut: mainFilled.cut,
   };
 }
 
