@@ -77,7 +77,7 @@ export function NewOrder({ items, suppliers, today, presetItem, presetQty, label
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <label className="label" htmlFor={`${uid}-po_no`}>발주번호</label>
-          <input id={`${uid}-po_no`} name="po_no" autoComplete="off" placeholder="비워 두면 자동"
+          <input id={`${uid}-po_no`} name="po_no" autoComplete="off" placeholder="PO-261125-01"
                  className="input font-mono" />
           <p className="mt-1 text-xs leading-relaxed text-muted">
             비워 두면 채번 규칙이 발주일 기준으로 매깁니다.
