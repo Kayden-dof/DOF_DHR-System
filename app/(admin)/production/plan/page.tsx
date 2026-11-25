@@ -14,6 +14,7 @@ import {
 import { SubNav } from '../../nav';
 import { PRODUCTION_NAV } from '../../sections';
 import { PlanForm, DeletePlan, CalendarForm, type DmOption, type WoOption } from './plan-forms';
+import { OrderPlan, type OrderPlanLine, type Occupied } from './order-plan';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: '일정' };
@@ -30,6 +31,16 @@ export const metadata = { title: '일정' };
 interface PlanRowDb {
   id: string; label: string; dm: string; dm_label: string; start_on: string; start_min: number;
   wo: string | null; wo_no: string | null; batch_no: string | null; note: string;
+}
+
+interface OrderLineDb {
+  line_id: string; customer_name: string; customer_po_no: string; due_on: string | null; item_code: string;
+  left_qty: number; covered: number; fg_stock: number; dm: string; per_sheet: number | null;
+  sheet_min: number | null; sheet_max: number | null; multi_wo: boolean;
+}
+interface DmInfoDb {
+  dm: string; sized: boolean; tiers: { min: number; max: number | null; samples: number }[];
+  gap_from: string | null; gap_to: string | null;
 }
 
 export default async function PlanPage({ searchParams }: { searchParams: Promise<{ id?: string }> }) {
@@ -65,7 +76,31 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
          from work_order wo where wo.status not in ('DONE', 'CANCELLED')
         order by wo.issued_at desc limit 100`);
     const today = (await db.val<string>(`select to_char(timezone('Asia/Seoul', now()), 'YYYY-MM-DD')`)) ?? '';
-    return { plans, tls, dms, wos, today, cal: await loadCalendar(db) };
+    /* 주문에서 계획 (0164): 제안 대상 줄 · 그 판의 시료 구간 · 최근 지시의 근무 기간 · 진행 중 지시의 시작일 */
+    const lines = await db.rows<OrderLineDb>(
+      `select line_id::text, customer_name, customer_po_no, to_char(due_on, 'YYYY-MM-DD') as due_on, item_code,
+              left_qty, covered, fg_stock, dm_id::text as dm, per_sheet, sheet_min, sheet_max, multi_wo
+         from order_plan_lines()`);
+    const dmInfo = lines.length ? await db.rows<DmInfoDb>(
+      `select dm.id::text as dm, dm.usable_w is not null as sized,
+              coalesce((select json_agg(json_build_object('min', sp.min_qty, 'max', sp.max_qty, 'samples', sp.sample_qty)
+                                        order by sp.min_qty)
+                          from sample_plan sp where sp.device_master_id = dm.id), '[]'::json) as tiers,
+              to_char(g.f, 'YYYY-MM-DD') as gap_from, to_char(g.l, 'YYYY-MM-DD') as gap_to
+         from device_master dm
+         left join lateral (
+           select min(pr.work_date) as f, max(pr.work_date) as l from process_record pr
+            where pr.work_order_id = (select wo.id from work_order wo
+                                       where wo.status = 'DONE'
+                                         and wo.device_master_id in (select d2.id from device_master d2 where d2.item_id = dm.item_id)
+                                       order by wo.issued_at desc limit 1)) g on true
+        where dm.id = any($1::uuid[])`, [[...new Set(lines.map((x) => x.dm))]]) : [];
+    const running = lines.length ? await db.rows<{ name: string; start_on: string }>(
+      `select wo.batch_no as name,
+              to_char(coalesce((select min(pr.work_date) from process_record pr where pr.work_order_id = wo.id),
+                               timezone('Asia/Seoul', wo.issued_at)::date), 'YYYY-MM-DD') as start_on
+         from work_order wo where wo.status in ('ISSUED', 'IN_PROCESS', 'CUT')`) : [];
+    return { plans, tls, dms, wos, today, cal: await loadCalendar(db), lines, dmInfo, running };
   });
 
   /*
@@ -76,6 +111,31 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
   const dmsFor = (keep: string | null) =>
     keep && !liveDms.some((o) => o.id === keep) ? [...liveDms, ...d.dms.filter((o) => o.id === keep)] : liveDms;
   const stepsOf = new Map(d.tls.map((t) => [t.dm, t.steps]));
+  /* 주문에서 계획: 줄마다 판의 시간표 · 시료 구간 · 간격 기본값을 붙인다 */
+  const infoOf = new Map(d.dmInfo.map((x) => [x.dm, x]));
+  const orderLines: OrderPlanLine[] = d.lines.map((x) => {
+    const info = infoOf.get(x.dm);
+    const steps = stepsOf.get(x.dm);
+    const firstStep = steps?.length ? Math.min(...steps.map((y) => y.s)) : null;
+    /* 시간표 없는 판의 간격: 가장 최근 종료 지시의 첫 ~ 마지막 기록일 사이 근무일 수 */
+    let defaultGap: number | null = null;
+    if (info?.gap_from && info.gap_to) {
+      defaultGap = 0;
+      for (let day = info.gap_from; day <= info.gap_to; day = addDays(day, 1)) if (!isOff(day, d.cal)) defaultGap++;
+    }
+    return {
+      lineId: x.line_id, dmId: x.dm, customer: x.customer_name, po: x.customer_po_no, itemCode: x.item_code,
+      dueOn: x.due_on, leftQty: x.left_qty, covered: x.covered, fgStock: x.fg_stock, perSheet: x.per_sheet,
+      sized: info?.sized ?? false, sheetMin: x.sheet_min, sheetMax: x.sheet_max, multiWo: x.multi_wo,
+      tiers: info?.tiers ?? [], steps: steps?.length ? steps : null,
+      startMin: firstStep == null ? 480 : firstStep - dayIndex(firstStep) * DAY, defaultGap,
+    };
+  });
+  /* 겹침을 알릴 날: 이미 잡은 계획의 시작일과 진행 중 지시의 시작일 */
+  const occupied: Occupied[] = [
+    ...d.plans.map((p) => ({ on: p.start_on, name: p.label })),
+    ...d.running.map((r) => ({ on: r.start_on, name: r.name })),
+  ];
   const planOf = new Map<string, Plan | null>(
     d.plans.map((p) => [p.id, planBatch(stepsOf.get(p.dm) ?? [], p.start_on, p.start_min, d.cal)]));
   /* 고른 계획: 주소의 것, 없으면 오늘 이후 가장 이른 것, 그것도 없으면 가장 나중 것 */
@@ -100,6 +160,14 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
       lede="배치 계획을 넣으면 그 판의 공정 시간표를 날짜에 얹습니다. 계획표라 인쇄해도 대장에 남지 않고 아무것도 잠기지 않습니다. 실제 시각 · 작업자 · 판정은 제조기록서에 적습니다."
       nav={<SubNav items={PRODUCTION_NAV} />}
     >
+      <Panel title="주문에서 계획" note={orderLines.length ? `줄 ${orderLines.length}` : undefined}>
+        {orderLines.length === 0 ? (
+          <Empty hint="주문이 들어오고 그 형명이 드는 제품표준서 판이 시행 중이면 여기에 제안이 나옵니다.">계획을 올릴 주문 줄이 없습니다</Empty>
+        ) : (
+          <OrderPlan lines={orderLines} calendar={d.cal} today={d.today} occupied={occupied} writable={writable} />
+        )}
+      </Panel>
+
       <Panel title="배치 계획" note={`${d.plans.length}건 · 시간표는 설정 > 제품표준서 > 공정 시간표에서 고칩니다`}>
         {d.plans.length === 0 ? (
           <Empty hint={writable ? '아래 «새 계획» 에서 넣습니다.' : undefined}>배치 계획이 없습니다</Empty>

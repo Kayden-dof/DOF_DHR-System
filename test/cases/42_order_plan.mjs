@@ -556,6 +556,35 @@ export default [
 },
 
 {
+  id: 'OP-07', expect: '통과',
+  name: '같은 줄을 두 번 올리지 않게 덮인 개수가 계획을 센다',
+  async run(t) {
+    const m = await master(t);
+    await withScheme(t, async () => {
+      const old = await putInForce(t, m);
+      const mine = { plans: [], lines: [], wos: [], lots: [] };
+      try {
+        const { code, per } = await pickCode(t, m);
+        /* 63장이 꼭 덮는 개수 (장당 16개이면 1008) */
+        const line = await orderLine(t, m, code, 'OP07', 63 * per);
+        mine.lines.push(line);
+        const before = await planRow(t, line);
+        t.eq(before.covered, 0, '올리기 전에는 덮인 것이 없다');
+        t.eq(Math.max(0, before.left_qty - before.covered), 63 * per, '올리기 전 만들 개수는 남은 개수 그대로');
+        /* 일정에 올리기가 넣는 모양 그대로: 장수 30 · 30 · 3, 라벨 «발주번호 i/n» */
+        const sheets = [30, 30, 3];
+        for (const [i, s] of sheets.entries()) {
+          mine.plans.push(await plan(t, m, { sheets: s, line, label: `SD ${i + 1}/${sheets.length}` }));
+        }
+        const after = await planRow(t, line);
+        t.eq(after.covered, 63 * per, '덮인 개수는 63장 x 장당 개수');
+        t.eq(Math.max(0, after.left_qty - after.covered), 0, '올린 뒤 만들 개수는 0 - 두 번 올리지 않는다');
+      } finally { await tidy(t, m, mine); await restoreDm(t, m, old); }
+    });
+  },
+},
+
+{
   id: 'OP-00', expect: '거부',
   name: '원료 품목 칸에는 원료(RAW) 품목만',
   async run(t) {
