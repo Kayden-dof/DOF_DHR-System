@@ -23,6 +23,7 @@ export const MATERIAL_NAV: NavItem[] = [
   { href: '/material/items', label: '품목' },
   { href: '/material/orders', label: '발주' },
   { href: '/material/stock', label: '재고' },
+  { href: '/material/needs', label: '소요 · 부족' },
   { href: '/material/movement', label: '증감 · 원액' },
 ];
 

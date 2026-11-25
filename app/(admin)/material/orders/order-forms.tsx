@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useState, useId } from 'react';
+import { useActionState, useState, useId, useEffect } from 'react';
 import type { FormState } from '@/lib/forms';
 import { Msg } from '@/components/ui';
 import { Dialog, useDialog } from '@/components/dialog';
@@ -25,7 +25,7 @@ export interface SupplierOpt { id: string; name: string; status: string }
 
 // 'use client' 모듈은 함수만 서버 경계를 넘는다. 컴포넌트를 객체로 묶어
 // 내보내면 서버 쪽에서 undefined 가 되어 화면이 통째로 500 으로 죽는다.
-export function NewOrder({ items, suppliers, today, presetItem, presetQty, label }: {
+export function NewOrder({ items, suppliers, today, presetItem, presetQty, label, autoOpen }: {
   items: ItemOpt[]; suppliers: SupplierOpt[]; today: string;
   /**
    * 최소 재고선 아래 줄에서 열 때 그 품목과 모자란 양 (UI/UX 검수 2026-11-11).
@@ -35,6 +35,8 @@ export function NewOrder({ items, suppliers, today, presetItem, presetQty, label
   presetQty?: number;
   /** 단추 글씨. 줄에서는 짧게 */
   label?: string;
+  /** 화면이 열릴 때 바로 여는가 (소요 · 부족 화면에서 넘어온 주소) */
+  autoOpen?: boolean;
 }) {
   /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
   const uid = useId();
@@ -67,6 +69,12 @@ export function NewOrder({ items, suppliers, today, presetItem, presetQty, label
     if (presetItem) { setItemId(presetItem); setSupplierId(''); }
     setOpen(true);
   };
+
+  /* 소요 · 부족 화면에서 넘어오면 품목과 수량이 채워진 채 바로 열린다 */
+  useEffect(() => {
+    if (autoOpen) start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <>
@@ -127,7 +135,7 @@ export function NewOrder({ items, suppliers, today, presetItem, presetQty, label
       </div>
       <p className="mt-3 text-xs leading-relaxed text-muted">
         수량은 사용 단위 기준입니다. 입고 등록에서 이 발주를 선택하면 자동으로 입고 완료로 넘어갑니다.
-        {presetQty && presetQty > 0 ? ' 수량은 최소 재고선까지 모자란 양으로 채웠습니다.' : ''}
+        {presetQty && presetQty > 0 ? ' 수량은 모자란 양으로 채웠습니다.' : ''}
       </p>
       <Msg state={state} />
       <div className="mt-4 flex gap-2">

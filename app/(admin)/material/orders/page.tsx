@@ -28,13 +28,14 @@ const STATUS: Record<string, { label: string; tone: string }> = {
   CANCELLED: { label: '취소', tone: 'faint' },
 };
 
-export default async function OrdersPage() {
+export default async function OrdersPage({ searchParams }: { searchParams: Promise<{ item?: string; qty?: string }> }) {
   const user = await requireUser();
   /* 열람자에게 열어 둔 화면이 아니다. 주소를 직접 쳐도 들어가지 못한다 */
   if (blocksScreen(user, '/material/orders')) return <Denied what="이 화면" need="생산관리자 또는 시스템관리자" />;
 
   /* 순수 열람자면 쓰기 단추를 아예 그리지 않는다 */
   const viewer = isViewerOnly(user.roles);
+  const sp = await searchParams;
 
 
   const d = await withUser(user, async (db) => ({
@@ -84,12 +85,21 @@ export default async function OrdersPage() {
     today: await db.val<string>(`select to_char(timezone('Asia/Seoul', now()),'YYYY-MM-DD')`),
   }));
 
+  /*
+   * 소요 · 부족 화면에서 넘어온 주소 (?item=&qty=). 발주할 수 있는 품목이고 수량이
+   * 0 보다 클 때만 받는다. 아니면 평소 화면 그대로다.
+   */
+  const askQty = Number(sp.qty);
+  const preset = sp.item && d.items.some((i) => i.id === sp.item) && askQty > 0 && Number.isFinite(askQty)
+    ? { item: sp.item, qty: askQty } : null;
+
   return (
     <PageShell
       section="자재"
       title="발주"
       lede="발주중 수량은 최소 재고선 알림에 반영되어 같은 자재로 알림이 반복되지 않습니다."
-      action={viewer ? null : (<NewOrder items={d.items} suppliers={d.suppliers} today={d.today ?? ''} />)}
+      action={viewer ? null : (<NewOrder items={d.items} suppliers={d.suppliers} today={d.today ?? ''}
+                                         presetItem={preset?.item} presetQty={preset?.qty} autoOpen={!!preset} />)}
       nav={<SubNav items={MATERIAL_NAV} />}
     >
 
