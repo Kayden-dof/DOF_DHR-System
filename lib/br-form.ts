@@ -85,6 +85,14 @@ export interface FormCell {
   grp?: string[];
   /** 같은 묶음의 다른 칸이 골라져 적을 필요가 없는 칸. 빈 칸으로 세지 않는다 */
   off?: boolean;
+  /**
+   * 기준 생산량에 따라 허용범위가 바뀌는 결과 칸 (PBS 제조기록서 · 사용자 2026-11-25 «결과 칸에 용량
+   * 적은건 몇L 생산이냐에 따라 다르니까 기준값을 먼저 물어보고»). 기준 칸(같은 세부공정 정제수 줄의
+   * 결과) 자리와, 양식 허용범위가 몇 L 기준인지 · 그 범위 · 단위.
+   */
+  bs?: { id: string; base: number; lo: number; hi: number; u: string };
+  /** 기준 생산량 칸 (정제수 줄 결과). 값은 양식 허용범위의 기준 L */
+  bb?: number;
 }
 
 /** 별첨이 따르는 원액 로트 (원액 제조 기록 · 0118 · 0119) */
@@ -271,7 +279,11 @@ export function fillForm(form: BrForm, given: FillData): {
   /* 투입한 자재가 양식의 어느 자재 줄에 붙었는가 (그 줄의 자재명) */
   const matOf = new Map<number, string>();
   /* 세부공정 줄 - 투입량은 부여로트번호가 아니라 여기 결과 칸에 적는다 */
-  const stepRows: { item: string; result: FormCell; sz: number; id: string; row: string }[] = [];
+  const stepRows: {
+    item: string; result: FormCell; sz: number; id: string; row: string;
+    /** 그 줄의 허용범위 글 · 세부공정 (기준 생산량을 셈할 때) */
+    range: string; group: string;
+  }[] = [];
 
   /*
    * 열이 무엇인지는 머리 줄의 **가로 자리(pt)**로 기억한다. 다음 쪽의 표가 머리
@@ -682,7 +694,8 @@ export function fillForm(form: BrForm, given: FillData): {
             sysResult(result, resultId, String(d.sheets), d.loadUnit ?? '장', sz,
               `${flatLabel(norm(item.t) === '수량' ? stepGroup : item.t)} · 결과`, rowKey(ri));
           } else if (item?.t && result) {
-            stepRows.push({ item: item.t, result, sz, id: resultId, row: rowKey(ri) });
+            stepRows.push({ item: item.t, result, sz, id: resultId, row: rowKey(ri),
+                            range: by('range')?.t ?? '', group: stepGroup });
           }
         }
       });
@@ -730,6 +743,29 @@ export function fillForm(form: BrForm, given: FillData): {
       }
     }
     if (!done) qtyNotes.push(`투입량 ${m.name.replace(/\s*\n\s*/g, '')} ${amount}`);
+  }
+
+  /* -------------------------------------------------------------------------
+     기준 생산량 (별첨 PBS 제조기록서 · 사용자 2026-11-25)
+
+     시약 양의 허용범위(«800 ~ 801 g»)는 같은 세부공정의 정제수 줄(«5 L»)을 기준으로 인쇄돼 있다.
+     몇 L 를 만드느냐에 따라 범위가 달라지므로, 정제수 줄 결과를 기준 생산량 칸으로 삼고 g 단위
+     결과 칸에 그 기준과 범위를 붙인다. 화면이 기준을 먼저 묻고 셈한 범위를 보여 준다.
+  ------------------------------------------------------------------------- */
+  if (d.appendix) {
+    const groups = new Map<string, typeof stepRows>();
+    for (const r of stepRows) groups.set(r.group, [...(groups.get(r.group) ?? []), r]);
+    for (const rows of groups.values()) {
+      const water = rows.find((r) => /정제수/.test(norm(r.item)) && /^[\d.]+L$/i.test(norm(r.range)));
+      const base = water ? parseFloat(norm(water.range)) : NaN;
+      if (!water || !(base > 0)) continue;
+      water.result.bb = base;
+      for (const r of rows) {
+        if (r === water) continue;
+        const m = norm(r.range).match(/^([\d.]+)~([\d.]+)(mg|g|kg)$/i);
+        if (m) r.result.bs = { id: water.id, base, lo: +m[1], hi: +m[2], u: m[3] };
+      }
+    }
   }
 
   /* -------------------------------------------------------------------------

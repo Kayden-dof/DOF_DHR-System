@@ -147,8 +147,14 @@ export interface SolutionLink {
  */
 export function fillOne(form: BrForm, base: FillData, appendix: boolean, sol?: SolutionLink | null) {
   if (!appendix) return fillForm(form, base);
+  /*
+   * 별첨(PBS 제조기록서)의 부여로트번호 · 결과(양) · 작업자 · 일자는 사람이 적는다 (사용자 2026-11-25
+   * «이부분도 다 직접 기입하도록 열어주고, 부여 로트번호는 자재코드에서 따오는걸로»). 전에는 원액
+   * 제조 때 차감한 원료 로트 · 양과 만든 사람이 처음 값으로 들어가 적힌 것처럼 보였다. 머리의
+   * 관리번호 · 제조일자만 그 원액 로트에서 온다.
+   */
   return fillForm(form, {
-    ...base, issues: sol?.inputs ?? [], returns: [], notes: [], appendix: true,
+    ...base, issues: [], returns: [], notes: [], appendix: true,
     solution: sol?.info ?? null,
     worker: sol?.info.maker ?? base.worker,
     workDate: sol?.info.made_on ?? base.workDate,

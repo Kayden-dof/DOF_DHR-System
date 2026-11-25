@@ -377,6 +377,14 @@ export function BrSheetView({ sheet, onSheet, onClose, busy, ctx, endSlot, readO
                      onSave={save} onClose={() => setCell(null)} />
       ) : (
         <FieldEditor key={live.id} cell={live} workDate={sheet.workDate}
+                     basis={live.bs ? {
+                       value: find(live.bs.id)?.v ?? null,
+                       /* 기준 칸에 적고 이 칸은 연 채로 둔다 - 기준을 적은 뒤 바로 수치를 적는다 */
+                       set: (v: string) => {
+                         const at = live.bs!.id;
+                         start(async () => { take(await putEntry(at, v), true); });
+                       },
+                     } : undefined}
                      busy={saving || busy} error={err}
                      onSave={save} onCancel={() => setCell(null)} />
       ))}
@@ -700,10 +708,29 @@ function LotNoPicker({ cell, ctx, busy, error, onSave, onClose }: {
 /* ---------------------------------------------------------------------------
    칸 하나 적기 - 칸의 종류에 맞는 입력
 --------------------------------------------------------------------------- */
-function FieldEditor({ cell, workDate, busy, error, onSave, onCancel }: {
+function FieldEditor({ cell, workDate, basis, busy, error, onSave, onCancel }: {
   cell: FormCell; workDate: string; busy: boolean; error: string | null;
   onSave: (v: string) => void; onCancel: () => void;
+  /** 기준 생산량 칸의 지금 값과 적기 (cell.bs 가 있을 때) */
+  basis?: { value: string | null; set: (v: string) => void };
 }) {
+  /*
+   * 기준 생산량 (PBS 제조기록서 · 사용자 2026-11-25 «결과 칸에 용량 적은건 몇L 생산이냐에 따라
+   * 다르니까 기준값을 먼저 물어보고 수치를 입력할수있도록»). 기준이 없으면 그것부터 묻고,
+   * 있으면 그 기준으로 셈한 허용범위를 보이며 수치를 받는다.
+   */
+  const [askBasis, setAskBasis] = useState(false);
+  const [basisNum, setBasisNum] = useState(basis?.value ?? '');
+  const needBasis = !!cell.bs && (!basis?.value || askBasis);
+  const bv = basis?.value ? parseFloat(basis.value) : NaN;
+  const r3 = (n: number) => String(+n.toFixed(3));
+  const scaled = cell.bs && bv > 0
+    ? `${r3(cell.bs.lo * bv / cell.bs.base)} ~ ${r3(cell.bs.hi * bv / cell.bs.base)} ${cell.bs.u}` : null;
+  const putBasis = () => {
+    if (busy || !basisNum || !(parseFloat(basisNum) > 0)) return;
+    basis?.set(basisNum);
+    setAskBasis(false);
+  };
   const [pick, setPick] = useState(() => (cell.v ?? '').split('|')[0] ?? '');
   const [extra, setExtra] = useState(() => (cell.v ?? '').split('|')[1] ?? '');
   /* 빈자리가 둘 이상인 보기 - 칸마다 따로 적는다 (사용자 2026-11-20 «쓰는칸 나눠줘») */
@@ -803,7 +830,35 @@ function FieldEditor({ cell, workDate, busy, error, onSave, onCancel }: {
         </div>
       )}
 
-      {cell.k === 'number' && (
+      {cell.bb !== undefined && (
+        <p className="mt-2 rounded-md bg-canvas px-3 py-2 text-sm leading-relaxed text-muted">
+          기준 생산량 칸입니다. 양식의 시약 허용범위는 <b className="tnum text-ink">{cell.bb} L</b> 기준이고,
+          여기 적은 양에 맞춰 시약 결과 칸의 허용범위가 셈해집니다.
+        </p>
+      )}
+      {cell.bs && !needBasis && scaled && (
+        <p className="mt-2 rounded-md bg-canvas px-3 py-2 text-sm leading-relaxed text-ink">
+          기준 생산량 <b className="tnum">{basis?.value} L</b> · 허용범위 <b className="tnum">{scaled}</b>
+          <button type="button" onClick={() => { setBasisNum(basis?.value ?? ''); setAskBasis(true); }}
+                  className="ml-2 text-xs font-semibold text-brand underline">기준 바꾸기</button>
+        </p>
+      )}
+      {cell.k === 'number' && needBasis && cell.bs && (
+        <div className="mt-3">
+          <p className="text-sm leading-relaxed text-ink">
+            먼저 이번에 몇 L 를 만드는지 적으십시오. 양식의 허용범위는
+            {' '}<b className="tnum">{cell.bs.base} L</b> 기준입니다.
+          </p>
+          <div className="mt-2">
+            <NumPad name="basis" label="기준 생산량 (L)" unit="L"
+                    initial={basisNum} onChange={setBasisNum} onEnter={putBasis} />
+          </div>
+          <button type="button" disabled={busy || !(parseFloat(basisNum) > 0)} onClick={putBasis}
+                  className="btn-primary mt-3 w-full">기준 저장</button>
+        </div>
+      )}
+
+      {cell.k === 'number' && !needBasis && (
         <div className="mt-3">
           <NumPad name="num" label={`값${cell.u ? ` (${cell.u})` : ''}`} unit={cell.u}
                   initial={num.replace(/^-/, '')} onChange={setNum}
