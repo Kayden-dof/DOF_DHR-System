@@ -59,6 +59,29 @@ export async function saveSupplier(_p: FormState, form: FormData): Promise<FormS
   }
 }
 
+/*
+ * 목록에서 바로 승인 (사용자 2026-11-25 «발주업체 승인하는 버튼 어디있는데.. 왤케 찾기가 힘드냐..» ·
+ * «승인 단추는 두는데, 승인을 생산 관리자도 할수 있게 열어줘»). 전에는 줄의 «수정» → 창 안의 «승인 상태» 를
+ * 골라 저장해야 했고, 시스템관리자만 됐다. 승인만 바꾸고 다른 칸은 그대로 둔다. 되돌리기(미승인 · 정지)는
+ * 지금처럼 «수정» 에서 시스템관리자가 한다.
+ */
+export async function approveSupplier(_p: FormState, form: FormData): Promise<FormState> {
+  try {
+    const me = await requireRole(['SYS_ADMIN', 'PROD_MGR'], '공급자 승인은 생산관리자 또는 시스템관리자가 합니다');
+    const id = String(form.get('id') ?? '');
+    const name = await withActor(me.id, (db) =>
+      db.val<string>(
+        `update supplier set status = 'APPROVED' where id = $1 and status <> 'APPROVED' returning name`, [id]),
+      { reason: '공급자 승인 (목록에서)' });
+    revalidatePath('/settings/suppliers');
+    revalidatePath('/material/orders');
+    revalidatePath('/material');
+    return name ? { ok: true, message: `${name} 를 승인했습니다.` } : { error: '이미 승인된 공급자입니다' };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
 export async function savePrice(_p: FormState, form: FormData): Promise<FormState> {
   try {
     const me = await admin();

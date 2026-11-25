@@ -1,4 +1,4 @@
-import { requireUser, canWrite, blocksScreen } from '@/lib/session';
+import { requireUser, canWrite, blocksScreen, hasRole } from '@/lib/session';
 import { fixAt } from '@/lib/unblock';
 import Denied from '@/components/denied';
 import { withActor } from '@/lib/db';
@@ -105,7 +105,10 @@ export default async function SuppliersPage({ searchParams }: {
                 </tr>
               </thead>
               <tbody>
-                {d.suppliers.map((s) => <SupplierRowView key={s.id} s={s} writable={writable} />)}
+                {d.suppliers.map((s) => (
+                  <SupplierRowView key={s.id} s={s} writable={writable}
+                                   canApprove={hasRole(user, 'SYS_ADMIN', 'PROD_MGR')} />
+                ))}
               </tbody>
             </table>
           </div>

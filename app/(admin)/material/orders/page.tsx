@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { requireUser, blocksScreen } from '@/lib/session';
 import Denied from '@/components/denied';
 import { isViewerOnly } from '@/lib/roles';
@@ -40,7 +41,7 @@ export default async function OrdersPage() {
     orders: await db.rows<OrderRow>(
       `select po.id, po.po_no, po.qty, po.unit_price, po.ordered_at, po.expected_at,
               po.status, i.code as item_code, i.name as item_name, i.usage_uom,
-              s.name as supplier_name, u.full_name as ordered_by_name,
+              s.name as supplier_name, s.status as supplier_status, u.full_name as ordered_by_name,
               (select count(*)::int from material_lot ml where ml.purchase_order_id = po.id) as lot_count,
               po_received(po.id) as received
          from purchase_order po
@@ -179,7 +180,15 @@ export default async function OrdersPage() {
                         <div className="text-sm">{o.item_name}</div>
                         <div className="font-mono text-xs text-faint">{o.item_code}</div>
                       </td>
-                      <td className="td ">{o.supplier_name}</td>
+                      <td className="td ">
+                        {o.supplier_name}
+                        {/* 미승인 공급자는 승인하는 자리로 바로 (사용자 2026-11-25 «승인하는 버튼 어디있는데») */}
+                        {o.supplier_status && o.supplier_status !== 'APPROVED' && (
+                          <Link href="/settings/suppliers" className="ml-1.5 text-xs font-semibold text-warn underline">
+                            미승인 · 승인하기
+                          </Link>
+                        )}
+                      </td>
                       <td className="td tnum text-right">{Number(o.qty)} {o.usage_uom}</td>
                       {/*
                         * 얼마나 들어왔는지를 줄에서 바로 보인다. 전에는 상태

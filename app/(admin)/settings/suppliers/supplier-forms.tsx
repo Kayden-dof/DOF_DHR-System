@@ -8,7 +8,7 @@ import { Msg, Tag } from '@/components/ui';
 import { Unblock } from '@/components/unblock';
 import type { Fix } from '@/lib/unblock';
 import { Dialog, useDialog } from '@/components/dialog';
-import { saveSupplier, savePrice, saveShelfLife } from './actions';
+import { saveSupplier, savePrice, saveShelfLife, approveSupplier } from './actions';
 
 export interface SupplierRow {
   id: string; code: string; name: string; status: string;
@@ -126,10 +126,29 @@ export function NewSupplierForm() {
   );
 }
 
-export function SupplierRowView({ s, writable = true }: {
+/*
+ * 미승인 · 정지 공급자를 목록에서 바로 승인한다 (사용자 2026-11-25 «승인하는 버튼 어디있는데» · «생산 관리자도»).
+ * 되돌리기는 «수정» 에서.
+ */
+function ApproveButton({ id }: { id: string }) {
+  const [state, action, pending] = useActionState<FormState, FormData>(approveSupplier, {});
+  return (
+    <form action={action} className="inline">
+      <input type="hidden" name="id" value={id} />
+      <button type="submit" disabled={pending} className="qd-text-action whitespace-nowrap font-semibold text-brand">
+        {pending ? '승인하는 중' : '승인'}
+      </button>
+      {state.error && <span role="alert" className="ml-2 text-xs text-danger">{state.error}</span>}
+    </form>
+  );
+}
+
+export function SupplierRowView({ s, writable = true, canApprove = false }: {
   s: SupplierRow;
   /** 이 세션이 쓸 수 있는가. 못 쓰면 수정 단추를 그리지 않는다 */
   writable?: boolean;
+  /** 생산관리자 · 시스템관리자 - 미승인 줄에 «승인» 단추 */
+  canApprove?: boolean;
 }) {
   const [state, action, pending] = useActionState<FormState, FormData>(saveSupplier, {});
   const { open, setOpen } = useDialog(state);
@@ -154,9 +173,12 @@ export function SupplierRowView({ s, writable = true }: {
         <td className="td tnum text-right text-muted">{s.lot_count || ''}</td>
         {writable && (
           <td className="td text-right">
-            <button onClick={() => setOpen(true)} className="qd-text-action">
-              수정
-            </button>
+            <span className="inline-flex items-center gap-3">
+              {canApprove && s.status !== 'APPROVED' && <ApproveButton id={s.id} />}
+              <button onClick={() => setOpen(true)} className="qd-text-action">
+                수정
+              </button>
+            </span>
           </td>
         )}
       </tr>
