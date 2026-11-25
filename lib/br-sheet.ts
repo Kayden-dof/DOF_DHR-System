@@ -20,7 +20,7 @@
 import type { Db } from './db';
 import {
   fillForm, fieldsOf, type BrForm, type Entry, type FillData, type FillIssue, type FillReturn, type FormPage,
-  type SignChange, type SolutionFill,
+  type SignChange, type SolutionFill, type CutLot,
 } from './br-form';
 
 /** 한 공정의 양식 하나 - 고르는 단추 · 빈 칸 수에 쓴다 */
@@ -331,6 +331,14 @@ export async function brSheet(db: Db, recordId: string, docId?: string | null): 
          join material_lot ml on ml.id = mi.material_lot_id
         where mi.process_record_id = $1 and ml.made_on is not null
         order by ml.lot_no`, [recordId])).map((x) => x.lot_no),
+    /* 그 배치의 제품 로트 - 재단 줄 «제조번호 · 모델명 · 수량» 의 처음 값 (사용자 2026-11-25) */
+    cutLots: await db.rows<CutLot>(
+      `select pl.lot_no, i.code, pl.qty_produced as qty
+         from process_record pr
+         join product_lot pl on pl.work_order_id = pr.work_order_id
+         join item i on i.id = pl.item_id
+        where pr.id = $1
+        order by pl.lot_no`, [recordId]),
   };
 
   /* 본 기록서를 먼저 채워 «관리번호 부여» 칸이 가리키는 원액 로트를 안다. 별첨이 그것을 따른다 */

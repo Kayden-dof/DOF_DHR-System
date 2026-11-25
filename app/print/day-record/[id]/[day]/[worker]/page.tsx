@@ -5,7 +5,7 @@ import { fmtDate, fmtDateTime, chem } from '@/lib/fmt';
 import { logPrint, printGate, viewParam } from '@/lib/print';
 import Denied from '@/components/denied';
 import PrintFrame, { Sheet, SignRow, FormSheet } from '@/components/print-frame';
-import { type BrForm, type FillReturn } from '@/lib/br-form';
+import { type BrForm, type FillReturn, type CutLot } from '@/lib/br-form';
 import { fillOne, linkedSolution, type SolutionLink } from '@/lib/br-sheet';
 import { dayRecordPayload, hashable, type RecRow } from '@/lib/print-payload';
 import { chunkRows } from '@/lib/print-pages';
@@ -384,7 +384,13 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = fal
         lotId: x.id, entries: solEntries.get(x.id) ?? {},
       });
     }
-    return { forms, noLot, woNo: wdm?.wo_no ?? null, returns, solLots, solutions };
+    /* 그 배치의 제품 로트 - 재단 줄 «제조번호 · 모델명 · 수량» 의 처음 값 (사용자 2026-11-25). 자료 식별자 밖이다 */
+    const cutLots = await db.rows<CutLot>(
+      `select pl.lot_no, i.code, pl.qty_produced as qty
+         from product_lot pl join item i on i.id = pl.item_id
+        where pl.work_order_id = $1
+        order by pl.lot_no`, [id]);
+    return { forms, noLot, woNo: wdm?.wo_no ?? null, returns, solLots, solutions, cutLots };
   });
   /* 공정마다 양식 차례 - 본 기록서가 처음 */
   const formsOf = new Map<string, typeof look.forms>();
@@ -413,6 +419,7 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = fal
       issues: r.issues, returns: look.returns[ri] ?? [], noLotCodes: look.noLot,
       equipment: r.equipment_id, extraEquipment: r.extra_equipment ?? null, notes,
       solutionLots: look.solLots[ri] ?? [],
+      cutLots: look.cutLots,
     };
     /* 현장에서 적은 칸 (0132) - 그 양식에 적힌 것만 */
     const entriesOf = (docId: string) => Object.fromEntries((r.br ?? [])

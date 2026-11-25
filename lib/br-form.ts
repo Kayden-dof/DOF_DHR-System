@@ -200,7 +200,10 @@ export interface FillData {
   solutionLots?: string[];
   /** 별첨이 따르는 원액 로트. 머리 · 서명의 처음 값이 된다 (원료는 issues 로 온다) */
   solution?: SolutionFill | null;
+  /** 그 배치의 제품 로트 (제조번호 순). 재단 줄 «제조번호 · 모델명 · 수량» 의 처음 값 */
+  cutLots?: CutLot[];
 }
+export interface CutLot { lot_no: string; code: string; qty: number }
 
 const norm = (s: string | undefined) => (s ?? '').replace(/\s+/g, '');
 /* 자재 이름과 세부공정 관리항목을 맞댈 때: 띄어쓰기 · 붙임표 · 괄호 · % · 점을 뺀다
@@ -744,6 +747,8 @@ export function fillForm(form: BrForm, given: FillData): {
   const UNIT = /^[A-Za-z℃°%µ²₂/.\s]{1,8}$/;
   /* 줄마다 표시 칸 (합격 · 불합격 …) - 하나만 고르는 묶음 */
   const marks = new Map<string, FormCell[]>();
+  /* 재단 표의 적는 줄 차례 (양식 위에서부터). n번째 줄에 n번째 제품 로트가 들어간다 */
+  const cutRows = [...new Set(cand.filter((x) => x.section === 'cut').map((x) => x.row))];
   for (const x of cand) {
     const c = x.cell;
     if (c.f || c.tk?.length || c.id) continue;
@@ -813,6 +818,22 @@ export function fillForm(form: BrForm, given: FillData): {
     if (headSys) {
       c.sv = headSys;
       Object.assign(c, { t: headSys, f: true, a: 'c' as const, b: false });
+      matRow.add(x.row);
+    }
+    /*
+     * 재단 줄(제조번호 · 모델명 · 수량)의 처음 값은 그 배치의 제품 로트다 (사용자 2026-11-25 «001에
+     * 단일 형명으로 20개 제작 … 다른 규격이 생기면 002가 생기고 … 그 밑에 붙여줘야겠지?»). 전에는
+     * 손으로 적는 칸이라 시스템의 제조번호 · 형명과 따로 놀았다. n번째 줄 = 제조번호 순 n번째 로트.
+     * 적은 값이 이긴다.
+     */
+    const cutLot = x.section === 'cut' ? d.cutLots?.[cutRows.indexOf(x.row)] : undefined;
+    const cutSys = !cutLot ? null
+      : x.role === 'cutlot' ? cutLot.lot_no
+      : x.role === 'model' ? cutLot.code
+      : x.role === 'qty' ? String(cutLot.qty) : null;
+    if (cutSys) {
+      c.sv = cutSys;
+      applyEntry(c, cutSys);
       matRow.add(x.row);
     }
     const e = entries[x.id];

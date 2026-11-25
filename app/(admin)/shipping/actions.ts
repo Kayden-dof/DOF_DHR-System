@@ -142,21 +142,20 @@ export async function ship(_p: FormState, form: FormData): Promise<FormState> {
     const me = await mgr();
     await withActor(me.id, (db) =>
       db.rows(
+        /*
+         * 개체 순번(unit_from · unit_to)은 적지 않는다 (사용자 2026-11-25). 라벨은 제조번호
+         * 단위이고(F706-03 · WS-DX2401-07) 개체마다 다른 번호가 실물에 없으므로, 순번을 적으면
+         * 실물과 이어지지 않는 번호가 남는다. 전에 적힌 출고의 순번은 그대로 둔다.
+         */
         `insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by,
-                               release_request_no, unit_from, unit_to)
-         values ($1,$2,$3,$4::date,$5,$6,$7,$8)`,
+                               release_request_no)
+         values ($1,$2,$3,$4::date,$5,$6)`,
         [String(form.get('product_lot_id') ?? ''),
          String(form.get('customer_name') ?? '').trim(),
          Number(form.get('qty') ?? 0),
          String(form.get('shipped_at') ?? ''), me.id,
          // 서면 승인이 끝난 요청서의 번호. 비워 두면 비워진 채로 남는다
-         String(form.get('release_request_no') ?? '').trim() || null,
-         /*
-          * 나간 개체 순번. 겹치는지 · 로트를 벗어나는지 · 수량과 맞는지는
-          * DB 가 본다 (trg_shipment_unit_range). 여기서 다시 세지 않는다.
-          */
-         Number(form.get('unit_from') ?? 0) || null,
-         Number(form.get('unit_to') ?? 0) || null]));
+         String(form.get('release_request_no') ?? '').trim() || null]));
     bump();
     return { ok: true, message: '출고를 기록했습니다.' };
   } catch (e) {

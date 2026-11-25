@@ -40,8 +40,6 @@ export default async function ShipPage() {
               pl.release_approved_by, pl.release_approved_on::text as release_approved_on,
               coalesce((select sum(sh.qty)::int from shipment sh
                          where sh.product_lot_id = pl.id), 0) as shipped,
-              /* 다음에 내보낼 첫 개체 순번. 시료 다음부터 세고 나간 범위는 건너뛴다 */
-              next_unit_seq(pl.id) as next_unit,
               /*
                * 이 배치로 나간 출하 승인 요청서들 (0111). 번호를 손으로 적는
                * 대신 고르게 한다 - 실재하지 않는 번호는 DB 가 거부하므로

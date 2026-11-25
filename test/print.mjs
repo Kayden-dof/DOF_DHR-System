@@ -77,7 +77,7 @@ if (!wo) {
 const lots = await rows(
   `select pl.id, pl.lot_no, pl.qty_produced, pl.qty_sample, pl.qty_available,
           pl.manufactured_on::text as manufactured_on, pl.expiry_date::text as expiry_date,
-          i.code as item_code, i.name as item_name, spec_label(i.code) as spec
+          i.code as item_code, i.name as item_name, spec_label(i.code) as spec, i.udi_di as udi
      from product_lot pl join item i on i.id = pl.item_id
     where pl.work_order_id = $1 order by pl.lot_no`, [wo.id]);
 
@@ -717,7 +717,12 @@ await sheet('③ 라벨요청서', `/print/label-request/${wo.id}`, [
     // (3차 검수 결함 1). §8.2 가 가장 중요하다고 한 대조가 이것이다.
     { label: `규격 ${l.lot_no}`,        value: l.spec },
     { label: `수량 ${l.lot_no}`,        value: String(l.qty_produced) },
+    // 라벨 표기 내용은 제조번호마다 한 묶음 (F706-03 · 사용자 2026-11-25)
+    { label: `UDI-DI ${l.lot_no}`,      value: l.udi ?? '' },
+    { label: `유효기한 ${l.lot_no}`,    value: l.expiry_date },
   ]),
+  // 개체마다 다른 번호는 양식에 없다 (사용자 2026-11-25 «라벨 표기 내용 … 부정확»)
+  { label: '개체 번호 없음', value: '개체 번호', anywhere: true, absent: true },
   { label: '요청자 서명란', value: '요청자' },
   { label: '확인자 서명란', value: '확인자' },
 ], 2, { kind: 'LABEL_REQUEST', where: { work_order_id: wo.id } });

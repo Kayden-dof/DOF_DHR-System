@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import { notFound } from 'next/navigation';
 import { requireUser } from '@/lib/session';
 import { withActor } from '@/lib/db';
@@ -24,6 +25,8 @@ interface LotRow {
   lot_no: string; item_code: string; item_name: string;
   qty_produced: number; qty_sample: number; qty_available: number;
   manufactured_on: string; expiry_date: string; spec: string; shelf_basis: string;
+  /** 형명의 UDI-DI (0158). 등록되지 않았으면 비운다 - 지어내지 않는다 */
+  udi: string | null;
 }
 
 /*
@@ -68,9 +71,9 @@ export default async function LabelRequestSheet({ params, searchParams }: {
         `select pl.lot_no, i.code as item_code, i.name as item_name,
                 pl.qty_produced, pl.qty_sample, pl.qty_available,
                 pl.manufactured_on, pl.expiry_date, spec_label(i.code) as spec,
-                shelf_life_basis(pl.shelf_life_ref, pl.item_id) as shelf_basis
+                shelf_life_basis(pl.shelf_life_ref, pl.item_id) as shelf_basis, i.udi_di as udi
            from product_lot pl join item i on i.id = pl.item_id
-          where pl.work_order_id = $1 order by i.code`, [id]),
+          where pl.work_order_id = $1 order by pl.lot_no`, [id]),
     };
   });
 
@@ -162,43 +165,51 @@ export default async function LabelRequestSheet({ params, searchParams }: {
         </tbody>
       </table>
 
+      {/*
+        * 라벨 표기 내용은 라벨인쇄기록지(F706-03) 처럼 제조번호마다 한 묶음이다 (사용자 2026-11-25
+        * «라벨 표기 내용에 대한 부분이 너무 부정확하고 매칭도 잘 안되어있는거 같아»). 재단 작업표준서
+        * WS-DX2401-07 은 형명마다 제조번호를 붙이므로, 형명이 늘면 묶음도 제조번호 차례로 아래에 붙는다.
+        * 개체마다 다른 번호는 양식에 없어 적지 않는다.
+        */}
       <h2 className="mt-5 text-sm font-bold text-black">라벨 표기 내용</h2>
       <table className="print-table mt-1.5">
-        <thead>
-          <tr>
-            <th className="w-[16%]">제조번호</th>
-            <th className="w-[28%]">제품명 / 모델명</th>
-            <th className="w-[24%]">개체 번호</th>
-            <th className="w-[16%]">제조일</th>
-            <th className="w-[16%]">유효기한</th>
-          </tr>
-        </thead>
         <tbody>
-          {lots.map((l) => (
-            <tr key={l.lot_no}>
-              <td className="font-mono font-bold">{l.lot_no}</td>
-              <td>{l.item_name}<div className="font-mono text-[9px]">{l.item_code}</div></td>
-              {/*
-                * 라벨은 개체마다 다른 번호를 답니다. 한 장씩 무엇을 찍을지
-                * 알아야 하므로 번호를 범위로 적는다.
-                */}
-              <td className="font-mono">
-                {l.lot_no}-{String(1).padStart(3, '0')}
-                {' ~ '}
-                {l.lot_no}-{String(l.qty_produced).padStart(3, '0')}
-              </td>
-              <td className="tnum">{fmtDate(l.manufactured_on)}</td>
-              <td className="tnum">{fmtDate(l.expiry_date)}
-                <div className="text-[9px] leading-tight">{l.shelf_basis}</div>
-              </td>
-            </tr>
+          {lots.map((l, n) => (
+            <Fragment key={l.lot_no}>
+              <tr>
+                <th rowSpan={4} className="w-[6%] text-center tnum">{n + 1}</th>
+                <th className="w-[13%]">제조번호</th>
+                <td className="w-[31%] font-mono font-bold">{l.lot_no}</td>
+                <th className="w-[13%]">제조일자</th>
+                <td className="w-[37%] tnum">{fmtDate(l.manufactured_on)}</td>
+              </tr>
+              <tr>
+                <th>모델명</th>
+                <td className="font-mono">{l.item_code}</td>
+                <th>규격</th>
+                <td>{l.spec}</td>
+              </tr>
+              <tr>
+                <th>UDI-DI</th>
+                <td className="font-mono">{l.udi ?? ''}</td>
+                <th>유효기한</th>
+                <td className="tnum">{fmtDate(l.expiry_date)}
+                  <div className="text-[9px] leading-tight">{l.shelf_basis}</div>
+                </td>
+              </tr>
+              <tr>
+                <th>제품명</th>
+                <td>{l.item_name}</td>
+                <th>라벨 수량</th>
+                <td className="tnum font-bold">{l.qty_produced}</td>
+              </tr>
+            </Fragment>
           ))}
         </tbody>
       </table>
 
       <p className="mt-2 text-[10px] leading-relaxed text-black">
-        라벨은 개체마다 다른 번호를 답니다. 제조번호 뒤에 001 부터 생산 수량까지
-        세 자리로 붙이며, 앞 번호부터 완제품검사 시료로 빠집니다.
+        형명마다 제조번호가 따로 붙고, 묶음도 제조번호 차례로 이어집니다.
         유효기한은 제조번호를 부여한 시점의 사용기간으로 확정된 값입니다. 이후 사용기간이
         바뀌어도 이 로트에는 소급되지 않습니다.
       </p>
