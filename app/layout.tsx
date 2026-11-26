@@ -4,6 +4,7 @@ import './fonts.css';   // 글꼴 조각. scripts/subset-font.py 가 만든다
 import { getBrand, brandVars, brandMarkVar, darkTone } from '@/lib/brand';
 import { TopProgressBar } from '@/components/top-progress';
 import { StickyFocusGuard } from '@/components/sticky-focus-guard';
+import { InstallCapture } from '@/components/install-app';
 
 /* ---------------------------------------------------------------------------
    최상위 틀
@@ -29,13 +30,27 @@ import { StickyFocusGuard } from '@/components/sticky-focus-guard';
 export async function generateMetadata(): Promise<Metadata> {
   const b = await getBrand();
   const name = [b.companyName, b.systemName].filter(Boolean).join(' ') || 'DHR';
-  const logo = b.hasLogo ? `/logo?v=${b.logoUpdatedAt ?? '0'}` : undefined;
+  /*
+   * 탭 · 홈 화면 아이콘은 정사각이라야 한다 (2026-11-26). 로고(가로 그림)를 그대로
+   * 걸면 탭에서 납작하게 줄고 iOS 홈 화면에서 찌그러진다. app/app-icon 이 로고의
+   * 투명 여백을 걷어 흰 정사각에 앉힌다.
+   */
+  const v = b.logoUpdatedAt ?? '0';
+  const icons: Metadata['icons'] = b.hasLogo
+    ? {
+        icon: [
+          { url: `/app-icon?s=32&v=${v}`, sizes: '32x32', type: 'image/png' },
+          { url: `/app-icon?s=192&v=${v}`, sizes: '192x192', type: 'image/png' },
+        ],
+        apple: [{ url: `/app-icon?s=180&v=${v}`, sizes: '180x180', type: 'image/png' }],
+      }
+    : undefined;
 
   return {
     title: { default: name, template: `%s \u00b7 ${name}` },
     description: b.systemTagline || undefined,
     applicationName: name,
-    icons: logo ? { icon: logo, apple: logo } : undefined,
+    icons,
     /*
      * 패드에서 홈 화면에 걸었을 때 브라우저 껍데기 없이 뜨게 한다. iOS 는
      * manifest 의 display 를 보지 않고 이 두 값을 본다.
@@ -93,6 +108,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body spellCheck={false}>
         <TopProgressBar className="top-progress" />
         <StickyFocusGuard />
+        <InstallCapture />
         {children}
       </body>
     </html>

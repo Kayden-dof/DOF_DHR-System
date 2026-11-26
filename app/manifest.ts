@@ -34,8 +34,15 @@ import { getBrand, darkTone } from '@/lib/brand';
    전에는 'DOF DHR' 과 남보라 #342C68, DOF 아이콘 파일 셋이 여기 박혀 있었다.
    다른 제조소가 받아 홈 화면에 걸면 남의 회사 아이콘이 걸린다.
 
-   로고를 올리지 않았으면 아이콘을 아예 내지 않는다. 그러면 설치 단추가 안 뜨는
-   기기가 있는데, 남의 로고를 걸어 두는 것보다 낫다. 지어내지 않는다.
+   아이콘은 app/app-icon 이 설정의 로고로 정사각을 그린다 (2026-11-26). 전에는 올린
+   로고를 그대로 «512x512» 라 적어 걸었는데, 로고가 1359×827 가로 그림이라 기기마다
+   찌그러지거나 설치 단추가 뜨지 않았다. 로고를 올리지 않았으면 아이콘을 아예 내지
+   않는다. 그러면 설치 단추가 안 뜨는 기기가 있는데, 남의 로고를 걸어 두는 것보다
+   낫다. 지어내지 않는다.
+
+   ── 설치 단추 ─────────────────────────────────────────────────────────────
+   «내 설정» 의 «앱으로 설치» (components/install-app.tsx). 크롬 · 엣지는 그 자리에서
+   설치하고, iPad · iPhone 은 Safari 의 «홈 화면에 추가» 를 안내한다.
 --------------------------------------------------------------------------- */
 
 /*
@@ -49,7 +56,7 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
   const short = [b.companyName, b.systemName].filter(Boolean).join(' ') || 'DHR';
   const long = b.systemTagline ? `${short} \u00b7 ${b.systemTagline}` : short;
   const dark = darkTone(b.brandColor);
-  const logo = b.hasLogo ? `/logo?v=${b.logoUpdatedAt ?? '0'}` : null;
+  const v = b.logoUpdatedAt ?? '0';
 
   return {
     name: long,
@@ -73,12 +80,15 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
     theme_color: dark,
 
     /*
-     * 올린 로고를 그대로 건다. 크기는 브라우저가 맞춘다. maskable 은 내지
-     * 않는다 - 안쪽 80% 로 잘려도 읽히도록 만든 그림이라야 하는데, 올라온
-     * 로고가 그렇다고 볼 수 없다. 잘못 잘리는 것보다 안 자르는 편이 낫다.
+     * 정사각 아이콘 셋. maskable 은 안드로이드가 원 · 둥근 네모로 잘라 쓰는 것이라
+     * 로고를 안쪽 60% 에만 앉힌 것을 따로 낸다 (잘려도 글자가 남는다).
      */
-    icons: logo
-      ? [{ src: logo, sizes: '512x512', type: 'image/png', purpose: 'any' }]
+    icons: b.hasLogo
+      ? [
+          { src: `/app-icon?s=192&v=${v}`, sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: `/app-icon?s=512&v=${v}`, sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: `/app-icon?s=512&mask=1&v=${v}`, sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+        ]
       : [],
 
     /* 홈 화면 아이콘을 길게 눌렀을 때 나오는 바로가기 */

@@ -4,6 +4,7 @@ import { isAdmin, isWorker, ROLE_LABEL } from '@/lib/roles';
 import { withActor } from '@/lib/db';
 import { Panel, Field } from '@/components/ui';
 import { IdleLockForm, LockMinutesForm } from './my-settings-forms';
+import { InstallApp } from './install-app';
 
 /* ---------------------------------------------------------------------------
    내 설정 본문 (사용자 2026-11-20 · 2026-11-25)
@@ -54,6 +55,12 @@ export async function MySettings({ user }: { user: SessionUser }) {
           {admin && <IdleLockForm off={row?.off === true} worker={worker} />}
         </Panel>
       )}
+
+      {/* 기기에 걸리는 것이라 계정과 상관없지만, 패드를 처음 맞출 때 찾는 자리가 여기다 */}
+      <Panel title="앱으로 설치"
+             note="홈 화면이나 시작 메뉴의 아이콘으로 바로 열고, 주소창 없이 화면을 넓게 씁니다.">
+        <InstallApp />
+      </Panel>
     </div>
   );
 }

@@ -69,7 +69,7 @@ function tooSoon(key: string): boolean {
  * 자리에 그중 아무거나 남아, 무엇을 열려 했는지가 보이지 않는다. 문서 요청이
  * 늘 먼저 오므로 그것만 적으면 된다.
  */
-const ASSET = /^\/(_next|fonts|favicon|manifest|logo)\b/;
+const ASSET = /^\/(_next|fonts|favicon|manifest|logo|app-icon)\b/;
 
 async function note(
   reason: string, path: string,
