@@ -1,3 +1,9 @@
+'use client';
+
+import { useEffect, useRef, useState } from 'react';
+import { usePathname } from 'next/navigation';
+import { stamp } from '@/lib/watermark';
+
 /* ---------------------------------------------------------------------------
    계정 워터마크
 
@@ -26,7 +32,18 @@
    그래서 검정과 흰색을 겹쳐 깐다. 흰 면에서는 검정 쪽이, 어두운 면에서는
    흰 쪽이 드러난다. 서로 지우지 않는다 - 각자 반대 바탕에서만 보이기
    때문이다. 블렌드 모드를 쓰지 않으므로 어느 브라우저에서나 같게 나온다.
+
+   ── 시각은 30분을 넘기지 않는다 (사용자 2026-11-26) ───────────────────────
+   «메뉴 넘어갈 때마다 갱신되는 건 놔두고, 최종 갱신 이후 30분 동안 메뉴 이동이 없을 때 강제 갱신».
+   한 화면을 오래 띄워 두면 찍힌 그림의 시각이 몇 시간 전으로 남았다. 화면을 옮기면 그때 시각으로,
+   옮기지 않으면 마지막 갱신에서 30분 뒤에 화면이 스스로 다시 적는다. 잠자기에서 깨면 늦게 오는
+   타이머 대신 1분마다 지난 시간을 재서 바로 맞춘다.
 --------------------------------------------------------------------------- */
+
+/* 마지막 갱신 뒤 이만큼 이동이 없으면 다시 적는다 */
+const REFRESH_MS = 30 * 60 * 1000;
+/* 지난 시간을 재는 간격. 잠자기 · 숨은 탭에서 늦게 오는 타이머를 기다리지 않는다 */
+const CHECK_MS = 60 * 1000;
 
 /* 타일이 촘촘하면 빈 면에서 무늬가 눈에 걸린다. 넓게 벌려 드문드문 지나가게 둔다 */
 const W = 420;
@@ -55,9 +72,43 @@ function tile(fill: string, text: string) {
 }
 
 /**
- * @param text 깔아 둘 문구. 계정과 시각
+ * @param text 서버가 그린 첫 문구 (계정과 시각). 화면을 옮기거나 30분이 지나면 화면이 다시 적는다
  */
-export default function Watermark({ text }: { text: string }) {
+export default function Watermark({ text: first, name, loginCode }: {
+  text: string; name: string; loginCode: string;
+}) {
+  const [text, setText] = useState(first);
+  const last = useRef(0);
+  const path = usePathname();
+  const seen = useRef(path);
+
+  /* 서버가 새 문구를 주면(화면 이동 등) 그것이 마지막 갱신이다 */
+  useEffect(() => {
+    setText(first);
+    last.current = Date.now();
+  }, [first]);
+
+  /* 화면을 옮기면 그때 시각으로 (레이아웃을 다시 그리지 않는 이동도 있다). 첫 그림은 서버 문구 그대로 */
+  useEffect(() => {
+    if (seen.current === path) return;
+    seen.current = path;
+    setText(stamp(name, loginCode));
+    last.current = Date.now();
+  }, [path, name, loginCode]);
+
+  /* 이동 없이 30분이면 다시 적는다 */
+  useEffect(() => {
+    const check = () => {
+      if (Date.now() - last.current < REFRESH_MS) return;
+      setText(stamp(name, loginCode));
+      last.current = Date.now();
+    };
+    const id = window.setInterval(check, CHECK_MS);
+    const onShow = () => { if (document.visibilityState === 'visible') check(); };
+    document.addEventListener('visibilitychange', onShow);
+    return () => { window.clearInterval(id); document.removeEventListener('visibilitychange', onShow); };
+  }, [name, loginCode]);
+
   return (
     <div
       aria-hidden
@@ -78,14 +129,4 @@ function esc(s: string) {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
-}
-
-/** 워터마크 문구. 계정 · 사번 · 본 시각. */
-export function stamp(name: string, loginCode: string) {
-  const t = new Intl.DateTimeFormat('ko-KR', {
-    timeZone: 'Asia/Seoul',
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', hour12: false,
-  }).format(new Date());
-  return `${name} ${loginCode} · ${t}`;
 }

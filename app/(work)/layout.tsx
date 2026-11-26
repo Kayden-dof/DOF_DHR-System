@@ -6,7 +6,8 @@ import { isAdmin, isWorker } from '@/lib/roles';
 import { BrandMark } from '@/components/brand-mark';
 import { BrandCopyright, SystemName } from '@/components/brand-mark';
 import { yearKST } from '@/lib/kst';
-import Watermark, { stamp } from '@/components/watermark';
+import Watermark from '@/components/watermark';
+import { stamp } from '@/lib/watermark';
 import BackFab from '@/components/back-fab';
 import DemoBanner from '@/components/demo-banner';
 import { logout } from './actions';
@@ -143,7 +144,7 @@ export default async function WorkLayout({ children }: { children: React.ReactNo
       </footer>
 
       {/* 감사 04. 현장 패드는 여러 사람이 번갈아 쓴다. 바탕이 어두우니 밝게 깐다 */}
-      <Watermark text={stamp(user.full_name, user.login_code)} />
+      <Watermark text={stamp(user.full_name, user.login_code)} name={user.full_name} loginCode={user.login_code} />
 
       {/*
         * 홈 화면에서 전체 화면으로 띄우면 브라우저 뒤로가기가 없다.

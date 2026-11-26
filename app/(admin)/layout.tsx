@@ -6,7 +6,8 @@ import { isAdmin, isWorker, isViewerOnly, isQpOnly } from '@/lib/roles';
 import { canOpen } from '@/lib/access';
 import { cookies, headers } from 'next/headers';
 import { PATH_HEADER } from '@/lib/auth-const';
-import Watermark, { stamp } from '@/components/watermark';
+import Watermark from '@/components/watermark';
+import { stamp } from '@/lib/watermark';
 import BackFab from '@/components/back-fab';
 import DemoBanner from '@/components/demo-banner';
 import FindUnit from '@/components/find-unit';
@@ -322,7 +323,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <IdleLock minutes={lockMinutes('desk', user.idle_lock_desk_min)}
                   sid={String(user.issued_at)} name={user.full_name} initial={initial} />
       )}
-      <Watermark text={stamp(user.full_name, user.login_code)} />
+      <Watermark text={stamp(user.full_name, user.login_code)} name={user.full_name} loginCode={user.login_code} />
       <BackFab />
     </div>
   );
