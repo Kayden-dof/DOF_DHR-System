@@ -49,7 +49,7 @@ interface Lists {
   expiring:       { lot_no: string; item_name: string; status: string; days_left: number | null }[];
   reorder:        { code: string; name: string; on_hand: string; min_stock: string }[];
   eq_due:         { code: string; name: string; valid_until: string | null; days_left: number | null }[];
-  so_open:        { customer_po_no: string; customer_name: string; left_qty: number; days_left: number | null }[];
+  so_open:        { customer_po_no: string; left_qty: number; days_left: number | null }[];
 }
 
 export default async function Dashboard() {
@@ -101,9 +101,10 @@ export default async function Dashboard() {
          */
         (select count(*)::int from sales_order o
           where so_status(o.id) in ('OPEN','PARTIAL'))                      as so_open,
+        /* 남은 날은 출고 마감일로만 센다 - 납품요청일은 고객 발주서의 값이다 (0173 · 사용자 «7일 지남이 왜») */
         (select count(*)::int from sales_order o
           where so_status(o.id) in ('OPEN','PARTIAL')
-            and o.due_on < (timezone('Asia/Seoul', now()))::date)           as so_late`),
+            and o.ship_by < (timezone('Asia/Seoul', now()))::date)          as so_late`),
     covered: await db.rows<{ target: string }>(
       `select distinct target::text as target from numbering_rule
         where is_active and item_id is null`),
@@ -259,13 +260,13 @@ export default async function Dashboard() {
             order by valid_until nulls first limit 9) x)                   as eq_due,
 
         (select coalesce(json_agg(x), '[]'::json) from (
-           select o.customer_po_no, c.name as customer_name,
+           select o.customer_po_no,
                   (select coalesce(sum(greatest(so_line_left(l.id), 0)), 0)::int
                      from sales_order_line l where l.sales_order_id = o.id) as left_qty,
-                  (o.due_on - (timezone('Asia/Seoul', now()))::date) as days_left
-             from sales_order o join customer c on c.id = o.customer_id
+                  (o.ship_by - (timezone('Asia/Seoul', now()))::date) as days_left
+             from sales_order o
             where so_status(o.id) in ('OPEN','PARTIAL')
-            order by o.due_on nulls last, o.ordered_on limit 9) x)        as so_open`),
+            order by o.ship_by nulls last, o.due_on nulls last, o.ordered_on limit 9) x) as so_open`),
     /*
      * 감사추적 화면과 같은 자료를 같은 뷰에서 읽는다 (0077). 전에는 표 이름과
      * 시각만 한 줄로 냈고, 무엇이 바뀌었는지는 감사추적으로 건너가야 보였다.
@@ -370,8 +371,8 @@ export default async function Dashboard() {
     { label: '출고할 수주', value: c.so_open, unit: '건', href: '/shipping/orders',
       tone: c.so_late > 0 ? 'danger' : c.so_open > 0 ? 'info' : undefined,
       detail: statRows(L.so_open.map((r) => ({
-        left: mono(r.customer_po_no), sub: `${r.customer_name} · 남은 ${num(r.left_qty)}`,
-        right: dLeft(r.days_left, '납기 없음'),
+        left: mono(r.customer_po_no), sub: `남은 ${num(r.left_qty)}`,
+        right: dLeft(r.days_left, '마감일 없음'),
       })), '출고할 수주가 없습니다', c.so_open) },
   ];
 

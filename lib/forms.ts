@@ -417,6 +417,7 @@ export const FIELD_LABEL: Record<string, string> = {
   doc_no:                 '문서 번호',
   doc_nos:                '문서 번호',
   due_on:                 '납품요청일',
+  ship_by:                '출고 마감일',
   elapsed_ms:             '걸린 시간 (ms)',
   entered_at:             '적은 시각',
   entered_by:             '적은 사람',

@@ -1,9 +1,12 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { withActor, dbMessage, type Db } from '@/lib/db';
+import { withActor, withUser, dbMessage, type Db } from '@/lib/db';
 import { requireRole } from '@/lib/session';
 import type { FormState } from '@/lib/forms';
+import { loadCalendar, loadTimeline } from '@/lib/timeline-db';
+import { proposeBatches, firstStepMin, type SampleTier } from '@/lib/order-plan';
+import { num } from '@/lib/fmt';
 
 /* ---------------------------------------------------------------------------
    수주 (0159 · 사용자 2026-11-25 «DHR 은 주문 장부와 출고 연결에만 집중하면 됨.»)
@@ -73,10 +76,10 @@ export async function createOrder(_p: FormState, form: FormData): Promise<FormSt
           [newName, txt(form.get('new_biz_no')), me.id]))!;
       }
       const id = await db.val<string>(
-        `insert into sales_order (customer_id, customer_po_no, ordered_on, ship_to, due_on, note, created_by)
-         values ($1,$2,$3::date,$4,$5::date,$6,$7) returning id`,
+        `insert into sales_order (customer_id, customer_po_no, ordered_on, ship_to, due_on, ship_by, note, created_by)
+         values ($1,$2,$3::date,$4,$5::date,$6::date,$7,$8) returning id`,
         [customerId, po, String(form.get('ordered_on') ?? ''), txt(form.get('ship_to')),
-         txt(form.get('due_on')), String(form.get('note') ?? '').trim(), me.id]);
+         txt(form.get('due_on')), txt(form.get('ship_by')), String(form.get('note') ?? '').trim(), me.id]);
       await addLines(db, id!, lines);
     });
     bump();
@@ -95,10 +98,11 @@ export async function updateOrder(_p: FormState, form: FormData): Promise<FormSt
     const lines = newLines(form);
     await withActor(me.id, async (db) => {
       const n = await db.rows(
-        `update sales_order set customer_po_no = $2, ordered_on = $3::date, ship_to = $4, due_on = $5::date, note = $6
+        `update sales_order set customer_po_no = $2, ordered_on = $3::date, ship_to = $4, due_on = $5::date, note = $6,
+                ship_by = $7::date
           where id = $1 and cancelled_at is null returning id`,
         [id, po, String(form.get('ordered_on') ?? ''), txt(form.get('ship_to')),
-         txt(form.get('due_on')), String(form.get('note') ?? '').trim()]);
+         txt(form.get('due_on')), String(form.get('note') ?? '').trim(), txt(form.get('ship_by'))]);
       if (n.length === 0) throw new Error('취소된 주문은 고칠 수 없습니다');
       for (const [k, v] of form.entries()) {
         const m = k.match(/^qty_(.+)$/);
@@ -115,6 +119,114 @@ export async function updateOrder(_p: FormState, form: FormData): Promise<FormSt
     return { ok: true, message: `주문 ${po}를 고쳤습니다.` };
   } catch (e) {
     return { error: dbMessage(e) };
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   출고 마감일 제안 (0173 · 사용자 2026-11-26 «주문 수량 기준으로 대략 계산해서 잡아 줄 수 있도록»)
+
+   주문 등록 · 고치기 창이 형명 · 수량을 넘기면 «주문에서 계획» 과 같은 셈(lib/order-plan.ts)으로
+   마지막 배치가 끝나는 날을 돌려준다. 저장하지 않는다 - 창이 출고 마감일 칸을 채우고 사람이 고친다.
+
+     · 형명마다 그 형명이 드는 시행 중인 판 (order_plan_lines 와 같은 고르기)
+     · 판 하나에 형명이 하나면 그 개수 · 장당 개수 · 시료 구간으로, 여럿이면 형명마다 장수를 올려 더한 장수로
+     · 오늘(다음 근무일) 착수, 판의 공정 시간표와 근무 달력으로 배치를 잇는다. 다른 계획은 보지 않는다 - 대략
+     · 판이 여럿이면 가장 늦은 날
+   고치기 창의 기존 줄은 남은 수량(주문 - 출고)으로 센다.
+--------------------------------------------------------------------------- */
+export interface ShipByEstimate { on: string | null; note: string }
+
+export async function estimateShipBy(input: {
+  lines: { item?: string; line?: string; qty: number }[];
+}): Promise<ShipByEstimate> {
+  try {
+    const me = await mgr();
+    const asked = (Array.isArray(input?.lines) ? input.lines : [])
+      .filter((l) => Number.isInteger(l?.qty) && l.qty > 0 && l.qty <= 10_000_000)
+      .slice(0, 50);
+    if (asked.length === 0) return { on: null, note: '' };
+
+    return await withUser(me, async (db) => {
+      /* 형명별 개수 */
+      const units = new Map<string, number>();
+      const add = (item: string, n: number) => { if (n > 0) units.set(item, (units.get(item) ?? 0) + n); };
+      const lineIds = asked.filter((l) => l.line).map((l) => String(l.line));
+      const known = lineIds.length === 0 ? [] : await db.rows<{ id: string; item_id: string; shipped: number }>(
+        `select id::text, item_id::text, so_line_shipped(id) as shipped
+           from sales_order_line where id = any($1::uuid[]) and cancelled_at is null`, [lineIds]);
+      for (const l of asked) {
+        if (l.item) add(String(l.item), l.qty);
+        else if (l.line) {
+          const k = known.find((x) => x.id === l.line);
+          if (k) add(k.item_id, l.qty - k.shipped);
+        }
+      }
+      if (units.size === 0) return { on: null, note: '' };
+
+      /* 형명마다 판 */
+      const picks = await db.rows<{
+        item_id: string; code: string; dm: string | null; dm_label: string | null;
+        per_sheet: number | null; sheet_min: number | null; sheet_max: number | null;
+      }>(
+        `select i.id::text as item_id, i.code, d.id::text as dm,
+                coalesce(d.product_code, di.code) || ' ' || d.revision as dm_label,
+                model_per_sheet(d.id, i.id) as per_sheet, d.sheet_min, d.sheet_max
+           from item i
+           left join lateral (
+             select dm.* from device_master dm
+              where dm_effective(dm.id) and exists (select 1 from dm_models(dm.id) m where m.id = i.id)
+              order by dm.effective_from desc, (model_per_sheet(dm.id, i.id) is not null) desc, dm.id
+              limit 1) d on true
+           left join item di on di.id = d.item_id
+          where i.id = any($1::uuid[])
+          order by i.code`, [[...units.keys()]]);
+
+      const calendar = await loadCalendar(db);
+      const today = (await db.val<string>(`select to_char(timezone('Asia/Seoul', now()), 'YYYY-MM-DD')`)) ?? '';
+      const notes: string[] = [];
+      let on: string | null = null;
+
+      for (const p of picks.filter((x) => !x.dm)) notes.push(`${p.code} 은 시행 중인 판이 없어 셀 수 없습니다`);
+      for (const p of picks.filter((x) => x.dm && !x.per_sheet)) notes.push(`${p.code} 은 장당 개수를 셀 수 없습니다`);
+
+      const groups = new Map<string, typeof picks>();
+      for (const p of picks.filter((x) => x.dm && x.per_sheet)) {
+        groups.set(p.dm!, [...(groups.get(p.dm!) ?? []), p]);
+      }
+      for (const [dm, rows] of groups) {
+        const head = rows[0];
+        const steps = (await loadTimeline(db, dm))?.steps ?? null;
+        const one = rows.length === 1;
+        const tiers = one
+          ? (await db.rows<{ min_qty: number; max_qty: number | null; sample_qty: number }>(
+              `select min_qty, max_qty, sample_qty from sample_plan where device_master_id = $1::uuid order by min_qty`, [dm]))
+              .map((x): SampleTier => ({ min: x.min_qty, max: x.max_qty, samples: x.sample_qty }))
+          : [];
+        /* 형명이 여럿이면 형명마다 장수를 올려 더한 장수를 «장당 1개» 로 나눈다 (시료는 빼고 - 대략) */
+        const sheets = rows.reduce((a, r) => a + Math.ceil((units.get(r.item_id) ?? 0) / r.per_sheet!), 0);
+        const plan = proposeBatches({
+          units: one ? units.get(head.item_id)! : sheets,
+          perSheet: one ? head.per_sheet : 1,
+          sheetMin: head.sheet_min, sheetMax: head.sheet_max, sampleTiers: tiers,
+          steps, startMin: firstStepMin(steps), calendar, today, dueOn: null, gapDays: null,
+        });
+        const what = one
+          ? `${head.code} ${num(units.get(head.item_id)!)}개`
+          : `${rows.map((r) => r.code).join(' · ')} ${num(rows.reduce((a, r) => a + (units.get(r.item_id) ?? 0), 0))}개`;
+        if (!plan.ok) { notes.push(`${what} - 셀 수 없습니다`); continue; }
+        const last = plan.batches[plan.batches.length - 1]?.lastOn ?? null;
+        if (!last) {
+          notes.push(`${what} → ${plan.batches.length} 배치 (${num(plan.sheets)}장) · ${head.dm_label} 공정 시간표가 없어 날짜를 셀 수 없습니다`);
+          continue;
+        }
+        notes.push(`${what} → ${plan.batches.length} 배치 (${num(plan.sheets)}장) · 마지막 배치 끝 ${last.slice(5)}`);
+        if (!on || last > on) on = last;
+      }
+      if (on) notes.push('오늘 착수 기준');
+      return { on, note: notes.join(' · ') };
+    });
+  } catch (e) {
+    return { on: null, note: dbMessage(e) };
   }
 }
 

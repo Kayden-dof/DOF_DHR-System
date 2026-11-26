@@ -47,7 +47,7 @@ export default async function SalesOrdersPage() {
   const d = await withUser(user, async (db) => ({
     orders: await db.rows<OrderRow>(
       `select o.id, o.customer_po_no, c.name as customer_name, o.ordered_on::text as ordered_on,
-              o.ship_to, o.due_on::text as due_on, o.note, o.cancel_reason, so_status(o.id) as status,
+              o.ship_to, o.due_on::text as due_on, o.ship_by::text as ship_by, o.note, o.cancel_reason, so_status(o.id) as status,
               coalesce((
                 select json_agg(json_build_object(
                          'id', l.id, 'code', i.code, 'name', i.name, 'qty', l.qty,
@@ -102,12 +102,13 @@ export default async function SalesOrdersPage() {
         </Panel>
       )}
 
-      <Panel title="진행 중인 주문" note="납품요청일이 이른 것부터">
+      <Panel title="진행 중인 주문" note="출고 마감일 · 납품요청일이 이른 것부터">
         {open.length === 0 ? (
           <Empty hint="위에서 거래처 · 고객 발주번호 · 형명 줄을 적어 등록합니다.">진행 중인 주문이 없습니다.</Empty>
         ) : (
           <div className="space-y-4">
-            {[...open].sort((a, b) => (a.due_on ?? '9999').localeCompare(b.due_on ?? '9999'))
+            {[...open].sort((a, b) => (a.ship_by ?? '9999').localeCompare(b.ship_by ?? '9999')
+                                       || (a.due_on ?? '9999').localeCompare(b.due_on ?? '9999'))
               .map((o) => <OrderCard key={o.id} o={o} viewer={viewer} models={d.models} />)}
           </div>
         )}
@@ -169,6 +170,7 @@ function OrderCard({ o, viewer, models }: { o: OrderRow; viewer: boolean; models
         <span className="text-sm">{o.customer_name}{o.ship_to ? ` → ${o.ship_to}` : ''}</span>
         <span className="text-xs text-muted">발주 {fmtDate(o.ordered_on)}</span>
         {o.due_on && <span className="text-xs text-muted">납품요청 {fmtDate(o.due_on)}</span>}
+        {o.ship_by && <span className="text-xs font-semibold text-ink">출고 마감 {fmtDate(o.ship_by)}</span>}
         <Tag tone={st.tone}>{st.label}</Tag>
         {!viewer && live && (
           <span className="ml-auto flex gap-3">

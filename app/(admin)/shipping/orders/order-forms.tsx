@@ -1,12 +1,12 @@
 'use client';
 
-import { useActionState, useEffect, useId, useState } from 'react';
+import { useActionState, useEffect, useId, useRef, useState } from 'react';
 import type { FormState } from '@/lib/forms';
 import { Msg } from '@/components/ui';
 import { Dialog, useDialog } from '@/components/dialog';
 import { findModel } from '@/lib/model-find';
-import { createOrder, updateOrder, cancelOrder, cancelLine, saveCustomer } from './actions';
-import { num } from '@/lib/fmt';
+import { createOrder, updateOrder, cancelOrder, cancelLine, saveCustomer, estimateShipBy, type ShipByEstimate } from './actions';
+import { num, fmtDate } from '@/lib/fmt';
 
 export interface ModelOpt { id: string; code: string; name: string; udi: string | null }
 export interface CustomerOpt {
@@ -15,7 +15,7 @@ export interface CustomerOpt {
 }
 export interface OrderHead {
   id: string; customer_po_no: string; customer_name: string; ordered_on: string;
-  ship_to: string | null; due_on: string | null; note: string;
+  ship_to: string | null; due_on: string | null; ship_by: string | null; note: string;
 }
 export interface LineRow {
   id: string; code: string; name: string; qty: number; shipped: number; left: number; cancelled: boolean;
@@ -92,6 +92,81 @@ function LinesEditor({ models, start }: { models: ModelOpt[]; start: number }) {
 }
 
 /* ---------------------------------------------------------------------------
+   출고 마감일 제안 (0173 · 사용자 2026-11-26 «주문 수량 넣을 때 대략 계산되게»)
+
+   형명 · 수량 칸이 바뀌면 잠깐 기다렸다가(형명 찾기 칸이 고른 형명을 채운 뒤) 폼에 적힌 줄을 읽어
+   서버에 묻는다 (estimateShipBy). 마지막 물음의 답만 받는다.
+--------------------------------------------------------------------------- */
+function useShipByEstimate() {
+  const [est, setEst] = useState<ShipByEstimate | null>(null);
+  const timer = useRef<number | undefined>(undefined);
+  const seq = useRef(0);
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+
+  const ask = (form: HTMLFormElement | null) => {
+    window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(async () => {
+      if (!form) return;
+      const fd = new FormData(form);
+      const lines: { item?: string; line?: string; qty: number }[] = [];
+      for (const [k, v] of fd.entries()) {
+        const n = k.match(/^line_item_(\d+)$/);
+        if (n) {
+          const q = Number(fd.get(`line_qty_${n[1]}`));
+          if (String(v) && Number.isInteger(q) && q > 0) lines.push({ item: String(v), qty: q });
+          continue;
+        }
+        const o = k.match(/^qty_(.+)$/);
+        if (o && Number.isInteger(Number(v)) && Number(v) > 0) lines.push({ line: o[1], qty: Number(v) });
+      }
+      const my = ++seq.current;
+      const r = lines.length ? await estimateShipBy({ lines }) : null;
+      if (my === seq.current) setEst(r);
+    }, 600);
+  };
+
+  /* 형명 줄에 닿는 칸(이름 없는 찾기 칸 포함)이 바뀔 때만 묻는다 */
+  const onChange = (e: React.FormEvent<HTMLFormElement>) => {
+    const name = (e.target as HTMLInputElement).name ?? '';
+    if (name === '' || /^(line_item_|line_qty_|qty_)/.test(name)) ask(e.currentTarget);
+  };
+  return { est, ask, onChange };
+}
+
+/**
+ * 출고 마감일 칸. 사람이 적지 않은 동안은 제안이 채우고, 사람이 적은 값(저장된 값 포함)은 덮지 않는다 -
+ * 제안이 다르면 칸 밑에 «제안 넣기» 를 둔다.
+ */
+function ShipByField({ uid, initial, est }: { uid: string; initial: string | null; est: ShipByEstimate | null }) {
+  const [value, setValue] = useState(initial ?? '');
+  const [own, setOwn] = useState(Boolean(initial));
+  useEffect(() => { if (!own && est?.on) setValue(est.on); }, [est, own]);
+  return (
+    <div>
+      <label className="label" htmlFor={`${uid}-ship`}>출고 마감일</label>
+      <input id={`${uid}-ship`} name="ship_by" type="date" value={value}
+             onChange={(e) => { setValue(e.target.value); setOwn(true); }} className="input tnum" />
+      {own && est?.on && est.on !== value && (
+        <button type="button" className="qd-text-action mt-1 text-xs"
+                onClick={() => { setValue(est.on!); setOwn(false); }}>
+          제안 {fmtDate(est.on)} 넣기
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** 제안의 근거. 형명 줄 밑에 */
+function ShipByNote({ est }: { est: ShipByEstimate | null }) {
+  if (!est?.note) return null;
+  return (
+    <p className="mt-2 text-xs leading-relaxed text-muted">
+      출고 마감일 제안 {est.on ? <b className="tnum text-ink">{fmtDate(est.on)}</b> : '없음'} · {est.note}
+    </p>
+  );
+}
+
+/* ---------------------------------------------------------------------------
    주문 등록
 --------------------------------------------------------------------------- */
 export function NewOrderForm({ customers, models, today }: {
@@ -101,11 +176,12 @@ export function NewOrderForm({ customers, models, today }: {
   const [state, action, pending] = useActionState<FormState, FormData>(createOrder, {});
   const [gen, setGen] = useState(0);
   const [customer, setCustomer] = useState('');
+  const ship = useShipByEstimate();
   useEffect(() => { if (state.ok) { setGen((g) => g + 1); setCustomer(''); } }, [state]);
   const live = customers.filter((c) => c.is_active);
 
   return (
-    <form key={gen} action={action}>
+    <form key={gen} action={action} onChange={ship.onChange}>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <label className="label" htmlFor={`${uid}-c`}>거래처</label>
@@ -146,6 +222,7 @@ export function NewOrderForm({ customers, models, today }: {
           <label className="label" htmlFor={`${uid}-due`}>납품요청일</label>
           <input id={`${uid}-due`} name="due_on" type="date" className="input tnum" />
         </div>
+        <ShipByField key={gen} uid={uid} initial={null} est={ship.est} />
         <div className="sm:col-span-2 lg:col-span-4">
           <label className="label" htmlFor={`${uid}-note`}>메모</label>
           <input id={`${uid}-note`} name="note" autoComplete="off" placeholder="결제조건 · 특기사항" className="input" />
@@ -153,6 +230,7 @@ export function NewOrderForm({ customers, models, today }: {
       </div>
       <h3 className="mb-2 mt-5 text-sm font-semibold text-ink">형명 줄</h3>
       <LinesEditor models={models} start={1} />
+      <ShipByNote est={ship.est} />
       <Msg state={state} />
       <div className="mt-4">
         <button type="submit" disabled={pending} className="btn-primary">주문 등록</button>
@@ -168,11 +246,15 @@ export function EditOrder({ order, lines, models }: { order: OrderHead; lines: L
   const uid = useId();
   const [state, action, pending] = useActionState<FormState, FormData>(updateOrder, {});
   const { open, setOpen } = useDialog(state);
+  const ship = useShipByEstimate();
+  const formRef = useRef<HTMLFormElement>(null);
+  /* 창을 열면 지금 줄로 한 번 묻는다 */
+  useEffect(() => { if (open) ship.ask(formRef.current); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <>
       <button onClick={() => setOpen(true)} className="qd-text-action">고치기</button>
       <Dialog open={open} onClose={() => setOpen(false)} wide title={`주문 ${order.customer_po_no} 고치기`}>
-        <form action={action}>
+        <form ref={formRef} action={action} onChange={ship.onChange}>
           <input type="hidden" name="id" value={order.id} />
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div>
@@ -193,6 +275,7 @@ export function EditOrder({ order, lines, models }: { order: OrderHead; lines: L
               <label className="label" htmlFor={`${uid}-due`}>납품요청일</label>
               <input id={`${uid}-due`} name="due_on" type="date" defaultValue={order.due_on ?? ''} className="input tnum" />
             </div>
+            <ShipByField uid={uid} initial={order.ship_by} est={ship.est} />
             <div className="sm:col-span-2 lg:col-span-4">
               <label className="label" htmlFor={`${uid}-note`}>메모</label>
               <input id={`${uid}-note`} name="note" defaultValue={order.note} className="input" />
@@ -215,6 +298,7 @@ export function EditOrder({ order, lines, models }: { order: OrderHead; lines: L
           </div>
           <h3 className="mb-2 mt-5 text-sm font-semibold text-ink">줄 더하기</h3>
           <LinesEditor models={models} start={0} />
+          <ShipByNote est={ship.est} />
           <p className="mt-3 text-xs leading-relaxed text-muted">이미 나간 양보다 적게 줄일 수 없습니다.</p>
           <Msg state={state} />
           <div className="mt-4 flex gap-2">
