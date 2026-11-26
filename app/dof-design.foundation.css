@@ -483,6 +483,10 @@ html label:has(> input[type='file'].sr-only:focus-visible) {
     overscroll-behavior: contain;
   }
   html :is(.qd-dialog-body, .qd-drawer-body) { overflow: auto; min-block-size: 0; }
+  /* 구르는 몸(overflow: auto)은 가장자리에 붙은 칸의 테두리 · 초점 테를 자른다. 칸 왼쪽 끝이 몸의 자르는 경계와
+     같은 자리라, 화면 배율이 소수(125% 등)이면 1px 테두리가 경계에 걸려 사라졌다 (사용자 2026-11-26 «왼쪽 테두리
+     왜 짤리냐» · 품목 수정의 최소 재고선 칸). 안쪽에 4px 숨 쉴 자리를 두고 같은 만큼 바깥을 당겨 배치는 그대로다 */
+  html :is(.qd-dialog-body, .qd-drawer-body) { padding: 4px; margin: -4px; }
   html :is(.qd-dialog-header, .qd-dialog-actions, .qd-drawer-header, .qd-drawer-actions) {
     flex-shrink: 0;
     flex-wrap: wrap;
