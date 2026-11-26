@@ -243,6 +243,11 @@ export function EquipCard({ e, ops, warnDays, writable = true }: {
   const [state, action, pending] = useActionState<FormState, FormData>(saveEquipment, {});
   const [linkState, linkAction] = useActionState<FormState, FormData>(linkOperation, {});
   const [edit, setEdit] = useState(false);
+  /*
+   * 한 번이라도 펼친 제품 판 (화면 로딩 점검 2026-11-26). 접힌 판의 공정 단추는 펼칠 때 그린다 -
+   * 설비 46대 x 판 3개의 단추를 처음부터 다 그리면 설비 화면 첫 그림이 무거웠다.
+   */
+  const [seen, setSeen] = useState<ReadonlySet<string>>(() => new Set());
 
   const linked = new Set(e.ops.map((o) => o.operation_id));
 
@@ -386,6 +391,11 @@ export function EquipCard({ e, ops, warnDays, writable = true }: {
             const cnt = g.ops.filter((o) => linked.has(o.id)).length;
             return (
               <details key={g.dm_id} open={cnt > 0}
+                       onToggle={(ev) => {
+                         if ((ev.currentTarget as HTMLDetailsElement).open && !seen.has(g.dm_id)) {
+                           setSeen(new Set(seen).add(g.dm_id));
+                         }
+                       }}
                        className="group rounded-md border border-line-soft [&+details]:mt-1.5">
                 <summary className="flex cursor-pointer flex-wrap items-center gap-x-2.5 gap-y-1 rounded-md px-3 py-2 hover:bg-canvas">
                   <span aria-hidden
@@ -403,7 +413,7 @@ export function EquipCard({ e, ops, warnDays, writable = true }: {
                   * 숨은 칸이 붙어, 설비 46대 x 공정 27개로 설비 화면이 1.1 MB 였다. 누른 단추가
                   * «공정:걸기/떼기» 를 싣는다 (toggle).
                   */}
-                {writable ? (
+                {!(cnt > 0 || seen.has(g.dm_id)) ? null : writable ? (
                   <form action={linkAction} className="flex flex-wrap gap-1.5 border-t border-line-soft px-3 py-2.5">
                     <input type="hidden" name="equipment_id" value={e.id} />
                     {g.ops.map((o) => {
