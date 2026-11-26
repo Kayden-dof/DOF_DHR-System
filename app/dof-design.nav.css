@@ -530,4 +530,45 @@ html[data-theme='light'] {
   .dof-rail-mini { display: none; }
   .qd-rail--collapsed .dof-rail-full { display: none; }
   .qd-rail--collapsed .dof-rail-mini { display: inline; }
+
+  /* 접힌 레일의 판 번호 (사용자 2026-11-26 «접을 때 간단한 버전 정도는»). 주.부 번호만, 가리키면 전체.
+     낮은 화면에서 펼친 판 번호 줄을 감추는 규칙(위 «낮은 화면»)과 이름이 달라 여기는 남는다 - 한 줄이라 */
+  .qd-rail-version-mini {
+    flex-shrink: 0;
+    padding: 0 0 8px;
+    text-align: center;
+    font-family: var(--qd-font-mono);
+    font-size: 11px;
+    letter-spacing: 0.2px;
+    color: var(--qd-accent);
+    cursor: default;
+  }
+
+  /* 차림표 이름 풍선 (사용자 2026-11-26 «메뉴명 팝업이 너무 느리다»). title 대신 바로 뜬다.
+     레일 밖(body)에 붙어 화면 기준 자리에 선다 - 레일이 넘친 것을 자르기 때문 (app/(admin)/rail.tsx) */
+  .qd-rail-tip {
+    position: fixed;
+    z-index: var(--qd-z-tooltip);
+    transform: translateY(-50%);
+    padding: 5px 10px;
+    border: 1px solid var(--qd-border);
+    border-radius: 6px;
+    background: var(--qd-surface);
+    box-shadow: var(--qd-shadow-overlay);
+    color: var(--qd-text);
+    font-family: var(--qd-font-ui);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.3;
+    white-space: nowrap;
+    pointer-events: none;
+    animation: qd-rail-tip-in 80ms ease-out;
+  }
+  @keyframes qd-rail-tip-in {
+    from { opacity: 0; transform: translate(-3px, -50%); }
+    to   { opacity: 1; transform: translateY(-50%); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .qd-rail-tip { animation: none; }
+  }
 }

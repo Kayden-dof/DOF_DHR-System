@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { NavItem } from './nav';
 import { RAIL_COOKIE_PREFIX } from '@/lib/rail';
 import { LayoutDashboard } from '@/components/icons/LayoutDashboard';
@@ -32,6 +33,11 @@ import { ChevronRight } from '@/components/icons/ChevronRight';
 
    접힌 레일: 폭 60 · 아이콘만 · 이름은 올리면 뜬다 · 계정별로 기억한다
    (사용자 지시 2026-11-09). 치수는 app/dof-design.nav.css 끝의 «접힌 레일».
+
+   이름 풍선은 브라우저 title 이 아니라 직접 띄운다 (사용자 2026-11-26 «메뉴명 팝업이 너무 느리다»).
+   title 은 1초 가까이 기다렸다 뜨고 늦춤을 고칠 수 없다. 레일은 넘친 것을 자르므로(overflow) 풍선을
+   레일 안에 그리면 잘린다 - body 에 붙여 화면 기준 자리에 띄운다. 접힌 레일에는 판 번호를 주.부
+   번호만 짧게 둔다 (사용자 같은 날 «접을 때 간단한 버전 정도는»).
    기억은 쿠키라 서버가 첫 그림부터 접힌 채로 그린다 (펼쳤다 접히는 깜빡임이 없다).
 
    1024px 미만은 레일을 감추고 머리 줄의 «차림표» 단추가 같은 내용을
@@ -73,6 +79,15 @@ function currentHref(path: string, items: NavItem[]) {
   );
 }
 
+/* 풍선: 무엇을 · 어디에 (화면 기준, 가리킨 것의 오른쪽 가운데) */
+type Tip = { label: string; top: number; left: number } | null;
+
+/* 가리킨 것의 오른쪽에 바로 띄운다. 기다리지 않는다 */
+function tipAt(el: HTMLElement, label: string): Tip {
+  const r = el.getBoundingClientRect();
+  return { label, top: r.top + r.height / 2, left: r.right + 8 };
+}
+
 function RailBody({ items, brand, brandMini, version, foot, mini = false, onToggle, onNavigate }: {
   items: NavItem[];
   brand: React.ReactNode;
@@ -85,13 +100,26 @@ function RailBody({ items, brand, brandMini, version, foot, mini = false, onTogg
 }) {
   const path = usePathname();
   const current = currentHref(path, items);
+  const [tip, setTip] = useState<Tip>(null);
+  useEffect(() => { setTip(null); }, [path, mini]);
+
+  /* 풍선을 다는 손잡이. 접힌 레일에서만 (펼치면 이름이 보인다) - 접기 단추는 늘 */
+  const tipProps = (label: string, always = false) => (mini || always ? {
+    onMouseEnter: (e: React.MouseEvent<HTMLElement>) => setTip(tipAt(e.currentTarget, label)),
+    onFocus: (e: React.FocusEvent<HTMLElement>) => setTip(tipAt(e.currentTarget, label)),
+    onMouseLeave: () => setTip(null),
+    onBlur: () => setTip(null),
+  } : {});
+
+  const short = version.split('.').slice(0, 2).join('.');
+
   return (
     <>
       <Link href="/" className="qd-rail-brand" aria-label="현황으로" onClick={onNavigate}>
         {mini ? brandMini : brand}
       </Link>
 
-      <nav className="qd-rail-nav" aria-label="차림표">
+      <nav className="qd-rail-nav" aria-label="차림표" onScroll={() => setTip(null)}>
         {items.map((it) => {
           const on = it.href === current;
           const Icon = ICON[it.href] ?? FileText;
@@ -101,9 +129,9 @@ function RailBody({ items, brand, brandMini, version, foot, mini = false, onTogg
               href={it.href}
               aria-current={on ? 'page' : undefined}
               aria-label={mini ? it.label : undefined}
-              title={mini ? it.label : undefined}
               className={`qd-nav-item${on ? ' is-active' : ''}`}
               onClick={onNavigate}
+              {...tipProps(it.label)}
             >
               <span className="qd-nav-icon" aria-hidden><Icon /></span>
               {!mini && <span className="qd-nav-label" data-hangul="">{it.label}</span>}
@@ -121,16 +149,23 @@ function RailBody({ items, brand, brandMini, version, foot, mini = false, onTogg
             onClick={onToggle}
             aria-expanded={!mini}
             aria-label={mini ? '차림표 펼치기' : '차림표 접기'}
-            title={mini ? '차림표 펼치기' : '차림표 접기'}
+            {...tipProps(mini ? '차림표 펼치기' : '차림표 접기', true)}
           >
             {mini ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
           </button>
         </div>
       )}
 
-      {!mini && <div className="qd-rail-version"><span>DHR</span><b>v{version}</b></div>}
+      {mini
+        ? <div className="qd-rail-version-mini" aria-label={`DHR 판 ${version}`} tabIndex={-1}
+               {...tipProps(`DHR v${version}`)}>v{short}</div>
+        : <div className="qd-rail-version"><span>DHR</span><b>v{version}</b></div>}
 
       <div className="qd-rail-foot">{foot}</div>
+
+      {tip && createPortal(
+        <div className="qd-rail-tip" role="tooltip" style={{ top: tip.top, left: tip.left }}>{tip.label}</div>,
+        document.body)}
     </>
   );
 }
