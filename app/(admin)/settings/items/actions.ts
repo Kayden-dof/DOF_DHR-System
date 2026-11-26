@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { withActor, dbMessage } from '@/lib/db';
 import { requireRole } from '@/lib/session';
 import { ITEM_TYPES, type FormState } from '@/lib/forms';
+import { recordPrice } from '@/lib/price';
 
 // 생산 품목 셋업은 생산관리자의 일이다 (사용자 지시 2026-08-27).
 // 계정 · 채번 · 공급자는 여전히 시스템관리자만 만진다.
@@ -192,8 +193,27 @@ export async function updateItem(_p: FormState, form: FormData): Promise<FormSta
          uom('purchase_uom'), uom('usage_uom'), conv,
          form.get('no_lot') !== 'on'],
       );
+
+      /*
+       * 기본 공급처 단가 (사용자 2026-11-26 «품목에 단가 정보도 같이»). 공급자 화면과 같은 길로
+       * 적어 이전 단가는 이력에 남는다. 비우면 건드리지 않고, 같은 값이면 이력을 늘리지 않는다.
+       */
+      const rawPrice = String(form.get('price') ?? '').trim();
+      if (rawPrice !== '') {
+        const price = Number(rawPrice);
+        if (!Number.isFinite(price) || price < 0) throw new Error('단가는 0 이상의 숫자로 적으십시오');
+        const supplier = String(form.get('default_supplier_id') ?? '').trim();
+        if (!supplier) throw new Error('단가를 적으려면 기본 공급자를 먼저 고르십시오');
+        const now = await db.val<string>(
+          `select current_price::text from item_supplier where item_id = $1 and supplier_id = $2`, [id, supplier]);
+        if (now == null || Number(now) !== price) {
+          await recordPrice(db, { item: id, supplier, price, from: null, by: me.id });
+        }
+      }
     });
     revalidatePath('/settings/items');
+    revalidatePath('/material/items');
+    revalidatePath('/settings/suppliers');
     return { ok: true, message: '품목을 수정했습니다.' };
   } catch (e) {
     return { error: dbMessage(e) };

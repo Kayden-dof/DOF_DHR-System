@@ -33,7 +33,19 @@ export interface ItemRow {
   lot_count: number;
   /** 거짓이면 로트 없이 쓰는 소모품. 현장이 투입을 적지 않는다 (0129) */
   lot_tracked: boolean;
+  /** 사용 단위 단가 (사용자 2026-11-26). 자재는 공급처 · 입고, 원액은 제조, 완제품은 자재 원가 */
+  price: string | null;
+  /** 그 단가가 어디서 왔는가 - 공급처 이름 · 최근 입고 · 최근 제조 · 자재 원가 */
+  price_basis: string | null;
+  /** 기본 공급처의 지금 단가. 수정 창이 이 값으로 시작한다 */
+  default_price: string | null;
 }
+
+/* 100원 이상은 원 단위로, 그보다 작은 값(시약 g 단가 등)만 소수 둘째 자리까지 */
+const won = (v: string) => {
+  const n = Number(v);
+  return n.toLocaleString('ko-KR', { maximumFractionDigits: n >= 100 ? 0 : 2 });
+};
 
 /*
  * 로트 없이 쓰는 소모품 (사용자 2026-11-10 «로트번호 없이 단순 소모품으로 사용되니까
@@ -234,6 +246,14 @@ export function ItemRowView({ it, suppliers }: {
             ? it.usage_uom
             : `${it.purchase_uom} → ${it.usage_uom} (x${Number(it.conversion)})`}
         </td>
+        <td className="td tnum text-right">
+          {it.price ? (
+            <>
+              <div>{won(it.price)}원<span className="text-xs text-faint"> / {it.usage_uom}</span></div>
+              <div className="text-xs text-faint">{it.price_basis}</div>
+            </>
+          ) : <span className="text-faint">-</span>}
+        </td>
         <td className="td tnum text-right">{it.min_stock ? Number(it.min_stock) : ''}</td>
         <td className="td tnum text-right text-muted">{it.lot_count || ''}</td>
         <td className="td text-right">
@@ -276,6 +296,14 @@ export function ItemRowView({ it, suppliers }: {
                   ))}
                 </select>
               </div>
+              {it.type !== 'FIN' && it.type !== 'SOLUTION' && (
+                <div>
+                  <label className="label" htmlFor={`${uid}-price`}>기본 공급자 단가 (원 / {it.usage_uom})</label>
+                  <input id={`${uid}-price`} name="price" type="number" step="any" min={0}
+                         defaultValue={it.default_price ? Number(it.default_price) : ''} className="input tnum" />
+                  <p className="mt-1 text-xs text-faint">바꾸면 공급자 단가 이력에 오늘 날짜로 남습니다.</p>
+                </div>
+              )}
               {/*
                 * 완제품 사용기간은 여기서 바꾸지 않는다 (UI/UX 검수 2026-11-11). DB 가 완제품의
                 * shelf_life_months 변경을 막는다 (0061) - 칸을 열어 두면 고칠 때마다 저장이

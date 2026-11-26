@@ -6,6 +6,7 @@ import { PageShell } from '@/components/shell';
 import { SubNav } from '../../nav';
 import { settingsNav } from '../../sections';
 import { ITEM_TYPES } from '@/lib/forms';
+import { loadItemRows } from '@/lib/item-list';
 import { Panel, Empty, Tag } from '@/components/ui';
 import { NewItemForm, BulkItemForm, GenerateFinished, ItemRowView, type ItemRow, type SchemeOpt } from './item-forms';
 
@@ -57,16 +58,8 @@ export default async function ItemsPage({ searchParams }: { searchParams: Search
         where s.is_active
         group by s.id, s.name, s.prefix
         order by s.prefix`),
-    items: await db.rows<ItemRow>(
-      `select i.*, count(ml.id)::int as lot_count
-         from item i
-         left join material_lot ml on ml.item_id = i.id and ml.status = 'AVAILABLE'
-        where ($1::text is null or i.type::text = $1)
-          and ($2::text is null or i.code ilike '%'||$2||'%' or i.name ilike '%'||$2||'%')
-        group by i.id
-        order by i.type, i.code`,
-      [type, q],
-    ),
+    /* 단가까지 함께 (lib/item-list.ts - 자재 › 품목과 같은 셈) */
+    items: await loadItemRows<ItemRow>(db, { type, q, materialOnly: false }),
     counts: await db.rows<{ type: string; n: number }>(
       `select type::text as type, count(*)::int as n from item group by type`,
     ),
@@ -138,6 +131,7 @@ export default async function ItemsPage({ searchParams }: { searchParams: Search
                   <th className="th">품목명</th>
                   <th className="th">유형</th>
                   <th className="th">단위</th>
+                  <th className="th text-right">단가</th>
                   <th className="th text-right">최소 재고선</th>
                   <th className="th text-right">보유 로트</th>
                   <th className="th" />

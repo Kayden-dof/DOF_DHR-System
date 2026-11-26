@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { withActor, dbMessage } from '@/lib/db';
 import { requireRole } from '@/lib/session';
 import type { FormState } from '@/lib/forms';
+import { recordPrice } from '@/lib/price';
 
 const admin = () => requireRole(['SYS_ADMIN'], '시스템관리자만 공급자를 관리할 수 있습니다');
 
@@ -90,18 +91,10 @@ export async function savePrice(_p: FormState, form: FormData): Promise<FormStat
     const price = Number(form.get('price') ?? 0);
     const from = String(form.get('effective_from') ?? '');
 
-    await withActor(me.id, async (db) => {
-      await db.rows(
-        `insert into price_history (item_id, supplier_id, price, effective_from, registered_by)
-         values ($1,$2,$3,$4::date,$5)`, [item, supplier, price, from, me.id]);
-      await db.rows(
-        `insert into item_supplier (item_id, supplier_id, current_price)
-         values ($1,$2,$3)
-         on conflict (item_id, supplier_id) do update set current_price = excluded.current_price`,
-        [item, supplier, price]);
-    });
+    await withActor(me.id, (db) => recordPrice(db, { item, supplier, price, from, by: me.id }));
 
     revalidatePath('/settings/suppliers');
+    revalidatePath('/settings/items');
     return {
       ok: true,
       message: '단가를 등록했습니다. 이전 단가는 이력으로 남고 지워지지 않습니다.',
