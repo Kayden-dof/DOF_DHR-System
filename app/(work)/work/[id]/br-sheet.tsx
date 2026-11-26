@@ -29,7 +29,7 @@ import NumPad from '@/components/num-pad';
 import { optionBlank, pairSep, type FormCell } from '@/lib/br-form';
 import type { BrSheet, BrFormTab } from '@/lib/br-sheet';
 import { daysUntilKST, todayKST } from '@/lib/kst';
-import { fmtDate } from '@/lib/fmt';
+import { fmtDate, num } from '@/lib/fmt';
 import { isNoExpiry } from '@/lib/equipment-check';
 import { loadBrSheet, saveBrEntry, setRecordEquipment, issueFromSheet } from '../actions';
 import { ChangeNote } from '@/components/change-note';
@@ -577,7 +577,7 @@ function LotPicker({ cell, ctx, busy, error, onSave, onNone, onClose }: {
       {already.length > 0 && (
         <p className="mt-2 rounded-md bg-surface-sub px-3 py-2 text-sm text-ink">
           이미 넣은 것:{' '}
-          {already.map((x) => `${x.lot_no} ${Number(x.qty)} ${x.usage_uom}`).join(' · ')}
+          {already.map((x) => `${x.lot_no} ${num(x.qty)} ${x.usage_uom}`).join(' · ')}
           <span className="block text-xs text-muted">고치려면 공정 화면의 투입 줄을 누르십시오. 여기서는 한 줄을 더합니다.</span>
         </p>
       )}
@@ -604,7 +604,7 @@ function LotPicker({ cell, ctx, busy, error, onSave, onNone, onClose }: {
                 {outside && <span className="chip bg-warn-bg text-warn">구성표 밖</span>}
               </span>
               <span className="text-xs text-muted">
-                {l.item_name} · 잔여 <span className="tnum">{Number(l.qty_available)}</span> {l.usage_uom}
+                {l.item_name} · 잔여 <span className="tnum">{num(l.qty_available)}</span> {l.usage_uom}
               </span>
               {l.expiry_date && (
                 <span className={`tnum text-xs ${over ? 'font-semibold text-danger' : soon ? 'font-semibold text-warn' : 'text-faint'}`}>

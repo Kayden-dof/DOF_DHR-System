@@ -5,7 +5,7 @@ import { withActor } from '@/lib/db';
 import { PageShell } from '@/components/shell';
 import { SubNav } from '../../nav';
 import { MATERIAL_NAV } from '../../sections';
-import { fmtDate, fmtDateTime } from '@/lib/fmt';
+import { fmtDate, fmtDateTime, num } from '@/lib/fmt';
 import Link from 'next/link';
 import { MOVEMENT_TYPE_LABEL } from '@/lib/forms';
 import { Panel, Empty, Tag } from '@/components/ui';
@@ -101,7 +101,7 @@ export default async function MovementPage() {
               <li key={l.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2.5">
                 <span className="font-mono text-sm font-semibold text-ink">{l.lot_no}</span>
                 <span className="text-sm text-muted">{l.item_name}</span>
-                <span className="tnum text-xs text-faint">제조 {fmtDate(l.made_on)} · 남은 {Number(l.qty_available)} {l.usage_uom}</span>
+                <span className="tnum text-xs text-faint">제조 {fmtDate(l.made_on)} · 남은 {num(l.qty_available)} {l.usage_uom}</span>
                 <span className="ml-auto flex items-center gap-3">
                   <span className="text-xs text-muted">{l.entries > 0 ? `적은 칸 ${l.entries}` : '아직 적지 않음'}</span>
                   <Link href={`/material/solution/${l.id}`} className="qd-text-action">제조기록서</Link>

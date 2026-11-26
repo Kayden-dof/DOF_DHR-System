@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { requireUser, hasRole, canWrite } from '@/lib/session';
 import { withUser } from '@/lib/db';
 import { openSteps } from '@/lib/batch-open';
-import { fmtDate, fmtDateTime, chem } from '@/lib/fmt';
+import { fmtDate, fmtDateTime, chem, num } from '@/lib/fmt';
 import { WO_STATUS_LABEL, PL_STATUS_LABEL } from '@/lib/forms';
 import { KIND_LABEL, viewHref } from '@/lib/print';
 import Denied from '@/components/denied';
@@ -520,7 +520,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                note={`발행 시점의 계획입니다. 형명과 실제 수량은 ${splitOp ?? '제조번호 부여'}에서 정해집니다.`}>
           <div className="grid gap-x-6 gap-y-3 px-4 py-3 sm:grid-cols-3">
             <Field label="예정 생산 수량">
-              <span className="tnum">{wo.planned_units}개</span>
+              <span className="tnum">{num(wo.planned_units)}개</span>
             </Field>
             <Field label={`${splitOp ?? '제조번호'} 실적`}>
               <span className="tnum font-semibold">
@@ -586,9 +586,9 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                       <div className="text-sm">{l.item_name}</div>
                       <div className="font-mono text-xs text-faint">{l.item_code}</div>
                     </td>
-                    <td className="td tnum text-right">{l.qty_produced}</td>
+                    <td className="td tnum text-right">{num(l.qty_produced)}</td>
                     <td className="td tnum text-right text-muted">{l.qty_sample || ''}</td>
-                    <td className="td tnum text-right font-semibold">{l.qty_available}</td>
+                    <td className="td tnum text-right font-semibold">{num(l.qty_available)}</td>
                     <td className="td tnum text-right text-muted">{l.shipped || ''}</td>
                     <td className="td tnum ">{fmtDate(l.manufactured_on)}</td>
                     <td className="td tnum ">

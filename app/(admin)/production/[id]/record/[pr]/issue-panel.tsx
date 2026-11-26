@@ -4,6 +4,7 @@ import { useActionState, useId } from 'react';
 import { Msg } from '@/components/ui';
 import type { FormState } from '@/lib/forms';
 import { addForcedIssue } from '../../../record-actions';
+import { num } from '@/lib/fmt';
 
 export type IssueLot = { id: string; item: string; lot_no: string; left: string; uom: string; outside: boolean };
 
@@ -31,7 +32,7 @@ export default function IssuePanel({ recordId, woId, lots }: {
               {lots.length === 0 ? '쓸 수 있는 로트가 없습니다' : '로트를 고르십시오'}
             </option>
             {lots.map((l) => (
-              <option key={l.id} value={l.id}>{l.item} · {l.lot_no} · 잔여 {l.left} {l.uom}{l.outside ? ' · 구성표 밖' : ''}</option>
+              <option key={l.id} value={l.id}>{l.item} · {l.lot_no} · 잔여 {num(l.left)} {l.uom}{l.outside ? ' · 구성표 밖' : ''}</option>
             ))}
           </select>
         </div>

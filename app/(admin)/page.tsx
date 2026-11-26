@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { requireUser, hasRole } from '@/lib/session';
 import { withUser } from '@/lib/db';
 import { getBrand } from '@/lib/brand';
-import { fmtDate } from '@/lib/fmt';
+import { fmtDate, num } from '@/lib/fmt';
 import {
   NUMBERING_TARGETS, M1_CRITICAL_TARGETS, WO_STATUS_LABEL, PL_STATUS_LABEL,
 } from '@/lib/forms';
@@ -337,7 +337,7 @@ export default async function Dashboard() {
     { label: '최소 재고선 아래', value: c.reorder, unit: '종', href: '/material/orders',
       tone: c.reorder > 0 ? 'warn' : undefined,
       detail: statRows(L.reorder.map((r) => ({
-        left: mono(r.code), sub: r.name, right: `${r.on_hand} / ${r.min_stock}`,
+        left: mono(r.code), sub: r.name, right: `${num(r.on_hand)} / ${num(r.min_stock)}`,
       })), '재고선 아래인 품목이 없습니다', c.reorder) },
 
     { label: '설비 밸리데이션', value: c.eq_due, unit: '대', href: '/equipment?f=due',

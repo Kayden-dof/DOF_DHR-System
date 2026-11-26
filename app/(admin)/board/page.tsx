@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { requireUser, hasRole } from '@/lib/session';
 import { withUser } from '@/lib/db';
-import { fmtDate } from '@/lib/fmt';
+import { fmtDate, num } from '@/lib/fmt';
 import { md } from '@/lib/timeline';
 import { PageShell, StatStrip, type StatItem } from '@/components/shell';
 import { statRows as rows, mono } from '@/components/stat-rows';
@@ -183,7 +183,7 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
   const amount = (v?: string | null) =>
     v ? Math.round(Number(v)).toLocaleString('ko-KR') : '0';
   const won = (v?: string | null) => `${amount(v)}원`;
-  const pct = (v?: string | null) => (v ? `${Number(v)}%` : '0%');
+  const pct = (v?: string | null) => (v ? `${num(v)}%` : '0%');
 
   /*
    * 요약 띠의 툴팁은 전부 내역이다. 어떤 칸은 내역이고 어떤 칸은 설명이면 보는
@@ -208,12 +208,12 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
   const stats: StatItem[] = [
     { label: '오늘 생산', value: day?.produced ?? 0, unit: '개', href: '#board-today',
       detail: rows(todayRows.map((r) => ({
-        left: mono(r.item_code), sub: r.item_name, right: `${r.produced}개`,
+        left: mono(r.item_code), sub: r.item_name, right: `${num(r.produced)}개`,
       })), '오늘 제조번호가 붙은 제품이 없습니다.') },
     { label: '오늘 제조번호', value: day?.lots ?? 0, unit: '건', href: '#board-today',
       detail: rows(d.todayLots.map((l) => ({
         left: <b className="font-mono">{l.lot_no}</b>, sub: l.item_code,
-        right: `${l.produced}개`,
+        right: `${num(l.produced)}개`,
       })), '오늘 붙은 제조번호가 없습니다.') },
     { label: '이번 주 출고', value: week?.shipped ?? 0, unit: '개',
       href: canShip ? '/shipping/ship' : '#board-week',
@@ -223,24 +223,24 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
     { label: '이번 주 생산', value: week?.produced ?? 0, unit: '개', href: '#board-week',
       detail: rows(list('day', 10)
         .filter((b) => b.bucket >= weekFrom && b.produced > 0)
-        .map((b) => ({ left: fmtDate(b.bucket), right: `${b.produced}개` })),
+        .map((b) => ({ left: fmtDate(b.bucket), right: `${num(b.produced)}개` })),
         '이번 주 생산이 없습니다.') },
     { label: '이번 달 생산', value: month?.produced ?? 0, unit: '개', href: '#board-month',
       detail: rows(list('day', 40)
         .filter((b) => b.bucket.slice(0, 7) === thisMonth && b.produced > 0)
-        .map((b) => ({ left: fmtDate(b.bucket), right: `${b.produced}개` })),
+        .map((b) => ({ left: fmtDate(b.bucket), right: `${num(b.produced)}개` })),
         '이번 달 생산이 없습니다.') },
     { label: '이번 달 불량률', value: pct(month?.scrap_pct), href: '#board-month',
       tone: Number(month?.scrap_pct ?? 0) > 0 ? 'danger' : undefined,
       detail: rows(ncOf('SCRAP', `${thisMonth}-01`).map((n) => ({
         left: <b className="font-mono">{n.lot_no}</b>,
-        sub: `${n.op_name ?? '공정 미기재'} · ${n.reason_code}`, right: `${n.qty}개`,
+        sub: `${n.op_name ?? '공정 미기재'} · ${n.reason_code}`, right: `${num(n.qty)}개`,
       })), '이번 달 불량이 없습니다.') },
     { label: '이번 달 특채', value: month?.concession ?? 0, unit: '개', href: '#board-month',
       tone: (month?.concession ?? 0) > 0 ? 'warn' : undefined,
       detail: rows(ncOf('CONCESSION', `${thisMonth}-01`).map((n) => ({
         left: <b className="font-mono">{n.concession_doc_no ?? ''}</b>,
-        sub: `${n.lot_no} · ${n.reason_code}`, right: `${n.qty}개`,
+        sub: `${n.lot_no} · ${n.reason_code}`, right: `${num(n.qty)}개`,
       })), '이번 달 특채가 없습니다.') },
     { label: '이번 달 자재 지출', value: amount(month?.spend), unit: '원',
       href: canCost ? '/board/cost#cost-spend' : '#board-month',
@@ -354,7 +354,7 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
                     <td className="td">{r.product_code ?? r.item_code}</td>
                     <td className="td font-mono ">{r.item_code}</td>
                     <td className="td tnum text-right text-muted">{r.lots}</td>
-                    <td className="td tnum text-right font-semibold">{r.produced}</td>
+                    <td className="td tnum text-right font-semibold">{num(r.produced)}</td>
                     <td className="td tnum text-right text-muted">{r.sampled || ''}</td>
                     <td className="td tnum text-right">{r.available}</td>
                   </tr>
@@ -452,7 +452,7 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
                     <tr key={r.item_code}>
                       <td className="td font-mono font-semibold">{r.item_code}</td>
                       <td className="td text-muted">{r.spec}</td>
-                      <td className="td text-right tnum">{r.qty}</td>
+                      <td className="td text-right tnum">{num(r.qty)}</td>
                       <td className="td text-right tnum">{won(r.shared_cost)}</td>
                       <td className="td text-right tnum">{won(r.own_cost)}</td>
                       <td className="td text-right tnum font-semibold">{won(String(per))}</td>
@@ -582,8 +582,8 @@ function PeriodTable({ rows, label, total, won, pct, empty, hint }: {
           {total && (
             <tr className="bg-canvas">
               <th className="td text-left text-xs font-semibold text-ink">합계</th>
-              <td className="td tnum text-right font-semibold">{total.produced}</td>
-              <td className="td tnum text-right font-semibold">{total.shipped}</td>
+              <td className="td tnum text-right font-semibold">{num(total.produced)}</td>
+              <td className="td tnum text-right font-semibold">{num(total.shipped)}</td>
               <td className="td tnum text-right">{total.rework || ''}</td>
               <td className="td tnum text-right">{total.concession || ''}</td>
               <td className="td tnum text-right">{total.scrap || ''}</td>

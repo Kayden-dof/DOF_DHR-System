@@ -8,6 +8,7 @@ import { SubNav } from '../../nav';
 import { SHIPPING_NAV } from '../../sections';
 import { Panel, Empty } from '@/components/ui';
 import { SterilForm, SterilRow, type PlOpt, type SbRow } from '../shipping-forms';
+import { num } from '@/lib/fmt';
 
 export const dynamic = 'force-dynamic';
 
@@ -87,7 +88,7 @@ export default async function SterilPage() {
        * 50은 DX2401 의 값이지 프로그램의 성질이 아니다.
        */
       lede={(d.boxQtys.length === 1
-              ? `${Number(d.boxQtys[0].qty)}개 박스 단위로 발송합니다. `
+              ? `${num(d.boxQtys[0].qty)}개 박스 단위로 발송합니다. `
               : '박스 단위로 발송합니다. ')
             + '한 박스에 여러 제품 로트가 들어갈 수 있습니다.'}
       action={<SterilForm lots={d.lots} today={d.today ?? ''}

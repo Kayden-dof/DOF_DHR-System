@@ -15,6 +15,7 @@ import {
   recordNonconformity, recordWipNonconformity, endRecordForWorker,
 } from '../actions';
 import { fixRecord } from '@/app/(work)/work/actions';
+import { num } from '@/lib/fmt';
 
 export interface LotRow {
   id: string; lot_no: string; item_code: string; item_name: string;
@@ -875,7 +876,7 @@ export function NonconformityForm({ lot, woId, today, ops }: {
       <Dialog open={open} onClose={() => setOpen(false)} wide
               title="제품 부적합 기록"
               note={<><span className="font-mono">{lot.lot_no}</span> · {lot.item_code} ·
-                {' '}출하 가능 <span className="tnum">{lot.qty_available}</span>개</>}>
+                {' '}출하 가능 <span className="tnum">{num(lot.qty_available)}</span>개</>}>
         <form action={action} className="space-y-4">
           <input type="hidden" name="product_lot_id" value={lot.id} />
           <input type="hidden" name="work_order_id" value={woId} />

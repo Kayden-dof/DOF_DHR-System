@@ -51,3 +51,16 @@ const FORMULA = /(?<![A-Za-z0-9])(H2O2|H2O|CO2|O2|N2|NaHCO3|H2SO4|Na2CO3|CaCl2|M
 export function chem(v: string | null | undefined): string {
   return (v ?? '').replace(FORMULA, (f) => f.replace(/\d/g, (d) => SUB[Number(d)]));
 }
+
+/*
+ * 수량 · 금액 같은 숫자를 화면에 낼 때 (사용자 2026-11-26 «천 단위 , 표기 필요»).
+ * DB 의 numeric 은 글자로 오므로 Number() 로 바꿔 그대로 찍던 자리가 많았다 - «5000 EA».
+ * 천 단위 쉼표를 넣고, 소수는 있는 만큼만(끝의 0 없이, 여섯 자리까지) 쓴다. 비면 빈 글자.
+ * 입력칸의 값(value · max · min)에는 쓰지 않는다 - 쉼표가 든 글자는 숫자 칸이 받지 않는다.
+ */
+export function num(v: number | string | null | undefined): string {
+  if (v === null || v === undefined || v === '') return '';
+  const n = Number(v);
+  if (!Number.isFinite(n)) return String(v);
+  return n.toLocaleString('ko-KR', { maximumFractionDigits: 6 });
+}

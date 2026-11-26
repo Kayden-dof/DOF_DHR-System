@@ -9,6 +9,7 @@ import { Unblock } from '@/components/unblock';
 import type { Fix } from '@/lib/unblock';
 import { issueWorkOrder } from './actions';
 import { previewIssue, type IssuePreview } from './preview';
+import { num } from '@/lib/fmt';
 
 export interface DmOpt {
   id: string; revision: string; item_code: string; item_name: string;
@@ -199,7 +200,7 @@ export default function IssueForm({ masters, rawLots, finished, users, today, fi
             <option value="">선택하십시오</option>
             {rawLots.map((l) => (
               <option key={l.id} value={l.id}>
-                {l.lot_no} · {l.item_name} · 잔여 {Number(l.qty_available)}
+                {l.lot_no} · {l.item_name} · 잔여 {num(l.qty_available)}
                 {l.thickness_band ? ` · 두께 ${l.thickness_band}` : ''}
                 {l.expiry_date ? ` · 기한 ${l.expiry_date}${expired(l) ? ' (지남)' : ''}` : ''}
               </option>
@@ -361,7 +362,7 @@ export default function IssueForm({ masters, rawLots, finished, users, today, fi
                     <td className="td tnum text-right font-semibold">
                       {r.required === null
                         ? <span className="text-warn">구간 없음</span>
-                        : `${Number(r.required)} ${r.usage_uom}`}
+                        : `${num(r.required)} ${r.usage_uom}`}
                     </td>
                     {/*
                       * 모자라면 짚기만 한다. 막지 않는다 (§2 "경고만") - 오늘

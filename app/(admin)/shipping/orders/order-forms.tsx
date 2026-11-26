@@ -6,6 +6,7 @@ import { Msg } from '@/components/ui';
 import { Dialog, useDialog } from '@/components/dialog';
 import { findModel } from '@/lib/model-find';
 import { createOrder, updateOrder, cancelOrder, cancelLine, saveCustomer } from './actions';
+import { num } from '@/lib/fmt';
 
 export interface ModelOpt { id: string; code: string; name: string; udi: string | null }
 export interface CustomerOpt {
@@ -203,7 +204,7 @@ export function EditOrder({ order, lines, models }: { order: OrderHead; lines: L
               <div key={l.id} className="grid items-center gap-2 sm:grid-cols-[1fr_7rem]">
                 <label htmlFor={`${uid}-${l.id}`} className="text-sm">
                   <span className="font-mono">{l.code}</span> · {l.name}
-                  {l.shipped > 0 && <span className="ml-2 text-xs text-muted">출고 {l.shipped}</span>}
+                  {l.shipped > 0 && <span className="ml-2 text-xs text-muted">출고 {num(l.shipped)}</span>}
                 </label>
                 {/* 넘게 나간 줄은 지금 수량이 하한이다 - 늘리는 것만 받는다 (DB 도 같다) */}
                 <input id={`${uid}-${l.id}`} name={`qty_${l.id}`} type="number"

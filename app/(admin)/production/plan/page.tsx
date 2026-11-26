@@ -16,6 +16,7 @@ import { SubNav } from '../../nav';
 import { PRODUCTION_NAV } from '../../sections';
 import { PlanForm, DeletePlan, CalendarForm, type DmOption, type WoOption } from './plan-forms';
 import { OrderPlan, type OrderPlanLine, type Occupied } from './order-plan';
+import { num } from '@/lib/fmt';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: '일정' };
@@ -391,7 +392,7 @@ function MonthGrid({ plans, planOf, cal, today }: {
         const off = isOff(date, cal);
         return (
           <div key={date} className={`min-h-16 rounded-md border p-1.5 ${off ? 'bg-surface-sub' : ''} ${date === today ? 'border-info' : 'border-line'}`}>
-            <b className="tnum">{Number(date.slice(5, 7))}/{Number(date.slice(8))}</b>
+            <b className="tnum">{num(date.slice(5, 7))}/{num(date.slice(8))}</b>
             {items.map((x) => (
               <Link key={x.p.id} href={`/production/plan?id=${x.p.id}`}
                     className={`block truncate ${x.wait ? 'text-muted' : 'text-ink'}`}>

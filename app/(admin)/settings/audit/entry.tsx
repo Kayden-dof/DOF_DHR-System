@@ -42,8 +42,41 @@ function show(table: string, key: string, v: unknown, refs?: Record<string, stri
   if (typeof v === 'boolean') return v ? '예' : '아니오';
   /* 다른 표를 가리키는 번호는 그 대상의 이름으로 (사용자 2026-11-26) */
   if (typeof v === 'string' && refs?.[v]) return refs[v];
+  /*
+   * 2026-11-26 감사추적 전수 점검. 값이 꼴 그대로 뜨던 자리들.
+   *   하루 안의 분(480)은 시각으로, 요일 번호({1,2,3})는 요일로, 기록 시각(ISO)은 한국 시각으로,
+   *   목록은 한 줄로 잇고, 묶음 자료(양식 · 시간표 단계 · 요청 줄)는 몇 개인지만 말한다 -
+   *   통째로 찍으면 [object Object] 나 한 화면을 덮는 글이 된다.
+   */
+  if (typeof v === 'number' && MINUTE_KEYS.has(key)) {
+    return `${String(Math.floor(v / 60)).padStart(2, '0')}:${String(v % 60).padStart(2, '0')}`;
+  }
+  if (Array.isArray(v)) {
+    if (v.length === 0) return '없음';
+    if (key === 'workdays') return v.map((d) => WEEKDAY[Number(d)] ?? String(d)).join(' · ');
+    if (v.every((x) => x === null || typeof x !== 'object')) {
+      return v.map((x) => (typeof x === 'string' && refs?.[x]) || show(table, key, x)).join(' · ');
+    }
+    return `${v.length}개 항목`;
+  }
+  if (typeof v === 'object') return `${Object.keys(v as object).length}개 항목`;
+  if (typeof v === 'string' && ISO_TIME.test(v)) {
+    const d = new Date(v);
+    if (!Number.isNaN(d.getTime())) return fmtDateTime(d);
+  }
   return valueLabel(table, key, v) ?? String(v);
 }
+
+/* 하루 안의 분으로 적는 열 (근무 달력 · 배치 계획) */
+const MINUTE_KEYS = new Set(['day_start', 'day_end', 'start_min']);
+const WEEKDAY = ['일', '월', '화', '수', '목', '금', '토'];
+const ISO_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
+
+/*
+ * 펼침에 올리지 않는 열. 그 줄 자신의 식별자는 아래 꼬리(record_id)에 이미 있고,
+ * one 은 «한 줄뿐» 을 지키는 표시다 (근무 달력). 읽는 사람에게 말하는 것이 없다.
+ */
+const HIDDEN = new Set(['id', 'one']);
 
 /* 대상 칸은 번호(로트 · 배치)면 고정폭, 이름이면 본문 글꼴. 고정폭 글꼴에는 한글이 없다 */
 const ascii = (s: string) => /^[ -~]+$/.test(s);
@@ -55,6 +88,7 @@ function diff(
   const keys = new Set([...Object.keys(oldV ?? {}), ...Object.keys(newV ?? {})]);
   const out: { key: string; from: unknown; to: unknown }[] = [];
   for (const k of keys) {
+    if (HIDDEN.has(k)) continue;
     const a = oldV?.[k];
     const b = newV?.[k];
     if (JSON.stringify(a) !== JSON.stringify(b)) out.push({ key: k, from: a, to: b });

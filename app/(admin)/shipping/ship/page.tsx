@@ -8,7 +8,7 @@ import { withActor } from '@/lib/db';
 import { PageShell } from '@/components/shell';
 import { SubNav } from '../../nav';
 import { SHIPPING_NAV } from '../../sections';
-import { fmtDate } from '@/lib/fmt';
+import { fmtDate, num } from '@/lib/fmt';
 import { PL_STATUS_LABEL } from '@/lib/forms';
 import { Panel, Empty, Tag } from '@/components/ui';
 import { shipReview } from '@/lib/ship-review';
@@ -302,7 +302,7 @@ export default async function ShipPage({ searchParams }: { searchParams: Search 
                       <div className="font-mono text-xs text-faint">{l.item_code}</div>
                     </td>
                     <td className="td font-mono text-muted">{l.batch_no}</td>
-                    <td className="td tnum text-right">{l.qty_available}</td>
+                    <td className="td tnum text-right">{num(l.qty_available)}</td>
                     <td className="td">
                       <Tag tone="quiet">{PL_STATUS_LABEL[l.status] ?? l.status}</Tag>
                     </td>
@@ -341,12 +341,12 @@ export default async function ShipPage({ searchParams }: { searchParams: Search 
                     <td className="td text-sm text-muted">
                       {l.skipped_by_name} · <span className="tnum">{fmtDate(l.skipped_at)}</span>
                     </td>
-                    <td className="td tnum text-right">{l.qty_available}</td>
+                    <td className="td tnum text-right">{num(l.qty_available)}</td>
                     {!viewer && (
                       <td className="td text-right">
                         {l.shipped === 0
                           ? <CancelSterilSkip id={l.id} lotNo={l.lot_no} />
-                          : <span className="text-xs text-faint">출고 {l.shipped}개</span>}
+                          : <span className="text-xs text-faint">출고 {num(l.shipped)}개</span>}
                       </td>
                     )}
                   </tr>
@@ -393,7 +393,7 @@ export default async function ShipPage({ searchParams }: { searchParams: Search 
                         ? <span title={s.skip}><Tag tone="warn">생략</Tag></span>
                         : <span className="text-faint">-</span>)}
                     </td>
-                    <td className="td tnum text-right font-semibold">{s.qty}</td>
+                    <td className="td tnum text-right font-semibold">{num(s.qty)}</td>
                     <td className="td text-muted">{s.shipped_by_name}</td>
                     <td className="td text-right">
                       {!viewer && s.line_id && (

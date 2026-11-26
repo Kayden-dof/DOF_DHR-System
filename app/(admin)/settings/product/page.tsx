@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { requireUser, blocksScreen, canWrite } from '@/lib/session';
 import { canOpen } from '@/lib/access';
 import { withActor } from '@/lib/db';
-import { fmtDate } from '@/lib/fmt';
+import { fmtDate, num } from '@/lib/fmt';
 import Denied from '@/components/denied';
 import { Empty, Panel, Tag } from '@/components/ui';
 import { PageShell } from '@/components/shell';
@@ -295,8 +295,8 @@ export default async function ProductSetupPage() {
             href: dmr,
             title: '그 밖의 값',
             fact: [
-              r.steril_box_qty ? `멸균 박스 ${r.steril_box_qty}개` : '',
-              r.expected_units ? `배치당 예상 ${r.expected_units}개` : '',
+              r.steril_box_qty ? `멸균 박스 ${num(r.steril_box_qty)}개` : '',
+              r.expected_units ? `배치당 예상 ${num(r.expected_units)}개` : '',
             ].filter(Boolean).join(' · ') || '정하지 않음 (선택)',
             empty: false,
             blocks: '',

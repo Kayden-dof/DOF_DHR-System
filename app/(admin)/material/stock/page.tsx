@@ -5,7 +5,7 @@ import { withUser } from '@/lib/db';
 import { PageShell } from '@/components/shell';
 import { SubNav } from '../../nav';
 import { MATERIAL_NAV } from '../../sections';
-import { fmtDate } from '@/lib/fmt';
+import { fmtDate, num } from '@/lib/fmt';
 import { ITEM_TYPES } from '@/lib/forms';
 import { Panel, Empty, Tag } from '@/components/ui';
 import StockTools from './stock-tools';
@@ -99,7 +99,7 @@ export default async function StockPage() {
                           <div className="font-mono text-xs text-faint">{r.code}</div>
                         </td>
                         <td className={`td tnum text-right font-semibold ${low ? 'text-warn' : ''}`}>
-                          {Number(r.on_hand)} {r.usage_uom}
+                          {num(r.on_hand)} {r.usage_uom}
                         </td>
                         <td className="td tnum text-right text-muted">{r.lot_count || ''}</td>
                         <td className="td tnum text-right text-muted">
@@ -146,8 +146,8 @@ export default async function StockPage() {
                       <div className="font-mono text-xs text-faint">{f.code}</div>
                     </td>
                     <td className="td font-mono text-muted">{f.batch_no}</td>
-                    <td className="td tnum text-right font-semibold">{f.qty_available}</td>
-                    <td className="td tnum text-right text-muted">{f.qty_produced}</td>
+                    <td className="td tnum text-right font-semibold">{num(f.qty_available)}</td>
+                    <td className="td tnum text-right text-muted">{num(f.qty_produced)}</td>
                     <td className="td tnum text-right text-muted">{f.qty_sample || ''}</td>
                     <td className="td tnum ">{fmtDate(f.manufactured_on)}</td>
                     <td className="td tnum ">

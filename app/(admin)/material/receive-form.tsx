@@ -201,13 +201,13 @@ export default function ReceiveForm({ items, suppliers, orders, today, presetPo,
             {poPool.map((o) => (
               <option key={o.id} value={o.id}>
                 {o.po_no} · 남은 {remain(o)}
-                {Number(o.received ?? 0) > 0 ? ` (발주 ${Number(o.qty)})` : ''}
+                {Number(o.received ?? 0) > 0 ? ` (발주 ${num(Number(o.qty))})` : ''}
               </option>
             ))}
           </select>
           {po && Number(po.received ?? 0) > 0 && (
             <p className="mt-1 text-xs text-muted">
-              이미 <b className="tnum text-ink">{Number(po.received)}</b> 들어왔습니다.
+              이미 <b className="tnum text-ink">{num(Number(po.received))}</b> 들어왔습니다.
               나눠 들어오는 발주입니다.
             </p>
           )}

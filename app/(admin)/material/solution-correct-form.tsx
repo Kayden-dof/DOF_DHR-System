@@ -4,6 +4,7 @@ import { useActionState, useId } from 'react';
 import { Msg, Caution } from '@/components/ui';
 import type { FormState } from '@/lib/forms';
 import { returnSolutionInput, addSolutionInput } from './actions';
+import { num } from '@/lib/fmt';
 
 /* ---------------------------------------------------------------------------
    원액의 원료 줄 바로잡기 (§2.1)
@@ -76,7 +77,7 @@ export default function SolutionCorrectForm({ solutionId, inputs, lots, used }: 
                 <option value="">고르십시오</option>
                 {inputs.map((x) => (
                   <option key={x.material_lot_id} value={x.material_lot_id}>
-                    {x.material_lot_no} · {x.item_name} (사용량 {Number(x.qty)} {x.usage_uom})
+                    {x.material_lot_no} · {x.item_name} (사용량 {num(x.qty)} {x.usage_uom})
                   </option>
                 ))}
               </select>
@@ -115,7 +116,7 @@ export default function SolutionCorrectForm({ solutionId, inputs, lots, used }: 
                 <option value="">고르십시오</option>
                 {lots.map((l) => (
                   <option key={l.id} value={l.id}>
-                    {l.lot_no} · {l.item_name} (잔여 {Number(l.qty_available)} {l.usage_uom})
+                    {l.lot_no} · {l.item_name} (잔여 {num(l.qty_available)} {l.usage_uom})
                   </option>
                 ))}
               </select>

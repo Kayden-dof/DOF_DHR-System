@@ -3,7 +3,7 @@
 import { Fragment, useActionState, useState, useId } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { fmtDate } from '@/lib/fmt';
+import { fmtDate, num } from '@/lib/fmt';
 import { daysUntilKST } from '@/lib/kst';
 import type { FormState } from '@/lib/forms';
 import { Msg, Tag, Caution } from '@/components/ui';
@@ -157,7 +157,7 @@ export function SterilForm({ lots, today, boxQty, fix }: {
                 </td>
                 <td className="td font-mono font-semibold">{l.lot_no}</td>
                 <td className="td ">{l.item_name}</td>
-                <td className="td tnum text-right text-muted">{l.qty_available}</td>
+                <td className="td tnum text-right text-muted">{num(l.qty_available)}</td>
                 <td className="td text-right">
                   <input name={`qty_${l.id}`} type="number" min={1} max={l.qty_available}
                          aria-label={`${l.lot_no} 수량`}
@@ -191,7 +191,7 @@ export function SterilForm({ lots, today, boxQty, fix }: {
                   {x.name}
                   <span className="ml-1.5 font-mono text-xs text-faint">{x.code}</span>
                 </dt>
-                <dd className="shrink-0 font-semibold tnum text-ink">{x.qty} 개</dd>
+                <dd className="shrink-0 font-semibold tnum text-ink">{num(x.qty)} 개</dd>
               </div>
             ))}
           </dl>
@@ -227,11 +227,11 @@ export function SterilRow({ sb, today }: { sb: SbRow; today: string }) {
           {bySpec(sb.lots).map((x) => (
             <div key={x.code} className="flex items-baseline gap-2">
               <span className="font-mono text-xs text-muted">{x.code}</span>
-              <span className="tnum font-semibold text-ink">{x.qty}</span>
+              <span className="tnum font-semibold text-ink">{num(x.qty)}</span>
             </div>
           ))}
         </td>
-        <td className="td tnum text-right">{sb.total}</td>
+        <td className="td tnum text-right">{num(sb.total)}</td>
         <td className="td tnum ">{fmtDate(sb.shipped_at)}</td>
         <td className="td tnum ">{fmtDate(sb.received_at)}</td>
         <td className="td font-mono ">{sb.cert_no ?? ''}</td>
@@ -354,7 +354,7 @@ export function RequestBuilder({ groups }: {
                       <span className="min-w-0 truncate text-xs text-muted">{l.item_name}</span>
                       {l.release_approved_by && <Tag tone="ok">승인됨</Tag>}
                     </label>
-                    <span className="tnum text-xs text-muted">잔여 {l.qty_available}</span>
+                    <span className="tnum text-xs text-muted">잔여 {num(l.qty_available)}</span>
                     <input
                       type="number"
                       min={0}
@@ -515,7 +515,7 @@ export function ShipList({ lots, line, today }: { lots: ShipLot[]; line: ShipLin
                     {l.for_line && <Tag tone="info">이 주문 배치</Tag>}
                     {!l.for_line && l.other_orders && <Tag tone="quiet">다른 주문 배치 {l.other_orders}</Tag>}
                   </td>
-                  <td className="td tnum text-right font-semibold">{l.qty_available}</td>
+                  <td className="td tnum text-right font-semibold">{num(l.qty_available)}</td>
                   <td className="td tnum ">
                     <span className={days <= 60 ? 'font-semibold text-warn' : ''}>
                       {fmtDate(l.expiry_date)}
@@ -563,11 +563,11 @@ function ShipRowForm({ lot, line, today }: { lot: ShipLot; line: ShipLine; today
       </p>
       <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div>
-          <label className="label" htmlFor={`${uid}-qty`}>수량 (최대 {lot.qty_available})</label>
+          <label className="label" htmlFor={`${uid}-qty`}>수량 (최대 {num(lot.qty_available)})</label>
           <input id={`${uid}-qty`} name="qty" type="number" min={1} max={lot.qty_available}
                  value={qty} onChange={(e) => setQty(e.target.value)}
                  required className="input tnum" />
-          {over && <p className="mt-1 text-xs text-warn">주문 남은 양({line.left})보다 많습니다.</p>}
+          {over && <p className="mt-1 text-xs text-warn">주문 남은 양({num(line.left)})보다 많습니다.</p>}
         </div>
         <div>
           <label className="label" htmlFor={`${uid}-shipped_at`}>출고일</label>

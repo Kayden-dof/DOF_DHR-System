@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { requireUser, hasRole } from '@/lib/session';
 import { withUser } from '@/lib/db';
 import type { RoleCode } from '@/lib/roles';
-import { fmtDate, fmtDateTime } from '@/lib/fmt';
+import { fmtDate, fmtDateTime, num } from '@/lib/fmt';
 import Denied from '@/components/denied';
 import { Panel, Empty, Field } from '@/components/ui';
 import { PageShell } from '@/components/shell';
@@ -196,10 +196,10 @@ async function MaterialView({ me, id }: { me: Me; id: string }) {
               <div className="grid gap-x-6 gap-y-3 px-4 py-3 sm:grid-cols-2 lg:grid-cols-4">
                 <Field label="제조일"><span className="tnum">{fmtDate(lot.made_on)}</span></Field>
                 <Field label="제조량">
-                  <span className="tnum">{Number(lot.qty_received)} {lot.usage_uom}</span>
+                  <span className="tnum">{num(lot.qty_received)} {lot.usage_uom}</span>
                 </Field>
                 <Field label="잔여">
-                  <span className="tnum font-semibold">{Number(lot.qty_available)}</span>
+                  <span className="tnum font-semibold">{num(lot.qty_available)}</span>
                 </Field>
                 <Field label="유효기한"><span className="tnum">{fmtDate(lot.expiry_date)}</span></Field>
               </div>
@@ -234,7 +234,7 @@ async function MaterialView({ me, id }: { me: Me; id: string }) {
                             <div className="font-mono text-xs text-faint">{x.item_code}</div>
                           </td>
                           <td className="td tnum text-right">
-                            {`${Number(x.qty)} ${x.usage_uom}`}
+                            {`${num(x.qty)} ${x.usage_uom}`}
                           </td>
                         </tr>
                       ))}
@@ -259,10 +259,10 @@ async function MaterialView({ me, id }: { me: Me; id: string }) {
               </Field>
               <Field label="입고일"><span className="tnum">{fmtDate(lot.received_at)}</span></Field>
               <Field label="입고 수량">
-                <span className="tnum">{Number(lot.qty_received)} {lot.usage_uom}</span>
+                <span className="tnum">{num(lot.qty_received)} {lot.usage_uom}</span>
               </Field>
               <Field label="잔여">
-                <span className="tnum font-semibold">{Number(lot.qty_available)}</span>
+                <span className="tnum font-semibold">{num(lot.qty_available)}</span>
               </Field>
               <Field label="유효기한"><span className="tnum">{fmtDate(lot.expiry_date)}</span></Field>
               {lot.thickness_band && <Field label="두께 구간">{lot.thickness_band}</Field>}
@@ -339,7 +339,7 @@ async function MaterialView({ me, id }: { me: Me; id: string }) {
                       <td className="td font-mono font-semibold">
                         {p.lot_no || <span className="font-sans text-muted">배치 전체</span>}
                       </td>
-                      <td className="td tnum text-right">{Number(p.qty)}</td>
+                      <td className="td tnum text-right">{num(p.qty)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -373,7 +373,7 @@ async function MaterialView({ me, id }: { me: Me; id: string }) {
                           {v.solution_lot_no}
                         </Link>
                         <div className="text-xs text-faint">
-                          {`이 로트 ${Number(v.drawn)} ${v.drawn_uom}`}
+                          {`이 로트 ${num(v.drawn)} ${v.drawn_uom}`}
                         </div>
                       </td>
                       {v.batch_no ? (
@@ -384,7 +384,7 @@ async function MaterialView({ me, id }: { me: Me; id: string }) {
                             {v.lot_no || <span className="font-sans text-muted">배치 전체</span>}
                           </td>
                           <td className="td tnum text-right">
-                            {`${Number(v.qty)} ${v.solution_uom}`}
+                            {`${num(v.qty)} ${v.solution_uom}`}
                           </td>
                         </>
                       ) : (
@@ -548,9 +548,9 @@ async function BatchView({ me, kind, id }: {
                       className={l.id === focusLot ? 'bg-brand-soft' : undefined}>
                     <td className="td font-mono font-semibold">{l.lot_no}</td>
                     <td className="td text-sm">{l.item_name}</td>
-                    <td className="td tnum text-right">{l.qty_produced}</td>
+                    <td className="td tnum text-right">{num(l.qty_produced)}</td>
                     <td className="td tnum text-right text-muted">{l.qty_sample || ''}</td>
-                    <td className="td tnum text-right">{l.qty_available}</td>
+                    <td className="td tnum text-right">{num(l.qty_available)}</td>
                     <td className="td tnum text-right text-muted">{l.shipped || ''}</td>
                     <td className="td text-muted">{l.customers ?? ''}</td>
                     <td className="td tnum ">{fmtDate(l.expiry_date)}</td>
@@ -667,7 +667,7 @@ function GenTable({ rows, lots }: {
                 <div className="font-mono text-xs text-faint">{g.item_code}</div>
               </td>
               <td className="td font-mono font-semibold">{g.material_lot_no}</td>
-              <td className="td tnum text-right">{Number(g.qty)}</td>
+              <td className="td tnum text-right">{num(g.qty)}</td>
               <td className="td ">{g.operation_name}</td>
               {lots && (
                 <td className="td font-mono ">{lotNo(g.product_lot_id)}</td>

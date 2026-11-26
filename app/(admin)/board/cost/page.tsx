@@ -2,7 +2,7 @@ import React from 'react';
 import { requireUser, blocksScreen } from '@/lib/session';
 import Link from 'next/link';
 import { withUser } from '@/lib/db';
-import { fmtDate } from '@/lib/fmt';
+import { fmtDate, num } from '@/lib/fmt';
 import Denied from '@/components/denied';
 import { Panel, Empty } from '@/components/ui';
 import { PageShell } from '@/components/shell';
@@ -243,7 +243,7 @@ export default async function CostPage() {
                         <div className="font-mono text-xs text-faint">{l.item_code}</div>
                       </td>
                       <td className="td font-mono text-muted">{l.batch_no}</td>
-                      <td className="td tnum text-right">{l.qty_produced}</td>
+                      <td className="td tnum text-right">{num(l.qty_produced)}</td>
                       <td className="td tnum text-right text-muted">{won(l.shared_cost)}</td>
                       <td className="td tnum text-right text-muted">{won(l.own_cost)}</td>
                       <td className="td tnum text-right text-muted">{conv ? won(conv) : ''}</td>
@@ -294,7 +294,7 @@ export default async function CostPage() {
                           <div className="text-sm">{s.item_name}</div>
                           <div className="font-mono text-xs text-faint">{s.item_code}</div>
                         </td>
-                        <td className="td tnum text-right text-muted">{Number(s.qty)}</td>
+                        <td className="td tnum text-right text-muted">{num(s.qty)}</td>
                         <td className="td tnum text-right">{won(s.amount)}</td>
                       </tr>
                     ))}

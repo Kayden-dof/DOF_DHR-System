@@ -15,6 +15,7 @@ import {
   updateOperation, updateBom, updateTier, setTierMax, bulkBom, deleteOperation,
 } from './actions';
 import { linkOperation } from '../../equipment/actions';
+import { num } from '@/lib/fmt';
 
 export interface OperationRow {
   id: string; seq: number; code: string; name: string; after_cutting: boolean;
@@ -37,7 +38,7 @@ export interface Tier {
 /** "292~293" · "292" */
 export const tierQty = (t: Pick<Tier, 'qty' | 'qty_max'>) =>
   t.qty_max != null && Number(t.qty_max) > Number(t.qty)
-    ? `${Number(t.qty)}~${Number(t.qty_max)}` : `${Number(t.qty)}`;
+    ? `${num(t.qty)}~${num(t.qty_max)}` : `${num(t.qty)}`;
 export interface ItemOption { id: string; code: string; name: string; usage_uom: string; type: string }
 
 /** 제품마다 가장 나중 개정. 새 개정 칸을 미리 채우는 데 쓴다 (UI/UX 검수 2026-11-11) */
@@ -386,7 +387,7 @@ function verifyRows(s: VerifySheet) {
         key: `bom-${b.id}`, group: `공정 ${op.seq} 자재`,
         label: `${b.item_name} · 소요량 기준과 수량이 서면과 같습니까?`,
         value: b.basis === 'PER_UNIT'
-          ? `제품 1개당 ${Number(b.qty_per_unit)} ${b.usage_uom}`
+          ? `제품 1개당 ${num(b.qty_per_unit)} ${b.usage_uom}`
           : b.tiers.length
             ? b.tiers.map((t) =>
                 `${t.min_sheets}~${t.max_sheets ?? ''} ${tierQty(t)} ${b.usage_uom}`).join(' / ')
@@ -764,7 +765,7 @@ export function TierRangeForm({ dm, tier, uom }: { dm: string; tier: Tier; uom: 
       <input type="hidden" name="qty" value={Number(tier.qty)} />
       <div className="w-28 text-left">
         <label className="label" htmlFor={`${uid}-qm`}>
-          {Number(tier.qty)} ~ ({uom})
+          {num(tier.qty)} ~ ({uom})
         </label>
         <input id={`${uid}-qm`} name="qty_max" type="number" step="any" required
                min={Number(tier.qty)} className="input tnum" />
@@ -957,7 +958,7 @@ export function OperationCard({ dm, op, items, editable, rangeable = false, equi
                     <span className="text-sm text-ink">{b.item_name}</span>
                     <Tag tone={b.basis === 'PER_UNIT' ? 'info' : 'quiet'}>
                       {b.basis === 'PER_UNIT'
-                        ? `제품 1개당 ${Number(b.qty_per_unit)} ${b.usage_uom}`
+                        ? `제품 1개당 ${num(b.qty_per_unit)} ${b.usage_uom}`
                         : '장입 구간 기준'}
                     </Tag>
                   </div>
@@ -1197,10 +1198,10 @@ export function SamplePlanForm({ id, tiers, basis }: {
             {tiers.map((t) => (
               <tr key={t.id}>
                 <td className="td tnum">
-                  {t.min_qty} ~ {t.max_qty ?? ''}
+                  {num(t.min_qty)} ~ {num(t.max_qty)}
                   {t.max_qty === null && <span className="text-faint"> (상한 없음)</span>}
                 </td>
-                <td className="td tnum text-right font-semibold">{t.sample_qty}</td>
+                <td className="td tnum text-right font-semibold">{num(t.sample_qty)}</td>
               </tr>
             ))}
           </tbody>

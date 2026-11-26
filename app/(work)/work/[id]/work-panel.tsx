@@ -4,7 +4,7 @@ import { useActionState, useEffect, useMemo, useRef, useState, useId } from 'rea
 import Link from 'next/link';
 import type { FormState } from '@/lib/forms';
 import { daysUntilKST } from '@/lib/kst';
-import { fmtDate } from '@/lib/fmt';
+import { fmtDate, num } from '@/lib/fmt';
 import { fmtDateTime } from '@/lib/fmt';
 import { findModel } from '@/lib/model-find';
 import { Msg, Tag } from '@/components/ui';
@@ -1027,7 +1027,7 @@ function OperationCard({
             <p key={x.lot_no}
                className="border-t border-line-soft bg-warn-bg px-4 py-2 text-xs leading-relaxed text-ink">
               <b className="font-mono">{x.lot_no}</b> 반납{' '}
-              <b className="tnum">{Number(x.returned)}</b> {x.usage_uom} · 이 배치에서 원 로트로 되돌림
+              <b className="tnum">{num(x.returned)}</b> {x.usage_uom} · 이 배치에서 원 로트로 되돌림
             </p>
           ))}
         </div>
@@ -1442,9 +1442,9 @@ function MaterialForm({ woId, rec, op, lots, sheets, loadUnit, expiryWarnDays }:
               <span className="shrink-0 text-xs tnum">
                 {b.required !== null && b.required !== undefined && (
                   <span className="text-muted">
-                    예상 {Number(b.required)}
+                    예상 {num(b.required)}
                     {b.required_max != null && Number(b.required_max) > Number(b.required)
-                      ? `~${Number(b.required_max)}` : ''} {b.usage_uom}{altSuffix(b.required, b)}
+                      ? `~${num(b.required_max)}` : ''} {b.usage_uom}{altSuffix(b.required, b)}
                   </span>
                 )}
                 {noLot ? (
@@ -1489,7 +1489,7 @@ function MaterialForm({ woId, rec, op, lots, sheets, loadUnit, expiryWarnDays }:
                     {l.lot_no}
                   </button>
                   <span className="text-xs text-muted">
-                    잔여 <span className="tnum">{Number(l.qty_available)}</span> {l.usage_uom}
+                    잔여 <span className="tnum">{num(l.qty_available)}</span> {l.usage_uom}
                     {l.expiry_date && <> · 기한 <span className="tnum">{fmtDate(l.expiry_date)}</span></>}
                   </span>
                   <Link href={`/work/solution/${l.id}?wo=${woId}`}
@@ -1580,7 +1580,7 @@ function MaterialForm({ woId, rec, op, lots, sheets, loadUnit, expiryWarnDays }:
                   )}
                 </span>
                 <span className="text-xs text-muted">
-                  {l.item_name} · 잔여 <span className="tnum">{Number(l.qty_available)}</span> {l.usage_uom}
+                  {l.item_name} · 잔여 <span className="tnum">{num(l.qty_available)}</span> {l.usage_uom}
                 </span>
                 {l.expiry_date && (
                   <span className={`tnum text-xs ${
@@ -2099,7 +2099,7 @@ function CutPanel({
               <span className="text-sm text-body">{l.item_code}</span>
               <span className="ml-auto text-sm text-muted">
                 생산 <b className="tnum text-ink">{l.qty_produced ?? 0}</b>
-                {(l.qty_sample ?? 0) > 0 && <> · 샘플 <b className="tnum text-ink">{l.qty_sample}</b></>}
+                {(l.qty_sample ?? 0) > 0 && <> · 샘플 <b className="tnum text-ink">{num(l.qty_sample)}</b></>}
               </span>
             </li>
           ))}
@@ -2206,17 +2206,17 @@ function CutPanel({
             */}
           {need !== null ? (
             <p className="text-sm leading-relaxed text-muted">
-              생산 <b className="tnum text-ink">{Number(produced)}</b>개는{' '}
+              생산 <b className="tnum text-ink">{num(produced)}</b>개는{' '}
               <b className="tnum text-ink">{needTier!.min_qty}~{needTier!.max_qty ?? ''}</b> 구간이라
               시료 <b className="tnum text-ink">{need}</b>개를 출력합니다.
               {sampleBasis && <span className="text-faint"> ({sampleBasis})</span>}
               {touched && Number(sample || 0) !== need && (
-                <b className="text-warn"> 지금 적은 값은 {Number(sample || 0)}개입니다.</b>
+                <b className="text-warn"> 지금 적은 값은 {num(sample || 0)}개입니다.</b>
               )}
             </p>
           ) : sampleTiers.length > 0 && Number(produced || 0) > 0 ? (
             <p className="text-sm leading-relaxed text-muted">
-              생산 {Number(produced)}개가 드는 시료 구간이 등록되어 있지 않습니다.
+              생산 {num(produced)}개가 드는 시료 구간이 등록되어 있지 않습니다.
               시료 수는 검사기준서를 보고 입력하십시오.
             </p>
           ) : null}
@@ -2275,7 +2275,7 @@ function IssueRow({ woId, x, locked }: {
         <span className="min-w-0 flex-1 text-sm font-semibold text-ink">{x.item_name}</span>
         <span className="font-mono text-sm text-muted">{x.lot_no}</span>
         <span className="tnum text-base font-semibold text-ink">
-          {Number(x.qty)} {x.usage_uom}
+          {num(x.qty)} {x.usage_uom}
         </span>
         {!locked && (
           <button type="button" onClick={() => setMode(mode ? null : 'amend')}
@@ -2298,7 +2298,7 @@ function IssueRow({ woId, x, locked }: {
         wide
         title="투입 정정"
         note={<>{x.item_name} · <span className="font-mono">{x.lot_no}</span> ·{' '}
-          <span className="tnum">지금 {Number(x.qty)} {x.usage_uom}</span></>}
+          <span className="tnum">지금 {num(x.qty)} {x.usage_uom}</span></>}
       >
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={() => setMode('amend')} data-on={mode === 'amend'}

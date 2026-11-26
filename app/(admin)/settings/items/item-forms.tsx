@@ -10,6 +10,7 @@ import type { Fix } from '@/lib/unblock';
 import { Dialog, useDialog } from '@/components/dialog';
 import { createItem, updateItem, bulkItems, generateFinished, previewFinished,
          type GenResult, type PreviewRow } from './actions';
+import { num } from '@/lib/fmt';
 
 export interface ItemRow {
   /** 어디서 사는가. 발주 화면이 미리 골라 준다 (6차 감사 N7) */
@@ -244,7 +245,7 @@ export function ItemRowView({ it, suppliers }: {
         <td className="td text-muted">
           {it.purchase_uom === it.usage_uom
             ? it.usage_uom
-            : `${it.purchase_uom} → ${it.usage_uom} (x${Number(it.conversion)})`}
+            : `${it.purchase_uom} → ${it.usage_uom} (x${num(it.conversion)})`}
         </td>
         <td className="td tnum text-right">
           {it.price ? (
@@ -363,7 +364,7 @@ export function ItemRowView({ it, suppliers }: {
                   단위는 <b className="text-ink">
                     {it.purchase_uom === it.usage_uom
                       ? it.usage_uom
-                      : `${it.purchase_uom} → ${it.usage_uom} (x${Number(it.conversion)})`}
+                      : `${it.purchase_uom} → ${it.usage_uom} (x${num(it.conversion)})`}
                   </b>이고 더 이상 고칠 수 없습니다.
                   이 품목으로 들어온 로트가 {it.lot_count}건 있고, 재고 · 불출 · 단가가
                   모두 사용 단위 기준의 숫자로 적혀 있습니다 - 단위를 바꾸면 이미
@@ -411,7 +412,7 @@ export function ItemRowView({ it, suppliers }: {
 
               {it.min_stock_auto && (
                 <p className="rounded-md bg-surface px-3 py-2 text-xs leading-relaxed text-muted sm:col-span-2">
-                  <b className="text-ink">자동 산출값 {Number(it.min_stock_auto)}</b>
+                  <b className="text-ink">자동 산출값 {num(it.min_stock_auto)}</b>
                   {it.min_stock_basis ? ` · ${it.min_stock_basis}` : ''}
                   <br />제안일 뿐이며 최소 재고선을 덮어쓰지 않습니다. 쓰려면 위 항목에 직접 입력하십시오.
                 </p>

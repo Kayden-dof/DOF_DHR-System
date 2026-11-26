@@ -6,7 +6,7 @@ import { getBrand } from '@/lib/brand';
 import { PageShell, FilterBar } from '@/components/shell';
 import { SubNav } from '../nav';
 import { MATERIAL_NAV } from '../sections';
-import { fmtDate } from '@/lib/fmt';
+import { fmtDate, num } from '@/lib/fmt';
 import { daysUntilKST } from '@/lib/kst';
 import { MATERIAL_STATUS_LABEL } from '@/lib/forms';
 import { Panel, Empty, Truncated, Tag } from '@/components/ui';
@@ -236,10 +236,10 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
                       </>
                     )}
                     <Td right className="text-muted">
-                      {Number(l.qty_received)} {l.usage_uom}
+                      {num(l.qty_received)} {l.usage_uom}
                     </Td>
                     <Td right className="font-semibold text-ink">
-                      {Number(l.qty_available)}
+                      {num(l.qty_available)}
                     </Td>
                     <Td nowrap className={`tnum ${
                       soon ? 'font-semibold text-warn' : 'text-muted'}`}>

@@ -22,9 +22,11 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /* 줄에 제 이름이 없을 때 대상 칸에 어느 쪽 이름을 먼저 쓰는가 (앞에서 둘까지) */
 const TARGET_KEYS = [
-  'operation_id', 'equipment_id', 'work_order_id', 'product_lot_id', 'material_lot_id',
-  'item_id', 'component_item_id', 'device_master_id', 'supplier_id', 'room_id',
-  'steril_batch_id', 'purchase_order_id', 'user_id', 'worker_id', 'customer_id', 'sales_order_id',
+  'operation_id', 'equipment_id', 'equipment_ref', 'dmr_bom_id', 'work_order_id', 'product_lot_id',
+  'material_lot_id', 'solution_lot_id', 'item_id', 'component_item_id', 'raw_item_id', 'device_master_id',
+  'supplier_id', 'room_id', 'steril_batch_id', 'purchase_order_id', 'sales_order_line_id', 'sales_order_id',
+  'customer_id', 'process_record_id', 'material_issue_id', 'record_print_id', 'doc_id', 'check_id',
+  'scheme_id', 'user_id', 'worker_id',
 ];
 
 interface WithValues {
@@ -34,8 +36,10 @@ interface WithValues {
   refs?: Record<string, string>;
 }
 
+/* 값 안의 uuid. 추가 설비처럼 목록으로 든 것도 꺼낸다 */
 const uuidsOf = (v: Record<string, unknown> | null) =>
-  Object.values(v ?? {}).filter((x): x is string => typeof x === 'string' && UUID.test(x));
+  Object.values(v ?? {}).flatMap((x) => (Array.isArray(x) ? x : [x]))
+    .filter((x): x is string => typeof x === 'string' && UUID.test(x));
 
 export async function withRefs<T extends WithValues>(user: SessionUser, entries: T[]): Promise<T[]> {
   const ids = [...new Set(entries.flatMap((e) => [...uuidsOf(e.old_value), ...uuidsOf(e.new_value)]))];
@@ -60,6 +64,25 @@ export async function withRefs<T extends WithValues>(user: SessionUser, entries:
          union all select sb.id, sb.batch_no from steril_batch sb join ids using (id)
          union all select c.id, c.name from customer c join ids using (id)
          union all select so.id, so.customer_po_no from sales_order so join ids using (id)
+         /* 2026-11-26 전수 점검: 감사가 걸린 표의 외래 키가 가리키는 나머지 표 */
+         union all select sl.id, so.customer_po_no || ' · ' || coalesce(i.code, '') || ' (' || sl.seq || '번 줄)'
+           from sales_order_line sl join ids using (id)
+           join sales_order so on so.id = sl.sales_order_id left join item i on i.id = sl.item_id
+         union all select b.id, i.name || coalesce(' · ' || o.name, '')
+           from dmr_bom b join ids using (id)
+           join item i on i.id = b.component_item_id left join dmr_operation o on o.id = b.operation_id
+         union all select pr.id, w.batch_no || ' ' || pr.day_no || '일차' || coalesce(' · ' || o.name, '')
+           from process_record pr join ids using (id)
+           join work_order w on w.id = pr.work_order_id left join dmr_operation o on o.id = pr.operation_id
+         union all select mi.id, ml.lot_no from material_issue mi join ids using (id)
+           join material_lot ml on ml.id = mi.material_lot_id
+         union all select rp.id, coalesce(rp.doc_no, rp.kind::text) || ' · ' || rp.seq || '회'
+           from record_print rp join ids using (id)
+         union all select md.id, md.doc_no || coalesce(' ' || md.title, '') from mfg_doc md join ids using (id)
+         union all select mc.id, coalesce(mc.op_code || ' ', '') || mc.item from mfg_check mc join ids using (id)
+         union all select ms.id, ms.name from model_scheme ms join ids using (id)
+         union all select sh.id, i.name || ' ' || sh.months || '개월'
+           from shelf_life_history sh join ids using (id) join item i on i.id = sh.item_id
        ) x
        where x.label is not null`,
       [ids],

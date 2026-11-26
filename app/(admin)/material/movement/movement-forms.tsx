@@ -8,6 +8,7 @@ import { Msg } from '@/components/ui';
 import { Unblock } from '@/components/unblock';
 import type { Fix } from '@/lib/unblock';
 import { moveStock, makeSolutionLot } from '../actions';
+import { num } from '@/lib/fmt';
 
 export interface LotOpt {
   id: string; lot_no: string; item_code: string; item_name: string;
@@ -60,7 +61,7 @@ export function MovementForm({ lots, orders, fix }: {
             <option value="">선택하십시오</option>
             {lots.map((l) => (
               <option key={l.id} value={l.id}>
-                {l.lot_no} · {l.item_name} (잔여 {Number(l.qty_available)} {l.usage_uom})
+                {l.lot_no} · {l.item_name} (잔여 {num(l.qty_available)} {l.usage_uom})
               </option>
             ))}
           </select>
@@ -210,7 +211,7 @@ export function SolutionLotForm({ items, lots, fix, fixed = false }: {
               <option value="">사용 안 함</option>
               {lots.map((l) => (
                 <option key={l.id} value={l.id}>
-                  {l.lot_no} · {l.item_name} (잔여 {Number(l.qty_available)} {l.usage_uom})
+                  {l.lot_no} · {l.item_name} (잔여 {num(l.qty_available)} {l.usage_uom})
                 </option>
               ))}
             </select>

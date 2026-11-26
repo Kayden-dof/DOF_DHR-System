@@ -6,7 +6,7 @@ import { withUser } from '@/lib/db';
 import { PageShell } from '@/components/shell';
 import { SubNav } from '../../nav';
 import { MATERIAL_NAV } from '../../sections';
-import { fmtDate } from '@/lib/fmt';
+import { fmtDate, num } from '@/lib/fmt';
 import { Panel, Empty, Tag } from '@/components/ui';
 import { NewOrder, CancelOrder,
          type OrderRow, type ItemOpt, type SupplierOpt } from './order-forms';
@@ -127,9 +127,9 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                       <div className="text-sm">{a.name}</div>
                       <div className="font-mono text-xs text-faint">{a.code}</div>
                     </td>
-                    <td className="td tnum text-right">{Number(a.on_hand)} {a.usage_uom}</td>
-                    <td className="td tnum text-right text-muted">{Number(a.on_order)}</td>
-                    <td className="td tnum text-right text-muted">{Number(a.min_stock)}</td>
+                    <td className="td tnum text-right">{num(a.on_hand)} {a.usage_uom}</td>
+                    <td className="td tnum text-right text-muted">{num(a.on_order)}</td>
+                    <td className="td tnum text-right text-muted">{num(a.min_stock)}</td>
                     <td className="td tnum text-right font-semibold text-warn">
                       {short}
                     </td>
@@ -199,7 +199,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                           </Link>
                         )}
                       </td>
-                      <td className="td tnum text-right">{Number(o.qty)} {o.usage_uom}</td>
+                      <td className="td tnum text-right">{num(o.qty)} {o.usage_uom}</td>
                       {/*
                         * 얼마나 들어왔는지를 줄에서 바로 보인다. 전에는 상태
                         * 조각 하나뿐이라, 절반 들어온 발주와 다 들어온 발주가
@@ -208,7 +208,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                       <td className="td tnum text-right">
                         {Number(o.received) > 0 ? (
                           <>
-                            {Number(o.received)}
+                            {num(o.received)}
                             {Number(o.received) < Number(o.qty) && (
                               <span className="ml-1 text-xs text-warn">
                                 남은 {Number(o.qty) - Number(o.received)}
