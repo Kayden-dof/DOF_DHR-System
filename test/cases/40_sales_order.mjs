@@ -496,4 +496,38 @@ export default [
   },
 },
 
+
+{
+  id: 'SO-22', expect: '예외',
+  name: '출고의 제조번호는 바꾸지 않는다 (형명 검토 · 출하 가능 수량을 건너뛰는 길)',
+  async run(t) {
+    const m = await master(t);
+    const { lines } = await order(t, m, { po: 'SO22', lines: [['PD05050510', 10]] });
+    const a = await readyLot(t, m);
+    const b = await readyLot(t, m);
+    const id = await ship(t, m, a.lot, lines.PD05050510, 1);
+    await t.rejects(() => t.rows(`update shipment set product_lot_id = $2 where id = $1`, [id, b.lot]),
+      { code: 'P0001', message: '제조번호' });
+    await t.resolves(() => t.rows(`update shipment set customer_name = '시험 고객사 (정정)' where id = $1`, [id]));
+  },
+},
+
+{
+  id: 'SO-23', expect: '통과',
+  name: '쓰지 않음으로 바꾼 형명이라도 그 배치가 만든 재고는 출고한다',
+  async run(t) {
+    const m = await master(t);
+    const { lines } = await order(t, m, { po: 'SO23', lines: [['PD05050510', 10]] });
+    const { lot } = await readyLot(t, m);
+    await t.rows(`update item set is_active = false where code = 'PD05050510'`);
+    try {
+      t.eq(await t.val(`select ok from ship_spec_check($1,$2) where kind = 'DMR'`, [lot, lines.PD05050510]),
+        true, '이 배치가 만든 형명');
+      await t.resolves(() => ship(t, m, lot, lines.PD05050510, 1));
+    } finally {
+      await t.rows(`update item set is_active = true where code = 'PD05050510'`);
+    }
+  },
+},
+
 ];
