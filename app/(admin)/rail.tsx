@@ -112,8 +112,7 @@ function RailBody({ items, brand, brandMini, version, foot, mini = false, onTogg
         })}
       </nav>
 
-      {!mini && <div className="qd-rail-version"><span>DHR</span><b>v{version}</b></div>}
-
+      {/* 접기 단추가 위, 판 번호가 아래 (사용자 2026-11-26 «이거 위아래 위치 바꿔줘») */}
       {onToggle && (
         <div className={`qd-rail-row ${mini ? 'justify-center' : 'justify-end'}`}>
           <button
@@ -128,6 +127,8 @@ function RailBody({ items, brand, brandMini, version, foot, mini = false, onTogg
           </button>
         </div>
       )}
+
+      {!mini && <div className="qd-rail-version"><span>DHR</span><b>v{version}</b></div>}
 
       <div className="qd-rail-foot">{foot}</div>
     </>
