@@ -93,7 +93,8 @@ export default async function ShipPage({ searchParams }: { searchParams: Search 
         where o.cancelled_at is null and l.cancelled_at is null
         order by o.due_on nulls last, o.customer_po_no, l.seq`);
     const lines = open.filter((x) => x.customer_id === cId && x.left > 0);
-    const line = lines.find((x) => x.id === lId) ?? null;
+    /* 남은 줄이 하나뿐이면 고를 것이 없다 - 바로 그 줄의 로트를 연다 (사용자 2026-11-26 «출고 버튼 어디있어») */
+    const line = lines.find((x) => x.id === lId) ?? (lines.length === 1 ? lines[0] : null);
 
     /* 고른 줄의 형명으로 나갈 수 있는 로트와 그 검토 */
     let lots: ShipLot[] = [];
@@ -166,7 +167,7 @@ export default async function ShipPage({ searchParams }: { searchParams: Search 
     <PageShell
       section="출하"
       title="출고"
-      lede="발주 업체와 주문 줄을 고르면 그 형명의 출고 가능 로트와 형명 검토가 나옵니다. 검토가 다른 로트는 출고하지 않습니다."
+      lede="발주 업체와 주문 줄을 고르고, 로트의 «출고» 를 눌러 수량과 출고일을 적습니다. 형명 검토가 다른 로트는 출고하지 않습니다."
       nav={<SubNav items={SHIPPING_NAV} />}
     >
       <Panel title="발주 업체" note="출고할 주문이 남은 거래처">
@@ -202,12 +203,13 @@ export default async function ShipPage({ searchParams }: { searchParams: Search 
                     <th className="th text-right">출고</th>
                     <th className="th text-right">남음</th>
                     <th className="th">납품요청일</th>
+                    <th className="th w-0"><span className="sr-only">고르기</span></th>
                   </tr>
                 </thead>
                 <tbody>
                   {d.lines.map((x) => {
                     const href = `/shipping/ship?c=${cId}&l=${x.id}`;
-                    const on = x.id === lId;
+                    const on = x.id === d.line?.id;
                     return (
                       <tr key={x.id} className={on ? 'bg-brand-soft/60' : ''}>
                         <td className="td font-mono font-semibold"><Link href={href}>{x.customer_po_no}</Link></td>
@@ -221,6 +223,11 @@ export default async function ShipPage({ searchParams }: { searchParams: Search 
                         <td className="td tnum text-right text-muted">{x.shipped.toLocaleString()}</td>
                         <td className="td tnum text-right font-semibold">{x.left.toLocaleString()}</td>
                         <td className="td tnum">{x.due_on ? fmtDate(x.due_on) : ''}</td>
+                        <td className="td text-right">
+                          {on
+                            ? <Tag tone="info">보는 중</Tag>
+                            : <Link href={href} className="btn-ghost">고르기</Link>}
+                        </td>
                       </tr>
                     );
                   })}

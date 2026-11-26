@@ -482,7 +482,8 @@ function ReviewMarks({ review }: { review: SpecRow[] }) {
 }
 
 export function ShipList({ lots, line, today }: { lots: ShipLot[]; line: ShipLine; today: string }) {
-  const [openId, setOpenId] = useState<string | null>(null);
+  /* 로트가 하나뿐이면 출고 칸을 펼친 채 연다 (사용자 2026-11-26 «출고 버튼 어디있어») */
+  const [openId, setOpenId] = useState<string | null>(lots.length === 1 ? lots[0].id : null);
 
   return (
     <div className="qd-table-scroll">
@@ -523,11 +524,8 @@ export function ShipList({ lots, line, today }: { lots: ShipLot[]; line: ShipLin
                   </td>
                   <td className="td"><ReviewMarks review={l.review} /></td>
                   <td className="td text-right">
-                    <span aria-hidden
-                          className={`inline-block text-faint transition-transform ${
-                            open ? 'rotate-90 text-brand' : ''}`}>
-                      &rsaquo;
-                    </span>
+                    {/* 줄 어디를 눌러도 열리지만, 단추가 보여야 찾는다 */}
+                    <button type="button" className="btn-ghost">{open ? '닫기' : '출고'}</button>
                   </td>
                 </tr>
                 {open && (
