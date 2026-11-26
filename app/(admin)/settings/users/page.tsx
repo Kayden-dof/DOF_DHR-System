@@ -21,6 +21,14 @@ export const metadata = { title: '사용자' };
 
 type Search = Promise<{ q?: string; role?: string }>;
 
+/*
+ * 사람이 아닌 계정 - 로그인할 수 없고 비밀번호도 역할도 없다. 운영 이관의 행위자 «스키마 이관»
+ * (scripts/deploy-db.mjs) 이 그렇다. 감사추적이 이 계정을 가리키므로 지우지 않고 사용자
+ * 화면에서만 뺀다 (사용자 2026-11-26 «이 계정은 숨겨주세요»).
+ */
+const SYSTEM_ACCOUNT = `(not u.can_login and u.pin_hash is null
+  and not exists (select 1 from user_role sx where sx.user_id = u.id))`;
+
 export default async function UsersPage({ searchParams }: { searchParams: Search }) {
   const me = await requireUser();
   /*
@@ -90,7 +98,8 @@ export default async function UsersPage({ searchParams }: { searchParams: Search
               array_remove(array_agg(r.role::text order by r.role), null)::text[] as roles
          from app_user u
          left join user_role r on r.user_id = u.id
-        where ($1::text is null
+        where not ${SYSTEM_ACCOUNT}
+          and ($1::text is null
                or u.full_name ilike '%'||$1||'%' or u.login_code like '%'||$1||'%')
           and ($2::text is null
                or exists (select 1 from user_role x
@@ -102,10 +111,11 @@ export default async function UsersPage({ searchParams }: { searchParams: Search
     counts: await db.rows<{ role: string; n: number }>(
       `select r.role::text as role, count(distinct r.user_id)::int as n
          from user_role r group by r.role`),
-    total: await db.val<number>(`select count(*)::int from app_user`),
+    total: await db.val<number>(`select count(*)::int from app_user u where not ${SYSTEM_ACCOUNT}`),
     noRoleCount: await db.val<number>(
       `select count(*)::int from app_user u
-        where not exists (select 1 from user_role r where r.user_id = u.id)`),
+        where not exists (select 1 from user_role r where r.user_id = u.id)
+          and not ${SYSTEM_ACCOUNT}`),
   }));
 
   const users = d.users;
