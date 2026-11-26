@@ -142,6 +142,17 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
       `select code, name, amount::text as won from v_material_spend
         where month = date_trunc('month', (timezone('Asia/Seoul', now()))::date)
         order by amount desc limit 8`),
+    /*
+     * 발주 중이라 아직 지출에 들지 않은 금액 (사용자 2026-11-26). 자재 지출은 입고 금액이라
+     * 낸 발주가 들어오기 전까지는 0 이다. 남은 수량 x 단가(없으면 총액 ÷ 수량 · 0170).
+     */
+    pendingPo: await db.rows<{ po_no: string; name: string; won: string | null }>(
+      `select po.po_no, i.name,
+              round(greatest(po.qty - po_received(po.id), 0)
+                    * coalesce(po.unit_price, po.total_amount / nullif(po.qty, 0)))::text as won
+         from purchase_order po join item i on i.id = po.item_id
+        where po.status = 'ORDERED' and po.qty > po_received(po.id)
+        order by po.ordered_at desc, po.po_no desc`),
 
     unit: sn ? await db.rows<Unit>(`select * from find_unit($1)`, [sn]) : [],
     /*
@@ -244,9 +255,26 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
       })), '이번 달 특채가 없습니다.') },
     { label: '이번 달 자재 지출', value: amount(month?.spend), unit: '원',
       href: canCost ? '/board/cost#cost-spend' : '#board-month',
-      detail: rows(d.spendItems.map((r) => ({
-        left: mono(r.code), sub: r.name, right: won(r.won),
-      })), '이번 달 입고가 없습니다.') },
+      detail: (
+        <>
+          {rows(d.spendItems.map((r) => ({
+            left: mono(r.code), sub: r.name, right: won(r.won),
+          })), '이번 달 입고가 없습니다.')}
+          {d.pendingPo.length > 0 && (
+            <div className="mt-2.5 border-t border-line-soft pt-2">
+              <p className="mb-1 flex items-baseline justify-between gap-3 text-xs text-muted">
+                <span>발주 중 · 입고 전이라 들지 않은 금액</span>
+                <b className="tnum text-ink">
+                  {won(String(d.pendingPo.reduce((a, p) => a + Number(p.won ?? 0), 0)))}
+                </b>
+              </p>
+              {rows(d.pendingPo.map((p) => ({
+                left: mono(p.po_no), sub: p.name, right: p.won == null ? '단가 없음' : won(p.won),
+              })), '')}
+            </div>
+          )}
+        </>
+      ) },
   ];
 
   return (
