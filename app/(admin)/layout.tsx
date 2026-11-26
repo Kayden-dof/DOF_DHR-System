@@ -17,6 +17,7 @@ import IdleLock from '@/components/idle-lock';
 import { lockMinutes } from '@/lib/idle-lock';
 import { logout } from './actions';
 import { type NavItem } from './nav';
+import { SHIPPING_NAV } from './sections';
 import Clock from '@/components/clock';
 import Rail from './rail';
 import { RAIL_COOKIE_PREFIX } from '@/lib/rail';
@@ -177,7 +178,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
    * 걸러 낸다 - 못 여는 자리를 내놓고 눌렀을 때 막는 것보다 아예 보이지
    * 않는 편이 낫다. 문은 requireUser 가 한 번 더 지킨다 (lib/session.ts).
    */
-  const menu = items.filter((n) => canOpen(n.href, seat, user.screens));
+  const menu = items.filter((n) => canOpen(n.href, seat, user.screens)).map((n) =>
+    /* 출하 첫 화면은 맨 앞 탭으로 넘기기만 한다 (shipping/page.tsx) - 레일은 그 탭으로 바로 간다 */
+    n.href === '/shipping'
+      ? { ...n, go: SHIPPING_NAV.find((s) => canOpen(s.href, seat, user.screens))?.href }
+      : n);
 
   const initial = user.full_name.slice(0, 1);
 

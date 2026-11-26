@@ -177,8 +177,11 @@ export async function linkOperation(_p: FormState, form: FormData): Promise<Form
   try {
     const me = await admin();
     const eq = String(form.get('equipment_id') ?? '');
-    const op = String(form.get('operation_id') ?? '');
-    const on = form.get('on') === '1';
+    /* 판마다 폼 하나 - 누른 단추가 «공정:1|0» 을 싣는다 (화면 로딩 점검 2026-11-26). 예전 칸도 받는다 */
+    const [tOp, tOn] = String(form.get('toggle') ?? '').split(':');
+    const op = tOp || String(form.get('operation_id') ?? '');
+    const on = (tOp ? tOn : form.get('on')) === '1';
+    if (!eq || !op) return { error: '설비와 공정을 다시 고르십시오' };
 
     /*
      * 설비는 서면 대조 항목이다. 걸거나 떼면 그 제품표준서의 대조가 풀린다 (0134).

@@ -126,7 +126,7 @@ function RailBody({ items, brand, brandMini, version, foot, mini = false, onTogg
           return (
             <Link
               key={it.href}
-              href={it.href}
+              href={it.go ?? it.href}
               aria-current={on ? 'page' : undefined}
               aria-label={mini ? it.label : undefined}
               className={`qd-nav-item${on ? ' is-active' : ''}`}

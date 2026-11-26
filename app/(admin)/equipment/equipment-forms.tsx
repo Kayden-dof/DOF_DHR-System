@@ -398,25 +398,34 @@ export function EquipCard({ e, ops, warnDays, writable = true }: {
                     {cnt ? `공정 ${cnt}곳에 걸림` : '걸린 공정 없음'}
                   </span>
                 </summary>
-                <div className="flex flex-wrap gap-1.5 border-t border-line-soft px-3 py-2.5">
-                  {g.ops.map((o) => {
-                    const on = linked.has(o.id);
-                    const look = `chip ${on ? 'bg-brand text-white' : 'bg-canvas text-muted'}`;
-                    /* 읽기 전용이면 같은 모양을 글자로만 놓는다. 걸린 곳은 보이되 눌리지 않는다 */
-                    if (!writable) return <span key={o.id} className={look}>{chem(o.name)}</span>;
-                    return (
-                      <form key={o.id} action={linkAction}>
-                        <input type="hidden" name="equipment_id" value={e.id} />
-                        <input type="hidden" name="operation_id" value={o.id} />
-                        <input type="hidden" name="on" value={on ? '0' : '1'} />
-                        <button type="submit"
-                                className={`${look} transition-colors ${on ? '' : 'hover:text-ink'}`}>
+                {/*
+                  * 판 하나에 폼 하나 (화면 로딩 점검 2026-11-26). 공정마다 폼을 두면 폼마다 서버 동작의
+                  * 숨은 칸이 붙어, 설비 46대 x 공정 27개로 설비 화면이 1.1 MB 였다. 누른 단추가
+                  * «공정:걸기/떼기» 를 싣는다 (toggle).
+                  */}
+                {writable ? (
+                  <form action={linkAction} className="flex flex-wrap gap-1.5 border-t border-line-soft px-3 py-2.5">
+                    <input type="hidden" name="equipment_id" value={e.id} />
+                    {g.ops.map((o) => {
+                      const on = linked.has(o.id);
+                      return (
+                        <button key={o.id} type="submit" name="toggle" value={`${o.id}:${on ? '0' : '1'}`}
+                                className={`chip ${on ? 'bg-brand text-white' : 'bg-canvas text-muted hover:text-ink'} transition-colors`}>
                           {chem(o.name)}
                         </button>
-                      </form>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </form>
+                ) : (
+                  /* 읽기 전용이면 같은 모양을 글자로만 놓는다. 걸린 곳은 보이되 눌리지 않는다 */
+                  <div className="flex flex-wrap gap-1.5 border-t border-line-soft px-3 py-2.5">
+                    {g.ops.map((o) => (
+                      <span key={o.id} className={`chip ${linked.has(o.id) ? 'bg-brand text-white' : 'bg-canvas text-muted'}`}>
+                        {chem(o.name)}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </details>
             );
           });
