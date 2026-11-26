@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { requireUser, hasRole } from '@/lib/session';
 import { withUser } from '@/lib/db';
 import { fmtDate } from '@/lib/fmt';
+import { md } from '@/lib/timeline';
 import { PageShell, StatStrip, type StatItem } from '@/components/shell';
 import { statRows as rows, mono } from '@/components/stat-rows';
 import { Panel, Empty, Tag } from '@/components/ui';
@@ -104,11 +105,14 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
          from product_lot pl join item i on i.id = pl.item_id
         where pl.manufactured_on = (timezone('Asia/Seoul', now()))::date
         order by i.code`),
-    todayShip: await db.rows<{ customer_name: string; lot_no: string; qty: number }>(
-      `select sh.customer_name, pl.lot_no, sh.qty
-         from shipment sh join product_lot pl on pl.id = sh.product_lot_id
-        where sh.shipped_at = (timezone('Asia/Seoul', now()))::date
-        order by pl.lot_no`),
+    /* 이번 주 출고를 출고일마다 (사용자 2026-11-26 «이번주 며칠날 몇개씩 나갔는지») */
+    weekShip: await db.rows<{ day: string; qty: number; customers: string }>(
+      `select sh.shipped_at::text as day, sum(sh.qty)::int as qty,
+              string_agg(distinct sh.customer_name, ' · ') as customers
+         from shipment sh
+        where sh.shipped_at >= date_trunc('week', timezone('Asia/Seoul', now()))::date
+        group by sh.shipped_at
+        order by sh.shipped_at`),
 
     /* 부적합 내역. 어디서 발견했는지가 함께 온다 (0047) */
     nc: await db.rows<{
@@ -211,11 +215,11 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
         left: <b className="font-mono">{l.lot_no}</b>, sub: l.item_code,
         right: `${l.produced}개`,
       })), '오늘 붙은 제조번호가 없습니다.') },
-    { label: '오늘 출고', value: day?.shipped ?? 0, unit: '개',
+    { label: '이번 주 출고', value: week?.shipped ?? 0, unit: '개',
       href: canShip ? '/shipping/ship' : '#board-week',
-      detail: rows(d.todayShip.map((r) => ({
-        left: r.customer_name, sub: r.lot_no, right: `${r.qty}개`,
-      })), '오늘 나간 것이 없습니다.') },
+      detail: rows(d.weekShip.map((r) => ({
+        left: md(r.day), sub: r.customers, right: `${r.qty.toLocaleString()}개`,
+      })), '이번 주 나간 것이 없습니다.') },
     { label: '이번 주 생산', value: week?.produced ?? 0, unit: '개', href: '#board-week',
       detail: rows(list('day', 10)
         .filter((b) => b.bucket >= weekFrom && b.produced > 0)
