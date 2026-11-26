@@ -7,10 +7,13 @@
    두 화면이 따로 셈하면 같은 품목의 단가가 화면마다 달라진다 - 그래서 여기 한 곳에 둔다.
 --------------------------------------------------------------------------- */
 import type { Db } from './db';
+import { loadItemProducts } from './item-products';
 
 export interface ItemPriceFields {
-  code: string; type: string;
+  id: string; code: string; type: string;
   price: string | null; price_basis: string | null; default_price: string | null;
+  /** 구성표 · 판 원료 · 원액 원료로 이 품목을 쓰는 제품 (lib/item-products.ts). 수정 창이 손 지정과 가른다 */
+  bom_products?: string[];
 }
 
 export async function loadItemRows<T extends ItemPriceFields>(db: Db, o: {
@@ -47,11 +50,17 @@ export async function loadItemRows<T extends ItemPriceFields>(db: Db, o: {
       order by i.type, i.code`,
     [o.type, o.q, o.materialOnly]);
 
-  if (o.materialOnly || (o.type && o.type !== 'FIN') || !rows.some((r) => r.type === 'FIN')) return rows;
+  const bomOf = new Map<string, string[]>();
+  for (const u of await loadItemProducts(db)) {
+    if (u.how === 'BOM') bomOf.set(u.item_id, [...(bomOf.get(u.item_id) ?? []), u.product_code]);
+  }
+  const withUse = rows.map((r) => ({ ...r, bom_products: (bomOf.get(r.id) ?? []).sort() }));
+
+  if (o.materialOnly || (o.type && o.type !== 'FIN') || !rows.some((r) => r.type === 'FIN')) return withUse;
   const fin = new Map((await db.rows<{ item_code: string; per_unit: string | null }>(
     `select item_code, (sum(shared_cost + own_cost) / nullif(sum(qty), 0))::text as per_unit
        from v_item_cost group by item_code`)).map((c) => [c.item_code, c.per_unit]));
-  return rows.map((r) => {
+  return withUse.map((r) => {
     if (r.type !== 'FIN') return r;
     const per = fin.get(r.code) ?? null;
     return { ...r, price: per, price_basis: per ? '자재 원가' : null };

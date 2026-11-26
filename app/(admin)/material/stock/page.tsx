@@ -9,6 +9,7 @@ import { fmtDate, num } from '@/lib/fmt';
 import { ITEM_TYPES } from '@/lib/forms';
 import { Panel, Empty, Tag } from '@/components/ui';
 import StockTools from './stock-tools';
+import { loadItemProducts, loadProductCodes } from '@/lib/item-products';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,38 +57,12 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
         where f.qty_available > 0
         order by f.expiry_date, f.lot_no`),
     /*
-     * 품목이 어느 제품에 드는가 (사용자 2026-11-26 «재고 탭의 재료를 DX2401 / DX2402 별로, 제품이 생기면
-     * 그 BOM 에 맞게»). 셈에 넣는 것:
-     *   · 그 제품 판(모든 개정)의 공정 구성표에 든 품목
-     *   · 판의 원료 품목 (raw_item_id)
-     *   · 그 제품이 쓰는 원액을 만들 때 든 원료 - 지난 원액 제조 기록(v_solution_input)으로
-     * 여러 제품에 들면 탭마다 나온다. 어디에도 없으면 «구성표 밖» 탭에 모인다.
+     * 품목이 어느 제품에 드는가 - 구성표 · 판 원료 · 원액 원료 · 품목에 손으로 적은 쓰는 제품
+     * (lib/item-products.ts, 품목 수정 창과 같은 셈). 여러 제품에 들면 탭마다 나오고, 어디에도
+     * 없으면 «구성표 밖» 탭에 모인다.
      */
-    products: await db.rows<{ code: string }>(
-      `select distinct product_code as code from device_master
-        where product_code is not null order by 1`),
-    belong: await db.rows<{ product_code: string; item_id: string }>(
-      `with direct as (
-         select dm.product_code, bom.component_item_id as item_id
-           from dmr_bom bom
-           join dmr_operation o on o.id = bom.operation_id
-           join device_master dm on dm.id = o.device_master_id
-          where dm.product_code is not null
-         union
-         select dm.product_code, dm.raw_item_id
-           from device_master dm
-          where dm.product_code is not null and dm.raw_item_id is not null
-       ),
-       via as (
-         select d.product_code, ml.item_id
-           from direct d
-           join material_lot sl on sl.item_id = d.item_id
-           join v_solution_input v on v.solution_lot_id = sl.id
-           join material_lot ml on ml.id = v.material_lot_id
-       )
-       select product_code, item_id::text as item_id from direct
-       union
-       select product_code, item_id::text from via`),
+    products: await loadProductCodes(db),
+    belong: await loadItemProducts(db),
     alerts: await db.val<number>(`select count(*)::int from v_reorder_alert`),
     /*
      * «유효기한 확인» 이 넘길 로트 수 (UI/UX 검수 2026-11-11). expire_material_lots()
@@ -105,7 +80,7 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
   const inTab = (r: StockRow, tab: string) =>
     tab === OUT ? !productsOf.has(r.item_id) : (productsOf.get(r.item_id) ?? []).includes(tab);
 
-  const codes = d.products.map((p) => p.code);
+  const codes = d.products;
   const tabs = [...codes,
     ...(d.material.some((r) => !productsOf.has(r.item_id)) || d.finished.some((f) => !f.product_code) ? [OUT] : [])];
   /* 주소에 제품이 없으면 맨 앞 탭으로 연다 (사용자 2026-11-26 «모든 화면은 제일 앞에 있는 탭으로») */
@@ -142,8 +117,8 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
 
       {current === OUT && (
         <p className="rounded-md border border-line bg-canvas px-3 py-2 text-xs leading-relaxed text-body">
-          어느 제품의 구성표에도 들지 않은 자재입니다. 설정 &gt; 제품표준서에서 공정 구성표나 판의 원료에 넣으면
-          그 제품 탭으로 옮겨 갑니다.
+          어느 제품에도 이어지지 않은 자재입니다. 자재 &gt; 품목의 수정에서 쓰는 제품을 고르거나, 설정 &gt;
+          제품표준서에서 공정 구성표 · 판의 원료에 넣으면 그 제품 탭으로 옮겨 갑니다.
         </p>
       )}
 

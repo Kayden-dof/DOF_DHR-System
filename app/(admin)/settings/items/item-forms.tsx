@@ -40,6 +40,10 @@ export interface ItemRow {
   price_basis: string | null;
   /** 기본 공급처의 지금 단가. 수정 창이 이 값으로 시작한다 */
   default_price: string | null;
+  /** 손으로 적은 쓰는 제품 (0174). 재고 화면의 제품 탭이 본다 */
+  product_codes: string[] | null;
+  /** 구성표 · 판 원료 · 원액 원료로 잡히는 제품 (lib/item-products.ts) */
+  bom_products?: string[];
 }
 
 /* 100원 이상은 원 단위로, 그보다 작은 값(시약 g 단가 등)만 소수 둘째 자리까지 */
@@ -222,10 +226,12 @@ PM-005 | 파우치 라벨 (1차) | 포장재`}
 
 /* -------------------------------------------------------------------------- */
 
-export function ItemRowView({ it, suppliers }: {
+export function ItemRowView({ it, suppliers, products = [] }: {
   it: ItemRow;
   /** 어디서 사는가. 발주 화면이 이것을 미리 골라 준다 (6차 감사 N7) */
   suppliers: { id: string; name: string }[];
+  /** 판이 있는 제품 코드들. «쓰는 제품» 칸의 고를 거리 */
+  products?: string[];
 }) {
   /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
   const uid = useId();
@@ -398,6 +404,34 @@ export function ItemRowView({ it, suppliers }: {
                 <div className="sm:col-span-2">
                   <NoLotBox id={`${uid}-no_lot`} defaultChecked={!it.lot_tracked} />
                 </div>
+              )}
+
+              {/*
+                * 쓰는 제품 (0174 · 사용자 2026-11-27). 구성표로 잡히는 제품은 켜진 채 잠겨 있고,
+                * 서면 구성표에 없는 자재(차트 라벨 · BI · 단상자 등)만 손으로 고른다.
+                */}
+              {it.type !== 'FIN' && products.length > 0 && (
+                <fieldset className="sm:col-span-2">
+                  <legend className="label">쓰는 제품</legend>
+                  <input type="hidden" name="product_codes_shown" value="1" />
+                  <div className="flex flex-wrap gap-x-5 gap-y-1.5 pt-1">
+                    {products.map((p) => {
+                      const bom = (it.bom_products ?? []).includes(p);
+                      return (
+                        <label key={p} className="flex items-center gap-2 text-sm text-ink">
+                          <input type="checkbox" name="product_codes" value={p} disabled={bom}
+                                 defaultChecked={bom || (it.product_codes ?? []).includes(p)}
+                                 className="size-4 accent-brand" />
+                          <span className="font-mono">{p}</span>
+                          {bom && <span className="text-xs text-faint">구성표</span>}
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-1 text-xs leading-relaxed text-faint">
+                    재고 화면에서 고른 제품 탭에 나옵니다. 공정 구성표에 든 제품은 저절로 켜집니다.
+                  </p>
+                </fieldset>
               )}
 
               <label className="flex items-center gap-2 self-end pb-2 text-sm text-ink">
