@@ -66,7 +66,8 @@ export const MOVEMENT_TYPE_LABEL: Record<string, string> = {
   BATCH_LOAD: '배치 장입',
 };
 
-export const MOVEMENT_REASONS = ['파손', '오염', '계량오차', '기한경과', '실사차이', '기타'] as const;
+/* «내부 재고 이동» - 사내에서 자리를 옮기거나 다른 용도로 돌린 것 (사용자 2026-11-26). «기타» 는 늘 마지막 */
+export const MOVEMENT_REASONS = ['파손', '오염', '계량오차', '기한경과', '실사차이', '내부 재고 이동', '기타'] as const;
 
 export const PL_STATUS_LABEL: Record<string, string> = {
   CUT: '재단 완료',
