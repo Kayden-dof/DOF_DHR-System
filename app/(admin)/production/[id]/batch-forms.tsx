@@ -7,6 +7,7 @@ import { PL_STATUS_LABEL, PL_MANUAL_STATUS, type FormState } from '@/lib/forms';
 import { Msg, Caution } from '@/components/ui';
 import { Unblock } from '@/components/unblock';
 import type { Fix } from '@/lib/unblock';
+import { findModel } from '@/lib/model-find';
 import { Dialog, useDialog } from '@/components/dialog';
 import {
   cutLot, setLotStatus, deleteLot, cancelWorkOrder, finishWorkOrder, retrievePrint, setWorkOrderNo, forceCorrectReason,
@@ -87,11 +88,8 @@ export function CutForm({ woId, options, today, used, band, cutDate, fix }: {
    * UDI-DI, 라벨 바코드의 GS1 글((01)…) 모두 받는다. 맞는 형명이 없으면 알린다.
    */
   const [find, setFind] = useState('');
-  const key = find.replace(/\s/g, '').toUpperCase();
-  const gtin = key.match(/\(01\)(\d{14})/)?.[1]
-    ?? (/^01\d{14}/.test(key) && key.length > 14 ? key.slice(2, 16) : null)
-    ?? (/^\d{14}$/.test(key) ? key : /^\d{13}$/.test(key) ? `0${key}` : null);
-  const found = key ? pool.find((o) => o.code.toUpperCase() === key || (!!gtin && o.udi === gtin)) : undefined;
+  /* 셈은 현장 재단 · 수주 등록 폼과 한 벌 (lib/model-find.ts) */
+  const found = findModel(find, pool);
   useEffect(() => { if (found) setItemId(found.id); }, [found]);
   const picked = pool.find((o) => o.id === itemId) ?? ofBand[0] ?? others[0];
   const offBand = !!band && !!picked && picked.band !== band;
@@ -107,7 +105,7 @@ export function CutForm({ woId, options, today, used, band, cutDate, fix }: {
           <input id={`${uid}-find`} value={find} onChange={(e) => setFind(e.target.value)} autoComplete="off"
                  placeholder="형명(PD10182025)이나 UDI를 넣거나 라벨 바코드를 읽으십시오"
                  className="input font-mono" />
-          {key && !found && (
+          {find.trim() && !found && (
             <p className="mt-1 text-xs text-danger">이 제품의 형명 · UDI 가 아닙니다. 아래에서 고르십시오.</p>
           )}
         </div>

@@ -376,11 +376,35 @@ const rrNo = await as(mgr.id, async () => (await c.query(
                                        $1, null, null, null, null, 1, null)`,
   [wo.id])).rows[0].doc_no);
 
-await as(mgr.id, () => c.query(
+/*
+ * 출고는 멸균 보고서(0160)와 주문 줄(0159)이 있어야 한다. 그 로트를 회수 · 보고서까지 적힌 멸균 위탁에
+ * 넣고, 그 로트 형명으로 주문서를 한 장 낸다 (수주 검토 M10 · 2026-11-26).
+ */
+async function readyToShip(userId, lotId, customer, qty) {
+  const sb = (await one(
+    `insert into steril_batch (batch_no, vendor_name, registered_by, shipped_at, received_at, cert_no)
+     values ('ST-DEMO2-' || substr(md5(random()::text), 1, 8), '시연 멸균처', $1,
+             (timezone('Asia/Seoul', now()))::date, (timezone('Asia/Seoul', now()))::date,
+             'SR-DEMO2-' || substr(md5(random()::text), 1, 6)) returning id`, [userId])).id;
+  await c.query(
+    `insert into steril_batch_lot (steril_batch_id, product_lot_id, qty)
+     select $1, id, greatest(qty_produced, 1) from product_lot where id = $2`, [sb, lotId]);
+  const cid = (await one(`select id from customer where name = $1 order by created_at limit 1`, [customer]))?.id
+    ?? (await one(`insert into customer (name, created_by) values ($1,$2) returning id`, [customer, userId])).id;
+  const so = (await one(
+    `insert into sales_order (customer_id, customer_po_no, ordered_on, created_by)
+     values ($1, 'DEMO2-' || substr(md5(random()::text), 1, 8), (timezone('Asia/Seoul', now()))::date, $2)
+     returning id`, [cid, userId])).id;
+  return (await one(
+    `insert into sales_order_line (sales_order_id, item_id, qty)
+     select $1, item_id, $3 from product_lot where id = $2 returning id`, [so, lotId, qty])).id;
+}
+
+await as(mgr.id, async () => c.query(
   `insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by,
-                         release_request_no, unit_from, unit_to)
-   values ($1,'세브란스병원',20,(timezone('Asia/Seoul', now()))::date,$2,$3,4,23)`,
-  [lot, mgr.id, rrNo]));
+                         release_request_no, unit_from, unit_to, sales_order_line_id)
+   values ($1,'세브란스병원',20,(timezone('Asia/Seoul', now()))::date,$2,$3,4,23,$4)`,
+  [lot, mgr.id, rrNo, await readyToShip(mgr.id, lot, '세브란스병원', 20)]));
 say('출고 20개 · 세브란스병원');
 
 /* --- 10) 되묻기 ----------------------------------------------------------- */

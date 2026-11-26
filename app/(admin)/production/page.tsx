@@ -145,12 +145,20 @@ export default async function ProductionPage({ searchParams }: { searchParams: S
     // 예정 형명 후보. 같은 두께 구간이면 크기별로만 갈리므로 완제품 전부를
     // 내주고 화면에서 걸러 고르게 한다.
     /* 이 배치로 채울 수 있는 열린 주문 줄 - 발행 폼이 제품마다 거른다 (0159) */
-    orderLines: await db.rows<OrderLineOpt>(
-      `select l.id,
+    /*
+     * 형명 → 그 형명을 만드는 제품표준서는 제품표준서마다 한 번만 센다 (수주 검토 M12 - 줄마다 모든
+     * 제품표준서에 dm_models 를 부르던 것). 발행 폼이 없는 열람 계정은 읽지 않는다.
+     */
+    orderLines: readOnly ? [] : await db.rows<OrderLineOpt>(
+      `with fit as (
+         select d.id as item_id, array_agg(dm.id) as dm_ids
+           from device_master dm cross join lateral dm_models(dm.id) d
+          group by d.id)
+       select l.id,
               o.customer_po_no || ' · ' || c.name || ' · ' || i.code || ' · 남음 ' || so_line_left(l.id) as label,
-              array(select dm.id from device_master dm
-                     where exists (select 1 from dm_models(dm.id) d where d.id = l.item_id)) as dm_ids
+              coalesce(f.dm_ids, '{}'::uuid[]) as dm_ids
          from sales_order_line l
+         left join fit f on f.item_id = l.item_id
          join sales_order o on o.id = l.sales_order_id
          join customer c on c.id = o.customer_id
          join item i on i.id = l.item_id

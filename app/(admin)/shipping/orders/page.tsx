@@ -65,14 +65,24 @@ export default async function SalesOrdersPage() {
                          order by l.seq, i.code)
                   from sales_order_line l join item i on i.id = l.item_id
                  where l.sales_order_id = o.id), '[]'::json) as lines
-         from sales_order o join customer c on c.id = o.customer_id
-        order by o.ordered_on desc, o.created_at desc
-        limit 300`),
+         from (select o.*, row_number() over (
+                         partition by so_status(o.id) in ('DONE', 'CANCELLED')
+                         order by o.ordered_on desc, o.created_at desc) as rn
+                 from sales_order o) o
+         join customer c on c.id = o.customer_id
+        /* 진행 중인 주문은 모두, 끝난 주문은 최근 50건 (수주 검토 M9 - 300건에서 잘라 진행 중이 빠지던 것) */
+        where so_status(o.id) in ('OPEN', 'PARTIAL') or o.rn <= 50
+        order by o.ordered_on desc, o.created_at desc`),
     customers: await db.rows<CustomerOpt>(
       `select id, name, biz_no, contact_name, contact_phone, contact_email, address, note, is_active
          from customer order by is_active desc, name`),
     models: await db.rows<ModelOpt>(
-      `select id, code, name, udi_di as udi from item where type = 'FIN' and is_active order by code`),
+      /* 쓰지 않음으로 바꾼 형명도 재고가 남았으면 주문받는다 - 출고 검토도 받는다 (0168) */
+      `select id, code, name || case when is_active then '' else ' (쓰지 않음)' end as name, udi_di as udi
+         from item
+        where type = 'FIN'
+          and (is_active or exists (select 1 from product_lot pl where pl.item_id = item.id and pl.qty_available > 0))
+        order by is_active desc, code`),
     today: await db.val<string>(`select to_char(timezone('Asia/Seoul', now()),'YYYY-MM-DD')`),
   }));
 

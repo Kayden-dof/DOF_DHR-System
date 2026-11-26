@@ -28,7 +28,14 @@ function newLines(form: FormData): { item: string; qty: number }[] {
   const out: { item: string; qty: number }[] = [];
   for (const [k, v] of form.entries()) {
     const m = k.match(/^line_item_(\d+)$/);
-    if (!m || String(v) === '') continue;
+    if (!m) continue;
+    if (String(v) === '') {
+      /* 수량만 적고 형명이 빈 줄은 조용히 빼지 않는다 - 찾기 글이 맞지 않아 비워졌을 수 있다 */
+      if (String(form.get(`line_qty_${m[1]}`) ?? '').trim()) {
+        throw new Error('형명을 고르지 않은 줄이 있습니다. 형명을 고르거나 그 줄을 빼십시오');
+      }
+      continue;
+    }
     const qty = Number(form.get(`line_qty_${m[1]}`) ?? 0);
     if (!Number.isInteger(qty) || qty <= 0) throw new Error('형명 줄의 수량은 1 이상의 정수로 적으십시오');
     out.push({ item: String(v), qty });

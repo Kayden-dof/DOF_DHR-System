@@ -502,7 +502,9 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
           </Field>
         </div>
         <div className="border-t border-line-soft px-4 py-3">
-          <OrderLinks woId={wo.id} linked={d.orderLinks} options={d.orderLinkOpts} readOnly={readOnly} />
+          {/* 걸기 · 떼기는 처리 함수가 받는 사람(생산관리자 · 시스템관리자)에게만 (수주 검토 M11) */}
+          <OrderLinks woId={wo.id} linked={d.orderLinks} options={d.orderLinkOpts}
+                      readOnly={readOnly || !hasRole(user, 'SYS_ADMIN', 'PROD_MGR')} />
         </div>
       </Panel>
 

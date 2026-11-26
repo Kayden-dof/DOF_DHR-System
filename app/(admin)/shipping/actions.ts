@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 import { withActor, dbMessage } from '@/lib/db';
 import { requireUser, hasRole } from '@/lib/session';
 import type { FormState } from '@/lib/forms';
@@ -186,13 +187,14 @@ export async function approveRelease(_p: FormState, form: FormData): Promise<For
 }
 
 export async function ship(_p: FormState, form: FormData): Promise<FormState> {
+  let to = '';
   try {
     const me = await mgr();
     const lot = String(form.get('product_lot_id') ?? '');
     const line = String(form.get('sales_order_line_id') ?? '');
     if (!line) return { error: '주문 줄을 고르십시오' };
     const qty = Number(form.get('qty') ?? 0);
-    await withActor(me.id, async (db) => {
+    to = await withActor(me.id, async (db) => {
       /*
        * 출고 전 형명 일괄 검토 (0159 · 사용자 2026-11-25 «발주 형명이 맞는지 작업지시서 및 제조기록서
        * 일괄 검토해서 출고시 오규격이 나가지 않도록»). 제품 로트 · 작업지시서는 DB 트리거도 막고,
@@ -214,12 +216,20 @@ export async function ship(_p: FormState, form: FormData): Promise<FormState> {
          returning id`,
         [lot, line, qty, String(form.get('shipped_at') ?? ''), me.id]);
       if (done.length === 0) throw new Error('고른 주문 줄을 찾을 수 없습니다');
+      const cid = await db.val<string>(
+        `select o.customer_id from sales_order_line l join sales_order o on o.id = l.sales_order_id
+          where l.id = $1`, [line]);
+      return `/shipping/ship?c=${cid}&l=${line}&done=${(done[0] as { id: string }).id}`;
     });
-    bump();
-    return { ok: true, message: '출고를 기록했습니다.' };
   } catch (e) {
     return { error: dbMessage(e) };
   }
+  /*
+   * 출고 화면으로 다시 보낸다 - 기본 수량대로 나가면 그 줄이 닫히거나 로트가 바닥나 이 폼이 사라지고
+   * 결과 안내도 함께 사라졌다 (수주 검토 M3). 화면 머리가 «방금 기록한 출고» 를 보인다.
+   */
+  bump();
+  redirect(to);
 }
 
 /* ---------------------------------------------------------------------------

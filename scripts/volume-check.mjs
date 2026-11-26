@@ -105,6 +105,30 @@ try {
     } catch (e) { await c.query('rollback'); throw e; }
   }
 
+  /**
+   * 출고는 멸균 보고서(0160)와 주문 줄(0159)이 있어야 한다. 그 로트를 회수 · 보고서까지 적힌 멸균 위탁에
+   * 넣고, 그 로트 형명으로 주문서를 한 장 내어 줄 id 를 돌려준다. as() 안에서 부른다.
+   */
+  async function readyToShip(userId, lotId, customer, qty) {
+    const sb = (await one(
+      `insert into steril_batch (batch_no, vendor_name, registered_by, shipped_at, received_at, cert_no)
+       values ('ST-VOL-' || substr(md5(random()::text), 1, 8), '시험 멸균처', $1,
+               (timezone('Asia/Seoul', now()))::date, (timezone('Asia/Seoul', now()))::date,
+               'SR-VOL-' || substr(md5(random()::text), 1, 6)) returning id`, [userId])).id;
+    await c.query(
+      `insert into steril_batch_lot (steril_batch_id, product_lot_id, qty)
+       select $1, id, greatest(qty_produced, 1) from product_lot where id = $2`, [sb, lotId]);
+    const cid = (await one(`select id from customer where name = $1 order by created_at limit 1`, [customer]))?.id
+      ?? (await one(`insert into customer (name, created_by) values ($1,$2) returning id`, [customer, userId])).id;
+    const so = (await one(
+      `insert into sales_order (customer_id, customer_po_no, ordered_on, created_by)
+       values ($1, 'VOL-' || substr(md5(random()::text), 1, 8), (timezone('Asia/Seoul', now()))::date, $2)
+       returning id`, [cid, userId])).id;
+    return (await one(
+      `insert into sales_order_line (sales_order_id, item_id, qty)
+       select $1, item_id, $3 from product_lot where id = $2 returning id`, [so, lotId, qty])).id;
+  }
+
   const users = Object.fromEntries(
     (await all(`select login_code, id from app_user`)).map((x) => [x.login_code, x.id]));
   const adminId = users['000000'];
@@ -237,11 +261,12 @@ try {
       `select doc_no from record_print_log('RELEASE_REQUEST', md5($2) || md5($2),
                                            $1, null, null, null, null, 1, null)`,
       [wo, `vol${back}`])).rows[0].doc_no);
-    await as(mgr, () => c.query(
+    await as(mgr, async () => c.query(
       `insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by,
-                             release_request_no, unit_from, unit_to)
-       values ($1,'시험 거래처',10,(timezone('Asia/Seoul', now()))::date - ${back - 4},$2,$3,$4,$5)`,
-      [head.id, mgr, rrNo, head.qty_sample + 1, head.qty_sample + 10]));
+                             release_request_no, unit_from, unit_to, sales_order_line_id)
+       values ($1,'시험 거래처',10,(timezone('Asia/Seoul', now()))::date - ${back - 4},$2,$3,$4,$5,$6)`,
+      [head.id, mgr, rrNo, head.qty_sample + 1, head.qty_sample + 10,
+       await readyToShip(mgr, head.id, '시험 거래처', 10)]));
   }
 
   /* --- 3) 서버 ------------------------------------------------------------ */

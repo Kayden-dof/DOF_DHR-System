@@ -6,6 +6,7 @@ import type { FormState } from '@/lib/forms';
 import { daysUntilKST } from '@/lib/kst';
 import { fmtDate } from '@/lib/fmt';
 import { fmtDateTime } from '@/lib/fmt';
+import { findModel } from '@/lib/model-find';
 import { Msg, Tag } from '@/components/ui';
 import NumPad, { PresetPicker } from '@/components/num-pad';
 import { Dialog } from '@/components/dialog';
@@ -2035,11 +2036,8 @@ function CutPanel({
    */
   const [find, setFind] = useState('');
   const key = find.replace(/\s/g, '').toUpperCase();
-  /* GS1 글은 (01) 뒤 14자리, 괄호 없이 읽힌 것은 앞 «01» 다음 14자리. 그냥 14 · 13자리면 그대로(앞에 0) */
-  const gtin = key.match(/\(01\)(\d{14})/)?.[1]
-    ?? (/^01\d{14}/.test(key) && key.length > 14 ? key.slice(2, 16) : null)
-    ?? (/^\d{14}$/.test(key) ? key : /^\d{13}$/.test(key) ? `0${key}` : null);
-  const exact = key ? finished.find((f) => f.code.toUpperCase() === key || (!!gtin && f.udi === gtin)) : undefined;
+  /* GS1 글 · UDI-DI · 형명 코드 셈은 재단 관리 화면 · 수주 등록 폼과 한 벌 (lib/model-find.ts) */
+  const exact = findModel(find, finished);
   const shownModels = key && !exact
     ? finished.filter((f) => f.code.toUpperCase().includes(key) || (f.udi ?? '').includes(key))
     : finished;

@@ -29,7 +29,14 @@ function LineInput({ k, models, onRemove }: { k: number; models: ModelOpt[]; onR
   const [find, setFind] = useState('');
   const [itemId, setItemId] = useState('');
   const found = find ? findModel(find, models) : undefined;
-  useEffect(() => { if (found) setItemId(found.id); }, [found]);
+  /*
+   * 찾기 칸과 고른 형명이 어긋나지 않게 (수주 검토 M8): 맞는 형명이 있으면 고르고, 글을 고쳐 맞는 것이
+   * 없어지면 고른 것도 비운다 (필수 칸이라 등록이 멈춘다). 목록에서 직접 고르면 찾기 칸을 비운다.
+   */
+  useEffect(() => {
+    if (found) setItemId(found.id);
+    else if (find.trim()) setItemId('');
+  }, [found, find]);
 
   /*
    * 안내 글은 형명 칸 «밑의 줄» 에 따로 둔다 (사용자 2026-11-25 스크린샷). 칸 안에 두면
@@ -46,7 +53,7 @@ function LineInput({ k, models, onRemove }: { k: number; models: ModelOpt[]; onR
       <div>
         <label className="label" htmlFor={`${uid}-item`}>형명</label>
         <select id={`${uid}-item`} name={`line_item_${k}`} value={itemId}
-                onChange={(e) => setItemId(e.target.value)} className="input">
+                onChange={(e) => { setItemId(e.target.value); setFind(''); }} className="input">
           <option value="">선택하십시오</option>
           {models.map((o) => (
             <option key={o.id} value={o.id}>{o.code} · {o.name}{o.udi ? ` · UDI ${o.udi}` : ''}</option>

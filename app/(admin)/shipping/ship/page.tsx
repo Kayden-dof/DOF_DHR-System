@@ -50,7 +50,8 @@ interface OpenLine extends ShipLine { item_id: string; due_on: string | null }
 /** 멸균 보고서를 생략한 로트 (0166) */
 interface SkipRow extends PlOpt { skip: string; skipped_by_name: string; skipped_at: string }
 
-type Search = Promise<{ c?: string; l?: string }>;
+type Search = Promise<{ c?: string; l?: string; done?: string }>;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const LOTS = `
   select pl.id, pl.lot_no, i.code as item_code, i.name as item_name,
@@ -156,6 +157,20 @@ export default async function ShipPage({ searchParams }: { searchParams: Search 
            left join sales_order o on o.id = sl.sales_order_id
           order by sh.shipped_at desc, sh.id desc limit 100`),
       today: await db.val<string>(`select to_char(timezone('Asia/Seoul', now()),'YYYY-MM-DD')`),
+      /*
+       * 방금 기록한 출고 (?done=). 기본 수량대로 나가면 그 주문 줄이 닫히거나 로트가 바닥나 출고 폼이
+       * 사라지므로, 결과를 폼 대신 화면 머리에 둔다 (수주 검토 M3 · 2026-11-26).
+       */
+      justShipped: sp.done && UUID.test(sp.done)
+        ? await db.one<{ lot_no: string; qty: number; customer_name: string; po: string | null; left: number | null }>(
+            `select pl.lot_no, sh.qty, sh.customer_name, o.customer_po_no as po,
+                    so_line_left(sh.sales_order_line_id) as left
+               from shipment sh
+               join product_lot pl on pl.id = sh.product_lot_id
+               left join sales_order_line sl on sl.id = sh.sales_order_line_id
+               left join sales_order o on o.id = sl.sales_order_id
+              where sh.id = $1`, [sp.done])
+        : undefined,
     };
   });
 
@@ -170,6 +185,15 @@ export default async function ShipPage({ searchParams }: { searchParams: Search 
       lede="발주 업체와 주문 줄을 고르고, 로트의 «출고» 를 눌러 수량과 출고일을 적습니다. 형명 검토가 다른 로트는 출고하지 않습니다."
       nav={<SubNav items={SHIPPING_NAV} />}
     >
+      {d.justShipped && (
+        <p role="status" className="rounded-md border border-line bg-surface-sub px-4 py-2.5 text-sm">
+          <span className="font-semibold text-ok">출고를 기록했습니다.</span>{' '}
+          <span className="font-mono">{d.justShipped.lot_no}</span> {d.justShipped.qty.toLocaleString()}개 →{' '}
+          {d.justShipped.customer_name}
+          {d.justShipped.po && <> · 주문 <span className="font-mono">{d.justShipped.po}</span>
+            {d.justShipped.left !== null && <> 남음 {d.justShipped.left.toLocaleString()}</>}</>}
+        </p>
+      )}
       <Panel title="발주 업체" note="출고할 주문이 남은 거래처">
         {d.customers.length === 0 ? (
           <Empty hint="수주에서 고객 주문을 먼저 적으면 여기 나옵니다."
