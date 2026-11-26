@@ -19,14 +19,17 @@
        장당 개수를 모르면 배치당 예상 수량으로.
      · 원액 원료 = 그 원액의 한 배치 소요량 x (지난 원액 제조에서 원액 한 단위에 든 원료의 양).
      · 최소 재고선 = 한 배치 소요 x 4. 근거 문장을 남기고 개수 단위는 올린다. 값이 같으면 고치지 않는다.
+     · 다만 개당 기준 포장재(품목 유형 PACK)는 지금은 2,000 고정 (사용자 «한 배치 8,000 x 4 는 너무 과하다 ·
+       포장재 최소 수량은 2000장으로 합시다 지금은»). 한 배치 소요량은 근거 문장에 참고로 남긴다.
 =========================================================================== */
 
 create or replace function suggest_min_stock(p_days int default 90)
 returns int language plpgsql security definer
 set search_path = pg_catalog, public, pg_temp as $fn$
 declare
-  c_sheets constant int := 20;   -- 표준 배치 장입 (사용자 2026-11-26 «20장입»)
-  n int := 0; r record; v_min numeric; v_basis text;
+  c_sheets constant int := 20;      -- 표준 배치 장입 (사용자 2026-11-26 «20장입»)
+  c_pack_min constant int := 2000;  -- 개당 기준 포장재의 최소 재고선 (사용자 2026-11-26 «지금은 2000장»)
+  n int := 0; r record; v_min numeric; v_basis text; v_detail text; v_done uuid[] := '{}';
 begin
   for r in
     with base as (
@@ -102,26 +105,34 @@ begin
        where t.per_batch > 0
        order by t.item_id, t.per_batch desc
     )
-    select i.id, i.usage_uom, p.product_code, p.revision, p.per_batch, p.per_unit, p.through,
+    select i.id, i.usage_uom, i.type::text as type, p.product_code, p.revision, p.per_batch, p.per_unit, p.through,
            p.small_code, p.per_sheet
       from pick p join item i on i.id = p.item_id
      where i.is_active
   loop
-    /* 개수로 세는 단위는 올린다 */
-    v_min := case when r.usage_uom in ('EA', '개', '장', '매', '통', '병', 'BOX', 'box', '박스', 'roll', 'ROLL', '롤')
-                  then ceil(r.per_batch * 4) else round(r.per_batch * 4, 3) end;
-    v_basis := format('한 배치 소요 %s %s (%s %s · %s장%s%s) x 4 배치',
-                      trim(trailing '.' from trim(trailing '0' from round(r.per_batch, 3)::text)),
-                      r.usage_uom, r.product_code, r.revision, c_sheets,
-                      case when r.per_unit and r.small_code is not null
-                           then format(' · 가장 작은 형명 %s 장당 %s개', r.small_code, r.per_sheet) else '' end,
-                      case when r.through is not null
-                           then format(' · 원액 %s 을 거쳐 · 지난 제조 비율', r.through) else '' end);
+    v_detail := format('한 배치 소요 %s %s (%s %s · %s장%s%s)',
+                       trim(trailing '.' from trim(trailing '0' from round(r.per_batch, 3)::text)),
+                       r.usage_uom, r.product_code, r.revision, c_sheets,
+                       case when r.per_unit and r.small_code is not null
+                            then format(' · 가장 작은 형명 %s 장당 %s개', r.small_code, r.per_sheet) else '' end,
+                       case when r.through is not null
+                            then format(' · 원액 %s 을 거쳐 · 지난 제조 비율', r.through) else '' end);
+    if r.type = 'PACK' and r.per_unit then
+      /* 개당 기준 포장재는 지금은 고정 수량 (사용자 2026-11-26 «포장재 최소 수량은 2000장으로 합시다 지금은») */
+      v_min := c_pack_min;
+      v_basis := format('포장재 최소 수량 %s (사용자 2026-11-26) · 참고 %s', c_pack_min, v_detail);
+    else
+      /* 개수로 세는 단위는 올린다 */
+      v_min := case when r.usage_uom in ('EA', '개', '장', '매', '통', '병', 'BOX', 'box', '박스', 'roll', 'ROLL', '롤')
+                    then ceil(r.per_batch * 4) else round(r.per_batch * 4, 3) end;
+      v_basis := v_detail || ' x 4 배치';
+    end if;
     update item
        set min_stock = v_min, min_stock_auto = v_min, min_stock_basis = v_basis
      where id = r.id
        and (min_stock is distinct from v_min or min_stock_auto is distinct from v_min
             or min_stock_basis is distinct from v_basis);
+    v_done := v_done || r.id;
     n := n + 1;
   end loop;
 
@@ -136,7 +147,7 @@ begin
            and mi.issued_at >= now() - make_interval(days => p_days)
       left join process_record pr on pr.id = mi.process_record_id
      where i.is_active and i.type <> 'FIN'
-       and (i.min_stock_basis is null or i.min_stock_basis not like '%x 4 배치')
+       and not (i.id = any(v_done))
      group by i.id
   loop
     if r.used > 0 then
