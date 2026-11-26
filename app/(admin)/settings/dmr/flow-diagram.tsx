@@ -1,4 +1,5 @@
 import type { OperationRow } from './dmr-forms';
+import { chem } from '@/lib/fmt';
 
 /* ---------------------------------------------------------------------------
    제조 공정도
@@ -108,7 +109,7 @@ export default function FlowDiagram({
                   <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                     <span className="tnum text-xs text-faint">{op.seq}</span>
                     <span className={`text-sm ${isCut ? 'font-semibold text-brand-deep' : 'font-semibold text-ink'}`}>
-                      {op.name}
+                      {chem(op.name)}
                     </span>
                     <code className="font-mono text-xs text-faint">{op.code}</code>
                     {/* 보통 몇 일차. 흐름을 보며 며칠짜리인지 가늠하게 한다 */}

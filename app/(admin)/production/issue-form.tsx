@@ -9,7 +9,7 @@ import { Unblock } from '@/components/unblock';
 import type { Fix } from '@/lib/unblock';
 import { issueWorkOrder } from './actions';
 import { previewIssue, type IssuePreview } from './preview';
-import { num } from '@/lib/fmt';
+import { num, chem } from '@/lib/fmt';
 
 export interface DmOpt {
   id: string; revision: string; item_code: string; item_name: string;
@@ -352,7 +352,7 @@ export default function IssueForm({ masters, rawLots, finished, users, today, fi
               <tbody>
                 {pv.requirements.map((r, i) => (
                   <tr key={i}>
-                    <td className="td text-muted">{r.operation_name}</td>
+                    <td className="td text-muted">{chem(r.operation_name)}</td>
                     <td className="td ">
                       <span className="font-mono">{r.item_code}</span> {r.item_name}
                     </td>

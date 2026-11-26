@@ -15,7 +15,7 @@ import {
   updateOperation, updateBom, updateTier, setTierMax, bulkBom, deleteOperation,
 } from './actions';
 import { linkOperation } from '../../equipment/actions';
-import { num } from '@/lib/fmt';
+import { num, chem } from '@/lib/fmt';
 
 export interface OperationRow {
   id: string; seq: number; code: string; name: string; after_cutting: boolean;
@@ -377,7 +377,7 @@ function verifyRows(s: VerifySheet) {
     const eq = s.equipmentByOp[op.id] ?? [];
     rows.push({
       key: `op-${op.id}`, group: `공정 ${op.seq}`,
-      label: `${op.name} · 순서 · 코드 · 기록 단위 · 설비가 서면과 같습니까?`,
+      label: `${chem(op.name)} · 순서 · 코드 · 기록 단위 · 설비가 서면과 같습니까?`,
       value: [op.code, op.after_cutting ? '제품 로트 단위' : '배치 단위',
               ...(op.splits_models ? ['형명 갈림'] : []),
               eq.length ? eq.join(' · ') : '설비 없음'].join(' · '),
@@ -541,7 +541,7 @@ function DeleteOperationForm({ dm, op }: { dm: string; op: OperationRow }) {
         공정 지우기
       </button>
       <Dialog open={open} onClose={() => setOpen(false)} title="공정 지우기"
-              note={<><code className="font-mono">{op.code}</code> {op.name}</>}>
+              note={<><code className="font-mono">{op.code}</code> {chem(op.name)}</>}>
         <form action={action}>
           <input type="hidden" name="id" value={op.id} />
           <input type="hidden" name="device_master_id" value={dm} />
@@ -911,7 +911,7 @@ export function OperationCard({ dm, op, items, editable, rangeable = false, equi
       >
         <span className="w-7 shrink-0 text-center text-sm font-semibold tnum text-faint">{op.seq}</span>
         <code className="font-mono text-sm text-muted">{op.code}</code>
-        <span className="text-sm font-semibold text-ink">{op.name}</span>
+        <span className="text-sm font-semibold text-ink">{chem(op.name)}</span>
         <Tag tone={op.after_cutting ? 'brand' : 'quiet'}>
           {op.after_cutting ? '제품 로트 단위' : '배치 단위'}
         </Tag>

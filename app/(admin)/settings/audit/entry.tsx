@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { tableLabel, fieldLabel, valueLabel } from '@/lib/forms';
-import { fmtDateTime, shortId } from '@/lib/fmt';
+import { fmtDateTime, shortId, chem } from '@/lib/fmt';
 import ActionChip from '@/components/action-chip';
 
 export interface AuditEntry {
@@ -64,7 +64,7 @@ function show(table: string, key: string, v: unknown, refs?: Record<string, stri
     const d = new Date(v);
     if (!Number.isNaN(d.getTime())) return fmtDateTime(d);
   }
-  return valueLabel(table, key, v) ?? String(v);
+  return valueLabel(table, key, v) ?? chem(String(v));
 }
 
 /* 하루 안의 분으로 적는 열 (근무 달력 · 배치 계획) */

@@ -4,7 +4,7 @@ import { useActionState, useEffect, useMemo, useRef, useState, useId } from 'rea
 import Link from 'next/link';
 import type { FormState } from '@/lib/forms';
 import { daysUntilKST } from '@/lib/kst';
-import { fmtDate, num } from '@/lib/fmt';
+import { fmtDate, num, chem } from '@/lib/fmt';
 import { fmtDateTime } from '@/lib/fmt';
 import { findModel } from '@/lib/model-find';
 import { Msg, Tag } from '@/components/ui';
@@ -676,7 +676,7 @@ function OpTile({
 
       <div className="flex items-center gap-2">
         <span className="w-5 text-center text-sm font-semibold tnum text-faint">{o.seq}</span>
-        <span className="flex-1 text-base font-semibold text-ink">{o.name}</span>
+        <span className="flex-1 text-base font-semibold text-ink">{chem(o.name)}</span>
         {state === 'open' && <Tag tone="warn">진행 중</Tag>}
         {state === 'done' && <Tag tone="ok">마감</Tag>}
         {state === 'closed' && others && (
@@ -878,7 +878,7 @@ function OperationCard({
     <section ref={top} className="card scroll-mt-4 overflow-hidden">
       <header className="section-head bg-brand-soft">
         <div>
-          <h2 className="text-base font-semibold text-ink">{op.name}</h2>
+          <h2 className="text-base font-semibold text-ink">{chem(op.name)}</h2>
           <p className="text-xs text-muted">{op.code}</p>
         </div>
         {rec && (
@@ -936,7 +936,7 @@ function OperationCard({
          */
         <div className="space-y-3 py-4">
           <p className="rounded-md bg-ok-bg px-3 py-2.5 text-sm leading-relaxed text-ink">
-            <b>{op.name}</b>을 마감했습니다.
+            <b>{chem(op.name)}</b>을 마감했습니다.
             {' '}시작 <span className="tnum">{fmtDateTime(rec.started_at)}</span>
             {' '}· 종료 <span className="tnum">{fmtDateTime(rec.ended_at)}</span>
           </p>
@@ -1061,10 +1061,10 @@ function SkipCard({ woId, op, productLots, skips, recordedLotIds }: {
   return (
     <div className="space-y-3 border-b border-line-soft py-4">
       <div>
-        <p className="text-sm font-semibold text-ink">{op.name} 건너뛰기</p>
+        <p className="text-sm font-semibold text-ink">{chem(op.name)} 건너뛰기</p>
         <p className="mt-0.5 text-sm leading-relaxed text-muted">
-          멸균 선량 샘플처럼 {op.name}을 거치지 않는 제품 로트는 건너뜁니다.
-          건너뛴 로트에는 {op.name} 제조기록이 생기지 않습니다.
+          멸균 선량 샘플처럼 {chem(op.name)}을 거치지 않는 제품 로트는 건너뜁니다.
+          건너뛴 로트에는 {chem(op.name)} 제조기록이 생기지 않습니다.
         </p>
       </div>
 
@@ -1112,7 +1112,7 @@ function SkipCard({ woId, op, productLots, skips, recordedLotIds }: {
           <PresetPicker name="reason" label="건너뛰는 까닭" presets={SKIP_WHY} allowNone={false} />
           <Msg state={state} />
           <button type="submit" disabled={pending} className="btn-primary w-full">
-            <span className="font-mono">{lotNo(pick)}</span> {op.name} 건너뛰기
+            <span className="font-mono">{lotNo(pick)}</span> {chem(op.name)} 건너뛰기
           </button>
         </form>
       )}
@@ -1335,7 +1335,7 @@ function StartCard({ woId, day, dayDate, suggestDate, op, people, productLots, a
 
       <button type="submit" disabled={pending || (op.after_cutting && !lot)}
               className="btn-primary w-full">
-        {pending ? '시작하는 중' : `${op.name} 시작`}
+        {pending ? '시작하는 중' : `${chem(op.name)} 시작`}
       </button>
       {op.has_form && (
         <p className="text-center text-xs text-muted">시작하면 이 공정의 제조기록서가 바로 뜹니다.</p>
@@ -1749,7 +1749,7 @@ function EndForm({ woId, rec, op, missing, unused = [], flags = [], compact = fa
             </p>
           )}
           <p className="rounded-md bg-canvas px-3 py-2.5 text-sm leading-relaxed text-ink">
-            <b>{op.name}</b>을 위 종료 일시로 마감합니다.
+            <b>{chem(op.name)}</b>을 위 종료 일시로 마감합니다.
             마감 후에도 일차를 마감하기 전이면 기록서 칸과 자재를 더 적을 수 있습니다.
             {empty > 0 && (
               <span className="mt-1 block font-semibold text-warn">
@@ -2472,7 +2472,7 @@ function PrepCard(
         {today.map((o) => (
           <li key={o.id} className="flex items-baseline gap-3">
             <span className="font-mono text-xs text-faint">{o.code}</span>
-            <span className="text-lg font-semibold text-ink">{o.name}</span>
+            <span className="text-lg font-semibold text-ink">{chem(o.name)}</span>
             {o.qual_managed && !o.qualified && (
               <span className="text-xs font-semibold text-warn">자격 없음</span>
             )}

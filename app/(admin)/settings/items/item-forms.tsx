@@ -414,7 +414,11 @@ export function ItemRowView({ it, suppliers }: {
                 <p className="rounded-md bg-surface px-3 py-2 text-xs leading-relaxed text-muted sm:col-span-2">
                   <b className="text-ink">자동 산출값 {num(it.min_stock_auto)}</b>
                   {it.min_stock_basis ? ` · ${it.min_stock_basis}` : ''}
-                  <br />제안일 뿐이며 최소 재고선을 덮어쓰지 않습니다. 쓰려면 위 항목에 직접 입력하십시오.
+                  <br />
+                  {/* 구성표에 든 품목은 4배치 기준이 최소 재고선을 잡는다 (0169) */}
+                  {it.min_stock_basis?.includes('x 4 배치')
+                    ? '자재 구성표의 한 배치 소요량 x 4 로 최소 재고선을 잡습니다. 여기서 고쳐도 재고 화면의 «최소 재고선 다시 셈» 에서 이 값으로 돌아갑니다.'
+                    : '제안일 뿐이며 최소 재고선을 덮어쓰지 않습니다. 쓰려면 위 항목에 직접 입력하십시오.'}
                 </p>
               )}
               <div className="sm:col-span-2"><Msg state={state} /></div>

@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { requireUser, hasRole } from '@/lib/session';
 import { withUser } from '@/lib/db';
 import type { RoleCode } from '@/lib/roles';
-import { fmtDate, fmtDateTime, num } from '@/lib/fmt';
+import { fmtDate, fmtDateTime, num, chem } from '@/lib/fmt';
 import Denied from '@/components/denied';
 import { Panel, Empty, Field } from '@/components/ui';
 import { PageShell } from '@/components/shell';
@@ -335,7 +335,7 @@ async function MaterialView({ me, id }: { me: Me; id: string }) {
                   {d.products.map((p, i) => (
                     <tr key={i}>
                       <td className="td font-mono ">{p.batch_no}</td>
-                      <td className="td text-sm">{p.operation_name}</td>
+                      <td className="td text-sm">{chem(p.operation_name)}</td>
                       <td className="td font-mono font-semibold">
                         {p.lot_no || <span className="font-sans text-muted">배치 전체</span>}
                       </td>
@@ -379,7 +379,7 @@ async function MaterialView({ me, id }: { me: Me; id: string }) {
                       {v.batch_no ? (
                         <>
                           <td className="td font-mono text-xs">{v.batch_no}</td>
-                          <td className="td text-sm">{v.operation_name}</td>
+                          <td className="td text-sm">{chem(v.operation_name)}</td>
                           <td className="td font-mono text-xs font-semibold">
                             {v.lot_no || <span className="font-sans text-muted">배치 전체</span>}
                           </td>
@@ -598,7 +598,7 @@ async function BatchView({ me, kind, id }: {
                     </td>
                     <td className="td tnum text-muted">{w.work_date}</td>
                     <td className="td">
-                      <div className="text-sm">{w.operation_name}</div>
+                      <div className="text-sm">{chem(w.operation_name)}</div>
                       <div className="font-mono text-xs text-faint">{w.operation_code}</div>
                     </td>
                     <td className="td text-sm">
@@ -668,7 +668,7 @@ function GenTable({ rows, lots }: {
               </td>
               <td className="td font-mono font-semibold">{g.material_lot_no}</td>
               <td className="td tnum text-right">{num(g.qty)}</td>
-              <td className="td ">{g.operation_name}</td>
+              <td className="td ">{chem(g.operation_name)}</td>
               {lots && (
                 <td className="td font-mono ">{lotNo(g.product_lot_id)}</td>
               )}

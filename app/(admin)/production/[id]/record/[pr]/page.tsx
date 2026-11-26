@@ -6,6 +6,7 @@ import { withActor } from '@/lib/db';
 import { brSheet } from '@/lib/br-sheet';
 import RecordSheetClient from './sheet-client';
 import IssuePanel, { type IssueLot } from './issue-panel';
+import { chem } from '@/lib/fmt';
 
 export const dynamic = 'force-dynamic';
 
@@ -59,7 +60,7 @@ export default async function RecordSheetPage({ params, searchParams }: {
   return (
     <div className="space-y-3">
       <RecordSheetClient initial={{ ...d.sheet, locked: false }} recordId={pr} woId={id}
-                         title={`${d.head.batch_no} · ${d.head.day_no}일차 · ${d.head.op_name} · ${d.head.worker}`}
+                         title={`${d.head.batch_no} · ${d.head.day_no}일차 · ${chem(d.head.op_name)} · ${d.head.worker}`}
                          locked={d.head.locked} />
       <IssuePanel recordId={pr} woId={id} lots={d.lots} />
     </div>

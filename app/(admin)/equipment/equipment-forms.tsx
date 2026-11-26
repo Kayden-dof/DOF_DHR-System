@@ -6,7 +6,7 @@ import { Msg, Tag } from '@/components/ui';
 import Toasts from '@/components/toast';
 import { Dialog, useDialog } from '@/components/dialog';
 import Link from 'next/link';
-import { fmtDate } from '@/lib/fmt';
+import { fmtDate, chem } from '@/lib/fmt';
 import { saveEquipment, linkOperation, saveValidation, deleteValidation } from './actions';
 import { CHECK_CYCLES, cycleLabel, isNoExpiry, NO_EXPIRY } from '@/lib/equipment-check';
 
@@ -403,7 +403,7 @@ export function EquipCard({ e, ops, warnDays, writable = true }: {
                     const on = linked.has(o.id);
                     const look = `chip ${on ? 'bg-brand text-white' : 'bg-canvas text-muted'}`;
                     /* 읽기 전용이면 같은 모양을 글자로만 놓는다. 걸린 곳은 보이되 눌리지 않는다 */
-                    if (!writable) return <span key={o.id} className={look}>{o.name}</span>;
+                    if (!writable) return <span key={o.id} className={look}>{chem(o.name)}</span>;
                     return (
                       <form key={o.id} action={linkAction}>
                         <input type="hidden" name="equipment_id" value={e.id} />
@@ -411,7 +411,7 @@ export function EquipCard({ e, ops, warnDays, writable = true }: {
                         <input type="hidden" name="on" value={on ? '0' : '1'} />
                         <button type="submit"
                                 className={`${look} transition-colors ${on ? '' : 'hover:text-ink'}`}>
-                          {o.name}
+                          {chem(o.name)}
                         </button>
                       </form>
                     );

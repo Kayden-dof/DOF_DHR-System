@@ -258,17 +258,33 @@ export async function createOrder(_p: FormState, form: FormData): Promise<FormSt
      * 적어 넣었으면 그 번호를 쓴다 - 공급자가 정한 번호를 따라야 할 때.
      */
     const typed = String(form.get('po_no') ?? '').trim();
+    /*
+     * 발주 단위 · 총액 (0170 · 사용자 2026-11-26). 수량은 고른 단위로 받고, 사용 단위가 아니면
+     * «1 발주 단위 = 몇 사용 단위» 를 함께 받아 qty(사용 단위)를 셈한다. 입고 누계 · 미입고는
+     * qty 로 센다.
+     */
+    const orderQty = num(form.get('qty'), '수량');
+    const usageUom = String(form.get('usage_uom') ?? '').trim();
+    const orderUom = String(form.get('order_uom') ?? '').trim();
+    const foreign = orderUom !== '' && orderUom !== usageUom;
+    const factor = foreign ? num(form.get('factor'), `1 ${orderUom} 의 ${usageUom || '사용 단위'} 수`) : 1;
+    if (!(factor > 0)) throw new Error(`1 ${orderUom} 이 ${usageUom} 로 얼마인지 0 보다 크게 넣으십시오`);
+    const usageQty = Number((orderQty * factor).toFixed(6));
+    const total = numOrNull(form.get('total_amount'), '총액');
+    /* 단가를 비우고 총액만 적으면 총액 ÷ 사용 단위 수량을 단가로 적는다 (원가 셈이 단가를 읽는다) */
+    const price = numOrNull(form.get('unit_price'), '단가')
+      ?? (total != null && usageQty > 0 ? Number((total / usageQty).toFixed(4)) : null);
     const poNo = await withActor(me.id, async (db) => {
       const no = typed || (await db.val<string>(
         `select next_number('PURCHASE_ORDER', null, $1::date)`, [orderedAt]));
       await db.rows(
         `insert into purchase_order (po_no, item_id, supplier_id, qty, unit_price,
-           ordered_at, expected_at, ordered_by)
-         values ($1,$2,$3,$4,$5,$6::date,$7::date,$8)`,
+           ordered_at, expected_at, ordered_by, total_amount, order_qty, order_uom)
+         values ($1,$2,$3,$4,$5,$6::date,$7::date,$8,$9,$10,$11)`,
         [no, String(form.get('item_id') ?? ''), String(form.get('supplier_id') ?? ''),
-         num(form.get('qty'), '수량'),
-         numOrNull(form.get('unit_price'), '단가'),
-         orderedAt, txt(form.get('expected_at')), me.id]);
+         usageQty, price,
+         orderedAt, txt(form.get('expected_at')), me.id,
+         total, foreign ? orderQty : null, foreign ? orderUom : null]);
       return no;
     });
     bump();
@@ -488,10 +504,13 @@ export async function suggestMinStock(): Promise<FormState> {
     const n = await withActor(me.id, (db) => db.val<number>(`select suggest_min_stock(90)`));
     revalidatePath('/material/stock');
     revalidatePath('/settings/items');
+    /*
+     * 자재 구성표에 든 품목은 한 배치(장입 상한) 소요량 x 4 를 최소 재고선으로 잡는다
+     * (0169 · 사용자 2026-11-26 «항상 4배치 생산량 기준»). 구성표 밖 품목은 제안값만 셈한다.
+     */
     return {
       ok: true,
-      message: `${n}개 품목에 제안값을 계산했습니다. 최소 재고선은 덮어쓰지 않았습니다. ` +
-               `품목 화면에서 근거를 보고 직접 입력하십시오.`,
+      message: `${n}개 품목을 다시 셈했습니다. 자재 구성표에 든 품목은 한 배치 소요량 x 4 로 최소 재고선을 잡았습니다.`,
     };
   } catch (e) {
     return { error: dbMessage(e) };

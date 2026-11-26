@@ -7,7 +7,7 @@ import { SubNav } from '../../nav';
 import { settingsNav } from '../../sections';
 import { Panel, Empty, Tag } from '@/components/ui';
 import { Table, Th, Td } from '@/components/table';
-import { fmtDate } from '@/lib/fmt';
+import { fmtDate, chem } from '@/lib/fmt';
 import {
   VERDICT_LABEL, isOff, isNumberDiff, flowBreaks, kindFor, REQ_KIND_LABEL, REQ_STATUS_LABEL, REQ_TARGET_LABEL,
   type CheckRow, type Verdict, type ReqKind, type ReqStatus,
@@ -187,7 +187,7 @@ export default async function DocsCheckPage({ searchParams }: { searchParams: Se
                     <tr key={r.id}>
                       <Td className="whitespace-nowrap">
                         <div className="font-mono text-xs text-faint">{r.op_code}</div>
-                        <div>{r.op_name}</div>
+                        <div>{chem(r.op_name)}</div>
                       </Td>
                       <Td className="font-semibold text-ink">{r.item}</Td>
                       <Td className="qd-col-grow min-w-[12rem] whitespace-pre-line">
@@ -223,7 +223,7 @@ export default async function DocsCheckPage({ searchParams }: { searchParams: Se
             return (
               <Panel
                 key={op}
-                title={`${op} ${opName}`}
+                title={`${op} ${chem(opName)}`}
                 note={
                   <>
                     {docs.map((x) => `${x.doc_no} ${x.revision}${x.issued_on ? ` (${fmtDate(x.issued_on)})` : ''}`).join(' · ')}

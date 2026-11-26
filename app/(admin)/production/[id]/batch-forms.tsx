@@ -15,7 +15,7 @@ import {
   recordNonconformity, recordWipNonconformity, endRecordForWorker,
 } from '../actions';
 import { fixRecord } from '@/app/(work)/work/actions';
-import { num } from '@/lib/fmt';
+import { num, chem } from '@/lib/fmt';
 
 export interface LotRow {
   id: string; lot_no: string; item_code: string; item_name: string;
@@ -907,7 +907,7 @@ export function NonconformityForm({ lot, woId, today, ops }: {
               <select id={`${uid}-operation_id`} name="operation_id" required className="input">
                 <option value="">선택하십시오</option>
                 {ops.filter((o) => o.after_cutting).map((o) => (
-                  <option key={o.id} value={o.id}>{o.name} ({o.code})</option>
+                  <option key={o.id} value={o.id}>{chem(o.name)} ({o.code})</option>
                 ))}
               </select>
             </div>
@@ -1040,7 +1040,7 @@ export function WipNonconformityForm({ woId, today, ops, sheets }: {
               <select id={`${uid}-operation_id`} name="operation_id" required className="input">
                 <option value="">선택하십시오</option>
                 {ops.filter((o) => !o.after_cutting).map((o) => (
-                  <option key={o.id} value={o.id}>{o.name} ({o.code})</option>
+                  <option key={o.id} value={o.id}>{chem(o.name)} ({o.code})</option>
                 ))}
               </select>
             </div>

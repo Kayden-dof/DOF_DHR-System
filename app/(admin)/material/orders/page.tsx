@@ -41,6 +41,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
   const d = await withUser(user, async (db) => ({
     orders: await db.rows<OrderRow>(
       `select po.id, po.po_no, po.qty, po.unit_price, po.ordered_at, po.expected_at,
+              po.total_amount, po.order_qty, po.order_uom,
               po.status, i.code as item_code, i.name as item_name, i.usage_uom,
               s.name as supplier_name, s.status as supplier_status, u.full_name as ordered_by_name,
               (select count(*)::int from material_lot ml where ml.purchase_order_id = po.id) as lot_count,
@@ -56,7 +57,8 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
      * 재단에서, 원액은 원료로 만든다 (재고 증감 화면의 원액 제조).
      */
     items: await db.rows<ItemOpt>(
-      `select id, code, name, usage_uom, type::text as type, default_supplier_id
+      `select id, code, name, usage_uom, type::text as type, default_supplier_id,
+              purchase_uom, conversion, alt_uom, alt_ratio
          from item
         where is_active and type not in ('FIN', 'SOLUTION') order by type, code`),
     suppliers: await db.rows<SupplierOpt>(
@@ -199,7 +201,13 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                           </Link>
                         )}
                       </td>
-                      <td className="td tnum text-right">{num(o.qty)} {o.usage_uom}</td>
+                      <td className="td tnum text-right">
+                        {num(o.qty)} {o.usage_uom}
+                        {/* 발주 단위로 낸 발주는 발주서의 수량도 함께 (0170) */}
+                        {o.order_uom && (
+                          <div className="text-xs text-faint">발주 {num(o.order_qty)} {o.order_uom}</div>
+                        )}
+                      </td>
                       {/*
                         * 얼마나 들어왔는지를 줄에서 바로 보인다. 전에는 상태
                         * 조각 하나뿐이라, 절반 들어온 발주와 다 들어온 발주가
@@ -211,14 +219,17 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                             {num(o.received)}
                             {Number(o.received) < Number(o.qty) && (
                               <span className="ml-1 text-xs text-warn">
-                                남은 {Number(o.qty) - Number(o.received)}
+                                남은 {num(Number(o.qty) - Number(o.received))}
                               </span>
                             )}
                           </>
                         ) : <span className="text-faint">0</span>}
                       </td>
                       <td className="td tnum text-right text-muted">
-                        {o.unit_price ? Number(o.unit_price).toLocaleString() : ''}
+                        {o.unit_price ? num(o.unit_price) : ''}
+                        {o.total_amount && (
+                          <div className="text-xs text-faint">총액 {num(o.total_amount)}</div>
+                        )}
                       </td>
                       <td className="td tnum ">{fmtDate(o.ordered_at)}</td>
                       <td className="td tnum text-muted">{fmtDate(o.expected_at)}</td>

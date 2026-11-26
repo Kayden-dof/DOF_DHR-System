@@ -25,7 +25,7 @@ export default function StockTools({ alerts, expirable }: {
         </form>
         <form action={a1}>
           <button type="submit" disabled={p1} className="btn-ghost">
-            최소 재고선 제안
+            최소 재고선 다시 셈
           </button>
         </form>
       </div>

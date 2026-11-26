@@ -9,6 +9,7 @@ import {
 } from '@/lib/timeline';
 import { saveTimeline } from './actions';
 import s from './timeline.module.css';
+import { chem } from '@/lib/fmt';
 
 /* ---------------------------------------------------------------------------
    공정 시간표 편집 (0137 · 사용자 2026-11-19)
@@ -330,8 +331,8 @@ export default function TimelineEditor({
               return (
                 <div key={op.seq}>
                   <div className={`${s.row} ${s.grp}`}>
-                    <div className={s.lab} title={`${op.code} ${op.name}`}>
-                      <span className={s.nm}><i className={s.sw} style={{ background: c }} />{op.seq} {op.name}</span>
+                    <div className={s.lab} title={`${op.code} ${chem(op.name)}`}>
+                      <span className={s.nm}><i className={s.sw} style={{ background: c }} />{op.seq} {chem(op.name)}</span>
                       <span className={s.tm}>{dayIndex(s0) + 1}일차 {span(s0, e0)}</span>
                     </div>
                     <div className={s.track} style={{ width: P.W }}>
@@ -389,7 +390,7 @@ export default function TimelineEditor({
                   <input id="tl-n" name="n" className="input" defaultValue={x.n} maxLength={80} />
                   <label htmlFor="tl-p">공정</label>
                   <select id="tl-p" name="p" className="input" defaultValue={x.p}>
-                    {ops.map((o) => <option key={o.seq} value={o.seq}>{o.seq} {o.name}</option>)}
+                    {ops.map((o) => <option key={o.seq} value={o.seq}>{o.seq} {chem(o.name)}</option>)}
                   </select>
                   <label htmlFor="tl-k">구분</label>
                   <select id="tl-k" name="k" className="input" defaultValue={x.k}>

@@ -1,5 +1,6 @@
 import { withUser } from '@/lib/db';
 import type { SessionUser } from '@/lib/session';
+import { chem } from '@/lib/fmt';
 
 /* ---------------------------------------------------------------------------
    감사추적의 번호를 이름으로 (사용자 2026-11-26 «이거 보면 뭔 활동인지 알겠냐?»)
@@ -87,7 +88,8 @@ export async function withRefs<T extends WithValues>(user: SessionUser, entries:
        where x.label is not null`,
       [ids],
     ));
-    names = new Map(rows.map((r) => [r.id, r.label]));
+    /* 이름은 화면에 낼 때 화학식을 아래첨자로 (H2O2 처리 -> H₂O₂ 처리 · lib/fmt chem) */
+    names = new Map(rows.map((r) => [r.id, chem(r.label)]));
   } catch (e) {
     console.warn('[audit] 번호를 이름으로 풀지 못함', e instanceof Error ? e.message : e);
     return entries;
@@ -108,6 +110,6 @@ export async function withRefs<T extends WithValues>(user: SessionUser, entries:
         .filter((x): x is string => !!x);
       if (parts.length) label = [...new Set(parts)].slice(0, 2).join(' · ');
     }
-    return { ...e, refs, label };
+    return { ...e, refs, label: label ? chem(label) : label };
   });
 }

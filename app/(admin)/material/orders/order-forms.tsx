@@ -15,9 +15,14 @@ export interface OrderRow {
   supplier_status?: string;
   /** 그 발주로 들어온 양 (사용 단위). 0102 의 po_received */
   received: string;
+  /** 발주 총액 · 발주서의 수량과 단위 (0170). 사용 단위로 냈으면 단위는 비어 있다 */
+  total_amount?: string | null; order_qty?: string | null; order_uom?: string | null;
 }
 export interface ItemOpt {
   id: string; code: string; name: string; usage_uom: string; type: string;
+  /** 발주 단위 고르기에 내놓는 품목의 다른 단위와 그 환산 (0170) */
+  purchase_uom?: string | null; conversion?: string | null;
+  alt_uom?: string | null; alt_ratio?: string | null;
   /** 품목이 정해 둔 기본 공급자. 고르면 그쪽으로 따라간다 (6차 감사 N7) */
   default_supplier_id: string | null;
 }
@@ -64,6 +69,26 @@ export function NewOrder({ items, suppliers, today, presetItem, presetQty, label
     || (item?.default_supplier_id ?? '')
     || (suppliers.find((x) => x.status === 'APPROVED')?.id ?? suppliers[0]?.id ?? '');
 
+  /*
+   * 발주 단위 (0170 · 사용자 2026-11-26 «수량 단위를 내가 지정할 수 있도록»). 품목의 사용 · 구매 ·
+   * 함께 적는 단위를 내놓되 직접 적을 수도 있다. 사용 단위가 아니면 «1 단위 = 몇 사용 단위» 를
+   * 받는다 - 입고 누계와 미입고는 사용 단위로 센다. 아는 단위는 환산을 채워 둔다.
+   */
+  const [uom, setUom] = useState('');
+  const [factor, setFactor] = useState('');
+  const [qtyIn, setQtyIn] = useState(presetQty && presetQty > 0 ? String(Number(presetQty.toFixed(6))) : '');
+  const [price, setPrice] = useState('');
+  const [total, setTotal] = useState('');
+  const usage = item?.usage_uom ?? '';
+  const unit = uom.trim() || usage;
+  const known: Record<string, string> = {};
+  if (item?.purchase_uom && item.purchase_uom !== usage && item.conversion) known[item.purchase_uom] = String(Number(item.conversion));
+  if (item?.alt_uom && item.alt_uom !== usage && item.alt_ratio) known[item.alt_uom] = String(Number(item.alt_ratio));
+  const foreign = !!item && unit !== usage;
+  const f = foreign ? Number(factor || known[unit] || '') : 1;
+  const usageQty = Number(qtyIn) * (f > 0 ? f : NaN);
+  const derived = !price && Number(total) > 0 && usageQty > 0 ? Number((Number(total) / usageQty).toFixed(4)) : null;
+
   /* 줄에서 열면 늘 그 품목으로 시작한다 */
   const start = () => {
     if (presetItem) { setItemId(presetItem); setSupplierId(''); }
@@ -96,7 +121,7 @@ export function NewOrder({ items, suppliers, today, presetItem, presetQty, label
         <div className="lg:col-span-2">
           <label className="label" htmlFor={`${uid}-item_id`}>품목</label>
           <select id={`${uid}-item_id`} name="item_id" required value={item?.id ?? ''}
-                  onChange={(e) => { setItemId(e.target.value); setSupplierId(''); }}
+                  onChange={(e) => { setItemId(e.target.value); setSupplierId(''); setUom(''); setFactor(''); }}
                   className="input">
             <option value="">선택하십시오</option>
             {items.map((i) => <option key={i.id} value={i.id}>{i.code} · {i.name}</option>)}
@@ -115,14 +140,50 @@ export function NewOrder({ items, suppliers, today, presetItem, presetQty, label
           </select>
         </div>
         <div>
-          <label className="label" htmlFor={`${uid}-qty`}>수량{item ? ` (${item.usage_uom})` : ''}</label>
+          <label className="label" htmlFor={`${uid}-qty`}>수량</label>
           <input id={`${uid}-qty`} name="qty" type="number" step="any" min="0.0001" required
-                 defaultValue={presetQty && presetQty > 0 ? Number(presetQty.toFixed(6)) : undefined}
+                 value={qtyIn} onChange={(e) => setQtyIn(e.target.value)}
                  className="input tnum" />
         </div>
         <div>
-          <label className="label" htmlFor={`${uid}-unit_price`}>단가</label>
-          <input id={`${uid}-unit_price`} name="unit_price" type="number" step="any" min="0" className="input tnum" />
+          <label className="label" htmlFor={`${uid}-order_uom`}>단위</label>
+          <input id={`${uid}-order_uom`} name="order_uom" list={`${uid}-uoms`} autoComplete="off"
+                 value={uom} placeholder={usage || '단위'} onChange={(e) => setUom(e.target.value)}
+                 className="input" />
+          <datalist id={`${uid}-uoms`}>
+            {[usage, ...Object.keys(known)].filter(Boolean).map((u) => <option key={u} value={u} />)}
+          </datalist>
+          <input type="hidden" name="usage_uom" value={usage} />
+          {!foreign && usage && <p className="mt-1 text-xs text-muted">사용 단위 그대로입니다.</p>}
+        </div>
+        {foreign && (
+          <div>
+            <label className="label" htmlFor={`${uid}-factor`}>1 {unit} = ? {usage}</label>
+            <input id={`${uid}-factor`} name="factor" type="number" step="any" min="0.000001" required
+                   value={factor || known[unit] || ''} onChange={(e) => setFactor(e.target.value)}
+                   className="input tnum" />
+            {usageQty > 0 && (
+              <p className="mt-1 text-xs text-muted">
+                사용 단위로 <span className="tnum">{usageQty.toLocaleString('ko-KR', { maximumFractionDigits: 6 })}</span> {usage}
+              </p>
+            )}
+          </div>
+        )}
+        <div>
+          <label className="label" htmlFor={`${uid}-unit_price`}>단가{usage ? ` (원 / ${usage})` : ''}</label>
+          <input id={`${uid}-unit_price`} name="unit_price" type="number" step="any" min="0"
+                 value={price} onChange={(e) => setPrice(e.target.value)} className="input tnum" />
+          {derived != null && (
+            <p className="mt-1 text-xs text-muted">
+              비워 두면 총액 ÷ 수량 <span className="tnum">{derived.toLocaleString('ko-KR')}</span>원으로 적습니다.
+            </p>
+          )}
+        </div>
+        <div>
+          <label className="label" htmlFor={`${uid}-total_amount`}>발주 총액 (원)</label>
+          <input id={`${uid}-total_amount`} name="total_amount" type="number" step="any" min="0"
+                 value={total} onChange={(e) => setTotal(e.target.value)} className="input tnum" />
+          <p className="mt-1 text-xs text-muted">부가세 별도 · 운송비 등을 포함한 견적 금액 그대로</p>
         </div>
         <div>
           <label className="label" htmlFor={`${uid}-ordered_at`}>발주일</label>
@@ -134,7 +195,7 @@ export function NewOrder({ items, suppliers, today, presetItem, presetQty, label
         </div>
       </div>
       <p className="mt-3 text-xs leading-relaxed text-muted">
-        수량은 사용 단위 기준입니다. 입고 등록에서 이 발주를 선택하면 자동으로 입고 완료로 넘어갑니다.
+        사용 단위가 아닌 단위로 적으면 사용 단위로 셈해 입고와 맞춥니다. 입고 등록에서 이 발주를 선택하면 자동으로 입고 완료로 넘어갑니다.
         {presetQty && presetQty > 0 ? ' 수량은 모자란 양으로 채웠습니다.' : ''}
       </p>
       <Msg state={state} />

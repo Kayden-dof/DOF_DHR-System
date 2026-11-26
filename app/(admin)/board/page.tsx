@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { requireUser, hasRole } from '@/lib/session';
 import { withUser } from '@/lib/db';
-import { fmtDate, num } from '@/lib/fmt';
+import { fmtDate, num, chem } from '@/lib/fmt';
 import { md } from '@/lib/timeline';
 import { PageShell, StatStrip, type StatItem } from '@/components/shell';
 import { statRows as rows, mono } from '@/components/stat-rows';
@@ -503,7 +503,7 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
                 {d.wipNc.map((w, i) => (
                   <tr key={i}>
                     <td className="td font-mono ">{w.batch_no}</td>
-                    <td className="td text-sm">{w.op_name}</td>
+                    <td className="td text-sm">{chem(w.op_name)}</td>
                     <td className="td text-sm text-muted">{w.reason_code}</td>
                     <td className="td">
                       <Tag tone={w.outcome === 'SCRAP' ? 'danger'

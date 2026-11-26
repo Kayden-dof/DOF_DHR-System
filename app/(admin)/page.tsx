@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { requireUser, hasRole } from '@/lib/session';
 import { withUser } from '@/lib/db';
 import { getBrand } from '@/lib/brand';
-import { fmtDate, num } from '@/lib/fmt';
+import { fmtDate, num, chem } from '@/lib/fmt';
 import {
   NUMBERING_TARGETS, M1_CRITICAL_TARGETS, WO_STATUS_LABEL, PL_STATUS_LABEL,
 } from '@/lib/forms';
@@ -311,7 +311,7 @@ export default async function Dashboard() {
     { label: '마감 안 된 공정', value: c.open_records, unit: '건', href: '/production?due=records',
       tone: c.open_records > 0 ? 'info' : undefined,
       detail: statRows(L.open_records.map((r) => ({
-        left: mono(r.batch_no), sub: `${r.op_name} · ${r.worker}`,
+        left: mono(r.batch_no), sub: `${chem(r.op_name)} · ${r.worker}`,
         right: `${r.day_no}일차`,
       })), '끝나지 않은 공정이 없습니다', c.open_records) },
 
