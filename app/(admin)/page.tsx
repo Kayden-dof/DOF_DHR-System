@@ -403,7 +403,7 @@ export default async function Dashboard() {
               진행 중인 배치가 없습니다.
             </Empty>
           ) : (
-            <Table>
+            <Table grow={2}>
               <thead>
                 <tr>
                   <Th>배치 · 지시서</Th>
@@ -513,7 +513,7 @@ export default async function Dashboard() {
               마감을 기다리는 일차가 없습니다.
             </Empty>
           ) : (
-            <Table>
+            <Table grow={0}>
               <thead>
                 <tr>
                   <Th>배치</Th>

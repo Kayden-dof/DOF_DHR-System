@@ -1186,7 +1186,7 @@ export function SamplePlanForm({ id, tiers, basis }: {
       </div>
 
       {tiers.length > 0 && (
-        <table className="qd-table qd-table--hangul mt-2 max-w-md">
+        <table className="qd-table qd-table--hangul mt-2 max-w-md" data-grow="0">
           <thead>
             <tr>
               <th className="th">생산 수량</th>

@@ -149,7 +149,7 @@ export default async function DocsCheckPage({ searchParams }: { searchParams: Se
           {d.bound.length > 0 && (
             <Panel title="개정안 문서 (판에 묶임)"
                    note="이 판의 제품표준서로 낸 작업 지시만 이 양식을 씁니다. 다른 판의 지시는 아래 현행 양식 그대로입니다. 빈 양식 보기는 기록이 아니라 인쇄 대장에 남지 않습니다.">
-              <Table grow={4}>
+              <Table grow={5}>
                 <thead><tr><Th>문서</Th><Th>개정</Th><Th>딸린 판</Th><Th>쪽</Th><Th>근거</Th><Th>양식</Th></tr></thead>
                 <tbody>
                   {d.bound.map((x) => (
@@ -171,14 +171,14 @@ export default async function DocsCheckPage({ searchParams }: { searchParams: Se
               title="수치가 다른 항목"
               note={`불일치 가운데 두 문서가 서로 다른 숫자를 적은 줄 ${numDiff.length}줄입니다. 공정 순서대로 모았습니다.`}
             >
-              <Table grow={4}>
+              <Table grow={0}>
                 <thead>
                   <tr>
                     <Th>공정</Th>
                     <Th>항목</Th>
-                    <Th>작업표준서</Th>
-                    <Th>제조기록서</Th>
-                    <Th>무엇이 다른가</Th>
+                    <Th className="qd-col-grow">작업표준서</Th>
+                    <Th className="qd-col-grow">제조기록서</Th>
+                    <Th className="qd-col-grow">무엇이 다른가</Th>
                     {writable && <Th />}
                   </tr>
                 </thead>
@@ -190,15 +190,15 @@ export default async function DocsCheckPage({ searchParams }: { searchParams: Se
                         <div>{r.op_name}</div>
                       </Td>
                       <Td className="font-semibold text-ink">{r.item}</Td>
-                      <Td className="min-w-[12rem] whitespace-pre-line">
+                      <Td className="qd-col-grow min-w-[12rem] whitespace-pre-line">
                         {r.ws_text}
                         {r.ws_at && <div className="mt-0.5 text-xs text-faint">{r.ws_at}</div>}
                       </Td>
-                      <Td className="min-w-[12rem] whitespace-pre-line">
+                      <Td className="qd-col-grow min-w-[12rem] whitespace-pre-line">
                         {r.br_text}
                         {r.br_at && <div className="mt-0.5 text-xs text-faint">{r.br_at}</div>}
                       </Td>
-                      <Td className="min-w-[14rem] text-danger">{r.why}</Td>
+                      <Td className="qd-col-grow min-w-[14rem] text-danger">{r.why}</Td>
                       {writable && (
                         <Td>
                           <RevisionButton compact product={d.product!} opCode={r.op_code} checkId={r.id}
@@ -241,11 +241,11 @@ export default async function DocsCheckPage({ searchParams }: { searchParams: Se
                 <Table grow={2}>
                   <thead>
                     <tr>
-                      <Th w="3rem">차례</Th>
+                      <Th>차례</Th>
                       <Th>항목</Th>
-                      <Th>작업표준서</Th>
-                      <Th>제조기록서</Th>
-                      <Th>판정</Th>
+                      <Th className="qd-col-grow">작업표준서</Th>
+                      <Th className="qd-col-grow">제조기록서</Th>
+                      <Th className="qd-col-grow">판정</Th>
                       {writable && <Th />}
                     </tr>
                   </thead>
@@ -268,15 +268,15 @@ export default async function DocsCheckPage({ searchParams }: { searchParams: Se
                             <div className="font-semibold">{r.item}</div>
                             {r.grp && <div className="text-xs text-faint">{r.grp}</div>}
                           </Td>
-                          <Td className={`min-w-[14rem] whitespace-pre-line ${bad ? 'text-danger' : ''}`}>
+                          <Td className={`qd-col-grow min-w-[14rem] whitespace-pre-line ${bad ? 'text-danger' : ''}`}>
                             {r.ws_text || <span className="text-faint">없음</span>}
                             {r.ws_at && <div className="mt-0.5 text-xs text-faint">{r.ws_at}</div>}
                           </Td>
-                          <Td className={`min-w-[14rem] whitespace-pre-line ${bad ? 'text-danger' : ''}`}>
+                          <Td className={`qd-col-grow min-w-[14rem] whitespace-pre-line ${bad ? 'text-danger' : ''}`}>
                             {r.br_text || <span className="text-faint">없음</span>}
                             {r.br_at && <div className="mt-0.5 text-xs text-faint">{r.br_at}</div>}
                           </Td>
-                          <Td className="min-w-[10rem]">
+                          <Td className="qd-col-grow min-w-[10rem]">
                             <Tag tone={TONE[r.verdict]}>{VERDICT_LABEL[r.verdict]}</Tag>
                             {r.why && <div className="mt-1 text-sm leading-relaxed text-danger">{r.why}</div>}
                             {r.basis && <div className="mt-0.5 text-xs text-faint">{r.basis}</div>}

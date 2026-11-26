@@ -218,7 +218,7 @@ export default async function ShipPage({ searchParams }: { searchParams: Search 
             <Empty>이 거래처에 출고할 주문 줄이 없습니다.</Empty>
           ) : (
             <div className="qd-table-scroll">
-              <table className="qd-table qd-table--hangul">
+              <table className="qd-table qd-table--hangul" data-grow="2">
                 <thead>
                   <tr>
                     <th className="th">고객 발주번호</th>
@@ -227,7 +227,7 @@ export default async function ShipPage({ searchParams }: { searchParams: Search 
                     <th className="th text-right">출고</th>
                     <th className="th text-right">남음</th>
                     <th className="th">납품요청일</th>
-                    <th className="th w-0"><span className="sr-only">고르기</span></th>
+                    <th className="th"><span className="sr-only">고르기</span></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -290,7 +290,7 @@ export default async function ShipPage({ searchParams }: { searchParams: Search 
                   <th className="th">배치</th>
                   <th className="th text-right">출하 가능</th>
                   <th className="th">상태</th>
-                  {!viewer && <th className="th w-0" />}
+                  {!viewer && <th className="th" />}
                 </tr>
               </thead>
               <tbody>
@@ -326,7 +326,7 @@ export default async function ShipPage({ searchParams }: { searchParams: Search 
                   <th className="th">생략 사유</th>
                   <th className="th">기록</th>
                   <th className="th text-right">출하 가능</th>
-                  {!viewer && <th className="th w-0" />}
+                  {!viewer && <th className="th" />}
                 </tr>
               </thead>
               <tbody>
@@ -364,7 +364,7 @@ export default async function ShipPage({ searchParams }: { searchParams: Search 
           </Empty>
         ) : (
           <div className="qd-table-scroll">
-            <table className="qd-table qd-table--hangul" data-grow="4">
+            <table className="qd-table qd-table--hangul" data-grow="5">
               <thead>
                 <tr>
                   <th className="th">출고일</th>

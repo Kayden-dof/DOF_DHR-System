@@ -853,7 +853,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                   <th className="th text-right">매수</th>
                   <th className="th">일시 · 인쇄자</th>
                   <th className="th">상태</th>
-                  <th className="th sticky right-0 w-0" />
+                  <th className="th sticky right-0" />
                 </tr>
               </thead>
               <tbody>

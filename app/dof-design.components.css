@@ -51,6 +51,15 @@
   --qd-table-header-layer: 2;
   --qd-table-description-min-width: 160px;
   --qd-table-grow-min-width: 8em;
+  /* 남는 폭을 나누는 몫 (아래 «표 열 폭 규칙»). 몫은 % 로 적지만 비율로만 읽힌다 - 늘어나는 열 10 : 다른 열 1 : 동작 열 0.1.
+     열이 여덟 이상인 표는 늘어나는 열이 20 (--qd-table-grow-share-dense) */
+  --qd-table-grow-share: 10%;
+  --qd-table-grow-share-dense: 20%;
+  --qd-table-col-share: 1%;
+  --qd-table-action-share: 0.1%;
+  /* 표 칸 안 입력칸의 바닥 폭. 글 폭 칸에서 폭 100% 칸은 제 폭을 잃는다 (아래 «표 안 입력칸») */
+  --qd-table-control-min-width: 10rem;
+  --qd-table-number-min-width: 6.5rem;
   /* 지표 값은 사다리 네 단 중 하나로만 선다 (2026-10-27 카르넷 정밀 감사 D1). 전에는 16cqw 로 칸 폭을
      따라 22.88 · 21.6 · 36.72px 처럼 사다리 밖 크기가 나왔다. 칸 폭(.qd-kpi 는 inline-size 컨테이너)에 따라
      40 · 32 · 28 · 24 로 내려간다. 네 값 모두 docs/03 의 아홉 단 안이다 */
@@ -111,24 +120,57 @@
    · 표는 두 결이다(2026-10-28 오너 결정). 열이 전부 짧은 «기록 · 수치» 표는 data-grow="0": 어느 열도 auto 가 아니라서
      브라우저가 남는 폭을 모든 열에 같은 몫으로 나눈다(7장 «표»). 0 에 걸리는 nth-child 규칙을 두지 말 것.
    · width: 1% 는 «내용 폭만 차지하라» 는 오래된 표 배치 관용구다. 늘어나는 열의 바닥 8em 은 폰에서 주인 열이 너무 좁아지지 않게(12em 이면 발주 표가 1440 에서 30px 넘쳤다).
-   · 적는 표(.qd-table--editable)는 입력 칸이 제 폭을 쥐므로 이 규칙 밖이다. 폰에서는 열을 숨기지 않고 .qd-table-scroll 로 굴린다. */
+   · 적는 표(.qd-table--editable)는 입력 칸이 제 폭을 쥐므로 이 규칙 밖이다. 폰에서는 열을 숨기지 않고 .qd-table-scroll 로 굴린다.
+   · 남는 폭은 몫으로 나눈다 (2026-11-26 사용자 «표 너비가 정본을 입히면서 많이 깨진 거 같은데 · 깔끔하게»).
+     늘어나는 열이 남는 폭을 «전부» 받으니, 글이 짧은 표에서는 그 열 하나가 폭을 다 먹고 나머지 열이 오른쪽 끝에
+     좁게 몰렸다 (수주 «거래처» 는 1110px 가운데 상호 780px · 담당자 · 연락처 · 주소가 45~55px). 이제 늘어나는 열은
+     남는 폭의 큰 몫(10)을, 다른 열은 작은 몫(1)씩을 받는다. 모든 열이 % 열이면 브라우저는 남는 폭을 % 비율대로
+     나누므로, 그 비율이 몫이다.
+     % 열은 꺾이는 글의 «가장 좁은 폭» 에서 몫을 받는다 (Chrome 표 배치). 열이 많아 남는 폭이 빠듯한 표에서 몫이
+     작으면 늘어나는 열이 두 줄로 먼저 꺾이고 짧은 열에 빈자리가 남는다 (1440 완제품 재고 «형명» 이 6 일 때 179/219px).
+     그래서 열이 여덟 이상인 표는 몫이 20 이다 - 남는 폭이 적은 표는 주인 열이 먼저 펴진다.
+     🔴 표 칸에 px · rem 폭을 박지 말 것 (Th w=…, style width, w-0 · w-10 같은 유틸리티 - 이 파일은 components 층이라
+        유틸리티가 이긴다). 고정 폭 열은 % 열보다 먼저 남는 폭을 다 받는다 (동작 열에 width:0 을 주니 746px 을 먹었다).
+     🔴 늘어나는 열 칸의 min-width 를 calc-size(max-content, …) 로 주는 길은 Chrome 표가 읽지 않는다 (2026-11-26 실측).
+   · 동작 열 - 머리가 빈 마지막 열(고치기 · 출고 · 행 화살표) - 은 몫이 거의 없다(0.1). 단추는 오른쪽 끝에 붙는다.
+   · 줄바꿈은 칸이 whitespace-* 로 스스로 고른 것을 따른다 (작업표준서 대조의 pre-line · Td nowrap). 고르지 않은 칸만
+     글 폭 열은 한 줄, 늘어나는 열은 꺾임. 줄 합치기(rowSpan)가 있는 표는 nth-child 가 어긋나므로 .qd-col-grow 를 건다. */
 .qd-table { width: 100%; table-layout: auto; }
-.qd-table:not(.qd-table--editable) > :is(thead, tbody, tfoot) > tr > :is(th, td) { width: 1%; white-space: nowrap; }
-.qd-table:not(.qd-table--editable) > :is(thead, tbody, tfoot) > tr > :is(th, td):is(.qd-col-grow, .qd-table-description, [colspan]),
-.qd-table:not(.qd-table--editable):not([data-grow]):not(:has(.qd-col-grow)) > :is(thead, tbody, tfoot) > tr > :is(th, td):first-child,
-.qd-table[data-grow="1"]:not(.qd-table--editable) > :is(thead, tbody, tfoot) > tr > :is(th, td):nth-child(1),
-.qd-table[data-grow="2"]:not(.qd-table--editable) > :is(thead, tbody, tfoot) > tr > :is(th, td):nth-child(2),
-.qd-table[data-grow="3"]:not(.qd-table--editable) > :is(thead, tbody, tfoot) > tr > :is(th, td):nth-child(3),
-.qd-table[data-grow="4"]:not(.qd-table--editable) > :is(thead, tbody, tfoot) > tr > :is(th, td):nth-child(4),
-.qd-table[data-grow="5"]:not(.qd-table--editable) > :is(thead, tbody, tfoot) > tr > :is(th, td):nth-child(5),
-.qd-table[data-grow="6"]:not(.qd-table--editable) > :is(thead, tbody, tfoot) > tr > :is(th, td):nth-child(6),
-.qd-table[data-grow="7"]:not(.qd-table--editable) > :is(thead, tbody, tfoot) > tr > :is(th, td):nth-child(7),
-.qd-table[data-grow="8"]:not(.qd-table--editable) > :is(thead, tbody, tfoot) > tr > :is(th, td):nth-child(8),
-.qd-table[data-grow="9"]:not(.qd-table--editable) > :is(thead, tbody, tfoot) > tr > :is(th, td):nth-child(9),
-.qd-table[data-grow="10"]:not(.qd-table--editable) > :is(thead, tbody, tfoot) > tr > :is(th, td):nth-child(10),
-.qd-table[data-grow="11"]:not(.qd-table--editable) > :is(thead, tbody, tfoot) > tr > :is(th, td):nth-child(11),
-.qd-table[data-grow="12"]:not(.qd-table--editable) > :is(thead, tbody, tfoot) > tr > :is(th, td):nth-child(12) {
-  width: auto; min-width: var(--qd-table-grow-min-width); white-space: normal;
+.qd-table:not(.qd-table--editable) > :is(thead, tbody, tfoot) > tr > :is(th, td) { width: var(--qd-table-col-share); --qd-cell-wrap: nowrap; }
+.qd-table:not(.qd-table--editable):has(> thead > tr > :nth-child(8)) > :is(thead, tbody, tfoot) > tr > :is(th, td) { --qd-table-grow-share: var(--qd-table-grow-share-dense); }
+.qd-table:not(.qd-table--editable):has(> thead > tr > th:last-child:empty) > :is(thead, tbody, tfoot) > tr > :is(th, td):last-child:not([colspan]) {
+  width: var(--qd-table-action-share);
+}
+.qd-table:not(.qd-table--editable) > :is(thead, tbody, tfoot) > tr > :is(th, td).qd-col-grow:not([colspan]),
+.qd-table:not(.qd-table--editable):not([data-grow]):not(:has(.qd-col-grow)) > :is(thead, tbody, tfoot) > tr > :is(th, td):first-child:not([colspan]),
+.qd-table[data-grow="1"]:not(.qd-table--editable) > :is(thead, tbody, tfoot) > tr > :is(th, td):nth-child(1):not([colspan]),
+.qd-table[data-grow="2"]:not(.qd-table--editable) > :is(thead, tbody, tfoot) > tr > :is(th, td):nth-child(2):not([colspan]),
+.qd-table[data-grow="3"]:not(.qd-table--editable) > :is(thead, tbody, tfoot) > tr > :is(th, td):nth-child(3):not([colspan]),
+.qd-table[data-grow="4"]:not(.qd-table--editable) > :is(thead, tbody, tfoot) > tr > :is(th, td):nth-child(4):not([colspan]),
+.qd-table[data-grow="5"]:not(.qd-table--editable) > :is(thead, tbody, tfoot) > tr > :is(th, td):nth-child(5):not([colspan]),
+.qd-table[data-grow="6"]:not(.qd-table--editable) > :is(thead, tbody, tfoot) > tr > :is(th, td):nth-child(6):not([colspan]),
+.qd-table[data-grow="7"]:not(.qd-table--editable) > :is(thead, tbody, tfoot) > tr > :is(th, td):nth-child(7):not([colspan]),
+.qd-table[data-grow="8"]:not(.qd-table--editable) > :is(thead, tbody, tfoot) > tr > :is(th, td):nth-child(8):not([colspan]),
+.qd-table[data-grow="9"]:not(.qd-table--editable) > :is(thead, tbody, tfoot) > tr > :is(th, td):nth-child(9):not([colspan]),
+.qd-table[data-grow="10"]:not(.qd-table--editable) > :is(thead, tbody, tfoot) > tr > :is(th, td):nth-child(10):not([colspan]),
+.qd-table[data-grow="11"]:not(.qd-table--editable) > :is(thead, tbody, tfoot) > tr > :is(th, td):nth-child(11):not([colspan]),
+.qd-table[data-grow="12"]:not(.qd-table--editable) > :is(thead, tbody, tfoot) > tr > :is(th, td):nth-child(12):not([colspan]) {
+  width: var(--qd-table-grow-share); min-width: var(--qd-table-grow-min-width); --qd-cell-wrap: normal;
+}
+.qd-table:not(.qd-table--editable) > :is(thead, tbody, tfoot) > tr > :is(th, td):is(.qd-table-description, [colspan]) {
+  width: auto; --qd-cell-wrap: normal;
+}
+.qd-table:not(.qd-table--editable) > :is(thead, tbody, tfoot) > tr > :is(th, td):not(.whitespace-normal, .whitespace-nowrap, .whitespace-pre, .whitespace-pre-line, .whitespace-pre-wrap, .whitespace-break-spaces) {
+  white-space: var(--qd-cell-wrap, nowrap);
+}
+/* 표 안 입력칸. 폭 100% 인 칸이 글 폭(1%) 열에 들면 열은 칸을, 칸은 열을 기다리다가 표가 빠듯할 때 몇 px 로
+   쪼그라든다 (2026-11-26 사용자 «이거 숫자 안 보여요» · 주문에서 계획의 «만들 개수»). 폭을 스스로 적은 칸(w-*)과
+   제 바닥이 따로 있는 날짜 · 시각 칸은 건드리지 않는다. */
+.qd-table:not(.qd-table--editable) td :is(input.input, select.input):not([class*=" w-"], [type='date'], [type='month'], [type='time'], [type='datetime-local']) {
+  min-inline-size: var(--qd-table-control-min-width);
+}
+.qd-table:not(.qd-table--editable) td input.input[type='number']:not([class*=" w-"]) {
+  min-inline-size: var(--qd-table-number-min-width);
 }
 /* 글 폭 칸 안의 단추 · 글 단추는 낱말 사이에서 꺾이지 않는다. 기초(foundation.css)가 단추를 normal 로 두는 것은
    좁은 칸에서 한 글자씩 끊기지 않게 한 것인데, 글 폭(1%) 칸은 내용 폭을 그대로 받으므로 «변경 항목 0» 이 두 줄로 꺾였다 (2026-10-28) */

@@ -18,8 +18,9 @@
  * 치수는 정본이 정한다 (`app/q-design.list.css` · `.qd-table`). 진짜 <table> 에
  * 정본 값을 건다. 머리글이 한글이라 `--hangul` 로 라틴 자간 · 대문자를 푼다.
  *
- * grow 는 남는 폭을 받을 열 하나 (1부터 · 적지 않으면 첫 열 · 0 이면 모든 열이
- * 똑같이 나눈다). 정본 `.qd-table` 이 `data-grow` 를 읽는다 (Q-Design 7장 «표»).
+ * grow 는 남는 폭의 큰 몫을 받을 열 하나 (1부터 · 적지 않으면 첫 열 · 0 이면 모든 열이
+ * 똑같이 나눈다). 다른 열도 작은 몫씩 받는다. `.qd-table` 이 `data-grow` 를 읽는다.
+ * 긴 글이 있는 열(이름 · 사유 · 주소 · 비고)을 고른다. 신원 칸(첫 칸)은 대개 아니다.
  */
 export function Table({ children, grow, className = '' }: {
   children: React.ReactNode; grow?: number; className?: string;
@@ -34,11 +35,16 @@ export function Table({ children, grow, className = '' }: {
   );
 }
 
+/*
+ * 머리 칸에 폭을 적는 길(w)은 걷었다 (2026-11-26). 표 열 폭은 몫으로 나누는데
+ * (dof-design.components.css «표 열 폭 규칙»), px · rem 으로 박힌 열은 남는 폭을
+ * 혼자 다 받는다. 열의 성격은 grow · .qd-col-grow 로 말한다.
+ */
 export function Th({
-  children, right, className = '', w,
-}: { children?: React.ReactNode; right?: boolean; className?: string; w?: string }) {
+  children, right, className = '',
+}: { children?: React.ReactNode; right?: boolean; className?: string }) {
   return (
-    <th className={`th ${right ? 'text-right' : ''} ${className}`} style={w ? { width: w } : undefined}>
+    <th className={`th ${right ? 'text-right' : ''} ${className}`}>
       {children}
     </th>
   );

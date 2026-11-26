@@ -269,11 +269,11 @@ export default async function CostPage() {
           </Empty>
         ) : (
           <div className="qd-table-scroll">
-            <table className="qd-table qd-table--hangul" data-grow="2">
+            <table className="qd-table qd-table--hangul">
               <thead>
                 <tr>
                   <th className="th">월</th>
-                  <th className="th">품목</th>
+                  <th className="th qd-col-grow">품목</th>
                   <th className="th text-right">수량</th>
                   <th className="th text-right">금액</th>
                 </tr>
@@ -290,7 +290,7 @@ export default async function CostPage() {
                             {month.slice(0, 7)}
                           </td>
                         )}
-                        <td className="td">
+                        <td className="td qd-col-grow">
                           <div className="text-sm">{s.item_name}</div>
                           <div className="font-mono text-xs text-faint">{s.item_code}</div>
                         </td>

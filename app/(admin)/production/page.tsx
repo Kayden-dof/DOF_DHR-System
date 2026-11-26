@@ -255,7 +255,7 @@ export default async function ProductionPage({ searchParams }: { searchParams: S
             {filtered ? '해당하는 작업 지시가 없습니다.' : '발행된 작업 지시가 없습니다.'}
           </Empty>
         ) : (
-          <Table>
+          <Table grow={2}>
             <thead>
               <tr>
                 <Th>배치 · 지시서</Th>

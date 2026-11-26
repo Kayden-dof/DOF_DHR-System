@@ -103,7 +103,7 @@ export default async function SterilPage() {
           </Empty>
         ) : (
           <div className="qd-table-scroll">
-            <table className="qd-table qd-table--hangul">
+            <table className="qd-table qd-table--hangul" data-grow="4">
               <thead>
                 <tr>
                   <th className="th">멸균 배치</th>

@@ -126,7 +126,7 @@ export default async function SalesOrdersPage() {
           <Empty hint="주문 등록에서 새 거래처를 고르거나 거래처 등록으로 넣습니다.">등록된 거래처가 없습니다.</Empty>
         ) : (
           <div className="qd-table-scroll">
-            <table className="qd-table qd-table--hangul">
+            <table className="qd-table qd-table--hangul" data-grow="5">
               <thead>
                 <tr>
                   <th className="th">상호</th>

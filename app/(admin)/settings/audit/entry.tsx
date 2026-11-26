@@ -100,14 +100,14 @@ export default function Entry({ e }: { e: AuditEntry }) {
                 <tbody>
                   {changes.map((c) => (
                     <tr key={c.key}>
-                      <td className="w-40 py-1 pr-3 align-top font-semibold text-muted">
+                      <td className="py-1 pr-3 align-top font-semibold text-muted">
                         {fieldLabel(c.key)}
                       </td>
-                      <td className="py-1 pr-3 align-top text-danger line-through">
+                      <td className="qd-col-grow py-1 pr-3 align-top text-danger line-through">
                         {e.action === 'INSERT' ? '' : show(e.table_name, c.key, c.from)}
                       </td>
-                      <td className="w-6 py-1 text-center align-top text-faint">→</td>
-                      <td className="py-1 align-top font-semibold text-ink">
+                      <td className="py-1 text-center align-top text-faint">→</td>
+                      <td className="qd-col-grow py-1 align-top font-semibold text-ink">
                         {e.action === 'DELETE' ? '삭제됨' : show(e.table_name, c.key, c.to)}
                       </td>
                     </tr>

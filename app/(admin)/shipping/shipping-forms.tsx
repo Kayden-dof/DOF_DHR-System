@@ -130,10 +130,10 @@ export function SterilForm({ lots, today, boxQty, fix }: {
 
       <p className="label mt-4">동봉할 제품 로트</p>
       <div className="overflow-x-auto rounded-md border border-line">
-        <table className="qd-table qd-table--hangul" data-grow="2">
+        <table className="qd-table qd-table--hangul" data-grow="3">
           <thead>
             <tr>
-              <th className="th w-10" />
+              <th className="th" />
               <th className="th">제조번호</th>
               <th className="th">형명</th>
               <th className="th text-right">보유</th>
@@ -487,7 +487,7 @@ export function ShipList({ lots, line, today }: { lots: ShipLot[]; line: ShipLin
 
   return (
     <div className="qd-table-scroll">
-      <table className="qd-table qd-table--hangul" data-grow="3">
+      <table className="qd-table qd-table--hangul" data-grow="5">
         <thead>
           <tr>
             <th className="th">제조번호</th>
@@ -495,7 +495,7 @@ export function ShipList({ lots, line, today }: { lots: ShipLot[]; line: ShipLin
             <th className="th text-right">출하 가능</th>
             <th className="th">유효기한</th>
             <th className="th">형명 검토</th>
-            <th className="th w-0" />
+            <th className="th" />
           </tr>
         </thead>
         <tbody>

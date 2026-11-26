@@ -150,7 +150,7 @@ export default async function SuppliersPage({ searchParams }: {
                                        fix={fixAt(user, '/settings/items', '?type=FIN')} />}
           {d.shelf.length > 0 && (
             <div className="overflow-x-auto border-t border-line">
-              <table className="qd-table qd-table--hangul">
+              <table className="qd-table qd-table--hangul" data-grow="4">
                 <thead>
                   <tr>
                     <th className="th">형명</th><th className="th text-right">개월</th>
