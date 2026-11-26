@@ -41,6 +41,8 @@ export async function saveScheme(_p: FormState, form: FormData): Promise<FormSta
     const prefix = txt(form.get('prefix')).toUpperCase();
     const specPattern = txt(form.get('spec_pattern'));
     const namePattern = txt(form.get('name_pattern'));
+    /* 어느 제품의 형명인가 (0158). 비우면 제품 미지정 */
+    const productCode = txt(form.get('product_code')) || null;
 
     if (!name) return { error: '이름을 입력하십시오' };
     if (!prefix) return { error: '접두어를 입력하십시오 (예 PD)' };
@@ -55,14 +57,14 @@ export async function saveScheme(_p: FormState, form: FormData): Promise<FormSta
     await withActor(me.id, (db) => (id
       ? db.rows(
           `update model_scheme
-              set name = $2, prefix = $3, spec_pattern = $4, name_pattern = $5
+              set name = $2, prefix = $3, spec_pattern = $4, name_pattern = $5, product_code = $6
             where id = $1`,
-          [id, name, prefix, specPattern, namePattern || null])
+          [id, name, prefix, specPattern, namePattern || null, productCode])
       : db.rows(
           `insert into model_scheme (name, prefix, spec_pattern, name_pattern,
-                                     is_active, registered_by)
-           values ($1,$2,$3,$4,true,$5)`,
-          [name, prefix, specPattern, namePattern || null, me.id])),
+                                     is_active, registered_by, product_code)
+           values ($1,$2,$3,$4,true,$5,$6)`,
+          [name, prefix, specPattern, namePattern || null, me.id, productCode])),
       { reason: id ? '형명 체계 수정' : '형명 체계 등록' });
 
     revalidatePath('/settings/model');

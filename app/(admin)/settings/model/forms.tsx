@@ -8,6 +8,8 @@ import { saveScheme, saveSegment } from './actions';
 export interface Scheme {
   id: string; name: string; prefix: string;
   spec_pattern: string; name_pattern: string | null;
+  /** 이 체계가 어느 제품의 형명인가 (0158 model_scheme.product_code). 비면 제품 미지정 */
+  product_code: string | null;
 }
 export interface Segment {
   scheme_id: string; seq: number; digits: number;
@@ -21,7 +23,13 @@ const ROLES = [
   { v: 'OTHER', t: '그 밖' },
 ];
 
-export function SchemeForm({ scheme }: { scheme: Scheme | null }) {
+export function SchemeForm({ scheme, products = [], product }: {
+  scheme: Scheme | null;
+  /** 고를 수 있는 제품 코드 (제품표준서 · 이미 이은 체계) */
+  products?: string[];
+  /** 새 체계가 처음 놓일 제품 (지금 보는 탭) */
+  product?: string;
+}) {
   const [state, action, pending] = useActionState<FormState, FormData>(saveScheme, {});
   const uid = useId();
 
@@ -29,6 +37,15 @@ export function SchemeForm({ scheme }: { scheme: Scheme | null }) {
     <form action={action} className="p-4">
       {scheme && <input type="hidden" name="id" value={scheme.id} />}
       <div className="grid gap-3 sm:grid-cols-2">
+        {/* 제품마다 나눈다 (사용자 2026-11-26 «형명 체계도 제품표준서처럼 제품마다»). 새 체계는 지금 보는 제품으로 시작한다 */}
+        <div className="sm:col-span-2">
+          <label className="label" htmlFor={`${uid}-product`}>제품</label>
+          <select id={`${uid}-product`} name="product_code" className="input"
+                  defaultValue={scheme ? (scheme.product_code ?? '') : (product ?? '')}>
+            <option value="">제품 미지정</option>
+            {products.map((p) => <option key={p} value={p}>{p}</option>)}
+          </select>
+        </div>
         <div>
           <label className="label" htmlFor={`${uid}-name`}>이름</label>
           <input id={`${uid}-name`} name="name" required autoComplete="off"

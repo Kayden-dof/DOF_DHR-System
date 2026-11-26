@@ -1,7 +1,7 @@
 import { requireUser, blocksScreen } from '@/lib/session';
 import { withActor } from '@/lib/db';
 import Denied from '@/components/denied';
-import { PageShell } from '@/components/shell';
+import { PageShell, FilterBar } from '@/components/shell';
 import { Panel, TableWrap, Empty, Tag } from '@/components/ui';
 import { SubNav } from '../../nav';
 import { settingsNav } from '../../sections';
@@ -20,7 +20,13 @@ export const metadata = { title: '형명 체계' };
    여기가 나머지 절반이다. 다른 제조소가 자기 형명 규칙을 화면에서 넣는다.
 --------------------------------------------------------------------------- */
 
-export default async function ModelSchemePage() {
+/* 제품 미지정 체계의 탭 열쇠. 주소에 그대로 실을 수 있는 글자로 */
+const NONE = '-';
+
+export default async function ModelSchemePage({
+  searchParams,
+}: { searchParams: Promise<{ p?: string }> }) {
+  const sp = await searchParams;
   const user = await requireUser();
   if (blocksScreen(user, '/settings/model')) {
     return <Denied what="형명 체계" need="시스템관리자" />;
@@ -35,8 +41,12 @@ export default async function ModelSchemePage() {
        * 해 두었는데(0086) 그 고를 것을 만들 자리가 없었다 - 두 번째 체계를
        * 등록해도 이 화면에 뜨지 않아 고치지도 못했다.
        */
-      `select id, name, prefix, spec_pattern, name_pattern
+      `select id, name, prefix, spec_pattern, name_pattern, product_code
          from model_scheme where is_active order by prefix`),
+    /* 제품표준서에 있는 제품 코드. 체계가 아직 없는 제품도 탭에 선다 */
+    productCodes: await db.rows<{ code: string }>(
+      `select distinct product_code as code from device_master
+        where product_code is not null order by 1`),
     segments: await db.rows<Segment>(
       `select scheme_id, seq, digits, divisor::text as divisor, decimals, label, role
          from model_segment order by seq`),
@@ -44,6 +54,21 @@ export default async function ModelSchemePage() {
     items: await db.val<number>(`select count(*)::int from item where type = 'FIN'`),
   }));
 
+  /*
+   * 제품마다 나눈다 (사용자 2026-11-26 «형명 체계도 제품표준서처럼 제품마다 나눠줘»).
+   * 탭은 제품표준서와 같은 모양(설정 > 제품표준서 · FilterBar)이고, 숫자는 그 제품의 체계 수다.
+   * 제품을 아직 잇지 않은 체계는 «제품 미지정» 탭에 모인다 - 양식의 «제품» 에서 이을 수 있다.
+   */
+  const codes = [...new Set([
+    ...d.productCodes.map((p) => p.code),
+    ...d.schemes.map((s) => s.product_code).filter((c): c is string => !!c),
+  ])].sort();
+  const keyOf = (s: Scheme) => s.product_code ?? NONE;
+  const tabs = [...codes, ...(d.schemes.some((s) => !s.product_code) ? [NONE] : [])];
+  /* 주소에 제품이 없으면 체계가 있는 첫 탭으로 연다 - 빈 탭부터 열면 체계가 없는 줄 안다 */
+  const current = sp.p && tabs.includes(sp.p) ? sp.p
+    : (tabs.find((t) => d.schemes.some((s) => keyOf(s) === t)) ?? tabs[0] ?? NONE);
+  const shown = d.schemes.filter((s) => keyOf(s) === current);
   const segsOf = (id: string) => d.segments.filter((s) => s.scheme_id === id);
   const nextSeqOf = (id: string) => {
     const g = segsOf(id);
@@ -91,13 +116,22 @@ export default async function ModelSchemePage() {
         * 두 번째 제품군을 위한 체계를 등록해도 화면에 뜨지 않고 고칠 수도
         * 없었다. 완제품 생성기는 이미 어느 체계로 만들지 고르게 해 두었다.
         */}
-      {d.schemes.map((sc) => {
+      {tabs.length > 0 && (
+        <FilterBar items={tabs.map((t) => ({
+          href: `/settings/model?p=${encodeURIComponent(t)}`,
+          label: t === NONE ? '제품 미지정' : t,
+          count: d.schemes.filter((s) => keyOf(s) === t).length,
+          on: t === current,
+        }))} />
+      )}
+
+      {shown.map((sc) => {
         const segs = segsOf(sc.id);
         return (
           <section key={sc.id} className="space-y-4">
             <Panel title={`${sc.name} · ${sc.prefix}`}
                    note="접두어와 규격 문구. 이 문구가 라벨요청서에 찍힙니다.">
-              <SchemeForm scheme={sc} />
+              <SchemeForm scheme={sc} products={codes} />
             </Panel>
 
             <Panel title={`${sc.prefix} 자리`}
@@ -143,11 +177,13 @@ export default async function ModelSchemePage() {
         * 체계를 하나 더 낼 자리. 제품군이 둘이면 접두어가 둘이다.
         * 활성 유일 제약이 접두어별이므로 서로 다른 접두어는 함께 산다.
         */}
-      <Panel title={d.schemes.length === 0 ? '체계 등록' : '체계 하나 더'}
-             note={d.schemes.length === 0
+      <Panel title={shown.length === 0
+               ? `${current === NONE ? '' : `${current} `}체계 등록`
+               : `${current === NONE ? '' : `${current} `}체계 하나 더`}
+             note={shown.length === 0
                ? '접두어와 규격 문구를 정합니다.'
                : '제품군이 둘이면 접두어가 둘입니다. 완제품을 만들 때 어느 체계로 만들지 고릅니다.'}>
-        <SchemeForm scheme={null} />
+        <SchemeForm scheme={null} products={codes} product={current === NONE ? undefined : current} />
       </Panel>
 
     </PageShell>
