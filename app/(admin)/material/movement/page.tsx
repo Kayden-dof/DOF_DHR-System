@@ -26,7 +26,7 @@ export const metadata = { title: '증감 · 원액' };
 interface MoveRow {
   id: string; type: string; qty: string; reason_code: string; reason_detail: string | null;
   registered_at: Date; lot_no: string; item_code: string; item_name: string;
-  usage_uom: string; batch_no: string | null; registered_by_name: string;
+  usage_uom: string; batch_no: string | null; registered_by_name: string | null;
 }
 
 export default async function MovementPage() {
@@ -84,19 +84,33 @@ export default async function MovementPage() {
           and not exists (select 1 from material_lot ml
                            where ml.item_id = i.id and ml.status in ('AVAILABLE','CONSUMED'))
         order by i.code`),
+    /*
+     * 입고도 함께 (사용자 2026-11-26 «넣었는데 최근 기록에 안 뜨네»). 재고 증감에서 «로트가 없는 품목» 을 골라
+     * 입고하면 로트가 새로 생길 뿐 재고 증감 줄은 없어, 여기에 아무것도 남지 않았다. 입고(원액 제조 로트 빼고)를
+     * «입고» 로 섞어 시각 순으로 낸다. 원액 제조는 위의 원액 기록과 증감 줄(원액 제조)로 이미 보인다.
+     */
     moves: await db.rows<MoveRow>(
-      `select sm.id, sm.type::text as type, sm.qty, sm.reason_code, sm.reason_detail,
-              sm.registered_at, ml.lot_no, i.code as item_code, i.name as item_name,
-              i.usage_uom, wo.batch_no, u.full_name as registered_by_name
-         from stock_movement sm
-         join material_lot ml on ml.id = sm.material_lot_id
-         join item i on i.id = ml.item_id
-         join app_user u on u.id = sm.registered_by
-         left join work_order wo on wo.id = sm.work_order_id
-        order by sm.registered_at desc limit 100`),
+      `select * from (
+         select 'm-' || sm.id::text as id, sm.type::text as type, sm.qty, sm.reason_code, sm.reason_detail,
+                sm.registered_at, ml.lot_no, i.code as item_code, i.name as item_name,
+                i.usage_uom, wo.batch_no, u.full_name as registered_by_name
+           from stock_movement sm
+           join material_lot ml on ml.id = sm.material_lot_id
+           join item i on i.id = ml.item_id
+           join app_user u on u.id = sm.registered_by
+           left join work_order wo on wo.id = sm.work_order_id
+         union all
+         select 'r-' || ml.id::text, 'RECEIVE', ml.qty_received, '입고', nullif(ml.coa_no, ''),
+                ml.received_at, ml.lot_no, i.code, i.name, i.usage_uom, null, u.full_name
+           from material_lot ml
+           join item i on i.id = ml.item_id
+           left join app_user u on u.id = ml.registered_by
+          where ml.made_on is null
+       ) x
+       order by registered_at desc limit 100`),
   }));
 
-  const label = (t: string) => MOVEMENT_TYPE_LABEL[t] ?? t;
+  const label = (t: string) => (t === 'RECEIVE' ? '입고' : MOVEMENT_TYPE_LABEL[t] ?? t);
 
   return (
     <PageShell
@@ -138,7 +152,7 @@ export default async function MovementPage() {
 
       <Panel title="최근 기록">
         {d.moves.length === 0 ? (
-          <Empty hint="위에서 반납 · 폐기 · 조정이나 원액 제조를 적으면 여기 남습니다.">
+          <Empty hint="위에서 반납 · 폐기 · 조정 · 원액 제조를 적거나 자재를 입고하면 여기 남습니다.">
             기록이 없습니다.
           </Empty>
         ) : (
