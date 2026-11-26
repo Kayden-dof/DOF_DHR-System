@@ -13,6 +13,7 @@ import { Panel, Empty, Truncated, Tag } from '@/components/ui';
 import { Table, Th, Td, IdCell, TwoLine } from '@/components/table';
 import ReceiveForm, { type ItemOpt, type SupplierOpt, type OrderOpt } from './receive-form';
 import AmendLotForm, { DeleteLotForm } from './amend-form';
+import { RowMenu } from '@/components/row-menu';
 
 export const dynamic = 'force-dynamic';
 
@@ -188,8 +189,7 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
                 <Th>유효기한</Th>
                 <Th>상태</Th>
                 <Th right>사용 배치</Th>
-                {!readOnly && <Th right>라벨</Th>}
-                {!readOnly && <Th right>정정</Th>}
+                {!readOnly && <th className="th" aria-label="동작" />}
               </tr>
             </thead>
             <tbody>
@@ -262,27 +262,17 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
                       * 어느 것으로 뽑았는지가 또 하나의 물음이 된다.
                       */}
                     {!readOnly && <Td right>
-                      {/* 같은 줄의 고치기 · 지우기와 같은 글귀 모양 (2026-11-09 전수 감사) */}
-                      <Link href={`/print/label/${l.id}`}
-                            className="qd-text-action">인쇄</Link>
-                    </Td>}
-                    {!readOnly && <Td right>
                       {/*
-                        * 입고에서 한 글자 틀리면 되돌릴 곳이 여기뿐이다
-                        * (5차 감사 A1). 읽기 전용 역할에는 내지 않는다.
+                        * 라벨 인쇄 · 고치기 · 지우기를 단추 하나로 묶는다 (사용자 2026-11-26 «오른쪽으로 스크롤이 간다»).
+                        * 줄마다 세 동작을 따로 세우고 없는 쪽 자리까지 비워 두느라 표가 넘쳤다.
+                        *   라벨 인쇄 - 종이가 정본인 시스템에서 뽑을 단추가 없으면 그 양식은 없는 것과 같다 (2026-09-15)
+                        *   고치기 - 입고에서 한 글자 틀리면 되돌릴 곳이 여기뿐이다 (5차 감사 A1). 원액은 성적서 · 공급자
+                        *            로트 칸이 없어 이 화면이 맞지 않는다 (material_lot_source)
+                        *   지우기 - 배치에 투입되지 않은 로트만 (0124)
                         */}
-                      {/*
-                        * 원액은 정정 화면이 맞지 않는다. 그 화면은 성적서 번호와 공급자
-                        * 로트를 받는데 원액에는 그 칸이 없고, 채우면 DB 가 거부한다
-                        * (material_lot_source). 열리기만 하고 저장되지 않는 화면은 내지 않는다.
-                        */}
-                      {/*
-                        * 고치기 · 지우기는 늘 같은 자리에 선다 (사용자 2026-11-10 «화면 위치 통일성»).
-                        * 한쪽이 없는 줄은 그 자리를 비워 둔다 - 전에는 오른쪽으로 당겨져, 같은 자리에
-                        * 어떤 줄은 고치기가 어떤 줄은 지우기가 섰다.
-                        */}
-                      <span className="inline-flex items-center gap-3">
-                      {!readOnly && !l.made_on ? <AmendLotForm lot={{
+                      <RowMenu label="관리">
+                        <Link href={`/print/label/${l.id}`} className="qd-text-action">라벨 인쇄</Link>
+                        {!l.made_on && <AmendLotForm lot={{
                         id: l.id, lot_no: l.lot_no, item_name: l.item_name,
                         coa_no: l.coa_no ?? '', coa_date: l.coa_date as unknown as string | null,
                         supplier_lot_no: l.supplier_lot_no ?? '',
@@ -291,12 +281,9 @@ export default async function MaterialLotsPage({ searchParams }: { searchParams:
                         unit_price: l.unit_price,
                         thickness_band: l.thickness_band,
                         qc_passed_on: l.qc_passed_on as unknown as string | null,
-                      }} /> : <span aria-hidden className="qd-text-action invisible">고치기</span>}
-                      {/* 배치에 투입되지 않은 로트만 지울 수 있다 (0124) */}
-                      {!readOnly && !l.used_in
-                        ? <DeleteLotForm lot={{ id: l.id, lot_no: l.lot_no, item_name: l.item_name }} />
-                        : <span aria-hidden className="qd-text-action invisible">지우기</span>}
-                      </span>
+                      }} />}
+                        {!l.used_in && <DeleteLotForm lot={{ id: l.id, lot_no: l.lot_no, item_name: l.item_name }} />}
+                      </RowMenu>
                     </Td>}
                   </tr>
                 );

@@ -312,6 +312,11 @@ html[data-theme='light'] {
   overflow-wrap: anywhere;
 }
 .qd-popover { font-size: var(--qd-control-size); }
+/* 줄 끝 동작 묶음 (components/row-menu.tsx · 2026-11-26). 글 단추를 세로로 세우고 한 줄을 다 누를 수 있게 한다 */
+.row-menu { display: flex; flex-direction: column; align-items: stretch; min-width: 9rem; padding: var(--qd-space-1); }
+.row-menu[hidden] { display: none; }
+.row-menu > :is(a, button, .qd-text-action) { justify-content: flex-start; width: 100%; min-height: var(--qd-control-height); padding-inline: var(--qd-space-3); text-align: left; }
+.row-menu > :is(a, button, .qd-text-action):hover { background: var(--qd-surface2); text-decoration: none; }
 
 /* Feedback conveys meaning through text and an icon as well as color. */
 .qd-notice, .qd-toast {
