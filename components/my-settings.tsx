@@ -50,8 +50,11 @@ export async function MySettings({ user }: { user: SessionUser }) {
       {(desk || worker) && (
         <Panel title="자동 잠금"
                note="자리를 비우면 화면을 덮습니다. 비밀번호를 누르면 하던 자리로 돌아갑니다.">
-          {desk && <LockMinutesForm place="desk" value={row?.desk ?? null} unused={off} />}
-          {worker && <LockMinutesForm place="pad" value={row?.pad ?? null} />}
+          {/* 두 시간은 좌우로 놓는다 (사용자 2026-11-27 «좌우 배치»). 좁은 화면에서는 위아래 */}
+          <div className="grid items-start sm:grid-cols-2">
+            {desk && <LockMinutesForm place="desk" value={row?.desk ?? null} unused={off} />}
+            {worker && <LockMinutesForm place="pad" value={row?.pad ?? null} />}
+          </div>
           {admin && <IdleLockForm off={row?.off === true} worker={worker} />}
         </Panel>
       )}
