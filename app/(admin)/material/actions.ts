@@ -31,6 +31,7 @@ const txt = (v: FormDataEntryValue | null) => {
 };
 const bump = () => {
   revalidatePath('/material');
+  revalidatePath('/material/movement');
   revalidatePath('/material/stock');
   revalidatePath('/material/orders');
   revalidatePath('/');

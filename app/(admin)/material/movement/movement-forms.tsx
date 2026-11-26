@@ -8,6 +8,7 @@ import { Msg } from '@/components/ui';
 import { Unblock } from '@/components/unblock';
 import type { Fix } from '@/lib/unblock';
 import { moveStock, makeSolutionLot } from '../actions';
+import ReceiveForm, { type ItemOpt as ReceiveItemOpt, type SupplierOpt, type OrderOpt } from '../receive-form';
 import { num } from '@/lib/fmt';
 
 export interface LotOpt {
@@ -26,7 +27,13 @@ export interface SolutionItemOpt {
    반납은 원 로트로 복귀시킨다. 성적서와의 연결을 유지하기 위함이다.
    개봉 후 반납이 안 되는 건은 공정 폐기로 처리한다.
 --------------------------------------------------------------------------- */
-export function MovementForm({ lots, orders, fix }: {
+/* 로트가 없는 품목을 고른 값의 머리. 로트 id 와 섞이지 않게 */
+const NEW = 'new:';
+
+export function MovementForm({ lots, orders, fix, lotless = [], receive }: {
+  /** 로트가 없는 품목. 고르면 입고 등록이 그 품목으로 열린다 (사용자 2026-11-26) */
+  lotless?: { id: string; code: string; name: string }[];
+  receive?: { items: ReceiveItemOpt[]; suppliers: SupplierOpt[]; orders: OrderOpt[]; today: string };
   lots: LotOpt[]; orders: WoOpt[];
   /** 자재 로트가 없을 때 입고하러 가는 자리 (lib/unblock.ts) */
   fix?: Fix;
@@ -42,6 +49,9 @@ export function MovementForm({ lots, orders, fix }: {
    */
   const [type, setType] = useState('');
   const [lotId, setLotId] = useState('');
+  /* 고른 로트 없는 품목 (입고 등록으로 연다). 고를 때마다 폼을 새로 붙여 그 품목으로 연다 */
+  const [newItem, setNewItem] = useState('');
+  const [newTick, setNewTick] = useState(0);
   const lot = lots.find((l) => l.id === lotId);
   const meta = MOVEMENT_TYPES.find((m) => m.code === type);
   const needsWo = type === 'DISPOSAL_WIP';
@@ -52,27 +62,38 @@ export function MovementForm({ lots, orders, fix }: {
   }, [state]);
 
   return (
+    <>
     <form action={action} className="p-4">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="lg:col-span-2">
           <label className="label" htmlFor={`${uid}-material_lot_id`}>자재 로트</label>
           <select id={`${uid}-material_lot_id`} name="material_lot_id" required value={lot?.id ?? ''}
-                  onChange={(e) => setLotId(e.target.value)} className="input">
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v.startsWith(NEW)) { setNewItem(v.slice(NEW.length)); setNewTick((t) => t + 1); setLotId(''); }
+                    else setLotId(v);
+                  }} className="input">
             <option value="">선택하십시오</option>
             {lots.map((l) => (
               <option key={l.id} value={l.id}>
                 {l.lot_no} · {l.item_name} (잔여 {num(l.qty_available)} {l.usage_uom})
               </option>
             ))}
+            {receive && lotless.length > 0 && (
+              <optgroup label="로트가 없는 품목 · 고르면 입고 등록">
+                {lotless.map((i) => (
+                  <option key={i.id} value={`${NEW}${i.id}`}>{i.code} · {i.name}</option>
+                ))}
+              </optgroup>
+            )}
           </select>
           {/*
             * 재고 증감은 들어온 로트를 움직인다 - 로트가 없는 품목은 여기 나오지 않는다
             * (사용자 2026-11-26 «타이벡 파우치 넣으려고 했더니 안 나오네»). 그 길을 칸 아래에서 알려 준다.
             */}
           <p className="mt-1 text-xs leading-relaxed text-muted">
-            목록에 없는 자재는 아직 들어온 로트가 없습니다.{' '}
-            <Link href="/material" className="font-semibold text-brand underline-offset-2 hover:underline">자재 입고 등록</Link>
-            에서 먼저 넣으십시오. 성적서가 없는 기존 보유분은 성적서 번호에 «성적서 미확인 (합격 라벨 기준)» 으로 적습니다.
+            로트가 없는 자재는 목록 아래 «로트가 없는 품목» 에서 고르면 입고 등록이 그 품목으로 열립니다.
+            기존 보유분은 성적서 칸이 «성적서 미확인 (합격 라벨 기준)» 으로 채워져 있습니다.
           </p>
         </div>
         <div>
@@ -132,6 +153,13 @@ export function MovementForm({ lots, orders, fix }: {
         )}
       </div>
     </form>
+    {/* 입고 창은 재고 증감 양식 밖에 붙인다 - 창의 제출이 이 양식으로 번지지 않게 */}
+    {receive && newItem && (
+      <ReceiveForm key={`${newItem}-${newTick}`} items={receive.items} suppliers={receive.suppliers}
+                   orders={receive.orders} today={receive.today}
+                   presetItem={newItem} existing autoOpen hideButton />
+    )}
+    </>
   );
 }
 

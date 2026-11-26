@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useActionState, useMemo, useState, useId } from 'react';
+import { useActionState, useEffect, useMemo, useState, useId } from 'react';
 import type { FormState } from '@/lib/forms';
 import { Msg, Warnings } from '@/components/ui';
 import Toasts from '@/components/toast';
@@ -34,8 +34,20 @@ export interface OrderOpt {
 /** 아직 안 들어온 양 (사용 단위) */
 const remain = (o: OrderOpt) => Math.max(Number(o.qty) - Number(o.received ?? 0), 0);
 
-export default function ReceiveForm({ items, suppliers, orders, today, presetPo, label }: {
+export default function ReceiveForm({ items, suppliers, orders, today, presetPo, label,
+  presetItem, existing = false, autoOpen = false, hideButton = false }: {
   items: ItemOpt[]; suppliers: SupplierOpt[]; orders: OrderOpt[]; today: string;
+  /*
+   * 재고 증감에서 «로트가 없는 품목» 을 고르면 이 폼이 그 품목으로 열린다 (사용자 2026-11-26 «자재 로트가
+   * 없는 애들은 재고 증감 못 하는 건가»). 재고 증감은 들어온 로트를 움직이므로, 로트가 없으면 먼저 여기서 세운다.
+   *   presetItem  처음 고를 품목
+   *   existing    기존 보유분 - 성적서 · 공급자 로트를 «미확인 (합격 라벨 기준)» 으로 채워 둔다 (고칠 수 있다)
+   *   autoOpen    붙는 순간 연다 · hideButton 여는 단추를 그리지 않는다
+   */
+  presetItem?: string;
+  existing?: boolean;
+  autoOpen?: boolean;
+  hideButton?: boolean;
   /**
    * 발주 줄에서 열 때 그 발주. 열릴 때마다 이 값으로 되돌린다.
    *
@@ -99,11 +111,17 @@ export default function ReceiveForm({ items, suppliers, orders, today, presetPo,
     setPrice(o.unit_price ? String(Number(o.unit_price)) : '');
   };
 
-  /* 발주 줄에서 열면 늘 그 발주로 시작한다 */
+  /* 발주 줄에서 열면 늘 그 발주로, 재고 증감에서 열면 그 품목으로 시작한다 */
   const start = () => {
     if (presetPo) takePo(presetPo);
+    else if (presetItem) { setItemId(presetItem); setPoId(''); setSupplierId(''); }
     setOpen(true);
   };
+
+  useEffect(() => {
+    if (autoOpen) start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /* ---------------------------------------------------------------------
      적은 것이 발주와 다른가
@@ -154,9 +172,11 @@ export default function ReceiveForm({ items, suppliers, orders, today, presetPo,
 
   return (
     <>
-      <button onClick={start} className={label ? 'qd-text-action' : 'btn-primary'}>
-        {label ?? '자재 입고 등록'}
-      </button>
+      {!hideButton && (
+        <button onClick={start} className={label ? 'qd-text-action' : 'btn-primary'}>
+          {label ?? '자재 입고 등록'}
+        </button>
+      )}
       {/*
         * 입고 뒤 라벨 인쇄로 가는 길 (UI/UX 검수 2026-11-11). 팝업은 성공하면 닫히므로
         * 결과 문구는 오른쪽 위에 띄우고, 방금 들어온 로트의 라벨 단추를 옆에 둔다.
@@ -233,11 +253,13 @@ export default function ReceiveForm({ items, suppliers, orders, today, presetPo,
         <div>
           <label className="label" htmlFor={`${uid}-supplier_lot_no`}>공급자 로트번호</label>
           <input key={`sl-${loose}`} id={`${uid}-supplier_lot_no`} name="supplier_lot_no" required={!loose}
+                 defaultValue={existing && !loose ? '미확인 (합격 라벨 기준)' : undefined}
                  autoComplete="off" className="input font-mono" />
         </div>
         <div>
           <label className="label" htmlFor={`${uid}-coa_no`}>성적서 번호</label>
           <input key={`cn-${loose}`} id={`${uid}-coa_no`} name="coa_no" required={!loose} autoComplete="off"
+                 defaultValue={existing && !loose ? '성적서 미확인 (합격 라벨 기준)' : undefined}
                  placeholder="COA-..." className="input font-mono" />
         </div>
         <div>

@@ -8,6 +8,7 @@ import { MATERIAL_NAV } from '../../sections';
 import { fmtDate, fmtDateTime, num } from '@/lib/fmt';
 import Link from 'next/link';
 import { MOVEMENT_TYPE_LABEL } from '@/lib/forms';
+import type { ItemOpt as ReceiveItemOpt, SupplierOpt, OrderOpt } from '../receive-form';
 import { Panel, Empty, Tag } from '@/components/ui';
 import {
   MovementForm, SolutionLotForm, type LotOpt, type WoOpt, type SolutionItemOpt,
@@ -61,6 +62,28 @@ export default async function MovementPage() {
     orders: await db.rows<WoOpt>(
       `select id, batch_no, wo_no from work_order
         where status in ('ISSUED','IN_PROCESS','CUT') order by issued_at desc`),
+    /*
+     * 로트가 없는 품목과 입고 폼 자료 (사용자 2026-11-26). 위 목록(사용 가능 · 소진 로트)에 하나도 없는
+     * 품목을 고르면 입고 등록이 그 품목으로 열린다. 입고 폼은 자재 로트 화면과 같은 부품이다 (§10).
+     */
+    receive: {
+      items: await db.rows<ReceiveItemOpt>(
+        `select id, code, name, type::text as type, purchase_uom, usage_uom, conversion,
+                shelf_life_months, default_supplier_id, lot_tracked
+           from item where is_active and type not in ('SOLUTION', 'FIN') order by type, code`),
+      suppliers: await db.rows<SupplierOpt>(
+        `select id, name, status from supplier order by (status = 'APPROVED') desc, name`),
+      orders: await db.rows<OrderOpt>(
+        `select id, po_no, item_id, supplier_id, qty, unit_price, po_received(id) as received
+           from purchase_order where status = 'ORDERED' order by ordered_at desc`),
+      today: (await db.val<string>(`select to_char(timezone('Asia/Seoul', now()),'YYYY-MM-DD')`)) ?? '',
+    },
+    lotless: await db.rows<{ id: string; code: string; name: string }>(
+      `select i.id, i.code, i.name from item i
+        where i.is_active and i.type not in ('SOLUTION', 'FIN')
+          and not exists (select 1 from material_lot ml
+                           where ml.item_id = i.id and ml.status in ('AVAILABLE','CONSUMED'))
+        order by i.code`),
     moves: await db.rows<MoveRow>(
       `select sm.id, sm.type::text as type, sm.qty, sm.reason_code, sm.reason_detail,
               sm.registered_at, ml.lot_no, i.code as item_code, i.name as item_name,
@@ -85,7 +108,8 @@ export default async function MovementPage() {
 
       <div className="grid gap-5 lg:grid-cols-2">
         <Panel title="재고 증감" note="반납 · 폐기 · 조정">
-          <MovementForm lots={d.lots} orders={d.orders} fix={fixAt(user, '/material')} />
+          <MovementForm lots={d.lots} orders={d.orders} fix={fixAt(user, '/material')}
+                        lotless={d.lotless} receive={d.receive} />
         </Panel>
         <Panel title="원액 제조" note="원료 차감 · 원액 로트">
           <SolutionLotForm items={d.solutions} lots={d.lots} fix={fixAt(user, '/material')} />
