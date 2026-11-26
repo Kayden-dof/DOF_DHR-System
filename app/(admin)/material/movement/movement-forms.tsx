@@ -65,6 +65,15 @@ export function MovementForm({ lots, orders, fix }: {
               </option>
             ))}
           </select>
+          {/*
+            * 재고 증감은 들어온 로트를 움직인다 - 로트가 없는 품목은 여기 나오지 않는다
+            * (사용자 2026-11-26 «타이벡 파우치 넣으려고 했더니 안 나오네»). 그 길을 칸 아래에서 알려 준다.
+            */}
+          <p className="mt-1 text-xs leading-relaxed text-muted">
+            목록에 없는 자재는 아직 들어온 로트가 없습니다.{' '}
+            <Link href="/material" className="font-semibold text-brand underline-offset-2 hover:underline">자재 입고 등록</Link>
+            에서 먼저 넣으십시오. 성적서가 없는 기존 보유분은 성적서 번호에 «성적서 미확인 (합격 라벨 기준)» 으로 적습니다.
+          </p>
         </div>
         <div>
           <label className="label" htmlFor={`${uid}-type`}>유형</label>

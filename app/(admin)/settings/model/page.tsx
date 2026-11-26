@@ -65,9 +65,8 @@ export default async function ModelSchemePage({
   ])].sort();
   const keyOf = (s: Scheme) => s.product_code ?? NONE;
   const tabs = [...codes, ...(d.schemes.some((s) => !s.product_code) ? [NONE] : [])];
-  /* 주소에 제품이 없으면 체계가 있는 첫 탭으로 연다 - 빈 탭부터 열면 체계가 없는 줄 안다 */
-  const current = sp.p && tabs.includes(sp.p) ? sp.p
-    : (tabs.find((t) => d.schemes.some((s) => keyOf(s) === t)) ?? tabs[0] ?? NONE);
+  /* 주소에 제품이 없으면 맨 앞 탭으로 연다 (사용자 2026-11-26 «모든 화면은 제일 앞에 있는 탭으로») */
+  const current = sp.p && tabs.includes(sp.p) ? sp.p : (tabs[0] ?? NONE);
   const shown = d.schemes.filter((s) => keyOf(s) === current);
   const segsOf = (id: string) => d.segments.filter((s) => s.scheme_id === id);
   const nextSeqOf = (id: string) => {
