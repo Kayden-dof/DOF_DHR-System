@@ -11,6 +11,7 @@ import { PageShell, StatStrip, type StatItem } from '@/components/shell';
 import { statRows, mono } from '@/components/stat-rows';
 import { Table, Th, Td, IdCell, TwoLine, ActionTh, RowLink } from '@/components/table';
 import AuditTable from '@/components/audit-table';
+import { withRefs } from '@/lib/audit-refs';
 import { type AuditEntry } from './settings/audit/entry';
 
 export const dynamic = 'force-dynamic';
@@ -256,6 +257,8 @@ export default async function Dashboard() {
               acted_at, reason, actor_name, old_value, new_value, label
          from v_audit_entry order by id desc limit 20`),
   }));
+  /* 감사추적 화면과 같이 번호를 이름으로 푼다 (lib/audit-refs.ts) */
+  const recent = await withRefs(user, d.recent);
 
   /*
    * 며칠 남으면 눈에 띄게 할지는 설정이 정한다 (6차 감사 N1).
@@ -559,7 +562,7 @@ export default async function Dashboard() {
             * 다섯 줄만 먼저 보인다 (사용자 지시 2026-09-02). 나머지는 접혀
             * 있고 펼칠 수 있다. 첫 화면에서 이 표가 세로를 다 먹지 않게 한다.
             */}
-          <AuditTable entries={d.recent} collapseTo={5} />
+          <AuditTable entries={recent} collapseTo={5} />
         </Panel>
       </div>
     </PageShell>

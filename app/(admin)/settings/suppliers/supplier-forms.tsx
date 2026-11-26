@@ -163,7 +163,7 @@ export function SupplierRowView({ s, writable = true, canApprove = false }: {
         <td className="td">{s.name}</td>
         <td className="td">
           <Tag tone={st?.tone ?? 'quiet'}>{st?.label ?? s.status}</Tag>
-          {expired && <Tag tone="danger">승인 만료</Tag>}
+          {expired && <span className="ml-1.5"><Tag tone="danger">승인 만료</Tag></span>}
         </td>
         <td className="td tnum text-muted">{fmtDate(s.approved_until)}</td>
         <td className="td text-muted">

@@ -8,6 +8,7 @@ import { SubNav } from '../../nav';
 import { settingsNav } from '../../sections';
 import { tableLabel } from '@/lib/forms';
 import AuditTable from '@/components/audit-table';
+import { withRefs } from '@/lib/audit-refs';
 import { type AuditEntry } from './entry';
 import PurgeForm from './purge-form';
 
@@ -117,6 +118,8 @@ export default async function AuditPage({ searchParams }: { searchParams: Search
         order by u.full_name`,
     ),
   }));
+  /* 다른 표를 가리키는 번호를 이름으로 (lib/audit-refs.ts) */
+  const entries = await withRefs(user, data.entries);
 
   const total = data.total ?? 0;
   const pages = Math.max(1, Math.ceil(total / PER_PAGE));
@@ -207,7 +210,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Search
             )}
           </p>
         ) : (
-          <AuditTable entries={data.entries} />
+          <AuditTable entries={entries} />
         )}
       </div>
 

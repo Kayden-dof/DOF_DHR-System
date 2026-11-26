@@ -224,7 +224,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                       <td className="td tnum text-muted">{fmtDate(o.expected_at)}</td>
                       <td className="td">
                         <Tag tone={st.tone}>{st.label}</Tag>
-                        {o.lot_count > 0 && <Tag tone="quiet">로트 {o.lot_count}</Tag>}
+                        {o.lot_count > 0 && <span className="ml-1.5"><Tag tone="quiet">로트 {o.lot_count}</Tag></span>}
                       </td>
                       {/*
                         * 발주 줄에서 바로 입고로 간다 (사용자 결정 2026-09-08).

@@ -18,6 +18,8 @@ export interface AuditEntry {
   label: string | null;
   /** 왜 바꿨는가 (0061). 변경에만 있고 비어 있을 수 있다 */
   reason: string | null;
+  /** 값 칸의 uuid 를 이름으로 (lib/audit-refs.ts). 못 푼 번호는 없다 */
+  refs?: Record<string, string>;
 }
 
 /* 해시·비밀 값은 화면에 올리지 않는다. 감사추적은 "무엇이 바뀌었는가"를 보여주는
@@ -34,12 +36,17 @@ const REDACTED = new Set(['pin_hash']);
  * 옮길 말이 없으면 값을 그대로 낸다 - 지어내지 않는다. 로트번호 · 성적서 번호
  * 처럼 옮길 것이 아닌 값이 대부분이다.
  */
-function show(table: string, key: string, v: unknown): string {
+function show(table: string, key: string, v: unknown, refs?: Record<string, string>): string {
   if (REDACTED.has(key)) return v == null ? '없음' : '●●●●●●';
   if (v === null || v === undefined) return '-';
   if (typeof v === 'boolean') return v ? '예' : '아니오';
+  /* 다른 표를 가리키는 번호는 그 대상의 이름으로 (사용자 2026-11-26) */
+  if (typeof v === 'string' && refs?.[v]) return refs[v];
   return valueLabel(table, key, v) ?? String(v);
 }
+
+/* 대상 칸은 번호(로트 · 배치)면 고정폭, 이름이면 본문 글꼴. 고정폭 글꼴에는 한글이 없다 */
+const ascii = (s: string) => /^[ -~]+$/.test(s);
 
 function diff(
   oldV: Record<string, unknown> | null,
@@ -67,10 +74,10 @@ export default function Entry({ e }: { e: AuditEntry }) {
           <span className="text-sm text-ink">{tableLabel(e.table_name)}</span>
         </td>
         <td className="td"><ActionChip action={e.action} /></td>
-        <td className="td whitespace-nowrap font-mono ">
+        <td className="td whitespace-nowrap">
           {e.label
-            ? <span className="text-ink">{e.label}</span>
-            : <span className="text-faint">{shortId(e.record_id)}</span>}
+            ? <span className={`text-ink ${ascii(e.label) ? 'font-mono' : ''}`}>{e.label}</span>
+            : <span className="font-mono text-faint">{shortId(e.record_id)}</span>}
         </td>
         <td className="td">
           {e.actor_name ?? <span className="text-faint">-</span>}
@@ -104,11 +111,11 @@ export default function Entry({ e }: { e: AuditEntry }) {
                         {fieldLabel(c.key)}
                       </td>
                       <td className="qd-col-grow py-1 pr-3 align-top text-danger line-through">
-                        {e.action === 'INSERT' ? '' : show(e.table_name, c.key, c.from)}
+                        {e.action === 'INSERT' ? '' : show(e.table_name, c.key, c.from, e.refs)}
                       </td>
                       <td className="py-1 text-center align-top text-faint">→</td>
                       <td className="qd-col-grow py-1 align-top font-semibold text-ink">
-                        {e.action === 'DELETE' ? '삭제됨' : show(e.table_name, c.key, c.to)}
+                        {e.action === 'DELETE' ? '삭제됨' : show(e.table_name, c.key, c.to, e.refs)}
                       </td>
                     </tr>
                   ))}

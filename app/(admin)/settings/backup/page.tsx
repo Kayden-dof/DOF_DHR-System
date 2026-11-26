@@ -183,7 +183,7 @@ export default async function BackupPage() {
                   <tr key={b.id}>
                     <td className="td tnum whitespace-nowrap">
                       {b.taken_at}
-                      {i === 0 && <Tag tone="ok">최근</Tag>}
+                      {i === 0 && <span className="ml-2"><Tag tone="ok">최근</Tag></span>}
                     </td>
                     <td className="td whitespace-nowrap">{b.taken_by_name}</td>
                     <td className="td font-mono text-muted">{b.file_name}</td>
