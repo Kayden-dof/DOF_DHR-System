@@ -67,7 +67,21 @@ const config: NextConfig = {
   serverExternalPackages: ['pg'],
 
   async headers() {
-    return [{ source: '/:path*', headers }];
+    return [
+      { source: '/:path*', headers },
+      /*
+       * 글꼴은 다시 묻지 않고 쓴다 (2026-11-26 · 사용자 «새로 고침하면 전체 규격 · 부품 위치가 한 번씩
+       * 다시 잡힌다»). 기본값(max-age=0, must-revalidate)이면 새로 고칠 때마다 글꼴을 서버에 다시
+       * 묻는다 - 운영 실측 123ms. 글꼴은 100ms 까지만 기다리므로(font-display: fallback) 그보다 늦으면
+       * 맑은 고딕으로 먼저 그렸다가 Pretendard 로 바뀌고, 글자 폭이 달라져 표 · 단추 자리가 다시 잡혔다.
+       * 이레 동안은 묻지 않고, 그 뒤에도 가진 것을 먼저 쓰고 뒤에서 새로 받는다.
+       * 파일 이름에 지문이 없으므로(scripts/subset-font.py) 1년 immutable 로 묶지는 않는다.
+       */
+      {
+        source: '/fonts/:path*',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=604800, stale-while-revalidate=2592000' }],
+      },
+    ];
   },
 };
 

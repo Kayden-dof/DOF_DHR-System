@@ -96,6 +96,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="ko" data-theme="light">
       <head>
+        {/*
+          * 모든 화면이 쓰는 글꼴 두 조각(라틴 · 숫자, 자주 쓰는 한글)을 문서와 함께 받기 시작한다
+          * (2026-11-26). CSS 를 다 읽은 뒤에야 받기 시작하면 첫 화면을 맑은 고딕으로 그렸다가
+          * 바꾸며 자리가 한 번 다시 잡힌다. 캐시는 next.config.ts 의 /fonts 머리글.
+          */}
+        <link rel="preload" href="/fonts/pretendard/pretendard-base.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
+        <link rel="preload" href="/fonts/pretendard/pretendard-ks.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
         <style dangerouslySetInnerHTML={{
           __html: `:root{${brandVars(brandColor)}${mark ? `;${mark}` : ''}}`,
         }} />
