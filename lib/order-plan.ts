@@ -96,11 +96,9 @@ function samplesOf(sheets: number[], perSheet: number, units: number, tiers: Sam
   });
 }
 
-export function proposeBatches(input: ProposeInput): Proposal {
-  const { units, perSheet, sheetMin, sheetMax, sampleTiers, steps, startMin, calendar, today, dueOn, gapDays } = input;
-  if (!(units > 0)) return { ok: false, reason: 'no-units' };
-  if (perSheet == null || !(perSheet > 0)) return { ok: false, reason: 'no-size' };
-
+/** 만들 개수를 장수 · 배치로 나누고 배치마다 시료를 붙인다 (날짜 없이) */
+function sheetPlan(units: number, perSheet: number, sheetMin: number | null, sheetMax: number | null,
+  sampleTiers: SampleTier[]): { sheetList: number[]; sm: number[] } {
   /* 시료가 배치마다 붙으므로 장수가 달라지면 시료가 달라진다 - 안정될 때까지 (최대 10번) */
   let total = Math.ceil(units / perSheet);
   let sheetList = splitSheets(total, sheetMin, sheetMax);
@@ -112,6 +110,30 @@ export function proposeBatches(input: ProposeInput): Proposal {
     sheetList = splitSheets(total, sheetMin, sheetMax);
     sm = samplesOf(sheetList, perSheet, units, sampleTiers);
   }
+  return { sheetList, sm };
+}
+
+/**
+ * 장입 상한 한 배치에 드는 만들 개수의 최대 (시료 빼고 · 사용자 2026-11-26 «장입 상한에 맞춰
+ * 만들 개수의 최대치 안내»). 상한 장수 x 장당 개수에서 그 배치의 시료만큼 덜어 낸 값이다 -
+ * proposeBatches 와 같은 나누기로 «한 배치» 가 되는 가장 큰 개수를 찾는다.
+ * 장당 개수나 장입 상한이 없으면 null.
+ */
+export function oneBatchMax(perSheet: number | null, sheetMin: number | null, sheetMax: number | null,
+  sampleTiers: SampleTier[]): number | null {
+  if (perSheet == null || !(perSheet > 0) || sheetMax == null || !(sheetMax > 0)) return null;
+  for (let u = sheetMax * perSheet; u > 0; u--) {
+    if (sheetPlan(u, perSheet, sheetMin, sheetMax, sampleTiers).sheetList.length === 1) return u;
+  }
+  return null;
+}
+
+export function proposeBatches(input: ProposeInput): Proposal {
+  const { units, perSheet, sheetMin, sheetMax, sampleTiers, steps, startMin, calendar, today, dueOn, gapDays } = input;
+  if (!(units > 0)) return { ok: false, reason: 'no-units' };
+  if (perSheet == null || !(perSheet > 0)) return { ok: false, reason: 'no-size' };
+
+  const { sheetList, sm } = sheetPlan(units, perSheet, sheetMin, sheetMax, sampleTiers);
 
   const hasSteps = !!steps && steps.length > 0;
   const noSteril = !hasSteps || !steps!.some((x) => x.k === 'ext');

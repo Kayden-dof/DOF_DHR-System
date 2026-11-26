@@ -3,7 +3,7 @@
 // 근거: 주문에서 생산 계획 · 자재 소요 예보 (lib/order-plan.ts)
 // =============================================================================
 
-import { proposeBatches, nextWorkday, addWorkdays, samplesFor, planNote, firstStepMin, tooManyBatches, MAX_BATCHES } from '../../lib/order-plan.ts';
+import { proposeBatches, oneBatchMax, nextWorkday, addWorkdays, samplesFor, planNote, firstStepMin, tooManyBatches, MAX_BATCHES } from '../../lib/order-plan.ts';
 import { DEFAULT_CALENDAR } from '../../lib/timeline.ts';
 
 const CAL = { ...DEFAULT_CALENDAR, holidays: ['2026-11-30'] };
@@ -152,6 +152,24 @@ export default [
     t.eq(over.ok && over.batches.length, 51, '하나 넘으면 51');
     t.eq(tooManyBatches(over), true, '51 배치는 나눠 올린다');
     t.eq(tooManyBatches(proposeBatches(base({ units: 0 }))), false, '제안이 서지 않으면 상한도 아니다');
+  },
+},
+
+{
+  id: 'OL-10', expect: '통과',
+  name: '한 배치(장입 상한)에 드는 만들 개수의 최대 - 시료를 빼고, 장당 개수를 따른다',
+  async run(t) {
+    t.eq(oneBatchMax(16, 1, 20, []), 320, '장입 20장 x 장당 16 = 320');
+    t.eq(oneBatchMax(20, 1, 20, []), 400, '장당 20 이면 400');
+    t.eq(sheetsOf(proposeBatches(base({ units: 320, sheetMax: 20 }))), [20], '320 은 한 배치');
+    t.eq(sheetsOf(proposeBatches(base({ units: 321, sheetMax: 20 }))), [20, 1], '하나 넘으면 둘');
+    const tiers = [{ min: 1, max: null, samples: 5 }];
+    const cap = oneBatchMax(10, 1, 5, tiers);
+    t.eq(cap, 45, '장입 5장 x 장당 10 = 50 에서 시료 5 를 빼면 45');
+    t.eq(proposeBatches(base({ units: cap, perSheet: 10, sheetMax: 5, sampleTiers: tiers })).batches.length, 1, '45 는 한 배치');
+    t.eq(proposeBatches(base({ units: cap + 1, perSheet: 10, sheetMax: 5, sampleTiers: tiers })).batches.length, 2, '46 은 두 배치');
+    t.eq(oneBatchMax(16, 1, null, []), null, '장입 상한이 없으면 없음');
+    t.eq(oneBatchMax(null, 1, 20, []), null, '장당 개수가 없으면 없음');
   },
 },
 

@@ -7,7 +7,7 @@ import { Msg, Tag } from '@/components/ui';
 import { Table, Th, Td } from '@/components/table';
 import { Dialog, useDialog } from '@/components/dialog';
 import { md, type Step, type WorkCalendar } from '@/lib/timeline';
-import { proposeBatches, tooManyBatches, TOO_MANY_BATCHES, type SampleTier } from '@/lib/order-plan';
+import { proposeBatches, oneBatchMax, samplesFor, tooManyBatches, TOO_MANY_BATCHES, type SampleTier } from '@/lib/order-plan';
 import { addPlansFromOrder } from './actions';
 
 /** 판 위 줄 하나. 서버가 읽어 넘기는 값이고, 제안은 여기서 다시 셈한다 (올릴 때는 서버가 또 셈한다) */
@@ -65,7 +65,15 @@ function LineRow({ line: l, calendar, today, occupied, writable }: {
   line: OrderPlanLine; calendar: WorkCalendar; today: string; occupied: Occupied[]; writable: boolean;
 }) {
   const uid = useId();
-  const defUnits = Math.max(0, l.leftQty - l.covered);
+  const need = Math.max(0, l.leftQty - l.covered);
+  /*
+   * 한 배치(장입 상한)에 드는 최대 개수 (사용자 2026-11-26 «장입 상한에 맞춰 만들 개수의 최대치
+   * 안내 · 20장이 들어가는 수량을 1차 제안»). 장당 개수가 달라지면 이 값도 따라 바뀐다.
+   * 1차 제안은 남은 개수이되, 한 배치를 넘으면 한 배치 가득이다. 그보다 많이 넣으면 배치를 나눈다.
+   */
+  const cap = useMemo(() => oneBatchMax(l.perSheet, l.sheetMin, l.sheetMax, l.tiers),
+    [l.perSheet, l.sheetMin, l.sheetMax, l.tiers]);
+  const defUnits = cap != null && need > cap ? cap : need;
   const [units, setUnits] = useState(String(defUnits));
   const [gap, setGap] = useState(l.defaultGap == null ? '' : String(l.defaultGap));
   /* 올린 뒤 덮인 개수가 늘면 기본값도 따라 바뀐다 */
@@ -137,6 +145,17 @@ function LineRow({ line: l, calendar, today, occupied, writable }: {
             <label className="sr-only" htmlFor={`${uid}-u`}>만들 개수</label>
             <input id={`${uid}-u`} className="input" type="number" min={0} inputMode="numeric" value={units}
                    onChange={(e) => setUnits(e.target.value)} />
+            {cap != null && (
+              <p className="mt-1 text-xs text-faint">
+                한 배치 최대 <span className="tnum font-semibold text-muted">{cap.toLocaleString('ko-KR')}개</span>
+                <br />
+                <span className="tnum">장입 {l.sheetMax}장 × 장당 {l.perSheet}개</span>
+                {samplesFor(cap, l.tiers) > 0 && <> · 시료 {samplesFor(cap, l.tiers)}개 빼고</>}
+              </p>
+            )}
+            {cap != null && p.ok && p.batches.length > 1 && (
+              <p className="mt-0.5 text-xs text-warn">한 배치를 넘어 {p.batches.length}배치로 나눕니다</p>
+            )}
             {!hasTimeline && l.perSheet != null && (
               <>
                 <label className="label" htmlFor={`${uid}-g`}>배치 간격 (근무일)</label>
