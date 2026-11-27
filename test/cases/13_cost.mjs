@@ -244,6 +244,44 @@ export default [
 },
 
 {
+  id: 'LC-09', expect: '확인',
+  name: '걸린 시간을 숫자로 적는 칸도 시간으로 센다 (단위는 같은 줄 기준 칸에서 · 0181)',
+  async run(t) {
+    const m = await master(t);
+    const wo = await newWorkOrder(t, m);
+    /* H2O2 처리 «처리 시간 · 30 ~ 35 분 · [30]», «진탕속도 · 60 ~70 rpm · [65]» 와 같은 모양 */
+    const form = { page: { w: 842, h: 595 }, pages: [{ texts: [], tables: [{ rows: [
+      { cells: [{ c: 0, t: 'H₂O₂ 처리' }, { c: 1, t: '처리 시간' }, { c: 2, t: '30 ~ 35 분' }, { c: 3 }] },
+      { cells: [{ c: 0 }, { c: 1, t: '진탕속도' }, { c: 2, t: '60 ~70 rpm' }, { c: 3 }] },
+      { cells: [{ c: 0 }, { c: 1, t: '건조 시간' }, { c: 2, t: '48 ~ 72 h' }, { c: 3, t: '시간' }] },
+    ] }] }] };
+    const d = await t.val(
+      `insert into mfg_doc (product_code, op_code, kind, doc_no, title, revision, registered_by, form)
+       values ('LC-TEST', 'WS-DX2401-04', 'BR', 'F706-LC-09', '걸린 시간 시험', 'Rev.00', $1, $2::jsonb)
+       returning id`, [m.admin, JSON.stringify(form)]);
+    t.eq(await t.val(`select br_cell_unit($1::jsonb, 'p0t0r0c3')`, [JSON.stringify(form)]), 'min', '기준 칸 «30 ~ 35 분» 에서 분');
+    t.eq(await t.val(`select br_cell_unit($1::jsonb, 'p0t0r1c3')`, [JSON.stringify(form)]), null, 'rpm 은 시간이 아니다');
+    t.eq(await t.val(`select br_cell_unit($1::jsonb, 'p0t0r2c3')`, [JSON.stringify(form)]), 'h', '칸 글이 «시간» 하나');
+
+    await t.rows(
+      `insert into equipment (code, name, purchase_price, useful_life_months, salvage_value, monthly_hours)
+       values ('LC-EQ-9', '시험 진탕기', 9600000, 60, 0, 160)`);
+    const pr = await record(t, m, wo.id, { op: m.ops['WS-DX2401-01'], worker: m.worker, day: 1 });
+    await t.setActor(m.admin);
+    await t.rows(`insert into br_entry (process_record_id, doc_id, field, value, entered_by)
+                  values ($1,$2,'p0t0r0c3','30',$3), ($1,$2,'p0t0r1c3','65',$3), ($1,$2,'p0t0r2c3','50',$3)`, [pr, d, m.admin]);
+    await t.rows(`insert into br_time_equipment (process_record_id, doc_id, field, equipment_ids, set_by)
+                  values ($1,$2,'p0t0r0c3', array(select id from equipment where code = 'LC-EQ-9'), $3)`, [pr, d, m.admin]);
+    await t.setActor(null);
+
+    const rows = await t.rows(`select field, hours::text, kind from v_br_time where process_record_id = $1 order by field`, [pr]);
+    t.eq(rows.map((r) => `${r.field}:${Number(r.hours)}:${r.kind}`).join(' '),
+         'p0t0r0c3:0.5:duration p0t0r2c3:50:duration', '30 분 = 0.5 시간, 50 시간 칸, rpm 칸은 빠진다');
+    t.eq(Number(await t.val(`select sum(hours) from v_equipment_hours where code = 'LC-EQ-9'`)), 0.5, '고른 설비에 0.5 시간');
+  },
+},
+
+{
   id: 'LC-06', expect: '확인',
   name: '상각 정보가 없는 설비는 배치를 가로질러 겹쳐 세지 않는다',
   async run(t) {

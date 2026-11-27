@@ -137,9 +137,15 @@ export interface TimeEquipApi {
   save: (docId: string, field: string, ids: string[]) => Promise<BrSheet | { error: string }>;
 }
 
-/** 시각을 적는 칸인가 - «시작 ~ 종료» 칸, 또는 시각 빈칸이 딸린 보기 */
+/**
+ * 걸린 시간을 숫자로 적는 칸 (0181 · 사용자 2026-11-27 «여기도 처리시간 30분에 진탕기 쓰는데»). 같은 줄 기준 칸
+ * («30 ~ 35 분»)에서 빌려 온 단위가 분 · 시간인 숫자 칸이다. DB 의 br_cell_unit 과 같은 잣대.
+ */
+const durationCell = (c: FormCell) => c.k === 'number' && /^(분|시간|min|h|hr)$/.test((c.u ?? '').trim());
+
+/** 시각을 적는 칸인가 - «시작 ~ 종료» 칸, 시각 빈칸이 딸린 보기, 걸린 시간 숫자 칸 */
 const timeCell = (c: FormCell) =>
-  c.k === 'time' || (c.k === 'choice' && (c.o ?? []).some((o) => optionBlank(o) === 'time'));
+  c.k === 'time' || (c.k === 'choice' && (c.o ?? []).some((o) => optionBlank(o) === 'time')) || durationCell(c);
 
 export interface SheetApi {
   save: (docId: string, field: string, value: string, why?: string) => Promise<BrSheet | { error: string }>;
@@ -900,7 +906,7 @@ function FieldEditor({ cell, workDate, basis, busy, error, onSave, onCancel, equ
             <EquipChips opts={equip.opts} sel={sel} onChange={setSel} busy={busy}
                         tail={cell.v && onSaveEquip ? (
                           <button type="button" disabled={busy} onClick={() => onSaveEquip(sel)}
-                                  className="btn-ghost ml-auto text-sm">설비만 저장</button>
+                                  className="btn-ghost ml-auto">설비만 저장</button>
                         ) : undefined} />
           )}
               <TimePair s={{ d: workDate, t: extra.split('~')[0] ?? '' }} e={{ d: workDate, t: extra.split('~')[1] ?? '' }}
@@ -954,7 +960,7 @@ function FieldEditor({ cell, workDate, basis, busy, error, onSave, onCancel, equ
             <EquipChips opts={equip.opts} sel={sel} onChange={setSel} busy={busy}
                         tail={cell.v && onSaveEquip ? (
                           <button type="button" disabled={busy} onClick={() => onSaveEquip(sel)}
-                                  className="btn-ghost ml-auto text-sm">설비만 저장</button>
+                                  className="btn-ghost ml-auto">설비만 저장</button>
                         ) : undefined} />
           )}
           <TimePair s={s} e={e} dated={!!cell.dt} busy={busy}
@@ -991,19 +997,27 @@ function FieldEditor({ cell, workDate, basis, busy, error, onSave, onCancel, equ
       )}
 
       {cell.k === 'number' && !needBasis && (
-        <div className="mt-3">
+        <div className="mt-3 space-y-3">
+          {/* 걸린 시간 칸이면 쓴 설비를 먼저 고른다 (0181) */}
+          {equip && (
+            <EquipChips opts={equip.opts} sel={sel} onChange={setSel} busy={busy}
+                        tail={cell.v && onSaveEquip ? (
+                          <button type="button" disabled={busy} onClick={() => onSaveEquip(sel)}
+                                  className="btn-ghost ml-auto">설비만 저장</button>
+                        ) : undefined} />
+          )}
           <NumPad name="num" label={`값${cell.u ? ` (${cell.u})` : ''}`} unit={cell.u}
                   initial={num.replace(/^-/, '')} onChange={setNum}
                   onEnter={() => {
                     const v = num.replace(/^-/, '');
-                    if (!busy && v) onSave(`${neg ? '-' : ''}${v}`);
+                    if (!busy && v) putTime(`${neg ? '-' : ''}${v}`);
                   }} />
-          <div className="mt-3 flex gap-2">
+          <div className="flex gap-2">
             <button type="button" onClick={() => setNeg((x) => !x)} data-on={neg} className="tile w-24 justify-center">
               {neg ? '− 영하' : '+'}
             </button>
             <button type="button" disabled={busy || !num.replace(/^-/, '')}
-                    onClick={() => onSave(`${neg ? '-' : ''}${num.replace(/^-/, '')}`)}
+                    onClick={() => putTime(`${neg ? '-' : ''}${num.replace(/^-/, '')}`)}
                     className="btn-primary flex-1">저장</button>
           </div>
         </div>

@@ -25,8 +25,14 @@ comment on column br_entry.forced is
   '관리자 정정 줄 (0155). 칸 값은 이것이 이기되, 그 줄의 작업(검사)자 · 일자는 바꾸지 않는다';
 
 alter table record_correction drop constraint if exists record_correction_field_check;
+/*
+ * not valid (2026-11-27): 이관은 배포 때마다 처음부터 다시 돈다. 뒤 이관(0165)이 허용한 값('material_issue')의
+ * 줄이 운영에 생기자 여기서 검사하며 세우다 멈췄고, 이 파일이 통째로 되돌아가면서 앞 파일들만 다시 적용돼
+ * 0155 이후에 고친 함수 · 뷰가 옛 정의로 되돌아갔다 (11-26 · 11-27). 0131 · 0139 처럼 기존 줄은 보지 않고,
+ * 마지막 정의(0165)가 전체 줄을 검사하는 규칙을 다시 세운다.
+ */
 alter table record_correction add constraint record_correction_field_check
-  check (field in ('no_material_reason', 'day_no', 'work_date', 'started_at', 'ended_at', 'br_entry'));
+  check (field in ('no_material_reason', 'day_no', 'work_date', 'started_at', 'ended_at', 'br_entry')) not valid;
 
 create or replace function trg_s04_locked()
 returns trigger language plpgsql as $fn$
