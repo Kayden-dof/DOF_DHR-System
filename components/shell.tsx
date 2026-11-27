@@ -107,6 +107,11 @@ export interface StatItem {
    * 적으면 띠가 표가 된다. 평소에는 숫자만, 가리키면 내역 (사용자 지적).
    */
   detail?: React.ReactNode;
+  /*
+   * 두 칸 폭을 쓴다 (사용자 2026-11-27 «자재지출칸을 두칸 할애해서 넓게»). 경영 현황이 아홉 칸이 되자
+   * 5 + 4 로 갈려 금액 칸이 좁아지고 «3,642,60 / 0» 으로 꺾였다. 긴 금액 칸 하나에만 준다.
+   */
+  wide?: boolean;
 }
 
 /*
@@ -125,7 +130,9 @@ export function StatStrip({ items }: { items: StatItem[] }) {
    * 줄 수를 먼저 정하고 고르게 나눈다 (7 → 4 + 3 · 8 → 4 + 4). 칸 수는 상한일 뿐이라
    * 좁은 화면에서는 정본 최소 폭이 이겨 접힌다 (정본 responsiveColumns).
    */
-  const cols = Math.ceil(items.length / Math.ceil(items.length / 6));
+  /* 넓은 칸은 두 칸으로 센다 - 9칸 중 하나가 넓으면 10 → 5 + 5 */
+  const units = items.reduce((n, s) => n + (s.wide ? 2 : 1), 0);
+  const cols = Math.ceil(units / Math.ceil(units / 6));
   return (
     <dl className="qd-grid-kpi"
         style={{ gridTemplateColumns: responsiveColumns(cols, 'var(--qd-kpi-min-width)', 14) }}>
@@ -140,7 +147,7 @@ export function StatStrip({ items }: { items: StatItem[] }) {
             </dd>
           </>
         );
-        const cls = `qd-kpi${zero ? ' qd-kpi--zero' : ''}`;
+        const cls = `qd-kpi${zero ? ' qd-kpi--zero' : ''}${s.wide ? ' qd-kpi--wide' : ''}`;
         const tone = zero ? undefined : s.tone;
         const tip = s.detail
           ? <StatDetail title={s.label}>{s.detail}</StatDetail>

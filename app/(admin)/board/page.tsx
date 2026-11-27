@@ -295,7 +295,7 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
         left: <b className="font-mono">{n.concession_doc_no ?? ''}</b>,
         sub: `${n.lot_no} · ${n.reason_code}`, right: `${num(n.qty)}개`,
       })), '이번 달 특채가 없습니다.') },
-    { label: '이번 달 자재 지출', value: amount(month?.spend), unit: '원',
+    { label: '이번 달 자재 지출', value: amount(month?.spend), unit: '원', wide: true,
       href: canCost ? '/board/cost#cost-spend' : '#board-month',
       detail: (
         <>
