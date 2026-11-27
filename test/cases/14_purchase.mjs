@@ -9,7 +9,7 @@
 // 더해 발주 수량에 닿았는지만 본다. 많이 들어와도 막지 않는다 (§2).
 // =============================================================================
 
-import { masterData as master, newMaterialLot } from '../fixtures.mjs';
+import { masterData as master, newMaterialLot, reverify } from '../fixtures.mjs';
 
 /** 발주 하나. 수량은 사용 단위다 (§4.2) */
 async function newOrder(t, m, itemId, qty, opts = {}) {
@@ -200,6 +200,55 @@ export default [
     const c = await line();
     t.eq(Number(c.s), Number(a.a), '되돌린 뒤 선 = 자동값');
     t.eq(c.hand, false, '직접 표시가 풀렸는가');
+  },
+},
+
+{
+  id: 'PO-09', expect: '통과',
+  name: '원액 원료의 선 = 처방 x 한 배치 사용량 x 4, 원액이 작성 중 판 구성표에만 있어도 (0176)',
+  async run(t) {
+    const m = await master(t);
+    const tag = Math.random().toString(36).slice(2, 7).toUpperCase();
+    const mk = (code, name, type, uom, extra = '') => t.val(
+      `insert into item (code, name, type, purchase_uom, usage_uom, conversion${extra ? ', shelf_life_months' : ''})
+       values ($1, $2, $3::item_type, $4, $4, 1${extra ? ', 24' : ''}) returning id`, [code, name, type, uom]);
+    const fin = await mk(`PD-T9${tag}`, '시험 완제품', 'FIN', 'EA', 'fin');
+    const sol = await mk(`SL-T9${tag}`, '시험 원액', 'SOLUTION', 'L');
+    const rg = await mk(`RG-T9${tag}`, '시험 원액 원료', 'REAGENT', 'g');
+    const pc = `TP9${tag}`;
+
+    /* 시행 중 판: 원액이 구성표에 없다 (DX2401 Rev.00 처럼) */
+    const act = await t.val(
+      `insert into device_master (item_id, revision, status, product_code, effective_from)
+       values ($1, 'Rev.00', 'DRAFT', $2, current_date) returning id`, [fin, pc]);
+    await reverify(t, act, m.admin);
+    /* 작성 중 판: 원액이 공정 둘에 1.6 L 씩 (DX2401 Rev.01 처럼) */
+    const draft = await t.val(
+      `insert into device_master (item_id, revision, status, product_code)
+       values ($1, 'Rev.01', 'DRAFT', $2) returning id`, [fin, pc]);
+    for (const [seq, code] of [[1, 'OP-A'], [2, 'OP-B']]) {
+      const op = await t.val(
+        `insert into dmr_operation (device_master_id, seq, code, name, after_cutting)
+         values ($1, $2, $3, $3, false) returning id`, [draft, seq, code]);
+      const bom = await t.val(
+        `insert into dmr_bom (operation_id, component_item_id, basis) values ($1, $2, 'SHEET_TIER') returning id`,
+        [op, sol]);
+      await t.rows(`insert into dmr_bom_tier (dmr_bom_id, min_sheets, max_sheets, qty) values ($1, 1, 30, 1.6)`, [bom]);
+    }
+
+    await t.rows(`update item set batch_use = 3.2 where id = $1`, [sol]);
+    await t.rows(`insert into solution_recipe (solution_item_id, input_item_id, qty_per_unit) values ($1, $2, 28.8)`,
+                 [sol, rg]);
+    await t.val(`select suggest_min_stock(90)`);
+
+    const r = await t.one(`select min_stock::numeric as s, min_stock_basis as b from item where id = $1`, [rg]);
+    /* 28.8 g/L x 3.2 L x 4 배치. 지난 제조 비율이 아니라 처방으로 */
+    t.eq(Number(r.s), 368.64, '처방 x 3.2 L x 4');
+    t.eq(/배치당 3\.2 L/.test(r.b ?? '') && /1 L 당 처방/.test(r.b ?? ''), true, '근거에 사용량 · 처방');
+    /* 원액 자체는 자체 생산이라 선을 두지 않는다 (0172) */
+    t.eq(await t.val(`select min_stock from item where id = $1`, [sol]), null, '원액 선 없음');
+
+    await t.rows(`update device_master set status = 'DRAFT' where id = $1`, [act]);
   },
 },
 
