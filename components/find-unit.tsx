@@ -21,9 +21,9 @@ import { useRouter } from 'next/navigation';
    단축키만 있는 기능은 아는 사람에게만 있는 기능이다. 머리줄에 단추를 두고
    그 옆에 단축키를 적어 둔다. 눌러서 쓰다가 단축키를 익히게 된다.
 
-   ── 결과는 경영 화면이 그린다 ─────────────────────────────────────────────
-   찾은 결과를 여기서 다시 그리지 않는다. /board?sn=… 로 넘긴다. 두 곳이 같은
-   것을 그리면 갈라진다 (§10).
+   ── 결과는 추적 보고서다 (사용자 2026-11-27) ──────────────────────────────
+   «제조번호를 쳤을때 레포트가 나와야 하고 한장짜리 A4 리포트» - 전에는 경영 현황 위에 여덟 칸만
+   그렸다. 이제 /print/trace?sn=… (A4 한 장 · 조회용) 로 넘긴다. 그리는 곳은 그 보고서 하나다 (§10).
 
    ── 왜 body 로 옮겨 그리는가 ──────────────────────────────────────────────
    이 단추는 머리줄 안에 있고, 머리줄에는 backdrop-blur 가 걸려 있다.
@@ -64,7 +64,7 @@ export default function FindUnit() {
     const v = sn.trim();
     if (!v) return;
     setOpen(false);
-    router.push(`/board?sn=${encodeURIComponent(v)}`);
+    router.push(`/print/trace?sn=${encodeURIComponent(v)}`);
   }
 
   return (
@@ -92,7 +92,7 @@ export default function FindUnit() {
                 className="w-full max-w-lg rounded-xl border border-line bg-surface p-4 shadow-[var(--sh-3)]">
             <h2 className="text-sm font-semibold text-ink">제조번호 찾기</h2>
             <p className="mt-1 text-xs leading-relaxed text-muted">
-              라벨에 찍힌 제조번호를 그대로 적으십시오.
+              라벨의 제조번호나 배치번호를 적으면 추적 보고서(A4 한 장)가 열립니다.
             </p>
 
             <div className="mt-3 flex gap-2">

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { requireUser, hasRole } from '@/lib/session';
 import { withUser } from '@/lib/db';
 import { fmtDate, num, chem } from '@/lib/fmt';
@@ -56,16 +57,6 @@ interface Bucket {
   sheet_scrap_pct: string | null;
   spend: string;
 }
-interface Unit {
-  product_lot_id: string; lot_no: string; seq: number | null;
-  item_code: string; item_name: string;
-  product_code: string | null; product_name: string | null;
-  batch_no: string; work_order_id: string;
-  raw_lot_no: string; manufactured_on: string; expiry_date: string;
-  qty_produced: number; qty_sample: number;
-  standing: string; customer_name: string | null; shipped_at: string | null;
-}
-
 type Search = Promise<{ sn?: string }>;
 
 /* 진행 중인 수주의 줄 하나 (0159 · 0173) */
@@ -89,7 +80,9 @@ interface ItemCost {
 
 export default async function BoardPage({ searchParams }: { searchParams: Search }) {
   const user = await requireUser();
+  /* 제조번호 찾기는 추적 보고서가 그린다 (사용자 2026-11-27). 옛 주소로 오면 그리로 */
   const sn = ((await searchParams).sn || '').trim();
+  if (sn) redirect(`/print/trace?sn=${encodeURIComponent(sn)}`);
 
   const d = await withUser(user, async (db) => ({
     today: await db.val<string>(`select to_char(timezone('Asia/Seoul', now()),'YYYY-MM-DD')`),
@@ -209,7 +202,6 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
         where sh.shipped_at >= date_trunc('month', timezone('Asia/Seoul', now()))::date
         order by sh.shipped_at, pl.lot_no`),
 
-    unit: sn ? await db.rows<Unit>(`select * from find_unit($1)`, [sn]) : [],
     /*
      * 제품코드별 자재 원가 (사용자 요청). 배분과 반올림은 v_item_cost 가
      * 한 번만 한다 - 화면이 각자 나누면 갈라진다 (§10).
@@ -358,79 +350,10 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
     <PageShell
       section="경영"
       title="경영 현황"
-      lede="출고할 수주와 오늘 · 이번 주 · 달별, 수입 · 지출 순서로 놓았습니다. 제조번호로 그 제품이 어디서 나와 어디로 갔는지 찾을 수 있습니다."
+      lede="출고할 수주와 오늘 · 이번 주 · 달별, 수입 · 지출 순서로 놓았습니다."
       stats={<StatStrip items={stats} />}
       nav={<SubNav items={boardNav(hasRole(user, 'SYS_ADMIN', 'PROD_MGR', 'VIEWER'))} />}
     >
-
-      {/* ------------------------------------------------------------------
-        * 제조번호 찾기 결과
-        *
-        * 입력 칸은 머리줄로 옮겼다 (components/find-unit.tsx). 여기 큰 판으로
-        * 두었더니 평소에는 빈 칸 하나만 덩그러니 떠 있었고, 자리를 많이 먹으면서
-        * 하는 일이 없었다 (사용자 지적 2026-09-01).
-        *
-        * 결과는 여기서만 그린다. 두 곳이 같은 것을 그리면 갈라진다 (§10).
-        * 찾은 것이 없으면 이 판 자체가 나오지 않는다.
-        * ---------------------------------------------------------------- */}
-      {sn && (
-      <Panel title="제조번호 찾기"
-             note={<span className="font-mono">{sn}</span>}>
-        {(
-          d.unit.length === 0 ? (
-            <p className="border-t border-line-soft px-4 py-3 text-sm text-muted">
-              <span className="font-mono text-ink">{sn}</span> 에 해당하는 제조번호가 없습니다.
-            </p>
-          ) : (
-            <div className="border-t border-line-soft">
-              {d.unit.map((u, i) => (
-                <div key={i}
-                     className="grid gap-x-6 gap-y-2 px-4 py-3 sm:grid-cols-2 lg:grid-cols-4">
-                  <Field label="제품">
-                    {u.product_code ?? u.item_code}
-                    <div className="text-xs text-muted">{u.product_name ?? u.item_name}</div>
-                  </Field>
-                  <Field label="형명"><span className="font-mono">{u.item_code}</span></Field>
-                  <Field label="제조번호">
-                    <span className="font-mono font-semibold">{u.lot_no}</span>
-                    {u.seq !== null && (
-                      <span className="font-mono"> · {String(u.seq).padStart(3, '0')}</span>
-                    )}
-                  </Field>
-                  <Field label="상태">
-                    <Tag tone={u.standing === '출고됨' ? 'brand'
-                      : u.standing === '완제품검사 시료' ? 'quiet'
-                      : u.standing === '이 제조번호에 없는 번호' ? 'danger' : 'ok'}>
-                      {u.standing}
-                    </Tag>
-                    {u.customer_name && (
-                      <div className="text-xs text-muted">
-                        {u.customer_name} · {fmtDate(u.shipped_at)}
-                      </div>
-                    )}
-                  </Field>
-                  <Field label="배치">
-                    <Link href={`/production/${u.work_order_id}`}
-                          className="font-mono text-brand hover:underline">
-                      {u.batch_no}
-                    </Link>
-                  </Field>
-                  <Field label="원재료 로트">
-                    <span className="font-mono">{u.raw_lot_no}</span>
-                  </Field>
-                  <Field label="제조일">
-                    <span className="tnum">{fmtDate(u.manufactured_on)}</span>
-                  </Field>
-                  <Field label="유효기한">
-                    <span className="tnum">{fmtDate(u.expiry_date)}</span>
-                  </Field>
-                </div>
-              ))}
-            </div>
-          )
-        )}
-      </Panel>
-      )}
 
       {/* 오늘 ── 무엇이 나왔나 --------------------------------------------- */}
       {/* 숫자 띠가 #board-today 로 내린다 (UI/UX 검수 2026-11-11) */}
@@ -834,11 +757,3 @@ function Def({ term, children }: { term: string; children: React.ReactNode }) {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <dt className="label mb-0.5">{label}</dt>
-      <dd className="text-sm text-ink">{children}</dd>
-    </div>
-  );
-}
