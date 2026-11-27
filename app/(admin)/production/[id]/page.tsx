@@ -739,6 +739,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                   <th className="th">종료</th>
                   <th className="th text-right">투입 자재</th>
                   <th className="th">비고</th>
+                  <th className="th" aria-label="동작" />
                 </tr>
               </thead>
               <tbody>
@@ -801,6 +802,13 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                           ]} />
                         </div>
                       )}
+                    </td>
+                    {/*
+                      * 고치는 동작은 맨 오른쪽 칸에 (사용자 2026-11-27 «기록서 고치기 오른쪽으로 빼줘»). 비고 칸에는
+                      * 기록의 사실(설비 · 재포장 · 수정 사항)만 남긴다.
+                      */}
+                    <td className="td whitespace-nowrap text-right [&_*]:!whitespace-nowrap">
+                      <div className="flex flex-col items-end gap-1">
                       {/*
                         * 마감 전 기록의 일차 · 작업일 · 시각 (0139 · 사용자 2026-11-20). 누구의
                         * 기록이든 생산관리자 · 시스템관리자가 고친다. 잠긴 기록은 아래 강제 정정이다.
@@ -830,6 +838,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                                           started={r.started_local ?? ''} ended={r.ended_local ?? ''} />
                         </div>
                       )}
+                      </div>
                     </td>
                   </tr>
                 ))}
