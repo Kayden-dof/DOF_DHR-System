@@ -20,7 +20,10 @@ export const NUMBERING_TARGETS = [
   { code: 'PRODUCT_LOT',  label: '제조번호',        note: 'product_lot.lot_no · 재단 시 부여' },
   { code: 'MATERIAL_LOT', label: '자재 로트번호',   note: 'material_lot.lot_no · 바코드 값' },
   { code: 'STERIL_BATCH', label: '멸균 배치번호',   note: 'steril_batch.batch_no' },
-  { code: 'DEVIATION',    label: '일탈 번호',       note: '일탈 기록' },
+  /*
+   * 일탈 번호는 뺐다 (사용자 2026-11-27 «걷어 줘»). 일탈 화면을 품질 업무 걷기에서 걷어(b42a2fc · 0162)
+   * 그 번호를 쓰는 자리가 없다. DB 의 채번 대상(numbering_target)에는 남아 있고 운영 규칙은 0건이다.
+   */
   { code: 'PURCHASE_ORDER', label: '발주번호',      note: 'purchase_order.po_no · 발주일 기준 (0163)' },
 ] as const;
 
@@ -544,7 +547,8 @@ const VALUE_LABEL: Record<string, Record<string, string>> = {
   basis:       { SHEET_TIER: '장입 구간 기준', PER_UNIT: '제품 개수 기준' },
   reset:       { NEVER: '초기화 없음', YEARLY: '연 단위',
                  MONTHLY: '월 단위', DAILY: '일 단위' },
-  target:      Object.fromEntries(NUMBERING_TARGETS.map((t) => [t.code, t.label])),
+  /* 걷은 대상도 옛 감사추적 줄을 읽게 이름을 남긴다 */
+  target:      { ...Object.fromEntries(NUMBERING_TARGETS.map((t) => [t.code, t.label])), DEVIATION: '일탈 번호' },
   kind:        { WORK_ORDER: '작업지시서', DAY_RECORD: '제조기록서',
                  COVER: '편철 표지', LABEL: '자재 라벨',
                  LABEL_REQUEST: '라벨요청서', RELEASE_REQUEST: '출하 승인 요청서',
