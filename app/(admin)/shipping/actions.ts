@@ -238,6 +238,30 @@ export async function ship(_p: FormState, form: FormData): Promise<FormState> {
    잘못 고른 주문 줄을 바로잡는다. 떼기는 없다 - 출고는 꼭 주문 줄에 잇는다. 사유가 감사추적에
    남고, 바꿀 줄도 같은 형명 검토를 받는다. 출고의 거래처 이름은 출고 때 적은 그대로 둔다.
 --------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------
+   잘못 적은 출고 지우기 (0180 · 정밀 점검 F · 0124 «지우기는 열고 기록은 남긴다»)
+
+   지우면 DB 트리거(shipment_restore)가 그 수량을 로트로 돌리고, 그 출고로 출고 완료가 된 로트는 출고 전
+   상태로 돌린다. 주문 출고 · 현황 · 출고 금액 · 추적은 출고 표를 세므로 저절로 빠진다. 사유는 감사추적에.
+--------------------------------------------------------------------------- */
+export async function deleteShipment(_p: FormState, form: FormData): Promise<FormState> {
+  try {
+    const me = await mgr();
+    const id = String(form.get('id') ?? '');
+    const reason = String(form.get('reason') ?? '').trim();
+    if (!reason) return { error: '왜 지우는지 적으십시오' };
+    const gone = await withActor(me.id, (db) => db.one<{ lot_no: string; qty: number }>(
+      `delete from shipment sh using product_lot pl
+        where sh.id = $1 and pl.id = sh.product_lot_id
+        returning pl.lot_no, sh.qty`, [id]), { reason: `출고 지우기 · ${reason}` });
+    if (!gone) return { error: '출고 기록을 찾을 수 없습니다' };
+    bump();
+    return { ok: true, message: `출고를 지웠습니다. ${gone.qty}개가 제조번호 ${gone.lot_no}(으)로 돌아갔습니다. 지운 내용은 감사추적에 남았습니다.` };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
 export async function relinkShipment(_p: FormState, form: FormData): Promise<FormState> {
   try {
     const me = await mgr();
@@ -249,6 +273,17 @@ export async function relinkShipment(_p: FormState, form: FormData): Promise<For
     await withActor(me.id, async (db) => {
       const lot = await db.val<string>(`select product_lot_id from shipment where id = $1`, [id]);
       if (!lot) throw new Error('출고 기록을 찾을 수 없습니다');
+      /*
+       * 같은 거래처의 주문 줄로만 (정밀 점검 F). 다른 거래처로 옮기면 출고에 적힌 거래처(customer_name)와 주문이
+       * 갈라져 추적 · 출고 이력이 다른 곳을 가리켰다. 다른 거래처로 나간 것이면 지우고 다시 적는다.
+       */
+      const same = await db.val<boolean>(
+        `select o1.customer_id = o2.customer_id
+           from shipment sh
+           join sales_order_line l1 on l1.id = sh.sales_order_line_id join sales_order o1 on o1.id = l1.sales_order_id,
+                sales_order_line l2 join sales_order o2 on o2.id = l2.sales_order_id
+          where sh.id = $1 and l2.id = $2`, [id, line]);
+      if (same === false) throw new Error('다른 거래처의 주문으로는 바꾸지 않습니다. 다른 거래처로 나간 출고면 지우고 다시 적으십시오');
       const bad = (await shipReview(db, lot, line)).find((r) => r.ok === false);
       if (bad) throw new Error(specMessage(bad));
       await db.rows(`update shipment set sales_order_line_id = $2 where id = $1`, [id, line]);

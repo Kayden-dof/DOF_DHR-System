@@ -66,9 +66,9 @@ export default async function Dashboard() {
           where status in ('ISSUED','IN_PROCESS','CUT'))                    as wo_open,
         (select count(*)::int from work_order where status = 'ISSUED')      as wo_issued,
         (select count(*)::int from product_lot where status = 'PACKED')     as lots_packed,
-        /* 출고 대기 - 멸균 보고서가 적혔거나 생략해 출고할 수 있고 출하 가능 수량이 남은 로트 (0160 · 0166) */
+        /* 출고 대기 - 지금 출고할 수 있는 수량이 남은 로트. 출고 화면과 같은 셈 (lot_ship_left · 0180 - 상태 · 멸균 보고서 · 멸균 수량) */
         (select count(*)::int from product_lot
-          where qty_available > 0 and lot_steril_ok(id))                    as lots_await_release,
+          where lot_ship_left(id) > 0)                                      as lots_await_release,
         (select count(*)::int from product_lot
           where release_approved_by is not null and qty_available > 0)      as lots_shippable,
         (select count(*)::int from v_reorder_alert)                         as reorder,
@@ -235,7 +235,7 @@ export default async function Dashboard() {
         (select coalesce(json_agg(x), '[]'::json) from (
            select pl.lot_no, i.name as item_name, pl.status::text as status
              from product_lot pl join item i on i.id = pl.item_id
-            where pl.qty_available > 0 and lot_steril_ok(pl.id)
+            where lot_ship_left(pl.id) > 0
             order by pl.manufactured_on limit 9) x)                        as await_release,
 
         (select coalesce(json_agg(x), '[]'::json) from (

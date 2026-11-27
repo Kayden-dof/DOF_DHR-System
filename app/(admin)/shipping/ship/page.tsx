@@ -15,7 +15,7 @@ import { shipReview } from '@/lib/ship-review';
 import { specMessage, type CutRowCell } from '@/lib/ship-check';
 import {
   ShipList, RelinkShipment, SkipSterilReport, CancelSterilSkip,
-  type PlOpt, type ShipLine, type ShipLot, type RelinkOpt,
+  type PlOpt, type ShipLine, type ShipLot, type RelinkOpt, DeleteShipment,
 } from '../shipping-forms';
 
 export const dynamic = 'force-dynamic';
@@ -43,8 +43,8 @@ interface ShipRow {
   report: string | null;
   /** 보고서 없이 내보낸 사유 (0166) */
   skip: string | null;
-  /** 나간 주문 (고객 발주번호) · 그 줄 */
-  po: string | null; line_id: string | null;
+  /** 나간 주문 (고객 발주번호) · 그 줄 · 그 거래처 */
+  po: string | null; line_id: string | null; customer_id: string | null;
 }
 interface OpenLine extends ShipLine { item_id: string; due_on: string | null }
 /** 멸균 보고서를 생략한 로트 (0166) */
@@ -59,7 +59,9 @@ const LOTS = `
          pl.expiry_date, pl.manufactured_on,
          pl.release_approved_by, pl.release_approved_on::text as release_approved_on,
          coalesce((select sum(sh.qty)::int from shipment sh where sh.product_lot_id = pl.id), 0) as shipped,
-         lot_steril_report(pl.id) as report, lot_steril_skip(pl.id) as skip
+         lot_steril_report(pl.id) as report, lot_steril_skip(pl.id) as skip,
+         /* 지금 출고할 수 있는 수량 - 현황 · 출고 검사와 같은 셈 (0180) */
+         lot_ship_left(pl.id) as ship_left, lot_steril_qty(pl.id) as steril_qty
     from product_lot pl
     join item i on i.id = pl.item_id
     join work_order wo on wo.id = pl.work_order_id
@@ -107,7 +109,7 @@ export default async function ShipPage({ searchParams }: { searchParams: Search 
        */
       const base = await db.rows<PlOpt & { for_line: boolean; other_orders: string | null }>(
         `select x.*, k.for_line, k.other_orders from (
-           ${LOTS} and pl.item_id = $1 and lot_steril_ok(pl.id)
+           ${LOTS} and pl.item_id = $1 and lot_ship_left(pl.id) > 0
          ) x
          cross join lateral (
            select exists (select 1 from work_order_so_line w
@@ -132,7 +134,8 @@ export default async function ShipPage({ searchParams }: { searchParams: Search 
     return {
       customers, open, lines, line, lots,
       waiting: await db.rows<PlOpt>(
-        `${LOTS} and not lot_steril_ok(pl.id) order by pl.expiry_date, pl.lot_no`),
+        /* 보고서가 없거나, 보고서가 있는 멸균 수량이 다 나간 로트 (0180) */
+        `${LOTS} and lot_ship_left(pl.id) = 0 order by pl.expiry_date, pl.lot_no`),
       /* 보고서 없이 사유와 함께 생략한 로트 - 남은 수량이 있는 동안 보인다 (0166) */
       skipped: await db.rows<SkipRow>(
         `select x.*, u.full_name as skipped_by_name,
@@ -147,7 +150,7 @@ export default async function ShipPage({ searchParams }: { searchParams: Search 
                 sh.shipped_at::text as shipped_at,
                 pl.lot_no, i.code as item_code, i.name as item_name, pl.item_id,
                 wo.batch_no, u.full_name as shipped_by_name,
-                o.customer_po_no as po, sh.sales_order_line_id as line_id
+                o.customer_po_no as po, sh.sales_order_line_id as line_id, o.customer_id::text as customer_id
            from shipment sh
            join product_lot pl on pl.id = sh.product_lot_id
            join item i on i.id = pl.item_id
@@ -174,8 +177,9 @@ export default async function ShipPage({ searchParams }: { searchParams: Search 
     };
   });
 
+  /* 같은 거래처 · 같은 형명의 열린 줄로만 (정밀 점검 F - 다른 거래처로 옮기면 출고 거래처와 주문이 갈렸다) */
   const relinkFor = (s: ShipRow): RelinkOpt[] => d.open
-    .filter((x) => x.item_id === s.item_id && x.id !== s.line_id)
+    .filter((x) => x.item_id === s.item_id && x.id !== s.line_id && x.customer_id === s.customer_id)
     .map((x) => ({ id: x.id, label: `${x.customer_po_no} · ${x.customer_name} · 남음 ${x.left.toLocaleString()}` }));
 
   return (
@@ -280,7 +284,7 @@ export default async function ShipPage({ searchParams }: { searchParams: Search 
 
       {d.waiting.length > 0 && (
         <Panel title="멸균 보고서 대기"
-               note="멸균 위탁에서 회수일과 멸균 보고서 번호를 적으면 출고할 수 있습니다. 보고서 없이 내보내는 로트(멸균 선량 샘플 등)는 «생략» 에 사유를 적습니다">
+               note="멸균 위탁에서 회수일과 멸균 보고서 번호를 적으면 출고할 수 있습니다. 멸균 보고서가 있는 수량이 다 나간 로트도 여기 나옵니다. 보고서 없이 내보내는 로트(멸균 선량 샘플 등)는 «생략» 에 사유를 적습니다">
           <div className="qd-table-scroll">
             <table className="qd-table qd-table--hangul" data-grow="2">
               <thead>
@@ -304,7 +308,9 @@ export default async function ShipPage({ searchParams }: { searchParams: Search 
                     <td className="td font-mono text-muted">{l.batch_no}</td>
                     <td className="td tnum text-right">{num(l.qty_available)}</td>
                     <td className="td">
-                      <Tag tone="quiet">{PL_STATUS_LABEL[l.status] ?? l.status}</Tag>
+                      {l.report
+                        ? <Tag tone="warn">멸균 {num(l.steril_qty ?? 0)}개 다 나감</Tag>
+                        : <Tag tone="quiet">{PL_STATUS_LABEL[l.status] ?? l.status}</Tag>}
                     </td>
                     {!viewer && <td className="td text-right"><SkipSterilReport id={l.id} lotNo={l.lot_no} /></td>}
                   </tr>
@@ -396,8 +402,11 @@ export default async function ShipPage({ searchParams }: { searchParams: Search 
                     <td className="td tnum text-right font-semibold">{num(s.qty)}</td>
                     <td className="td text-muted">{s.shipped_by_name}</td>
                     <td className="td text-right">
-                      {!viewer && s.line_id && (
-                        <RelinkShipment id={s.id} current={s.po ?? '-'} options={relinkFor(s)} />
+                      {!viewer && (
+                        <span className="inline-flex items-center gap-3">
+                          {s.line_id && <RelinkShipment id={s.id} current={s.po ?? '-'} options={relinkFor(s)} />}
+                          <DeleteShipment id={s.id} lotNo={s.lot_no} qty={s.qty} />
+                        </span>
                       )}
                     </td>
                   </tr>

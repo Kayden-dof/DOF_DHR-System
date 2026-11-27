@@ -53,6 +53,23 @@ const ship = (t, m, lot, line, qty = 1) => t.val(
   `insert into shipment (product_lot_id, customer_name, qty, shipped_at, shipped_by, sales_order_line_id)
    values ($1,'시험 고객사',$2,current_date,$3,$4) returning id`, [lot, qty, m.admin, line]);
 
+/** 재단 · 포장한 로트 하나에 멸균 위탁 steril 개만 보고서와 함께 (0180 시험) */
+async function partlySterile(t, m, { qty = 30, steril = 10 } = {}) {
+  const rawLot = await newMaterialLot(t, m, m.raw, { thickness_band: '0510', qty: 50 });
+  const wo = await newWorkOrder(t, m, { rawLot });
+  await t.setActor(m.admin);
+  const item = await t.val(`select id from item where code = 'PD05050510'`);
+  const lot = await t.val(`select cut_product_lot($1,$2,$3,0)`, [wo.id, item, qty]);
+  await t.rows(`update product_lot set status = 'PACKED' where id = $1`, [lot]);
+  const sb = await t.val(
+    `insert into steril_batch (batch_no, vendor_name, registered_by, shipped_at, received_at, cert_no)
+     values ('ST-SX-' || substr(md5(random()::text), 1, 10), '시험 멸균처', $1, current_date, current_date,
+             'SR-SX-' || substr(md5(random()::text), 1, 6)) returning id`, [m.admin]);
+  await t.rows(`insert into steril_batch_lot (steril_batch_id, product_lot_id, qty) values ($1,$2,$3)`, [sb, lot, steril]);
+  return lot;
+}
+const lotRow = (t, lot) => t.one(`select lot_no, qty_available, status::text as status from product_lot where id = $1`, [lot]);
+
 export default [
 
 {
@@ -527,6 +544,94 @@ export default [
     } finally {
       await t.rows(`update item set is_active = true where code = 'PD05050510'`);
     }
+  },
+},
+
+{
+  id: 'SX-01', expect: '통과',
+  name: '출고를 지우면 그 수량이 로트로 돌아가고 출고 완료 로트는 출고 전 상태로 (0180)',
+  async run(t) {
+    const m = await master(t);
+    const { lines } = await order(t, m, { po: 'SX01', lines: [['PD05050510', 30]] });
+    const { lot } = await readyLot(t, m, { qty: 30 });
+    const id = await ship(t, m, lot, lines.PD05050510, 30);
+    t.eq((await lotRow(t, lot)).status, 'SHIPPED', '다 나가면 출고 완료');
+    t.eq(await t.val(`select lot_status_before::text from shipment where id = $1`, [id]), 'PACKED', '출고 전 상태를 남긴다');
+    await t.rows(`delete from shipment where id = $1`, [id]);
+    const r = await lotRow(t, lot);
+    t.eq(Number(r.qty_available), 30, '수량이 돌아온다');
+    t.eq(r.status, 'PACKED', '출고 전 상태로');
+    t.eq(await t.val(`select so_line_shipped($1)`, [lines.PD05050510]), 0, '주문 출고에서도 빠진다');
+    /* 일부만 나간 로트는 상태가 그대로이고 수량만 돌아온다 */
+    const id2 = await ship(t, m, lot, lines.PD05050510, 5);
+    await t.rows(`delete from shipment where id = $1`, [id2]);
+    t.eq(Number((await lotRow(t, lot)).qty_available), 30, '일부 출고를 지워도 수량이 돌아온다');
+  },
+},
+
+{
+  id: 'SX-02', expect: '거부',
+  name: '출고 수량은 고쳐 쓰지 않는다 - 지우고 다시 적는다 (0180)',
+  async run(t) {
+    const m = await master(t);
+    const { lines } = await order(t, m, { po: 'SX02', lines: [['PD05050510', 10]] });
+    const { lot } = await readyLot(t, m);
+    const id = await ship(t, m, lot, lines.PD05050510, 5);
+    await t.rejects(() => t.rows(`update shipment set qty = 6 where id = $1`, [id]),
+      { code: 'P0001', message: '출고 수량은 고쳐 쓰지 않습니다' });
+  },
+},
+
+{
+  id: 'SX-03', expect: '통과',
+  name: '멸균 보고서가 있는 수량까지만 나간다 - 생략한 로트는 수량을 보지 않는다 (0180 · 사용자 «막기»)',
+  async run(t) {
+    const m = await master(t);
+    const { lines } = await order(t, m, { po: 'SX03', lines: [['PD05050510', 100]] });
+    const lot = await partlySterile(t, m, { qty: 30, steril: 10 });
+    t.eq(await t.val(`select lot_ship_left($1)`, [lot]), 10, '지금 나갈 수 있는 수량은 멸균 보고서가 있는 10');
+    await t.resolves(() => ship(t, m, lot, lines.PD05050510, 8));
+    t.eq(await t.val(`select lot_ship_left($1)`, [lot]), 2, '8 이 나가면 2');
+    await t.rejects(() => ship(t, m, lot, lines.PD05050510, 3),
+      { code: 'P0001', message: '멸균 보고서가 있는 수량' });
+    await t.rejects(() => ship(t, m, lot, lines.PD05050510, 999),
+      { code: 'P0001', message: '출하 가능 수량' });
+    await t.rows(`insert into steril_report_skip (product_lot_id, reason, skipped_by) values ($1, '시험 생략', $2)`, [lot, m.admin]);
+    t.eq(await t.val(`select lot_ship_left($1)`, [lot]), 22, '생략하면 남은 수량 그대로');
+    await t.resolves(() => ship(t, m, lot, lines.PD05050510, 5));
+  },
+},
+
+{
+  id: 'SX-04', expect: '통과',
+  name: '출고할 수 있는 수량은 상태도 본다 - 재단 · 폐기 로트는 0 (0180)',
+  async run(t) {
+    const m = await master(t);
+    const { lot } = await readyLot(t, m);
+    t.ok(await t.val(`select lot_ship_left($1)`, [lot]) > 0, '포장 · 멸균 보고서가 있으면 나간다');
+    await t.rows(`update product_lot set status = 'DISPOSED' where id = $1`, [lot]);
+    t.eq(await t.val(`select lot_ship_left($1)`, [lot]), 0, '폐기 로트는 0');
+    await t.rows(`update product_lot set status = 'CUT' where id = $1`, [lot]);
+    t.eq(await t.val(`select lot_ship_left($1)`, [lot]), 0, '재단만 한 로트는 0');
+  },
+},
+
+{
+  id: 'SX-05', expect: '통과',
+  name: '개체 찾기가 순번 없이 나간 출고를 안다 - 다 나갔으면 출고됨, 남았으면 일부 출고 (0180)',
+  async run(t) {
+    const m = await master(t);
+    const { lines } = await order(t, m, { po: 'SX05', lines: [['PD05050510', 30]] });
+    const { lot } = await readyLot(t, m, { qty: 30 });
+    const no = (await lotRow(t, lot)).lot_no;
+    const unit = () => t.one(`select standing, customer_name from find_unit($1)`, [no + '-005']);
+    t.eq((await unit()).standing, '재고', '나가기 전에는 재고');
+    await ship(t, m, lot, lines.PD05050510, 10);
+    t.eq((await unit()).standing, '일부 출고 (개체 미상)', '일부만 나가면 어느 개체인지 모른다');
+    await ship(t, m, lot, lines.PD05050510, 20);
+    const u = await unit();
+    t.eq(u.standing, '출고됨', '다 나가면 출고됨');
+    t.eq(u.customer_name, '시험 고객사', '출고처');
   },
 },
 

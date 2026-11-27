@@ -12,7 +12,7 @@ import Toasts from '@/components/toast';
 import { Unblock } from '@/components/unblock';
 import type { Fix } from '@/lib/unblock';
 import {
-  createSterilBatch, updateSterilBatch, approveRelease, ship, relinkShipment, skipSterilReport, cancelSterilSkip,
+  createSterilBatch, updateSterilBatch, approveRelease, ship, relinkShipment, deleteShipment, skipSterilReport, cancelSterilSkip,
 } from './actions';
 import { Dialog, useDialog } from '@/components/dialog';
 import type { SpecRow } from '@/lib/ship-check';
@@ -29,6 +29,10 @@ export interface PlOpt {
   requests?: string[];
   /** 멸균 보고서 번호 (회수된 멸균 위탁 · 0160). 있어야 출고한다 */
   report?: string | null;
+  /** 지금 출고할 수 있는 수량 (lot_ship_left · 0180) - 멸균 보고서가 있는 수량 - 이미 나간 수량까지 */
+  ship_left?: number;
+  /** 멸균 보고서가 있는 위탁 수량 (0180) */
+  steril_qty?: number;
 }
 export interface SbRow {
   id: string; batch_no: string; request_no: string | null; vendor_name: string;
@@ -515,7 +519,12 @@ export function ShipList({ lots, line, today }: { lots: ShipLot[]; line: ShipLin
                     {l.for_line && <Tag tone="info">이 주문 배치</Tag>}
                     {!l.for_line && l.other_orders && <Tag tone="quiet">다른 주문 배치 {l.other_orders}</Tag>}
                   </td>
-                  <td className="td tnum text-right font-semibold">{num(l.qty_available)}</td>
+                  <td className="td tnum text-right font-semibold">
+                    {num(l.ship_left ?? l.qty_available)}
+                    {l.ship_left != null && l.ship_left < l.qty_available && (
+                      <div className="text-xs font-normal text-muted">남은 {num(l.qty_available)} 가운데 멸균 보고서가 있는 몫</div>
+                    )}
+                  </td>
                   <td className="td tnum ">
                     <span className={days <= 60 ? 'font-semibold text-warn' : ''}>
                       {fmtDate(l.expiry_date)}
@@ -549,8 +558,9 @@ function ShipRowForm({ lot, line, today }: { lot: ShipLot; line: ShipLine; today
   const uid = useId();
 
   const [state, action, pending] = useActionState<FormState, FormData>(ship, {});
-  /* 수량은 주문 남은 양과 출하 가능 수량 가운데 작은 값으로 시작한다 */
-  const [qty, setQty] = useState(String(Math.max(1, Math.min(lot.qty_available, line.left))));
+  /* 수량은 주문 남은 양과 지금 출고할 수 있는 수량(멸균 보고서가 있는 몫 · 0180) 가운데 작은 값으로 시작한다 */
+  const cap = lot.ship_left ?? lot.qty_available;
+  const [qty, setQty] = useState(String(Math.max(1, Math.min(cap, line.left))));
   const over = Number(qty) > line.left;
 
   return (
@@ -563,8 +573,8 @@ function ShipRowForm({ lot, line, today }: { lot: ShipLot; line: ShipLine; today
       </p>
       <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div>
-          <label className="label" htmlFor={`${uid}-qty`}>수량 (최대 {num(lot.qty_available)})</label>
-          <input id={`${uid}-qty`} name="qty" type="number" min={1} max={lot.qty_available}
+          <label className="label" htmlFor={`${uid}-qty`}>수량 (최대 {num(cap)})</label>
+          <input id={`${uid}-qty`} name="qty" type="number" min={1} max={cap}
                  value={qty} onChange={(e) => setQty(e.target.value)}
                  required className="input tnum" />
           {over && <p className="mt-1 text-xs text-warn">주문 남은 양({num(line.left)})보다 많습니다.</p>}
@@ -586,7 +596,7 @@ function ShipRowForm({ lot, line, today }: { lot: ShipLot; line: ShipLine; today
         ) : (
           <Caution>
             출고를 기록하면 이 제조번호의 출하 가능 수량과 주문 {line.customer_po_no}의 남은 양이 그만큼 줄고,{' '}
-            {line.customer_name}(으)로 나간 것으로 남습니다. <b>되돌릴 수 없습니다.</b>
+            {line.customer_name}(으)로 나간 것으로 남습니다. 잘못 적었으면 아래 출고 이력에서 사유와 함께 지웁니다.
           </Caution>
         )}
       </div>
@@ -658,6 +668,40 @@ export function CancelSterilSkip({ id, lotNo }: { id: string; lotNo: string }) {
 --------------------------------------------------------------------------- */
 export interface RelinkOpt { id: string; label: string }
 
+/* ---------------------------------------------------------------------------
+   잘못 적은 출고 지우기 (0180 · 정밀 점검 F). 사유 필수. 그 수량이 로트로 돌아가고 주문 · 현황의 출고에서
+   빠진다. 지운 출고는 감사추적에 지우기 전 값 그대로 남는다 (0124).
+--------------------------------------------------------------------------- */
+export function DeleteShipment({ id, lotNo, qty }: { id: string; lotNo: string; qty: number }) {
+  const uid = useId();
+  const [state, action, pending] = useActionState<FormState, FormData>(deleteShipment, {});
+  const { open, setOpen } = useDialog(state);
+  return (
+    <>
+      <button onClick={() => setOpen(true)} className="qd-text-action">지우기</button>
+      <Dialog open={open} onClose={() => setOpen(false)} title="출고 지우기">
+        <form action={action}>
+          <input type="hidden" name="id" value={id} />
+          <p className="mb-3 text-sm">
+            <span className="font-mono">{lotNo}</span> 출고 <span className="tnum">{num(qty)}</span>개
+          </p>
+          <label className="label" htmlFor={`${uid}-r`}>사유</label>
+          <textarea id={`${uid}-r`} name="reason" required rows={2} className="input" />
+          <Caution>
+            지우면 {num(qty)}개가 제조번호 {lotNo}(으)로 돌아가고, 주문의 남은 양 · 경영 현황의 출고에서도 빠집니다.
+            지운 내용은 감사추적에 남고 되돌릴 수 없습니다 - 실제로 나간 출고면 다시 적습니다.
+          </Caution>
+          <Msg state={state} />
+          <div className="mt-4 flex gap-2">
+            <button type="submit" disabled={pending} className="btn-danger">지운다</button>
+            <button type="button" onClick={() => setOpen(false)} className="btn-ghost">닫기</button>
+          </div>
+        </form>
+      </Dialog>
+    </>
+  );
+}
+
 export function RelinkShipment({ id, current, options }: { id: string; current: string; options: RelinkOpt[] }) {
   const uid = useId();
   const [state, action, pending] = useActionState<FormState, FormData>(relinkShipment, {});
@@ -678,7 +722,8 @@ export function RelinkShipment({ id, current, options }: { id: string; current: 
           <label className="label mt-3" htmlFor={`${uid}-r`}>사유</label>
           <textarea id={`${uid}-r`} name="reason" required rows={2} className="input" />
           <p className="mt-2 text-xs leading-relaxed text-muted">
-            앞 주문의 남은 양이 돌아오고 바꾼 주문에서 줄어듭니다. 출고 기록의 거래처 이름은 그대로 남습니다.
+            같은 거래처의 주문 줄로만 바꿉니다. 앞 주문의 남은 양이 돌아오고 바꾼 주문에서 줄어듭니다.
+            다른 거래처로 나간 것이면 이 출고를 지우고 다시 적습니다.
           </p>
           <Msg state={state} />
           <div className="mt-4 flex gap-2">
