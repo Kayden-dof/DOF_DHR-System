@@ -7,6 +7,7 @@ import { Table, Th, Td } from '@/components/table';
 import { RowLink } from '@/components/row-link';
 import { withActor, type Db } from '@/lib/db';
 import { loadCalendar, tidySteps } from '@/lib/timeline-db';
+import { loadDmPlanInputs } from '@/lib/order-plan-db';
 import { firstStepMin } from '@/lib/order-plan';
 import {
   DAY, KIND_LABEL, addDays, carried, dayIndex, daysBetween, dur, hhmm, isHands, isOff, md, planBatch,
@@ -35,38 +36,31 @@ interface PlanRowDb {
   sheets: number | null;
   wo: string | null; wo_no: string | null; batch_no: string | null; wo_dm: string | null; wo_status: string | null;
   note: string;
+  /** 이은 주문 · 줄이 취소됐는가 (0177 - 자재 소요에서 빠진다) */
+  line_cancelled: boolean;
+  /** 같은 주문 줄에 걸렸는데 어느 계획에도 이어지지 않은 지시들 (덮인 개수 · 소요를 두 번 셀 수 있다) */
+  loose: string | null;
 }
 
 interface OrderLineDb {
-  line_id: string; customer_name: string; customer_po_no: string; due_on: string | null; item_code: string;
+  line_id: string; customer_name: string; customer_po_no: string; due_on: string | null; ship_by: string | null; item_code: string;
   left_qty: number; covered: number; fg_stock: number; dm: string; dm_label: string; per_sheet: number | null;
   sheet_min: number | null; sheet_max: number | null; multi_wo: boolean;
 }
-interface DmInfoDb {
-  dm: string; sized: boolean; tiers: { min: number; max: number | null; samples: number }[];
-  gap_from: string | null; gap_to: string | null;
-}
-
-/* 주문에서 계획 판의 읽기 (0164): 제안 대상 줄 · 그 판의 시료 구간 · 최근 지시의 근무 기간 · 진행 중 지시의 시작일 */
-async function readOrderPlan(db: Db) {
+/*
+ * 주문에서 계획 판의 읽기 (0164): 제안 대상 줄 · 그 판의 시료 구간 · 시간표 · 간격 기본값 · 진행 중 지시의 시작일.
+ * 판의 값은 계획 올리기 · 출고 마감일 제안과 같은 곳에서 읽는다 (lib/order-plan-db · 정밀 점검 E).
+ * 출고 마감일(0173)을 함께 읽는다 - 차례 · 넘김은 출고 마감일이 먼저다 (0177).
+ */
+async function readOrderPlan(db: Db, cal: WorkCalendar) {
   const lines = await db.rows<OrderLineDb>(
-    `select line_id::text, customer_name, customer_po_no, to_char(due_on, 'YYYY-MM-DD') as due_on, item_code,
-            left_qty, covered, fg_stock, dm_id::text as dm, dm_label, per_sheet, sheet_min, sheet_max, multi_wo
-       from order_plan_lines()`);
-  const dmInfo = lines.length ? await db.rows<DmInfoDb>(
-    `select dm.id::text as dm, dm.usable_w is not null as sized,
-            coalesce((select json_agg(json_build_object('min', sp.min_qty, 'max', sp.max_qty, 'samples', sp.sample_qty)
-                                      order by sp.min_qty)
-                        from sample_plan sp where sp.device_master_id = dm.id), '[]'::json) as tiers,
-            to_char(g.f, 'YYYY-MM-DD') as gap_from, to_char(g.l, 'YYYY-MM-DD') as gap_to
-       from device_master dm
-       left join lateral (
-         select min(pr.work_date) as f, max(pr.work_date) as l from process_record pr
-          where pr.work_order_id = (select wo.id from work_order wo
-                                     where wo.status = 'DONE'
-                                       and wo.device_master_id in (select d2.id from device_master d2 where d2.item_id = dm.item_id)
-                                     order by wo.issued_at desc limit 1)) g on true
-      where dm.id = any($1::uuid[])`, [[...new Set(lines.map((x) => x.dm))]]) : [];
+    `select f.line_id::text, f.customer_name, f.customer_po_no, to_char(f.due_on, 'YYYY-MM-DD') as due_on,
+            to_char(o.ship_by, 'YYYY-MM-DD') as ship_by, f.item_code,
+            f.left_qty, f.covered, f.fg_stock, f.dm_id::text as dm, f.dm_label, f.per_sheet, f.sheet_min, f.sheet_max, f.multi_wo
+       from order_plan_lines() with ordinality f
+       join sales_order o on o.id = f.order_id
+      order by f.ordinality`);
+  const dmInfo = await loadDmPlanInputs(db, lines.map((x) => x.dm), cal);
   const running = lines.length ? await db.rows<{ id: string; name: string; start_on: string }>(
     `select wo.id::text as id, wo.batch_no as name,
             to_char(coalesce((select min(pr.work_date) from process_record pr where pr.work_order_id = wo.id),
@@ -87,11 +81,21 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
               coalesce(dm.product_code, i.code) || ' ' || dm.revision as dm_label,
               to_char(p.start_on, 'YYYY-MM-DD') as start_on, p.start_min, p.sheets,
               p.work_order_id as wo, wo.wo_no, wo.batch_no, wo.device_master_id as wo_dm, wo.status::text as wo_status,
-              p.note
+              p.note,
+              coalesce(sl.cancelled_at is not null or so.cancelled_at is not null, false) as line_cancelled,
+              /* 같은 주문 줄에 걸렸는데 어느 계획에도 이어지지 않은 살아 있는 지시 (지시가 없는 계획에만) */
+              case when p.work_order_id is null or wo.status = 'CANCELLED' then
+                (select string_agg(distinct w2.batch_no, ' · ')
+                   from work_order_so_line x join work_order w2 on w2.id = x.work_order_id
+                  where x.sales_order_line_id = p.sales_order_line_id and x.unlinked_at is null
+                    and w2.status <> 'CANCELLED'
+                    and not exists (select 1 from batch_plan b2 where b2.work_order_id = w2.id)) end as loose
          from batch_plan p
          join device_master dm on dm.id = p.device_master_id
          join item i on i.id = dm.item_id
          left join work_order wo on wo.id = p.work_order_id
+         left join sales_order_line sl on sl.id = p.sales_order_line_id
+         left join sales_order so on so.id = sl.sales_order_id
         order by p.start_on desc, p.label`);
     const tls = await db.rows<{ dm: string; steps: Step[] }>(
       `select device_master_id as dm, steps from dmr_timeline`);
@@ -113,16 +117,17 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
      * 주문에서 계획의 읽기는 savepoint 안에서 한다. 여기서 던져도 트랜잭션을 되살려 배치 계획 · 달력은 그리고,
      * 판 자리에는 읽지 못했다는 안내만 낸다 (0167). 오류는 삼키지 않고 로그에 남긴다.
      */
+    const cal = await loadCalendar(db);
     await db.rows('savepoint order_plan');
     let order: Awaited<ReturnType<typeof readOrderPlan>> | null = null;
     try {
-      order = await readOrderPlan(db);
+      order = await readOrderPlan(db, cal);
       await db.rows('release savepoint order_plan');
     } catch (e) {
       console.error('주문에서 계획을 읽지 못했습니다', e);
       await db.rows('rollback to savepoint order_plan');
     }
-    return { plans, tls, dms, wos, today, cal: await loadCalendar(db), order };
+    return { plans, tls, dms, wos, today, cal, order };
   });
 
   /*
@@ -144,23 +149,15 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
         }]
       : d.wos;
   const stepsOf = new Map(d.tls.map((t) => [t.dm, tidySteps(t.steps)]));
-  /* 주문에서 계획: 줄마다 판의 시간표 · 시료 구간 · 간격 기본값을 붙인다 */
-  const infoOf = new Map((d.order?.dmInfo ?? []).map((x) => [x.dm, x]));
+  /* 주문에서 계획: 줄마다 판의 시간표 · 시료 구간 · 간격 기본값을 붙인다 (lib/order-plan-db) */
   const orderLines: OrderPlanLine[] = (d.order?.lines ?? []).map((x) => {
-    const info = infoOf.get(x.dm);
-    const steps = stepsOf.get(x.dm);
-    /* 시간표 없는 판의 간격: 가장 최근 종료 지시의 첫 ~ 마지막 기록일 사이 근무일 수 */
-    let defaultGap: number | null = null;
-    if (info?.gap_from && info.gap_to) {
-      defaultGap = 0;
-      for (let day = info.gap_from; day <= info.gap_to; day = addDays(day, 1)) if (!isOff(day, d.cal)) defaultGap++;
-    }
+    const info = d.order?.dmInfo.get(x.dm);
     return {
       lineId: x.line_id, dmId: x.dm, dmLabel: x.dm_label, customer: x.customer_name, po: x.customer_po_no, itemCode: x.item_code,
-      dueOn: x.due_on, leftQty: x.left_qty, covered: x.covered, fgStock: x.fg_stock, perSheet: x.per_sheet,
+      dueOn: x.due_on, shipBy: x.ship_by, leftQty: x.left_qty, covered: x.covered, fgStock: x.fg_stock, perSheet: x.per_sheet,
       sized: info?.sized ?? false, sheetMin: x.sheet_min, sheetMax: x.sheet_max, multiWo: x.multi_wo,
-      tiers: info?.tiers ?? [], steps: steps?.length ? steps : null,
-      startMin: firstStepMin(steps ?? null), defaultGap,
+      tiers: info?.tiers ?? [], steps: info?.steps ?? null,
+      startMin: info?.startMin ?? firstStepMin(null), defaultGap: info?.defaultGap ?? null,
     };
   });
   /* 겹침을 알릴 날: 이미 잡은 계획의 시작일과 진행 중 지시의 시작일 */
@@ -219,14 +216,21 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
                 const n = pl ? pl.rows.reduce((a, r) => a + r.flags.length, 0) : 0;
                 return (
                   <RowLink key={p.id} href={`/production/plan?id=${p.id}`}>
-                    <Td><span className="font-mono">{p.label}</span>{cur?.id === p.id && <> <Tag tone="info">보는 중</Tag></>}</Td>
+                    <Td>
+                      <span className="font-mono">{p.label}</span>{cur?.id === p.id && <> <Tag tone="info">보는 중</Tag></>}
+                      {p.line_cancelled && <> <Tag tone="warn">주문 취소</Tag></>}
+                    </Td>
                     <Td>{p.dm_label}</Td>
                     <Td nowrap>{p.sheets == null ? '-' : <span className="tnum">{p.sheets}장</span>}</Td>
                     <Td nowrap><span className="tnum">{md(p.start_on)} {hhmm(p.start_min)}</span></Td>
                     <Td nowrap>{pl ? <span className="tnum">{md(addDays(p.start_on, dayIndex(pl.sendEnd)))} {hhmm(pl.sendEnd)}</span> : '시간표 없음'}</Td>
                     <Td nowrap>{pl ? <span className="tnum">{md(addDays(p.start_on, dayIndex(pl.last)))}</span> : ''}</Td>
                     <Td>{n ? <Tag tone="warn">{n}건</Tag> : '없음'}</Td>
-                    <Td>{p.wo_no ? <span className="font-mono">{p.wo_no}</span> : '아직 없음'}</Td>
+                    <Td>
+                      {p.wo_no ? <span className="font-mono">{p.wo_no}</span> : '아직 없음'}
+                      {p.wo_status === 'CANCELLED' && <> <Tag tone="warn">지시 취소</Tag></>}
+                      {p.loose && <> <Tag tone="warn">따로 걸린 지시 {p.loose}</Tag></>}
+                    </Td>
                   </RowLink>
                 );
               })}
@@ -249,9 +253,22 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
                action={(writable || plan) && (
                  <span className="inline-flex items-center gap-2">
                    {plan && <Link href={`/print/batch-plan/${cur.id}`} className="btn-ghost">일정표 인쇄</Link>}
+                   {/* 계획에서 지시를 낸다 - 판 · 장수 · 예정 개수 · 주문 줄을 채우고, 발행하면 이 계획에 잇는다 (정밀 점검 E) */}
+                   {writable && (!cur.wo || cur.wo_status === 'CANCELLED') && !cur.line_cancelled && (
+                     <Link href={`/production?plan=${cur.id}`} className="btn-primary">이 계획으로 지시 발행</Link>
+                   )}
                    {writable && <DeletePlan id={cur.id} label={cur.label} wo={cur.wo_no} />}
                  </span>
                )}>
+          {(cur.line_cancelled || cur.wo_status === 'CANCELLED' || cur.loose) && (
+            <div className="px-4 pt-3">
+              <p className="qd-notice block" data-tone="warning" role="note">
+                {cur.line_cancelled && <>이 계획의 주문이 취소됐습니다. 자재 소요에서는 빠졌고, 이 배치를 만들지 않으면 계획을 지우십시오. </>}
+                {cur.wo_status === 'CANCELLED' && <>이은 작업 지시 {cur.wo_no} 가 취소됐습니다. 이 계획은 지시 없는 계획으로 다시 셉니다. 새 지시를 내거나 이으십시오. </>}
+                {cur.loose && <>이 주문 줄에는 계획에 잇지 않은 지시 {cur.loose} 가 걸려 있습니다. 같은 배치면 아래에서 그 지시를 이으십시오. 잇지 않으면 덮인 개수 · 자재 소요를 두 번 셉니다.</>}
+              </p>
+            </div>
+          )}
           {!plan ? (
             <Empty hint="설정 > 제품표준서 > 공정 시간표에서 이 판의 시간표를 먼저 만듭니다.">이 판에는 공정 시간표가 없습니다</Empty>
           ) : (

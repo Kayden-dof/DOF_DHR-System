@@ -19,7 +19,13 @@ export interface OrderPlanLine {
   customer: string;
   po: string;
   itemCode: string;
+  /** 납품요청일 (고객 발주서의 값) */
   dueOn: string | null;
+  /**
+   * 출고 마감일 (0173). 있으면 이것이 이 줄의 마감이다 - 현황 · 수주와 같은 잣대 (정밀 점검 E). 전에는 이 판만
+   * 납품요청일로 «넘김» 을 셌다 (SD_261110-02 납품요청 11-19 · 출고 마감 12-31).
+   */
+  shipBy: string | null;
   leftQty: number;
   covered: number;
   fgStock: number;
@@ -45,7 +51,7 @@ export function OrderPlan({ lines, calendar, today, occupied, writable }: {
   return (
     <Table grow={5}>
       <thead><tr>
-        <Th>거래처 · 발주번호</Th><Th>형명</Th><Th>남음 · 덮임</Th><Th>납기</Th><Th>제안</Th>
+        <Th>거래처 · 발주번호</Th><Th>형명</Th><Th>남음 · 덮임</Th><Th>출고 마감</Th><Th>제안</Th>
         {writable && <><Th>만들 개수</Th><Th><span className="sr-only">올리기</span></Th></>}
       </tr></thead>
       <tbody>
@@ -83,12 +89,14 @@ function LineRow({ line: l, calendar, today, occupied, writable }: {
   const { open, setOpen } = useDialog(state);
 
   const hasTimeline = !!l.steps && l.steps.length > 0;
+  /* 이 줄의 마감 - 출고 마감일, 없으면 납품요청일 (서버의 올리기와 같은 셈) */
+  const deadline = l.shipBy ?? l.dueOn;
   const u = num(units);
   const p = useMemo(() => proposeBatches({
     units: Number.isInteger(u) && u > 0 ? u : 0, perSheet: l.perSheet, sheetMin: l.sheetMin, sheetMax: l.sheetMax,
-    sampleTiers: l.tiers, steps: l.steps, startMin: l.startMin, calendar, today, dueOn: l.dueOn,
+    sampleTiers: l.tiers, steps: l.steps, startMin: l.startMin, calendar, today, dueOn: deadline,
     gapDays: gapOf(gap),
-  }), [u, gap, l, calendar, today]);
+  }), [u, gap, l, calendar, today, deadline]);
 
   /* 한 번에 올리는 배치 수의 상한 (서버도 같은 셈으로 거부한다) */
   const tooMany = tooManyBatches(p);
@@ -112,7 +120,10 @@ function LineRow({ line: l, calendar, today, occupied, writable }: {
         <span className="tnum">{l.leftQty.toLocaleString('ko-KR')}개 · {l.covered.toLocaleString('ko-KR')}개</span>
         {l.fgStock > 0 && <><br /><span className="text-muted">완제품 재고 {l.fgStock.toLocaleString('ko-KR')}개</span></>}
       </Td>
-      <Td nowrap>{l.dueOn ? <span className="tnum">{md(l.dueOn)}</span> : '-'}</Td>
+      <Td nowrap>
+        {deadline ? <span className="tnum">{md(deadline)}</span> : '-'}
+        {!l.shipBy && l.dueOn && <div className="text-xs text-muted">납품요청일</div>}
+      </Td>
       <Td>
         {l.perSheet == null ? (
           <span className="text-warn">
@@ -131,7 +142,7 @@ function LineRow({ line: l, calendar, today, occupied, writable }: {
             <span className="tnum text-muted">
               {p.batches.map((b) => md(b.startOn)).join(' · ')} 시작
               {p.lateDays != null && (p.lateDays > 0
-                ? <span className="text-warn"> · 납기 {p.lateDays}일 넘김 예상</span>
+                ? <span className="text-warn"> · 출고 마감 {p.lateDays}일 넘김 예상</span>
                 : <> · 여유 {-p.lateDays}일</>)}
             </span>
             {p.noSteril && <> <Tag tone="quiet">멸균 기간은 셈에 없음</Tag></>}

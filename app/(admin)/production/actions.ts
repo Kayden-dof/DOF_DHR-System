@@ -129,7 +129,24 @@ export async function issueWorkOrder(_p: FormState, form: FormData): Promise<For
           [row!.id, line, me.id]);
       }
 
-      return { id: row!.id, woNo, batchNo, planned: units, lines: lines.length };
+      /*
+       * 배치 계획에서 냈으면 그 계획에 잇는다 (정밀 점검 E · 2026-11-27). 같은 트랜잭션이라 잇지 못하면 발행도
+       * 되돌린다. 판이 다르면 DB 가 거부한다 (0137 trg_batch_plan_wo). 계획의 주문 줄은 0164 트리거가 이
+       * 지시에 건다 - 폼에서 이미 골랐으면 그대로 둔다.
+       */
+      const planId = String(form.get('plan_id') ?? '').trim();
+      let planLabel: string | null = null;
+      if (planId) {
+        planLabel = (await db.val<string>(
+          `update batch_plan set work_order_id = $2
+            where id = $1::uuid
+              and (work_order_id is null
+                   or exists (select 1 from work_order w where w.id = batch_plan.work_order_id and w.status = 'CANCELLED'))
+            returning label`, [planId, row!.id])) ?? null;
+        if (!planLabel) throw new Error('이 배치 계획에는 이미 다른 작업 지시가 이어져 있습니다. 일정 화면을 새로 고치십시오');
+      }
+
+      return { id: row!.id, woNo, batchNo, planned: units, lines: lines.length, planLabel };
     });
 
     bump(out.id);
@@ -139,6 +156,7 @@ export async function issueWorkOrder(_p: FormState, form: FormData): Promise<For
         `지시서 ${out.woNo} · 배치 ${out.batchNo}를 발행했습니다. ` +
         (out.planned ? `예정 ${out.planned}개. ` : '') +
         (out.lines ? `주문 줄 ${out.lines}개에 걸었습니다. ` : '') +
+        (out.planLabel ? `배치 계획 ${out.planLabel}에 이었습니다. ` : '') +
         '작업 지시서를 인쇄해 현장에 내리십시오.',
       /*
        * 발행 뒤 인쇄로 가는 길 (UI/UX 검수 2026-11-11). 전에는 «인쇄해 내리십시오»
@@ -299,13 +317,19 @@ export async function cancelWorkOrder(_p: FormState, form: FormData): Promise<Fo
     const reason = String(form.get('cancelled_reason') ?? '').trim();
     if (!reason) return { error: '취소 사유를 입력하십시오. 번호는 소멸하며 그 사유가 설명이 됩니다' };
 
-    await withActor(me.id, (db) =>
-      db.rows(`update work_order set status='CANCELLED', cancelled_reason=$2 where id=$1`,
-              [id, reason]));
+    const plans = await withActor(me.id, async (db) => {
+      await db.rows(`update work_order set status='CANCELLED', cancelled_reason=$2 where id=$1`,
+                    [id, reason]);
+      /* 이 지시에 이은 배치 계획 - 지시 없는 계획으로 다시 센다 (0177 · 정밀 점검 E). 이음은 그대로 두고 알린다 */
+      return (await db.rows<{ label: string }>(
+        `select label from batch_plan where work_order_id = $1 order by start_on, label`, [id])).map((x) => x.label);
+    });
     bump(id);
     return {
       ok: true,
-      message: '작업 지시를 취소했습니다. 지시서번호와 배치번호는 소멸하며 재사용하지 않습니다.',
+      message: '작업 지시를 취소했습니다. 지시서번호와 배치번호는 소멸하며 재사용하지 않습니다.'
+        + (plans.length ? ` 이 지시에 이은 배치 계획 ${plans.join(' · ')}는 지시 없는 계획으로 다시 셉니다.`
+          + ' 생산 › 일정에서 새 지시를 내거나 이으십시오.' : ''),
     };
   } catch (e) {
     return { error: dbMessage(e) };

@@ -10,7 +10,7 @@ import { PageShell, FilterBar } from '@/components/shell';
 import { Table, Th, Td, IdCell, TwoLine, ActionTh, RowLink } from '@/components/table';
 import { fixAt } from '@/lib/unblock';
 import IssueForm, {
-  type DmOpt, type RawLotOpt, type UserOpt, type FinOpt, type OrderLineOpt,
+  type DmOpt, type RawLotOpt, type UserOpt, type FinOpt, type OrderLineOpt, type FromPlan,
 } from './issue-form';
 
 export const dynamic = 'force-dynamic';
@@ -39,7 +39,9 @@ interface WoRow {
  * 있는 배치다. 현황 숫자 띠가 세는 것과 같은 잣대로 거른다 (UI/UX 검수 2026-11-11) -
  * 전에는 숫자를 눌러도 거르지 않은 목록이 열려 그 숫자가 무엇인지 다시 찾아야 했다.
  */
-type Search = Promise<{ status?: string; due?: string; q?: string }>;
+type Search = Promise<{ status?: string; due?: string; q?: string; plan?: string }>;
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const OPEN_STATUSES = ['ISSUED', 'IN_PROCESS', 'CUT'];
 
@@ -163,7 +165,22 @@ export default async function ProductionPage({ searchParams }: { searchParams: S
          join customer c on c.id = o.customer_id
          join item i on i.id = l.item_id
         where o.cancelled_at is null and l.cancelled_at is null and so_line_left(l.id) > 0
-        order by o.due_on nulls last, o.customer_po_no, l.seq`),
+        /* 출고 마감일이 먼저 (0173 · 0177 - 현황 · 수주 · 주문에서 계획과 같은 차례) */
+        order by coalesce(o.ship_by, o.due_on) nulls last, o.customer_po_no, l.seq`),
+    /*
+     * 배치 계획에서 «이 계획으로 지시 발행» 으로 왔으면 그 계획 (정밀 점검 E). 지시가 없거나 이은 지시가
+     * 취소된 계획만. 예정 생산 수량 = 장수 x 그 주문 줄 형명의 장당 개수.
+     */
+    fromPlan: readOnly || !sp.plan || !UUID.test(sp.plan) ? null : await db.one<FromPlan>(
+      `select bp.id::text, bp.label, bp.device_master_id::text as dm, bp.sheets,
+              bp.sales_order_line_id::text as line,
+              case when bp.sheets is not null and sl.item_id is not null
+                   then bp.sheets * model_per_sheet(bp.device_master_id, sl.item_id) end as units
+         from batch_plan bp left join sales_order_line sl on sl.id = bp.sales_order_line_id
+        where bp.id = $1::uuid
+          and (bp.work_order_id is null
+               or exists (select 1 from work_order w where w.id = bp.work_order_id and w.status = 'CANCELLED'))`,
+      [sp.plan]),
     finished: await db.rows<FinOpt>(
       `select id, code, name from item where type = 'FIN' and is_active order by code`),
     today: await db.val<string>(`select to_char(timezone('Asia/Seoul', now()),'YYYY-MM-DD')`),
@@ -214,7 +231,7 @@ export default async function ProductionPage({ searchParams }: { searchParams: S
       </>}
       action={readOnly ? null : (<IssueForm masters={d.masters} rawLots={d.rawLots} finished={d.finished}
                          users={d.users} today={d.today ?? ''} fixes={fixes} me={user.id}
-                         orderLines={d.orderLines} />)}
+                         orderLines={d.orderLines} fromPlan={d.fromPlan} />)}
       nav={<SubNav items={PRODUCTION_NAV} />}
     >
       {/*

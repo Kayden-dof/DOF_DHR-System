@@ -3,8 +3,9 @@
 import { revalidatePath } from 'next/cache';
 import { withActor, dbMessage, type Db } from '@/lib/db';
 import { requireRole } from '@/lib/session';
-import { loadCalendar, loadTimeline } from '@/lib/timeline-db';
-import { proposeBatches, planNote, firstStepMin, tooManyBatches, TOO_MANY_BATCHES, type SampleTier } from '@/lib/order-plan';
+import { loadCalendar } from '@/lib/timeline-db';
+import { loadDmPlanInputs } from '@/lib/order-plan-db';
+import { proposeBatches, planNote, firstStepMin, tooManyBatches, TOO_MANY_BATCHES } from '@/lib/order-plan';
 import type { FormState } from '@/lib/forms';
 
 /* ---------------------------------------------------------------------------
@@ -130,25 +131,27 @@ export async function addPlansFromOrder(_p: FormState, form: FormData): Promise<
         po: string; item_code: string; due_on: string | null; dm_id: string; left_qty: number; covered: number;
         per_sheet: number | null; sheet_min: number | null; sheet_max: number | null;
       }>(
-        `select customer_po_no as po, item_code, to_char(due_on, 'YYYY-MM-DD') as due_on, dm_id::text, left_qty, covered,
-                per_sheet, sheet_min, sheet_max
-           from order_plan_lines() where line_id = $1::uuid`, [lineId]);
+        /* 마감은 출고 마감일, 없으면 납품요청일 - 화면의 제안과 같은 셈 (0177 · 정밀 점검 E) */
+        `select f.customer_po_no as po, f.item_code, to_char(coalesce(o.ship_by, f.due_on), 'YYYY-MM-DD') as due_on,
+                f.dm_id::text, f.left_qty, f.covered, f.per_sheet, f.sheet_min, f.sheet_max
+           from order_plan_lines() f join sales_order o on o.id = f.order_id
+          where f.line_id = $1::uuid`, [lineId]);
       if (!row) throw new Error('이 주문 줄은 지금 계획을 올릴 수 없습니다 (취소 · 완료 · 시행 중인 판 없음). 화면을 새로 고치십시오');
       if (row.dm_id !== dm) throw new Error('이 주문 줄에 맞는 제품표준서 판이 바뀌었습니다. 화면을 새로 고친 뒤 다시 올리십시오');
 
       if (row.covered !== seen || row.left_qty - row.covered <= 0) {
         throw new Error('이 주문 줄의 덮인 개수가 바뀌었습니다. 화면을 새로 고친 뒤 다시 올리십시오');
       }
-      const tiers = (await db.rows<{ min_qty: number; max_qty: number | null; sample_qty: number }>(
-        `select min_qty, max_qty, sample_qty from sample_plan where device_master_id = $1::uuid order by min_qty`, [dm]))
-        .map((x): SampleTier => ({ min: x.min_qty, max: x.max_qty, samples: x.sample_qty }));
-      const steps = (await loadTimeline(db, dm))?.steps ?? null;
-      const startMin = firstStepMin(steps);
+      /* 판의 시료 구간 · 시간표 · 첫 시각은 화면 · 출고 마감일 제안과 같은 곳에서 읽는다 (lib/order-plan-db) */
+      const calendar = await loadCalendar(db);
+      const info = (await loadDmPlanInputs(db, [dm], calendar)).get(dm);
+      const steps = info?.steps ?? null;
+      const startMin = info?.startMin ?? firstStepMin(null);
       const today = (await db.val<string>(`select to_char(timezone('Asia/Seoul', now()), 'YYYY-MM-DD')`)) ?? '';
 
       const p = proposeBatches({
-        units, perSheet: row.per_sheet, sheetMin: row.sheet_min, sheetMax: row.sheet_max, sampleTiers: tiers,
-        steps, startMin, calendar: await loadCalendar(db), today, dueOn: row.due_on, gapDays: gap,
+        units, perSheet: row.per_sheet, sheetMin: row.sheet_min, sheetMax: row.sheet_max, sampleTiers: info?.tiers ?? [],
+        steps, startMin, calendar, today, dueOn: row.due_on, gapDays: gap,
       });
       if (!p.ok) {
         throw new Error(p.reason === 'no-size'

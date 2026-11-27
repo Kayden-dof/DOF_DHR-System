@@ -92,7 +92,7 @@ export default async function ShipPage({ searchParams }: { searchParams: Search 
          join customer c on c.id = o.customer_id
          join item i on i.id = l.item_id
         where o.cancelled_at is null and l.cancelled_at is null
-        order by o.due_on nulls last, o.customer_po_no, l.seq`);
+        order by coalesce(o.ship_by, o.due_on) nulls last, o.customer_po_no, l.seq`);
     const lines = open.filter((x) => x.customer_id === cId && x.left > 0);
     /* 남은 줄이 하나뿐이면 고를 것이 없다 - 바로 그 줄의 로트를 연다 (사용자 2026-11-26 «출고 버튼 어디있어») */
     const line = lines.find((x) => x.id === lId) ?? (lines.length === 1 ? lines[0] : null);

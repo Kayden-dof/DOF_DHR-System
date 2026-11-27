@@ -240,7 +240,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
             and exists (select 1 from dm_models($2) d where d.id = l.item_id)
             and not exists (select 1 from work_order_so_line w
                              where w.work_order_id = $1 and w.sales_order_line_id = l.id and w.unlinked_at is null)
-          order by o.due_on nulls last, o.customer_po_no, l.seq`, [id, wo.device_master_id]),
+          order by coalesce(o.ship_by, o.due_on) nulls last, o.customer_po_no, l.seq`, [id, wo.device_master_id]),
       today: await db.val<string>(`select to_char(timezone('Asia/Seoul', now()),'YYYY-MM-DD')`),
       /* 마감 안 된 공정 · 남은 로트 - 배치 종료의 «아직 남은 것» (lib/batch-open) */
       openSteps: await openSteps(db, id),

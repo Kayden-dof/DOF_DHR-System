@@ -4,8 +4,9 @@ import { revalidatePath } from 'next/cache';
 import { withActor, withUser, dbMessage, type Db } from '@/lib/db';
 import { requireRole } from '@/lib/session';
 import type { FormState } from '@/lib/forms';
-import { loadCalendar, loadTimeline } from '@/lib/timeline-db';
-import { proposeBatches, firstStepMin, type SampleTier } from '@/lib/order-plan';
+import { loadCalendar } from '@/lib/timeline-db';
+import { loadDmPlanInputs } from '@/lib/order-plan-db';
+import { proposeBatches, firstStepMin } from '@/lib/order-plan';
 import { num } from '@/lib/fmt';
 
 /* ---------------------------------------------------------------------------
@@ -129,9 +130,11 @@ export async function updateOrder(_p: FormState, form: FormData): Promise<FormSt
    마지막 배치가 끝나는 날을 돌려준다. 저장하지 않는다 - 창이 출고 마감일 칸을 채우고 사람이 고친다.
 
      · 형명마다 그 형명이 드는 시행 중인 판 (order_plan_lines 와 같은 고르기)
-     · 판 하나에 형명이 하나면 그 개수 · 장당 개수 · 시료 구간으로, 여럿이면 형명마다 장수를 올려 더한 장수로
-     · 오늘(다음 근무일) 착수, 판의 공정 시간표와 근무 달력으로 배치를 잇는다. 다른 계획은 보지 않는다 - 대략
-     · 판이 여럿이면 가장 늦은 날
+     · 형명마다 따로, 그 개수 · 장당 개수 · 시료 구간 · 시간표 없는 판의 간격 기본값으로 - «주문에서 계획» 이
+       그 줄에 내놓는 제안과 같다 (정밀 점검 E · 2026-11-27). 판의 값은 lib/order-plan-db 한 곳에서 읽는다.
+       전에는 한 판에 형명이 여럿이면 장수를 더해 «장당 1개 · 시료 없음» 으로 한 번에 나눠 배치 수 · 날짜가 달랐다.
+     · 오늘(다음 근무일) 착수, 판의 공정 시간표와 근무 달력으로 배치를 잇는다. 다른 계획 · 다른 형명은 보지 않는다 - 대략
+     · 형명이 여럿이면 가장 늦은 날
    고치기 창의 기존 줄은 남은 수량(주문 - 출고)으로 센다.
 --------------------------------------------------------------------------- */
 export interface ShipByEstimate { on: string | null; note: string }
@@ -189,34 +192,21 @@ export async function estimateShipBy(input: {
       for (const p of picks.filter((x) => !x.dm)) notes.push(`${p.code} 은 시행 중인 판이 없어 셀 수 없습니다`);
       for (const p of picks.filter((x) => x.dm && !x.per_sheet)) notes.push(`${p.code} 은 장당 개수를 셀 수 없습니다`);
 
-      const groups = new Map<string, typeof picks>();
-      for (const p of picks.filter((x) => x.dm && x.per_sheet)) {
-        groups.set(p.dm!, [...(groups.get(p.dm!) ?? []), p]);
-      }
-      for (const [dm, rows] of groups) {
-        const head = rows[0];
-        const steps = (await loadTimeline(db, dm))?.steps ?? null;
-        const one = rows.length === 1;
-        const tiers = one
-          ? (await db.rows<{ min_qty: number; max_qty: number | null; sample_qty: number }>(
-              `select min_qty, max_qty, sample_qty from sample_plan where device_master_id = $1::uuid order by min_qty`, [dm]))
-              .map((x): SampleTier => ({ min: x.min_qty, max: x.max_qty, samples: x.sample_qty }))
-          : [];
-        /* 형명이 여럿이면 형명마다 장수를 올려 더한 장수를 «장당 1개» 로 나눈다 (시료는 빼고 - 대략) */
-        const sheets = rows.reduce((a, r) => a + Math.ceil((units.get(r.item_id) ?? 0) / r.per_sheet!), 0);
+      const ok = picks.filter((x) => x.dm && x.per_sheet);
+      const inputs = await loadDmPlanInputs(db, ok.map((x) => x.dm!), calendar);
+      for (const p of ok) {
+        const info = inputs.get(p.dm!);
+        const n = units.get(p.item_id)!;
         const plan = proposeBatches({
-          units: one ? units.get(head.item_id)! : sheets,
-          perSheet: one ? head.per_sheet : 1,
-          sheetMin: head.sheet_min, sheetMax: head.sheet_max, sampleTiers: tiers,
-          steps, startMin: firstStepMin(steps), calendar, today, dueOn: null, gapDays: null,
+          units: n, perSheet: p.per_sheet, sheetMin: p.sheet_min, sheetMax: p.sheet_max, sampleTiers: info?.tiers ?? [],
+          steps: info?.steps ?? null, startMin: info?.startMin ?? firstStepMin(null), calendar, today, dueOn: null,
+          gapDays: info?.defaultGap ?? null,
         });
-        const what = one
-          ? `${head.code} ${num(units.get(head.item_id)!)}개`
-          : `${rows.map((r) => r.code).join(' · ')} ${num(rows.reduce((a, r) => a + (units.get(r.item_id) ?? 0), 0))}개`;
+        const what = `${p.code} ${num(n)}개`;
         if (!plan.ok) { notes.push(`${what} - 셀 수 없습니다`); continue; }
         const last = plan.batches[plan.batches.length - 1]?.lastOn ?? null;
         if (!last) {
-          notes.push(`${what} → ${plan.batches.length} 배치 (${num(plan.sheets)}장) · ${head.dm_label} 공정 시간표가 없어 날짜를 셀 수 없습니다`);
+          notes.push(`${what} → ${plan.batches.length} 배치 (${num(plan.sheets)}장) · ${p.dm_label} 공정 시간표가 없어 날짜를 셀 수 없습니다`);
           continue;
         }
         notes.push(`${what} → ${plan.batches.length} 배치 (${num(plan.sheets)}장) · 마지막 배치 끝 ${last.slice(5)}`);
@@ -230,17 +220,37 @@ export async function estimateShipBy(input: {
   }
 }
 
+/*
+ * 취소한 주문 · 줄로 올린 배치 계획 가운데 아직 지시가 없는 것 (정밀 점검 E · 2026-11-27). 계획은 지우지 않는다 -
+ * 자재 소요에서는 빠지고(0177), 그 배치를 만들지 않으면 사람이 일정에서 지운다. 그래서 결과 문구로 알린다.
+ */
+async function leftPlans(db: Db, where: string, id: string): Promise<string[]> {
+  return (await db.rows<{ label: string }>(
+    `select bp.label from batch_plan bp join sales_order_line sl on sl.id = bp.sales_order_line_id
+      where ${where}
+        and (bp.work_order_id is null
+             or exists (select 1 from work_order w where w.id = bp.work_order_id and w.status = 'CANCELLED'))
+      order by bp.start_on, bp.label`, [id])).map((x) => x.label);
+}
+const plansTail = (labels: string[]) => labels.length === 0 ? ''
+  : ` 이 주문으로 올린 배치 계획 ${labels.length}개(${labels.slice(0, 3).join(' · ')}${labels.length > 3 ? ' 외' : ''})는`
+    + ' 일정에 남아 있습니다. 자재 소요에서는 빠졌고, 만들지 않으면 생산 › 일정에서 지우십시오.';
+
 export async function cancelOrder(_p: FormState, form: FormData): Promise<FormState> {
   try {
     const me = await mgr();
     const reason = String(form.get('reason') ?? '').trim();
     if (!reason) return { error: '취소 사유를 적으십시오' };
-    await withActor(me.id, (db) => db.rows(
-      `update sales_order set cancelled_at = now(), cancelled_by = $2, cancel_reason = $3
-        where id = $1 and cancelled_at is null`,
-      [String(form.get('id') ?? ''), me.id, reason]), { reason });
+    const id = String(form.get('id') ?? '');
+    const plans = await withActor(me.id, async (db) => {
+      await db.rows(
+        `update sales_order set cancelled_at = now(), cancelled_by = $2, cancel_reason = $3
+          where id = $1 and cancelled_at is null`,
+        [id, me.id, reason]);
+      return leftPlans(db, `sl.sales_order_id = $1::uuid`, id);
+    }, { reason });
     bump();
-    return { ok: true, message: '주문을 취소했습니다. 이미 나간 출고는 그대로 남습니다.' };
+    return { ok: true, message: '주문을 취소했습니다. 이미 나간 출고는 그대로 남습니다.' + plansTail(plans) };
   } catch (e) {
     return { error: dbMessage(e) };
   }
@@ -251,12 +261,16 @@ export async function cancelLine(_p: FormState, form: FormData): Promise<FormSta
     const me = await mgr();
     const reason = String(form.get('reason') ?? '').trim();
     if (!reason) return { error: '취소 사유를 적으십시오' };
-    await withActor(me.id, (db) => db.rows(
-      `update sales_order_line set cancelled_at = now(), cancel_reason = $2
-        where id = $1 and cancelled_at is null`,
-      [String(form.get('id') ?? ''), reason]), { reason });
+    const id = String(form.get('id') ?? '');
+    const plans = await withActor(me.id, async (db) => {
+      await db.rows(
+        `update sales_order_line set cancelled_at = now(), cancel_reason = $2
+          where id = $1 and cancelled_at is null`,
+        [id, reason]);
+      return leftPlans(db, `sl.id = $1::uuid`, id);
+    }, { reason });
     bump();
-    return { ok: true, message: '형명 줄을 취소했습니다.' };
+    return { ok: true, message: '형명 줄을 취소했습니다.' + plansTail(plans) };
   } catch (e) {
     return { error: dbMessage(e) };
   }

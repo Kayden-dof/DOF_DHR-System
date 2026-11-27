@@ -757,6 +757,75 @@ export default [
 },
 
 {
+  id: 'OP-09', expect: '통과',
+  name: '이은 지시가 취소된 계획은 지시 없는 계획으로 다시 센다 - 덮인 개수 · 자재 소요 (0177)',
+  async run(t) {
+    const m = await master(t);
+    await withScheme(t, async () => {
+      const old = await putInForce(t, m);
+      const mine = { plans: [], lines: [], wos: [], lots: [] };
+      try {
+        const { code, per } = await pickCode(t, m);
+        const line = await orderLine(t, m, code, 'OP09', 1000);
+        mine.lines.push(line);
+        const p = await plan(t, m, { line, sheets: 10 });
+        mine.plans.push(p);
+        const planNeeds = () => t.val(
+          `select count(*)::int from material_needs(current_date, current_date + 30)
+            where source = 'PLAN' and source_id = $1`, [p]);
+        t.eq(await covered(t, line), 10 * per, '지시 없는 계획은 장수 x 장당 개수');
+        const before = await planNeeds();
+        t.ok(before > 0, '지시 없는 계획은 자재 소요에 든다');
+        const wo = await newWorkOrder(t, m, { sheets: 10 });
+        mine.wos.push(wo.id);
+        await t.setActor(m.admin);
+        await t.rows(`update batch_plan set work_order_id = $1 where id = $2`, [wo.id, p]);
+        t.eq(await planNeeds(), 0, '지시를 이으면 계획 갈래에서 빠진다 (지시 갈래가 센다)');
+        await t.rows(`update work_order set status = 'CANCELLED', cancelled_reason = '시험 취소' where id = $1`, [wo.id]);
+        t.eq(await covered(t, line), 10 * per, '지시를 취소하면 그 계획을 다시 센다 (전에는 0)');
+        t.eq(await planNeeds(), before, '자재 소요에도 다시 든다');
+        t.eq(await t.val(`select work_order_id from batch_plan where id = $1`, [p]), wo.id, '이음은 그대로 둔다');
+      } finally { await tidy(t, m, mine); await restoreDm(t, m, old); }
+    });
+  },
+},
+
+{
+  id: 'OP-10', expect: '통과',
+  name: '취소된 주문 · 줄로 올린 계획은 자재 소요에 넣지 않는다 - 계획은 일정에 남는다 (0177)',
+  async run(t) {
+    const m = await master(t);
+    await withScheme(t, async () => {
+      const old = await putInForce(t, m);
+      const mine = { plans: [], lines: [], wos: [], lots: [] };
+      try {
+        const { code } = await pickCode(t, m);
+        const l1 = await orderLine(t, m, code, 'OP10-A', 1000);
+        const l2 = await orderLine(t, m, code, 'OP10-B', 1000);
+        mine.lines.push(l1, l2);
+        const p1 = await plan(t, m, { line: l1, sheets: 5 });
+        const p2 = await plan(t, m, { line: l2, sheets: 5 });
+        const p3 = await plan(t, m, { sheets: 5 });
+        mine.plans.push(p1, p2, p3);
+        const planNeeds = (p) => t.val(
+          `select count(*)::int from material_needs(current_date, current_date + 30)
+            where source = 'PLAN' and source_id = $1`, [p]);
+        t.ok(await planNeeds(p1) > 0 && await planNeeds(p2) > 0, '취소 전에는 둘 다 든다');
+        await t.setActor(m.admin);
+        await t.rows(`update sales_order_line set cancelled_at = now(), cancel_reason = '시험 취소' where id = $1`, [l1]);
+        await t.rows(
+          `update sales_order set cancelled_at = now(), cancel_reason = '시험 취소'
+            where id = (select sales_order_id from sales_order_line where id = $1)`, [l2]);
+        t.eq(await planNeeds(p1), 0, '줄을 취소한 계획은 빠진다');
+        t.eq(await planNeeds(p2), 0, '주문을 취소한 계획도 빠진다');
+        t.ok(await planNeeds(p3) > 0, '주문 줄 없는 계획은 그대로 든다');
+        t.eq(await t.val(`select count(*)::int from batch_plan where id = any($1::uuid[])`, [[p1, p2]]), 2, '계획은 지우지 않는다');
+      } finally { await tidy(t, m, mine); await restoreDm(t, m, old); }
+    });
+  },
+},
+
+{
   id: 'OP-00', expect: '거부',
   name: '원료 품목 칸에는 원료(RAW) 품목만',
   async run(t) {

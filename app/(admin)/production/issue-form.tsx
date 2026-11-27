@@ -30,6 +30,14 @@ export interface UserOpt { id: string; full_name: string; roles: string[] }
 export interface FinOpt { id: string; code: string; name: string }
 /** 열린 주문 줄. dm_ids = 그 줄의 형명을 만드는 제품표준서들 (0159) */
 export interface OrderLineOpt { id: string; label: string; dm_ids: string[] }
+/**
+ * 배치 계획에서 열었을 때 그 계획 (정밀 점검 E · 2026-11-27). 판 · 장수 · 예정 개수 · 주문 줄을 채워 열고,
+ * 발행하면 그 계획에 지시를 잇는다. 전에는 지시 발행이 계획을 몰라 같은 값을 다시 고르고, 잇기를 잊으면
+ * 덮인 개수 · 자재 소요를 계획과 지시로 두 번 셌다.
+ */
+export interface FromPlan {
+  id: string; label: string; dm: string; sheets: number | null; units: number | null; line: string | null;
+}
 
 /* ---------------------------------------------------------------------------
    작업 지시 발행
@@ -38,8 +46,10 @@ export interface OrderLineOpt { id: string; label: string; dm_ids: string[] }
    장입 장수를 넣으면 자재 구성표로 소요량을 미리 계산해 보여 준다. 이 값이
    작업 지시서에 인쇄된다. 경고는 표시만 하고 발행을 막지 않는다 (§2).
 --------------------------------------------------------------------------- */
-export default function IssueForm({ masters, rawLots, finished, users, today, fixes, me, orderLines = [] }: {
+export default function IssueForm({ masters, rawLots, finished, users, today, fixes, me, orderLines = [], fromPlan = null }: {
   masters: DmOpt[]; rawLots: RawLotOpt[]; finished: FinOpt[];
+  /** 배치 계획에서 열었으면 그 계획 - 값을 채워 펼친 채로 연다 */
+  fromPlan?: FromPlan | null;
   /** 이 배치로 채울 수 있는 열린 주문 줄 (0159 · 고르기는 권고) */
   orderLines?: OrderLineOpt[];
   users: UserOpt[]; today: string;
@@ -52,14 +62,14 @@ export default function IssueForm({ masters, rawLots, finished, users, today, fi
   const uid = useId();
 
   const [state, action, pending] = useActionState<FormState, FormData>(issueWorkOrder, {});
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(!!fromPlan);
   /*
    * null 은 «아직 손대지 않음», '' 는 «선택하십시오 를 고름» 이다 (UI/UX 검수
    * 2026-11-11). 둘을 가르지 않으면 사람이 비운 칸에 처음 값이 다시 들어선다.
    */
-  const [dm, setDm] = useState<string | null>(null);
+  const [dm, setDm] = useState<string | null>(fromPlan?.dm ?? null);
   const [lot, setLot] = useState<string | null>(null);
-  const [sheets, setSheets] = useState(20);
+  const [sheets, setSheets] = useState(fromPlan?.sheets ?? 20);
   const [prod, setProd] = useState<string | null>(null);
   const [qa, setQa] = useState<string | null>(null);
   const [pv, setPv] = useState<IssuePreview>({});
@@ -72,7 +82,7 @@ export default function IssueForm({ masters, rawLots, finished, users, today, fi
    * 고치지 않는다 (§7). 두 값이 나란히 남는다.
    */
   /* 예정 생산 수량. 형명이 아니라 개수만 받는다 (§3 ① 형명은 재단에서 정해진다) */
-  const [units, setUnits] = useState('');
+  const [units, setUnits] = useState(fromPlan?.units ? String(fromPlan.units) : '');
   const plannedUnits = Number(units) || 0;
 
   const ready = masters.filter((m) => m.verified_at);
@@ -179,6 +189,15 @@ export default function IssueForm({ masters, rawLots, finished, users, today, fi
       <p className="mt-1 text-xs leading-relaxed text-muted">
         지시서번호와 배치번호는 채번 규칙이 만듭니다. 원재료 로트는 배치당 하나입니다.
       </p>
+      {fromPlan && (
+        <>
+          <input type="hidden" name="plan_id" value={fromPlan.id} />
+          <p className="qd-notice mt-2 block" data-tone="neutral" role="note">
+            배치 계획 <b className="font-mono">{fromPlan.label}</b> 로 발행합니다. 판 · 장수 · 예정 생산 수량 · 주문 줄을
+            그 계획에서 채웠습니다. 발행하면 이 지시가 그 계획에 이어집니다.
+          </p>
+        </>
+      )}
 
       <div className="mt-3 grid gap-3 lg:grid-cols-3">
         <div>
@@ -279,7 +298,7 @@ export default function IssueForm({ masters, rawLots, finished, users, today, fi
               <div className="grid gap-1 sm:grid-cols-2">
                 {fit.map((l) => (
                   <label key={l.id} className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" name="so_line" value={l.id} /> {l.label}
+                    <input type="checkbox" name="so_line" value={l.id} defaultChecked={l.id === fromPlan?.line} /> {l.label}
                   </label>
                 ))}
               </div>
