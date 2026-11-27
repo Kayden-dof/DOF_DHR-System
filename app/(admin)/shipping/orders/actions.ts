@@ -27,9 +27,23 @@ const bump = () => {
   revalidatePath('/shipping/ship');
 };
 
-/** 폼의 새 형명 줄 (line_item_<n> · line_qty_<n>). 형명을 고르지 않은 줄은 건너뛴다 */
-function newLines(form: FormData): { item: string; qty: number }[] {
-  const out: { item: string; qty: number }[] = [];
+/*
+ * 판매 단가 (0178 · 사용자 2026-11-27). 개당 · 원 · VAT 별도. 비워 둘 수 있다 - 비면 출고 금액에 들지 않는다.
+ * 쉼표를 지우고 읽는다 (금액을 1,000 처럼 적는 일이 잦다).
+ */
+function price(v: FormDataEntryValue | null): number | null {
+  const s = String(v ?? '').replace(/,/g, '').trim();
+  if (s === '') return null;
+  const n = Number(s);
+  if (!Number.isFinite(n) || n < 0) throw new Error('단가는 0 이상의 숫자로 적으십시오 (원 · VAT 별도)');
+  return n;
+}
+
+type NewLine = { item: string; qty: number; price: number | null };
+
+/** 폼의 새 형명 줄 (line_item_<n> · line_qty_<n> · line_price_<n>). 형명을 고르지 않은 줄은 건너뛴다 */
+function newLines(form: FormData): NewLine[] {
+  const out: NewLine[] = [];
   for (const [k, v] of form.entries()) {
     const m = k.match(/^line_item_(\d+)$/);
     if (!m) continue;
@@ -42,19 +56,19 @@ function newLines(form: FormData): { item: string; qty: number }[] {
     }
     const qty = Number(form.get(`line_qty_${m[1]}`) ?? 0);
     if (!Number.isInteger(qty) || qty <= 0) throw new Error('형명 줄의 수량은 1 이상의 정수로 적으십시오');
-    out.push({ item: String(v), qty });
+    out.push({ item: String(v), qty, price: price(form.get(`line_price_${m[1]}`)) });
   }
   return out;
 }
 
-async function addLines(db: Db, orderId: string, lines: { item: string; qty: number }[]) {
+async function addLines(db: Db, orderId: string, lines: NewLine[]) {
   let seq = await db.val<number>(
     `select coalesce(max(seq), 0)::int from sales_order_line where sales_order_id = $1`, [orderId]) ?? 0;
   for (const l of lines) {
     seq += 1;
     await db.rows(
-      `insert into sales_order_line (sales_order_id, item_id, qty, seq) values ($1,$2,$3,$4)`,
-      [orderId, l.item, l.qty, seq]);
+      `insert into sales_order_line (sales_order_id, item_id, qty, seq, unit_price) values ($1,$2,$3,$4,$5)`,
+      [orderId, l.item, l.qty, seq, l.price]);
   }
 }
 
@@ -113,6 +127,15 @@ export async function updateOrder(_p: FormState, form: FormData): Promise<FormSt
         await db.rows(
           `update sales_order_line set qty = $3
             where id = $1 and sales_order_id = $2 and qty <> $3 and cancelled_at is null`, [m[1], id, qty]);
+      }
+      /* 줄 단가 (0178). 바뀐 줄만 고친다 - 감사추적에 손댄 줄만 남게 */
+      for (const [k, v] of form.entries()) {
+        const m = k.match(/^price_(.+)$/);
+        if (!m) continue;
+        await db.rows(
+          `update sales_order_line set unit_price = $3
+            where id = $1 and sales_order_id = $2 and unit_price is distinct from $3::numeric and cancelled_at is null`,
+          [m[1], id, price(v)]);
       }
       await addLines(db, id, lines);
     });
@@ -283,15 +306,16 @@ export async function saveCustomer(_p: FormState, form: FormData): Promise<FormS
     if (!name) return { error: '상호를 적으십시오' };
     const id = txt(form.get('id'));
     const vals = [name, txt(form.get('biz_no')), txt(form.get('contact_name')), txt(form.get('contact_phone')),
-                  txt(form.get('contact_email')), txt(form.get('address')), String(form.get('note') ?? '').trim()];
+                  txt(form.get('contact_email')), txt(form.get('address')), String(form.get('note') ?? '').trim(),
+                  price(form.get('price_per_cm2')) || null];
     await withActor(me.id, (db) => id
       ? db.rows(
           `update customer set name = $2, biz_no = $3, contact_name = $4, contact_phone = $5,
-                  contact_email = $6, address = $7, note = $8, is_active = $9
+                  contact_email = $6, address = $7, note = $8, price_per_cm2 = $9, is_active = $10
             where id = $1`, [id, ...vals, form.get('is_active') === 'on'])
       : db.rows(
-          `insert into customer (name, biz_no, contact_name, contact_phone, contact_email, address, note, created_by)
-           values ($1,$2,$3,$4,$5,$6,$7,$8)`, [...vals, me.id]));
+          `insert into customer (name, biz_no, contact_name, contact_phone, contact_email, address, note, price_per_cm2, created_by)
+           values ($1,$2,$3,$4,$5,$6,$7,$8,$9)`, [...vals, me.id]));
     bump();
     return { ok: true, message: id ? `거래처 ${name}을(를) 고쳤습니다.` : `거래처 ${name}을(를) 등록했습니다.` };
   } catch (e) {

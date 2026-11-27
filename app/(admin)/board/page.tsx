@@ -76,6 +76,12 @@ interface OrderLine {
   batches: string | null;
 }
 
+/* 달별 수입 · 지출 (v_board_money · 0178) */
+interface Money {
+  month: string; shipped_qty: number; revenue: string; unpriced_qty: number;
+  shipped_cost: string; made_material: string; made_conv: string; spend: string;
+}
+
 interface ItemCost {
   item_code: string; item_name: string; spec: string;
   qty: number; shared_cost: string; own_cost: string;
@@ -182,6 +188,27 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
         where so_status(o.id) in ('OPEN', 'PARTIAL')
         order by o.ship_by nulls last, o.ordered_on, o.customer_po_no, l.seq, i.code`),
 
+    /*
+     * 달별 수입 · 지출 (사용자 2026-11-27 «출고기준으로 수입을 잡아야» · «생산에 따른 자재지출과 발주 입고에
+     * 따른 자재 지출이 구분되어야»). 셈은 v_board_money 한 곳에서 (0178).
+     */
+    money: await db.rows<Money>(
+      `select month::text as month, shipped_qty, revenue::text as revenue, unpriced_qty,
+              shipped_cost::text as shipped_cost, made_material::text as made_material,
+              made_conv::text as made_conv, spend::text as spend
+         from v_board_money
+        where month >= date_trunc('month', timezone('Asia/Seoul', now()))::date - interval '11 months'
+        order by month desc`),
+    /* 이번 달 출고 금액의 내역. 출고 한 건마다 주문 줄 단가로 */
+    monthShip: await db.rows<{ day: string; lot_no: string; customer: string; qty: number; won: string | null }>(
+      `select sh.shipped_at::text as day, pl.lot_no, sh.customer_name as customer, sh.qty,
+              round(sh.qty * l.unit_price)::text as won
+         from shipment sh
+         join product_lot pl on pl.id = sh.product_lot_id
+         left join sales_order_line l on l.id = sh.sales_order_line_id
+        where sh.shipped_at >= date_trunc('month', timezone('Asia/Seoul', now()))::date
+        order by sh.shipped_at, pl.lot_no`),
+
     unit: sn ? await db.rows<Unit>(`select * from find_unit($1)`, [sn]) : [],
     /*
      * 제품코드별 자재 원가 (사용자 요청). 배분과 반올림은 v_item_cost 가
@@ -241,6 +268,7 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
    * 이 화면의 판으로 대신 보낸다 - 눌러서 막히는 링크를 만들지 않는다.
    */
   const canShip = canOpen('/shipping/ship', user.seat, user.screens);
+  const thisMoney = d.money.find((m) => m.month.slice(0, 7) === thisMonth);
   const canOrders = canOpen('/shipping/orders', user.seat, user.screens);
   /* 주문서 수. 줄이 아니라 주문서를 센다 - 현황의 «출고할 수주» 와 같다 */
   const orderCount = new Set(d.orders.map((o) => o.order_id)).size;
@@ -295,7 +323,14 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
         left: <b className="font-mono">{n.concession_doc_no ?? ''}</b>,
         sub: `${n.lot_no} · ${n.reason_code}`, right: `${num(n.qty)}개`,
       })), '이번 달 특채가 없습니다.') },
-    { label: '이번 달 자재 지출', value: amount(month?.spend), unit: '원', wide: true,
+    /* 출고 기준 수입 (0178). 입금이 아니다. 단가가 없는 출고는 금액에 들지 않는다 */
+    { label: '이번 달 출고 금액', value: amount(thisMoney?.revenue), unit: '원', wide: true, href: '#board-money',
+      detail: rows(d.monthShip.map((r) => ({
+        left: <b className="font-mono">{r.lot_no}</b>, sub: `${md(r.day)} · ${r.customer} · ${num(r.qty)}개`,
+        right: r.won == null ? '단가 없음' : won(r.won),
+      })), '이번 달 나간 것이 없습니다.') },
+    /* 발주 입고 매입 금액. 생산에 들어간 자재(생산 투입 자재)와 따로 본다 (사용자 2026-11-27) */
+    { label: '이번 달 자재 입고', value: amount(month?.spend), unit: '원', wide: true,
       href: canCost ? '/board/cost#cost-spend' : '#board-month',
       detail: (
         <>
@@ -323,7 +358,7 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
     <PageShell
       section="경영"
       title="경영 현황"
-      lede="출고할 수주와 오늘 · 이번 주 · 달별 순서로 놓았습니다. 제조번호로 그 제품이 어디서 나와 어디로 갔는지 찾을 수 있습니다."
+      lede="출고할 수주와 오늘 · 이번 주 · 달별, 수입 · 지출 순서로 놓았습니다. 제조번호로 그 제품이 어디서 나와 어디로 갔는지 찾을 수 있습니다."
       stats={<StatStrip items={stats} />}
       nav={<SubNav items={boardNav(hasRole(user, 'SYS_ADMIN', 'PROD_MGR', 'VIEWER'))} />}
     >
@@ -525,7 +560,7 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
               아직 제품이 아닌 단계의 부적합이라 단위가 <b className="text-ink">장</b>입니다.
               제품 개수와 더하지 않습니다.
             </Def>
-            <Def term="자재 지출">
+            <Def term="자재 입고">
               그 기간에 입고한 자재의 매입 금액입니다. 쓴 금액이 아니라 들인 금액입니다.
             </Def>
           </dl>
@@ -533,6 +568,67 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
             발생 수량은 재작업 · 특채 · 불량의 합입니다. 한 개체는 셋 중 하나로만
             끝나므로 재작업이나 특채로 살아난 만큼 불량은 줄어듭니다.
             시스템이 무엇을 불량으로 볼지 정하지 않습니다. 서면으로 정해진 결과를 셀 뿐입니다.
+          </p>
+        </div>
+      </Panel>
+      </div>
+
+      {/* 수입 · 지출 ── 출고 기준 수입과 두 갈래 자재 지출 (0178) --------- */}
+      <div id="board-money" className="scroll-mt-6">
+      <Panel title="수입 · 지출" note="달별 · 원 · VAT 별도">
+        {d.money.length === 0 ? (
+          <Empty hint="출고 · 생산 · 입고가 기록되면 달별로 나뉩니다.">기록이 없습니다.</Empty>
+        ) : (
+          <div className="qd-table-scroll">
+            <table className="qd-table qd-table--hangul">
+              <thead>
+                <tr>
+                  <th className="th">달</th>
+                  <th className="th text-right">출고 금액</th>
+                  <th className="th text-right">출고분 원가</th>
+                  <th className="th text-right">원가율</th>
+                  <th className="th text-right">생산 투입 자재</th>
+                  <th className="th text-right">생산 공수 · 설비</th>
+                  <th className="th text-right">자재 입고</th>
+                </tr>
+              </thead>
+              <tbody>
+                {d.money.map((m) => {
+                  const rev = Number(m.revenue);
+                  const cost = Number(m.shipped_cost);
+                  const blank = (v: string) => (Number(v) ? won(v) : '');
+                  return (
+                    <tr key={m.month}>
+                      <td className="td tnum">{m.month.slice(0, 7)}</td>
+                      <td className="td tnum text-right">
+                        {blank(m.revenue)}
+                        {m.unpriced_qty > 0 && (
+                          <div className="text-xs text-warn">단가 없는 출고 {num(m.unpriced_qty)}개</div>
+                        )}
+                      </td>
+                      <td className="td tnum text-right">{blank(m.shipped_cost)}</td>
+                      <td className="td tnum text-right">{rev > 0 && cost > 0 ? `${(cost / rev * 100).toFixed(1)}%` : ''}</td>
+                      <td className="td tnum text-right">{blank(m.made_material)}</td>
+                      <td className="td tnum text-right">{blank(m.made_conv)}</td>
+                      <td className="td tnum text-right">{blank(m.spend)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <div className="border-t border-line-soft bg-canvas px-4 py-3">
+          <dl className="grid gap-x-6 gap-y-1.5 text-xs leading-relaxed sm:grid-cols-2">
+            <Def term="출고 금액">출고한 달에 잡습니다. 출고 수량에 주문 줄 단가를 곱한 값입니다. 입금과는 다릅니다.</Def>
+            <Def term="출고분 원가">그 출고 제품의 원가입니다. 제품 로트의 개당 원가에 출고 수량을 곱합니다.</Def>
+            <Def term="원가율">출고분 원가를 출고 금액으로 나눈 값입니다.</Def>
+            <Def term="생산 투입 자재">그 달 제조번호가 붙은 제품에 들어간 자재 원가입니다.</Def>
+            <Def term="생산 공수 · 설비">같은 제품의 공수 · 설비 몫입니다. 단가가 적힌 만큼만 셉니다.</Def>
+            <Def term="자재 입고">그 달 발주로 들어온 자재의 매입 금액입니다. 제품이 되기 전 재고도 들어 있습니다.</Def>
+          </dl>
+          <p className="mt-2.5 text-xs leading-relaxed text-faint">
+            원가에는 멸균 위탁비가 들어 있지 않습니다. 출고 금액에서 자재 입고를 뺀 값은 이익이 아니라 그 달 돈의 들고 남입니다.
           </p>
         </div>
       </Panel>
@@ -681,7 +777,7 @@ function PeriodTable({ rows, label, total, won, pct, empty, hint }: {
             <th className="th text-right">불량</th>
             <th className="th text-right">불량률</th>
             <th className="th text-right">반제품 폐기</th>
-            <th className="th text-right">자재 지출</th>
+            <th className="th text-right">자재 입고</th>
           </tr>
         </thead>
         <tbody>

@@ -8,27 +8,48 @@ import { findModel } from '@/lib/model-find';
 import { createOrder, updateOrder, cancelOrder, cancelLine, saveCustomer, estimateShipBy, type ShipByEstimate } from './actions';
 import { num, fmtDate } from '@/lib/fmt';
 
-export interface ModelOpt { id: string; code: string; name: string; udi: string | null }
+/** area 는 형명의 한 장 면적(cm² · item_area_cm2). 단가를 거래처 cm² 단가로 미리 채울 때 쓴다 */
+export interface ModelOpt { id: string; code: string; name: string; udi: string | null; area: number | null }
 export interface CustomerOpt {
   id: string; name: string; biz_no: string | null; contact_name: string | null; contact_phone: string | null;
   contact_email: string | null; address: string | null; note: string; is_active: boolean;
+  /** cm² 당 기본 단가 (원 · VAT 별도 · 0178) */
+  price_per_cm2: number | null;
 }
 export interface OrderHead {
   id: string; customer_po_no: string; customer_name: string; ordered_on: string;
   ship_to: string | null; due_on: string | null; ship_by: string | null; note: string;
+  /** 그 거래처의 cm² 당 기본 단가 */
+  price_per_cm2: number | null;
 }
 export interface LineRow {
   id: string; code: string; name: string; qty: number; shipped: number; left: number; cancelled: boolean;
+  /** 개당 단가 (원 · VAT 별도 · 0178) */
+  unit_price: number | null;
 }
+
+/* 면적 x cm² 단가. 둘 중 하나라도 없으면 채우지 않는다 */
+const byArea = (rate: number | null, area: number | null | undefined) =>
+  rate && area ? String(Math.round(rate * area)) : '';
 
 /* ---------------------------------------------------------------------------
    형명 줄 하나. «형명 · UDI» 칸에 형명 코드 · UDI-DI · 라벨 바코드를 넣으면 그 형명을 고른다
    (재단과 같은 셈 · lib/model-find.ts)
 --------------------------------------------------------------------------- */
-function LineInput({ k, models, onRemove }: { k: number; models: ModelOpt[]; onRemove?: () => void }) {
+function LineInput({ k, models, rate, onRemove }: {
+  k: number; models: ModelOpt[]; rate: number | null; onRemove?: () => void;
+}) {
   const uid = useId();
   const [find, setFind] = useState('');
   const [itemId, setItemId] = useState('');
+  /*
+   * 단가 (0178). 사람이 적지 않은 동안은 거래처 cm² 단가 x 형명 면적으로 채우고, 사람이 적은 값은 덮지 않는다
+   * (출고 마감일 칸과 같은 규칙).
+   */
+  const [unitPrice, setUnitPrice] = useState('');
+  const [own, setOwn] = useState(false);
+  const area = models.find((m) => m.id === itemId)?.area;
+  useEffect(() => { if (!own) setUnitPrice(byArea(rate, area)); }, [rate, area, own]);
   const found = find ? findModel(find, models) : undefined;
   /*
    * 찾기 칸과 고른 형명이 어긋나지 않게 (수주 검토 M8): 맞는 형명이 있으면 고르고, 글을 고쳐 맞는 것이
@@ -45,7 +66,7 @@ function LineInput({ k, models, onRemove }: { k: number; models: ModelOpt[]; onR
    * 어긋났다. 좁은 화면(한 줄 한 칸)에서는 글이 형명 칸 바로 밑에 그대로 선다.
    */
   return (
-    <div className="grid items-end gap-2 sm:grid-cols-[12rem_1fr_7rem_auto]">
+    <div className="grid items-end gap-2 sm:grid-cols-[12rem_1fr_7rem_9rem_auto]">
       <div>
         <label className="label" htmlFor={`${uid}-find`}>형명 · UDI</label>
         <input id={`${uid}-find`} value={find} onChange={(e) => setFind(e.target.value)} autoComplete="off"
@@ -68,6 +89,12 @@ function LineInput({ k, models, onRemove }: { k: number; models: ModelOpt[]; onR
         <label className="label" htmlFor={`${uid}-qty`}>수량</label>
         <input id={`${uid}-qty`} name={`line_qty_${k}`} type="number" min="1" step="1" className="input tnum" />
       </div>
+      <div>
+        <label className="label" htmlFor={`${uid}-price`}>개당 단가 (원)</label>
+        <input id={`${uid}-price`} name={`line_price_${k}`} inputMode="numeric" autoComplete="off" value={unitPrice}
+               onChange={(e) => { setUnitPrice(e.target.value); setOwn(true); }}
+               placeholder="VAT 별도" className="input tnum" />
+      </div>
       {onRemove ? (
         <button type="button" onClick={onRemove} className="qd-text-action mb-2">줄 빼기</button>
       ) : <span />}
@@ -76,13 +103,13 @@ function LineInput({ k, models, onRemove }: { k: number; models: ModelOpt[]; onR
 }
 
 /** 새 형명 줄 여럿. start 줄로 시작하고 «줄 더하기» 로 늘린다 */
-function LinesEditor({ models, start }: { models: ModelOpt[]; start: number }) {
+function LinesEditor({ models, start, rate }: { models: ModelOpt[]; start: number; rate: number | null }) {
   const [keys, setKeys] = useState<number[]>(() => Array.from({ length: start }, (_, i) => i));
   const [next, setNext] = useState(start);
   return (
     <div className="space-y-2">
       {keys.map((k) => (
-        <LineInput key={k} k={k} models={models}
+        <LineInput key={k} k={k} models={models} rate={rate}
                    onRemove={keys.length > 1 || start === 0 ? () => setKeys(keys.filter((x) => x !== k)) : undefined} />
       ))}
       <button type="button" onClick={() => { setKeys([...keys, next]); setNext(next + 1); }}
@@ -229,7 +256,8 @@ export function NewOrderForm({ customers, models, today }: {
         </div>
       </div>
       <h3 className="mb-2 mt-5 text-sm font-semibold text-ink">형명 줄</h3>
-      <LinesEditor models={models} start={1} />
+      <LinesEditor models={models} start={1} rate={live.find((c) => c.id === customer)?.price_per_cm2 ?? null} />
+      <p className="mt-2 text-xs text-muted">단가는 VAT 별도입니다. 거래처에 cm² 당 단가가 있으면 형명 면적으로 채웁니다.</p>
       <ShipByNote est={ship.est} />
       <Msg state={state} />
       <div className="mt-4">
@@ -281,10 +309,10 @@ export function EditOrder({ order, lines, models }: { order: OrderHead; lines: L
               <input id={`${uid}-note`} name="note" defaultValue={order.note} className="input" />
             </div>
           </div>
-          <h3 className="mb-2 mt-5 text-sm font-semibold text-ink">형명 줄 수량</h3>
+          <h3 className="mb-2 mt-5 text-sm font-semibold text-ink">형명 줄 수량 · 개당 단가 (원 · VAT 별도)</h3>
           <div className="space-y-2">
             {lines.filter((l) => !l.cancelled).map((l) => (
-              <div key={l.id} className="grid items-center gap-2 sm:grid-cols-[1fr_7rem]">
+              <div key={l.id} className="grid items-center gap-2 sm:grid-cols-[1fr_7rem_9rem]">
                 <label htmlFor={`${uid}-${l.id}`} className="text-sm">
                   <span className="font-mono">{l.code}</span> · {l.name}
                   {l.shipped > 0 && <span className="ml-2 text-xs text-muted">출고 {num(l.shipped)}</span>}
@@ -293,11 +321,13 @@ export function EditOrder({ order, lines, models }: { order: OrderHead; lines: L
                 <input id={`${uid}-${l.id}`} name={`qty_${l.id}`} type="number"
                        min={Math.min(l.qty, Math.max(1, l.shipped))} step="1"
                        required defaultValue={l.qty} className="input tnum" />
+                <input name={`price_${l.id}`} inputMode="numeric" autoComplete="off" aria-label={`${l.code} 개당 단가`}
+                       defaultValue={l.unit_price ?? ''} placeholder="단가" className="input tnum" />
               </div>
             ))}
           </div>
           <h3 className="mb-2 mt-5 text-sm font-semibold text-ink">줄 더하기</h3>
-          <LinesEditor models={models} start={0} />
+          <LinesEditor models={models} start={0} rate={order.price_per_cm2} />
           <ShipByNote est={ship.est} />
           <p className="mt-3 text-xs leading-relaxed text-muted">이미 나간 양보다 적게 줄일 수 없습니다.</p>
           <Msg state={state} />
@@ -381,7 +411,12 @@ export function CustomerButton({ customer, label }: { customer?: CustomerOpt; la
                        className={n === 'biz_no' ? 'input font-mono' : 'input'} />
               </div>
             ))}
-            <div className="sm:col-span-2">
+            <div>
+              <label className="label" htmlFor={`${uid}-rate`}>cm² 당 기본 단가 (원 · VAT 별도)</label>
+              <input id={`${uid}-rate`} name="price_per_cm2" inputMode="numeric" autoComplete="off"
+                     defaultValue={c?.price_per_cm2 ?? ''} className="input tnum" />
+            </div>
+            <div>
               <label className="label" htmlFor={`${uid}-note`}>메모</label>
               <input id={`${uid}-note`} name="note" defaultValue={c?.note ?? ''} className="input" />
             </div>

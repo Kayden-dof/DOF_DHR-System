@@ -48,9 +48,10 @@ export default async function SalesOrdersPage() {
     orders: await db.rows<OrderRow>(
       `select o.id, o.customer_po_no, c.name as customer_name, o.ordered_on::text as ordered_on,
               o.ship_to, o.due_on::text as due_on, o.ship_by::text as ship_by, o.note, o.cancel_reason, so_status(o.id) as status,
+              c.price_per_cm2::float8 as price_per_cm2,
               coalesce((
                 select json_agg(json_build_object(
-                         'id', l.id, 'code', i.code, 'name', i.name, 'qty', l.qty,
+                         'id', l.id, 'code', i.code, 'name', i.name, 'qty', l.qty, 'unit_price', l.unit_price,
                          'shipped', so_line_shipped(l.id), 'left', so_line_left(l.id),
                          'cancelled', l.cancelled_at is not null,
                          'batches', (select string_agg(wo.batch_no, ', ' order by wo.batch_no)
@@ -74,11 +75,13 @@ export default async function SalesOrdersPage() {
         where so_status(o.id) in ('OPEN', 'PARTIAL') or o.rn <= 50
         order by o.ordered_on desc, o.created_at desc`),
     customers: await db.rows<CustomerOpt>(
-      `select id, name, biz_no, contact_name, contact_phone, contact_email, address, note, is_active
+      `select id, name, biz_no, contact_name, contact_phone, contact_email, address, note, is_active,
+              price_per_cm2::float8 as price_per_cm2
          from customer order by is_active desc, name`),
     models: await db.rows<ModelOpt>(
       /* 쓰지 않음으로 바꾼 형명도 재고가 남았으면 주문받는다 - 출고 검토도 받는다 (0168) */
-      `select id, code, name || case when is_active then '' else ' (쓰지 않음)' end as name, udi_di as udi
+      `select id, code, name || case when is_active then '' else ' (쓰지 않음)' end as name, udi_di as udi,
+              item_area_cm2(code)::float8 as area
          from item
         where type = 'FIN'
           and (is_active or exists (select 1 from product_lot pl where pl.item_id = item.id and pl.qty_available > 0))
@@ -135,6 +138,7 @@ export default async function SalesOrdersPage() {
                   <th className="th">담당자</th>
                   <th className="th">연락처</th>
                   <th className="th">주소</th>
+                  <th className="th text-right">cm² 당 단가</th>
                   <th className="th" />
                 </tr>
               </thead>
@@ -148,6 +152,9 @@ export default async function SalesOrdersPage() {
                     <td className="td text-sm">{c.contact_name ?? ''}</td>
                     <td className="td text-sm">{[c.contact_phone, c.contact_email].filter(Boolean).join(' · ')}</td>
                     <td className="td text-sm">{c.address ?? ''}</td>
+                    <td className="td tnum text-right text-sm">
+                      {c.price_per_cm2 == null ? '' : `${c.price_per_cm2.toLocaleString()}원`}
+                    </td>
                     <td className="td text-right">{!viewer && <CustomerButton customer={c} label="고치기" />}</td>
                   </tr>
                 ))}
@@ -190,6 +197,7 @@ function OrderCard({ o, viewer, models }: { o: OrderRow; viewer: boolean; models
             <tr>
               <th className="th">형명</th>
               <th className="th text-right">주문</th>
+              <th className="th text-right">개당 단가</th>
               <th className="th text-right">출고</th>
               <th className="th text-right">남음</th>
               <th className="th">배치</th>
@@ -205,6 +213,9 @@ function OrderCard({ o, viewer, models }: { o: OrderRow; viewer: boolean; models
                   <div className="text-xs text-faint">{l.name}</div>
                 </td>
                 <td className="td tnum text-right">{l.qty.toLocaleString()}</td>
+                <td className="td tnum text-right">
+                  {l.unit_price == null ? <span className="text-faint">-</span> : `${Number(l.unit_price).toLocaleString()}원`}
+                </td>
                 <td className="td tnum text-right">{l.shipped.toLocaleString()}</td>
                 <td className={`td tnum text-right font-semibold ${l.left < 0 ? 'text-warn' : ''}`}>
                   {l.cancelled ? '취소' : l.left.toLocaleString()}

@@ -41,6 +41,11 @@ interface LotCost {
   qty_produced: number; shared_cost: string; own_cost: string; batch_no: string;
   shared_conv_cost: string; own_conv_cost: string;
 }
+/* 형명별 원가 · 판매 단가 (0178 · 사용자 2026-11-27 «생산 원가 대비 판매가의 비율») */
+interface Margin {
+  code: string; name: string; area: string | null; qty: number | null;
+  unit_cost: string | null; price: string | null;
+}
 interface Spend {
   month: string; item_code: string; item_name: string; type: string;
   qty: string; amount: string;
@@ -92,6 +97,22 @@ export default async function CostPage() {
                 where timed and labour_rate is null)                     as no_rate,
               (select count(distinct equipment_id)::int from v_process_cost
                 where equipment_id is not null and equip_rate is null)   as no_equip`),
+    /*
+     * 형명별 개당 원가(v_item_cost · 전 기간)와 판매 단가(v_sales_price · 주문 줄 가중 평균, VAT 별도).
+     * 아직 만들지 않은 형명도 단가가 있으면 줄을 낸다 - cm² 당으로 다른 형명의 원가와 견줄 수 있다.
+     */
+    margin: await db.rows<Margin>(
+      `with c as (
+         select item_id, item_code, item_name, sum(qty)::int as qty,
+                sum(shared_cost + own_cost + shared_conv_cost + own_conv_cost) as cost
+           from v_item_cost group by 1, 2, 3)
+       select coalesce(c.item_code, i.code) as code, coalesce(c.item_name, i.name) as name,
+              item_area_cm2(coalesce(c.item_code, i.code))::text as area, c.qty,
+              round(c.cost / nullif(c.qty, 0))::text as unit_cost, sp.unit_price::text as price
+         from c
+         full join v_sales_price sp on sp.item_id = c.item_id
+         left join item i on i.id = coalesce(c.item_id, sp.item_id)
+        order by 1`),
     spend: await db.rows<Spend>(
       `select month::text as month, code as item_code, name as item_name,
               type::text as type, qty, amount
@@ -109,7 +130,7 @@ export default async function CostPage() {
         <>
           <b className="text-ink">제품 원가</b>는 들어간 자재의 매입가에 공수와 설비
           감가상각을 더한 값입니다. 폐기분과 전기 · 멸균 위탁비는 아직 들어 있지
-          않습니다. <b className="text-ink">자재 지출</b>은 기간에 사들인 금액이며
+          않습니다. <b className="text-ink">자재 입고</b>는 기간에 발주로 사들인 금액이며
           어디에 쓰였는지와 무관합니다.
         </>
       }
@@ -260,9 +281,60 @@ export default async function CostPage() {
         )}
       </Panel>
 
-      {/* 경영 현황의 «이번 달 자재 지출» 이 여기로 내린다 (UI/UX 검수 2026-11-11) */}
+      {/* 원가율 (0178). 판매 단가가 적힌 형명과 원가가 나온 형명을 나란히 */}
+      {d.margin.length > 0 && (
+      <Panel title="형명별 원가율" note="원 · VAT 별도">
+        <div className="qd-table-scroll">
+          <table className="qd-table qd-table--hangul">
+            <thead>
+              <tr>
+                <th className="th">형명</th>
+                <th className="th text-right">면적</th>
+                <th className="th text-right">생산</th>
+                <th className="th text-right">개당 원가</th>
+                <th className="th text-right">cm² 당 원가</th>
+                <th className="th text-right">판매 단가</th>
+                <th className="th text-right">cm² 당 판매가</th>
+                <th className="th text-right">원가율</th>
+              </tr>
+            </thead>
+            <tbody>
+              {d.margin.map((m) => {
+                const area = Number(m.area) || 0;
+                const cost = m.unit_cost == null ? null : Number(m.unit_cost);
+                const price = m.price == null ? null : Number(m.price);
+                const per = (v: number | null) => (v != null && area ? won(v / area) : '');
+                return (
+                  <tr key={m.code}>
+                    <td className="td">
+                      <div className="font-mono text-sm">{m.code}</div>
+                      <div className="text-xs text-faint">{m.name}</div>
+                    </td>
+                    <td className="td tnum text-right text-muted">{area ? `${num(area)} cm²` : ''}</td>
+                    <td className="td tnum text-right text-muted">{m.qty ? num(m.qty) : ''}</td>
+                    <td className="td tnum text-right">{cost == null ? '' : won(cost)}</td>
+                    <td className="td tnum text-right text-muted">{per(cost)}</td>
+                    <td className="td tnum text-right">{price == null ? '' : won(price)}</td>
+                    <td className="td tnum text-right text-muted">{per(price)}</td>
+                    <td className="td tnum text-right font-semibold">
+                      {cost != null && price ? `${(cost / price * 100).toFixed(1)}%` : ''}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <p className="border-t border-line-soft bg-canvas px-4 py-3 text-xs leading-relaxed text-muted">
+          원가율은 개당 원가를 판매 단가로 나눈 값입니다. 판매 단가는 주문 줄 단가의 수량 가중 평균이고,
+          원가는 지금까지 만든 그 형명 전체의 평균입니다. 멸균 위탁비는 들어 있지 않습니다.
+        </p>
+      </Panel>
+      )}
+
+      {/* 경영 현황의 «이번 달 자재 입고» 가 여기로 내린다 (UI/UX 검수 2026-11-11) */}
       <div id="cost-spend" className="scroll-mt-6">
-      <Panel title="자재 지출" note="매입 기준">
+      <Panel title="자재 입고" note="발주 입고 · 매입 기준">
         {d.spend.length === 0 ? (
           <Empty hint="자재 입고 등록에 매입 단가를 함께 넣으면 달별로 쌓입니다.">
             입고 기록이 없습니다.
