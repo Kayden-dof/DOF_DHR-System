@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { requireUser, hasRole } from '@/lib/session';
+import { requireUser, hasRole, blocksScreen } from '@/lib/session';
+import Denied from '@/components/denied';
 import { withUser } from '@/lib/db';
 import { getBrand } from '@/lib/brand';
 import { fmtDate, num, chem } from '@/lib/fmt';
@@ -54,6 +55,8 @@ interface Lists {
 
 export default async function Dashboard() {
   const user = await requireUser();
+  /* 경영열람은 경영 현황으로 보낸다 (사용자 결정 2026-11-27 · lib/access.ts) */
+  if (blocksScreen(user, '/')) return <Denied what="현황" need="생산관리자 또는 시스템관리자" />;
   const admin = hasRole(user, 'SYS_ADMIN', 'VIEWER');
 
   const d = await withUser(user, async (db) => ({

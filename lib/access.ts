@@ -49,8 +49,15 @@ export interface AccessRow {
 
 const M: Record<string, Access> = { '●': 'open', 'X': 'blocked', '-': 'away' };
 
+/*
+ * 경영열람 (사용자 결정 2026-11-27 · 경영 화면 점검)
+ *   수주 · 재고를 연다 - 첫 수주가 어디까지 왔는지, 무엇이 남았는지를 경영이 묻는다.
+ *     두 화면은 순수 열람자에게 저장 단추를 그리지 않고, 세션은 DB 에서도 읽기 전용이다.
+ *   현황(/)은 내보낸다 - 생산관리자가 손댈 일 목록이고 칸마다 막힌 화면으로 이어졌다.
+ *     로고 · 주소로 들어오면 경영 현황으로 간다.
+ */
 export const ACCESS_ROWS: AccessRow[] = [
-  { group: '현황 · 경영', label: '현황',        path: '/',                     marks: '●●-●●' },
+  { group: '현황 · 경영', label: '현황',        path: '/',                     marks: '●●-●-' },
   { group: '현황 · 경영', label: '경영 현황',   path: '/board',                marks: '●●-●●' },
   { group: '현황 · 경영', label: '원가',        path: '/board/cost',           marks: '●●-X●' },
 
@@ -61,14 +68,14 @@ export const ACCESS_ROWS: AccessRow[] = [
   { group: '자재', label: '자재 로트',   path: '/material',              marks: '●●-●X' },
   { group: '자재', label: '품목',        path: '/material/items',        marks: '●●-XX' },
   { group: '자재', label: '발주',        path: '/material/orders',       marks: '●●-XX' },
-  { group: '자재', label: '재고',        path: '/material/stock',        marks: '●●-XX' },
+  { group: '자재', label: '재고',        path: '/material/stock',        marks: '●●-X●' },
   { group: '자재', label: '소요 · 부족', path: '/material/needs',        marks: '●●-XX' },
   { group: '자재', label: '증감 · 원액', path: '/material/movement',     marks: '●●-XX' },
 
   { group: '설비', label: '설비',        path: '/equipment',             marks: '●●-●X' },
   { group: '설비', label: '배치도',      path: '/equipment/plan',        marks: '●●-●X' },
 
-  { group: '출하', label: '수주',        path: '/shipping/orders',       marks: '●●-XX' },
+  { group: '출하', label: '수주',        path: '/shipping/orders',       marks: '●●-X●' },
   { group: '출하', label: '멸균 위탁',   path: '/shipping/steril',       marks: '●●-XX' },
   { group: '출하', label: '출고',        path: '/shipping/ship',         marks: '●●-XX' },
 

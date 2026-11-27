@@ -68,6 +68,14 @@ interface Unit {
 
 type Search = Promise<{ sn?: string }>;
 
+/* 진행 중인 수주의 줄 하나 (0159 · 0173) */
+interface OrderLine {
+  order_id: string; customer_po_no: string; customer_name: string;
+  ship_by: string | null; days_left: number | null;
+  code: string; name: string; qty: number; shipped: number; left_qty: number;
+  batches: string | null;
+}
+
 interface ItemCost {
   item_code: string; item_name: string; spec: string;
   qty: number; shared_cost: string; own_cost: string;
@@ -154,6 +162,26 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
         where po.status = 'ORDERED' and po.qty > po_received(po.id)
         order by po.ordered_at desc, po.po_no desc`),
 
+    /*
+     * 진행 중인 수주 (사용자 결정 2026-11-27 · 경영 화면 점검). 첫 수주가 어디까지 왔는지가 경영의 첫
+     * 물음이다. 잣대는 수주 화면 · 현황의 «출고할 수주» 와 같다 - 접수 · 일부 출고. 취소한 줄은 뺀다.
+     * 남은 날은 출고 마감일로만 센다 (0173).
+     */
+    orders: await db.rows<OrderLine>(
+      `select o.id as order_id, o.customer_po_no, c.name as customer_name,
+              o.ship_by::text as ship_by,
+              (o.ship_by - (timezone('Asia/Seoul', now()))::date)::int as days_left,
+              i.code, i.name, l.qty, so_line_shipped(l.id) as shipped, so_line_left(l.id) as left_qty,
+              (select string_agg(wo.batch_no, ', ' order by wo.batch_no)
+                 from work_order_so_line w join work_order wo on wo.id = w.work_order_id
+                where w.sales_order_line_id = l.id and w.unlinked_at is null) as batches
+         from sales_order o
+         join customer c on c.id = o.customer_id
+         join sales_order_line l on l.sales_order_id = o.id and l.cancelled_at is null
+         join item i on i.id = l.item_id
+        where so_status(o.id) in ('OPEN', 'PARTIAL')
+        order by o.ship_by nulls last, o.ordered_on, o.customer_po_no, l.seq, i.code`),
+
     unit: sn ? await db.rows<Unit>(`select * from find_unit($1)`, [sn]) : [],
     /*
      * 제품코드별 자재 원가 (사용자 요청). 배분과 반올림은 v_item_cost 가
@@ -213,6 +241,13 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
    * 이 화면의 판으로 대신 보낸다 - 눌러서 막히는 링크를 만들지 않는다.
    */
   const canShip = canOpen('/shipping/ship', user.seat, user.screens);
+  const canOrders = canOpen('/shipping/orders', user.seat, user.screens);
+  /* 주문서 수. 줄이 아니라 주문서를 센다 - 현황의 «출고할 수주» 와 같다 */
+  const orderCount = new Set(d.orders.map((o) => o.order_id)).size;
+  const late = d.orders.some((o) => o.days_left !== null && o.days_left < 0);
+  /* 출고 마감까지 남은 날. 지났으면 지난 날을 적는다. 사실만 적는다 (§8.5) */
+  const dueText = (n: number | null) =>
+    n === null ? '' : n < 0 ? `${-n}일 지남` : n === 0 ? '오늘' : `${n}일 남음`;
   const canCost = hasRole(user, 'SYS_ADMIN', 'PROD_MGR', 'VIEWER')
     && canOpen('/board/cost', user.seat, user.screens);
 
@@ -231,6 +266,13 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
       detail: rows(d.weekShip.map((r) => ({
         left: md(r.day), sub: r.customers, right: `${r.qty.toLocaleString()}개`,
       })), '이번 주 나간 것이 없습니다.') },
+    { label: '출고할 수주', value: orderCount, unit: '건',
+      href: orderCount ? '#board-orders' : canOrders ? '/shipping/orders' : undefined,
+      tone: late ? 'warn' : undefined,
+      detail: rows(d.orders.map((o) => ({
+        left: mono(o.customer_po_no), sub: `${o.customer_name} · ${o.code}`,
+        right: `남음 ${o.left_qty.toLocaleString()}`,
+      })), '출고할 수주가 없습니다.') },
     { label: '이번 주 생산', value: week?.produced ?? 0, unit: '개', href: '#board-week',
       detail: rows(list('day', 10)
         .filter((b) => b.bucket >= weekFrom && b.produced > 0)
@@ -281,7 +323,7 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
     <PageShell
       section="경영"
       title="경영 현황"
-      lede="오늘 · 이번 주 · 달별 순서로 놓았습니다. 제조번호로 그 제품이 어디서 나와 어디로 갔는지 찾을 수 있습니다."
+      lede="출고할 수주와 오늘 · 이번 주 · 달별 순서로 놓았습니다. 제조번호로 그 제품이 어디서 나와 어디로 갔는지 찾을 수 있습니다."
       stats={<StatStrip items={stats} />}
       nav={<SubNav items={boardNav(hasRole(user, 'SYS_ADMIN', 'PROD_MGR', 'VIEWER'))} />}
     >
@@ -357,6 +399,60 @@ export default async function BoardPage({ searchParams }: { searchParams: Search
 
       {/* 오늘 ── 무엇이 나왔나 --------------------------------------------- */}
       {/* 숫자 띠가 #board-today 로 내린다 (UI/UX 검수 2026-11-11) */}
+      {/* 진행 중인 수주. 없으면 판을 내지 않는다 - 숫자 띠의 0 이 그 사실을 말한다 */}
+      {d.orders.length > 0 && (
+      <div id="board-orders" className="scroll-mt-6">
+      <Panel title="출고할 수주" note={`${orderCount}건`}
+             action={canOrders ? (
+               <Link href="/shipping/orders" className="text-xs font-semibold text-brand hover:underline">수주</Link>
+             ) : undefined}>
+        <div className="qd-table-scroll">
+          <table className="qd-table qd-table--hangul">
+            <thead>
+              <tr>
+                <th className="th">주문</th>
+                <th className="th">형명</th>
+                <th className="th text-right">주문</th>
+                <th className="th text-right">출고</th>
+                <th className="th text-right">남음</th>
+                <th className="th">출고 마감</th>
+                <th className="th">배치</th>
+              </tr>
+            </thead>
+            <tbody>
+              {d.orders.map((o, i) => (
+                <tr key={i}>
+                  <td className="td">
+                    <div className="font-mono text-sm">{o.customer_po_no}</div>
+                    <div className="text-xs text-faint">{o.customer_name}</div>
+                  </td>
+                  <td className="td">
+                    <div className="font-mono text-sm">{o.code}</div>
+                    <div className="text-xs text-faint">{o.name}</div>
+                  </td>
+                  <td className="td tnum text-right">{o.qty.toLocaleString()}</td>
+                  <td className="td tnum text-right">{o.shipped.toLocaleString()}</td>
+                  <td className="td tnum text-right font-semibold">{o.left_qty.toLocaleString()}</td>
+                  <td className="td tnum">
+                    {o.ship_by ? (
+                      <>
+                        {fmtDate(o.ship_by)}
+                        <div className={`text-xs ${o.days_left !== null && o.days_left < 0 ? 'text-warn' : 'text-faint'}`}>
+                          {dueText(o.days_left)}
+                        </div>
+                      </>
+                    ) : <span className="text-faint">-</span>}
+                  </td>
+                  <td className="td font-mono text-xs">{o.batches ?? <span className="text-faint">-</span>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Panel>
+      </div>
+      )}
+
       <div id="board-today" className="scroll-mt-6">
       <Panel title="오늘" note={fmtDate(today)}>
         {todayRows.length === 0 ? (

@@ -49,6 +49,9 @@ import { ChevronRight } from '@/components/icons/ChevronRight';
 
 type IconType = typeof Factory;
 
+/* 로고가 데려갈 첫 화면 */
+type Home = { href: string; label: string };
+
 /* 경로마다 뜻으로 고른 아이콘. 목록에 없는 경로는 문서 아이콘으로 둔다 */
 const ICON: Record<string, IconType> = {
   '/': LayoutDashboard,
@@ -88,8 +91,9 @@ function tipAt(el: HTMLElement, label: string): Tip {
   return { label, top: r.top + r.height / 2, left: r.right + 8 };
 }
 
-function RailBody({ items, brand, brandMini, version, foot, mini = false, onToggle, onNavigate }: {
+function RailBody({ items, home, brand, brandMini, version, foot, mini = false, onToggle, onNavigate }: {
   items: NavItem[];
+  home: Home;
   brand: React.ReactNode;
   brandMini: React.ReactNode;
   version: string;
@@ -115,7 +119,7 @@ function RailBody({ items, brand, brandMini, version, foot, mini = false, onTogg
 
   return (
     <>
-      <Link href="/" className="qd-rail-brand" aria-label="현황으로" onClick={onNavigate}>
+      <Link href={home.href} className="qd-rail-brand" aria-label={`${home.label}으로`} onClick={onNavigate}>
         {mini ? brandMini : brand}
       </Link>
 
@@ -172,6 +176,8 @@ function RailBody({ items, brand, brandMini, version, foot, mini = false, onTogg
 
 export default function Rail(props: {
   items: NavItem[];
+  /** 로고가 데려갈 첫 화면. 현황(/)을 못 여는 역할은 제 첫 화면으로 (사용자 결정 2026-11-27) */
+  home: Home;
   brand: React.ReactNode;
   /** 접힌 레일의 로고 자리 (60px 안에 드는 표식) */
   brandMini: React.ReactNode;
@@ -207,7 +213,7 @@ export default function Rail(props: {
     });
   }
 
-  const label = props.items.find((it) => it.href === currentHref(path, props.items))?.label ?? '현황';
+  const label = props.items.find((it) => it.href === currentHref(path, props.items))?.label ?? props.home.label;
 
   return (
     <>
@@ -222,7 +228,7 @@ export default function Rail(props: {
           차림표
         </button>
         <span className="h-4 w-px bg-line-strong" aria-hidden />
-        <Link href="/" className="min-w-0 truncate text-sm font-semibold text-ink">
+        <Link href={props.home.href} className="min-w-0 truncate text-sm font-semibold text-ink">
           {label}
         </Link>
         <div className="ml-auto flex shrink-0 items-center gap-2">{props.bar}</div>

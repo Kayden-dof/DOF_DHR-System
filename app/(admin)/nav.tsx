@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { createContext, useContext } from 'react';
 
 export interface NavItem {
   href: string; label: string;
@@ -23,9 +24,27 @@ export interface NavItem {
  * 여기는 구역 안의 하위 차림표만 둔다.
  */
 
+/*
+ * 이 사람이 못 여는 주소 (사용자 결정 2026-11-27 · 경영 화면 점검).
+ *
+ * 하위 차림표가 권한을 모른 채 탭을 다 내고 있었다 - 경영열람의 생산에 «제품», 품질책임자의
+ * 자재에 «발주» 가 떠 있다가 누르면 막혔다. 못 여는 자리는 보이지 않게 한다는 규율(설정 차림표 ·
+ * 원가 탭)을 모든 구역에 건다. 판정은 관리 레이아웃이 권한 매트릭스로 한 번 해서 넘긴다
+ * (canOpen · 고른 역할 · 계정별 배정). 표에 없는 주소는 열린 것으로 둔다 - canOpen 과 같다.
+ */
+const ClosedTabs = createContext<readonly string[]>([]);
+
+export function ClosedTabsProvider({ closed, children }: {
+  closed: readonly string[]; children: React.ReactNode;
+}) {
+  return <ClosedTabs.Provider value={closed}>{children}</ClosedTabs.Provider>;
+}
+
 /** 설정 · 자재처럼 하위 화면이 여럿인 구역의 두 번째 줄. */
-export function SubNav({ items }: { items: NavItem[] }) {
+export function SubNav({ items: all }: { items: NavItem[] }) {
   const path = usePathname();
+  const closed = useContext(ClosedTabs);
+  const items = all.filter((it) => !closed.includes(it.href));
 
   /*
    * 켜지는 항목은 하나다.

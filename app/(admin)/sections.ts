@@ -100,3 +100,17 @@ export const SETTINGS_NAV: NavItem[] = [
 export function settingsNav(roles: RoleCode[], screens?: ReadonlyMap<string, boolean>): NavItem[] {
   return SETTINGS_NAV.filter((n) => canOpen(n.href, roles, screens));
 }
+
+/*
+ * 레일의 구역 칸과 그 하위 탭 (사용자 결정 2026-11-27 · 경영 화면 점검).
+ *
+ * 구역 칸은 그 안에 여는 탭이 하나라도 있으면 내고, 누르면 여는 첫 탭으로 바로 간다. 경영열람은
+ * 자재에서 재고만, 출하에서 수주만 연다 - 구역 첫 화면(/material)이 닫혀 있다고 구역째 감추면
+ * 열어 준 탭에 갈 길이 없다. 출하가 먼저 쓰던 방식(첫 탭으로 바로)을 구역 전부에 건다.
+ */
+export const SECTION_TABS: Record<string, NavItem[]> = {
+  '/production': PRODUCTION_NAV,
+  '/material': MATERIAL_NAV,
+  '/equipment': EQUIPMENT_NAV,
+  '/shipping': SHIPPING_NAV,
+};

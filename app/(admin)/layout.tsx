@@ -2,8 +2,8 @@ import Link from 'next/link';
 import { withActor } from '@/lib/db';
 import { redirect } from 'next/navigation';
 import { requireUser, hasRole, idleLockOff, ROLE_LABEL } from '@/lib/session';
-import { isAdmin, isWorker, isViewerOnly, isQpOnly } from '@/lib/roles';
-import { canOpen } from '@/lib/access';
+import { isAdmin, isWorker, isViewerOnly, isQpOnly, homePath } from '@/lib/roles';
+import { canOpen, ACCESS_ROWS } from '@/lib/access';
 import { cookies, headers } from 'next/headers';
 import { PATH_HEADER } from '@/lib/auth-const';
 import Watermark from '@/components/watermark';
@@ -16,8 +16,8 @@ import { yearKST } from '@/lib/kst';
 import IdleLock from '@/components/idle-lock';
 import { lockMinutes } from '@/lib/idle-lock';
 import { logout } from './actions';
-import { type NavItem } from './nav';
-import { SHIPPING_NAV } from './sections';
+import { type NavItem, ClosedTabsProvider } from './nav';
+import { SECTION_TABS } from './sections';
 import Clock from '@/components/clock';
 import Rail from './rail';
 import { RAIL_COOKIE_PREFIX } from '@/lib/rail';
@@ -152,6 +152,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
          */
         { href: '/board', label: '경영 현황' },
         { href: '/production', label: '생산' },
+        /*
+         * 자재 · 출하는 재고 · 수주 탭만 연다 (사용자 결정 2026-11-27 · 경영 화면 점검). 첫 수주가
+         * 어디까지 왔는지, 무엇이 남았는지를 경영이 묻는다. 칸은 여는 첫 탭으로 바로 간다.
+         */
+        { href: '/material', label: '자재' },
+        { href: '/shipping', label: '출하' },
         { href: '/trace', label: '조회' },
       ]
     : [
@@ -178,11 +184,25 @@ export default async function AdminLayout({ children }: { children: React.ReactN
    * 걸러 낸다 - 못 여는 자리를 내놓고 눌렀을 때 막는 것보다 아예 보이지
    * 않는 편이 낫다. 문은 requireUser 가 한 번 더 지킨다 (lib/session.ts).
    */
-  const menu = items.filter((n) => canOpen(n.href, seat, user.screens)).map((n) =>
-    /* 출하 첫 화면은 맨 앞 탭으로 넘기기만 한다 (shipping/page.tsx) - 레일은 그 탭으로 바로 간다 */
-    n.href === '/shipping'
-      ? { ...n, go: SHIPPING_NAV.find((s) => canOpen(s.href, seat, user.screens))?.href }
-      : n);
+  /*
+   * 하위 탭이 있는 구역은 여는 탭이 하나라도 있으면 내고, 여는 첫 탭으로 바로 간다
+   * (./sections.ts SECTION_TABS). 출하 첫 화면은 맨 앞 탭으로 넘기기만 하므로 늘 그 탭으로 간다.
+   */
+  const menu = items.flatMap((n): NavItem[] => {
+    const tabs = SECTION_TABS[n.href];
+    if (!tabs) return canOpen(n.href, seat, user.screens) ? [n] : [];
+    const first = tabs.find((t) => canOpen(t.href, seat, user.screens));
+    if (!first) return [];
+    return [first.href === n.href ? n : { ...n, go: first.href }];
+  });
+
+  /* 하위 차림표에서 뺄 탭. 권한 매트릭스의 주소 가운데 이 사람이 못 여는 것 (./nav.tsx) */
+  const closedTabs = ACCESS_ROWS.map((r) => r.path).filter((p) => !canOpen(p, seat, user.screens));
+
+  /* 로고가 데려갈 첫 화면. 경영열람은 현황(/)을 열지 않는다 (사용자 결정 2026-11-27) */
+  const home = canOpen('/', seat, user.screens)
+    ? { href: '/', label: '현황' }
+    : { href: homePath(seat), label: items[0]?.label ?? '현황' };
 
   const initial = user.full_name.slice(0, 1);
 
@@ -227,6 +247,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <div className="flex min-h-screen flex-col bg-canvas lg:flex-row">
       <Rail
         items={menu}
+        home={home}
         version={APP_VERSION}
         brand={
           <>
@@ -302,7 +323,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
         {/* 본문 여백은 정본 3단 반응 구간 (Q-Design 4장): 데스크톱 40 · 태블릿 28 · 폰 16 */}
         <main className="qd-main mx-auto w-full max-w-[1320px] flex-1
-                         max-lg:[--qd-main-pad-x:28px] max-md:[--qd-main-pad-x:16px]">{children}</main>
+                         max-lg:[--qd-main-pad-x:28px] max-md:[--qd-main-pad-x:16px]"><ClosedTabsProvider closed={closedTabs}>{children}</ClosedTabsProvider></main>
 
         {/* 바닥 여백은 떠 있는 뒤로가기(44px)가 바닥글을 덮지 않을 만큼. 정본 .qd-main 이 본문에 주는
             «여백 + 4.5rem» 과 같은 셈이다. 폰에서는 그 단추가 숨으므로(정본) 보통 여백 */}
