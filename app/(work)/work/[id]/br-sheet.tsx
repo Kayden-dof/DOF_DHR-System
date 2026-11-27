@@ -26,8 +26,9 @@
 import { Fragment, useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import { FormBody } from '@/components/print-frame';
 import NumPad from '@/components/num-pad';
-import { optionBlank, pairSep, type FormCell } from '@/lib/br-form';
+import { optionBlank, pairSep, type FormCell, type SolutionCheckRow } from '@/lib/br-form';
 import type { BrSheet, BrFormTab } from '@/lib/br-sheet';
+import { Tag } from '@/components/ui';
 import { daysUntilKST, todayKST } from '@/lib/kst';
 import { fmtDate, num } from '@/lib/fmt';
 import { isNoExpiry } from '@/lib/equipment-check';
@@ -131,10 +132,12 @@ export interface SheetApi {
   load: (docId: string) => Promise<BrSheet | { error: string }>;
 }
 
-export function BrSheetView({ sheet, onSheet, onClose, busy, ctx, endSlot, readOnly = false, api }: {
+export function BrSheetView({ sheet, onSheet, onClose, busy, ctx, endSlot, readOnly = false, api, notice }: {
   sheet: BrSheet; onSheet: (s: BrSheet) => void; onClose: () => void; busy: boolean;
   ctx: SheetCtx;
   api?: SheetApi;
+  /** 양식 위에 둘 안내 (원액 로트 화면의 «이미 인쇄된 일차 · 고치는 사유» · 정밀 점검 C) */
+  notice?: React.ReactNode;
   /** 공정 마감 자리. 진행 중인 기록일 때만 준다. 그만두면 cancel 을 부른다 */
   endSlot?: (cancel: () => void) => React.ReactNode;
   /**
@@ -307,7 +310,10 @@ export function BrSheetView({ sheet, onSheet, onClose, busy, ctx, endSlot, readO
         </div>
       )}
 
+      {notice && <div className="border-b border-line bg-surface px-4 py-3">{notice}</div>}
+
       <div ref={wrap} className="flex-1 overflow-auto px-2 py-3">
+        {sheet.solutionCheck && sheet.solutionCheck.length > 0 && <SolutionCheckPanel rows={sheet.solutionCheck} />}
         {ro ? (
           <p className="mb-2 px-1 text-sm text-muted">
             {sheet.linked ? (
@@ -1055,5 +1061,55 @@ function TimePair({ s, e, dated, busy, onDone }: {
       <button type="button" disabled={busy || (!a.t && !b.t)} onClick={() => onDone(a, b)}
               className="btn-primary w-full">저장</button>
     </div>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   원료 차감과 기록서 (정밀 점검 C · 2026-11-27)
+
+   원액 제조 때 차감한 원료(재고)와 PBS 제조기록서에 적은 부여로트번호 · 결과를 품목마다
+   나란히 둔다. 같은 사실을 두 곳에 적으므로 갈리면 보이게 한다. 판정하지 않고 막지 않는다 -
+   다른 줄이 있으면 펼쳐 둔다.
+--------------------------------------------------------------------------- */
+function SolutionCheckPanel({ rows }: { rows: SolutionCheckRow[] }) {
+  const diff = rows.filter((r) => r.state === 'diff').length;
+  const blank = rows.filter((r) => r.state === 'blank').length;
+  const q = (n: number | null, u: string) => (n === null ? '' : `${Number(n.toFixed(4)).toLocaleString('ko-KR')} ${u}`);
+  const tag = (s: SolutionCheckRow['state']) =>
+    s === 'diff' ? <Tag tone="warn">다름</Tag> : s === 'blank' ? <Tag>안 적음</Tag> : <Tag tone="ok">같음</Tag>;
+  return (
+    <details open={diff > 0} className="mx-auto mb-3 max-w-3xl rounded-md border border-line-soft bg-surface px-3 py-2">
+      <summary className="cursor-pointer py-1 text-sm font-semibold text-ink">
+        원료 차감과 기록서{' '}
+        {diff > 0 ? <Tag tone="warn">다름 {diff}</Tag> : blank > 0 ? <Tag>안 적음 {blank}</Tag> : <Tag tone="ok">같음</Tag>}
+      </summary>
+      <div className="qd-table-scroll mt-2">
+        <table className="qd-table qd-table--hangul">
+          <thead>
+            <tr>
+              <th className="th">원료</th>
+              <th className="th">원액 제조 때 차감</th>
+              <th className="th">기록서에 적은 값</th>
+              <th className="th" />
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.code}>
+                <td className="td">
+                  <div className="text-sm">{r.name}</div>
+                  <div className="font-mono text-xs text-faint">{r.code}</div>
+                </td>
+                <td className="td tnum">{r.usedLots.length ? `${r.usedLots.join(', ')} · ${q(r.usedQty, r.uom)}` : '차감 없음'}</td>
+                <td className="td tnum">
+                  {[r.writtenLot, q(r.writtenQty, r.uom)].filter(Boolean).join(' · ') || <span className="text-faint">-</span>}
+                </td>
+                <td className="td">{tag(r.state)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </details>
   );
 }

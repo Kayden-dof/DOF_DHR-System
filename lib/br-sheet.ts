@@ -20,9 +20,12 @@
 import type { Db } from './db';
 import {
   fillForm, fieldsOf, cellDone, type BrForm, type Entry, type FillData, type FillIssue, type FillReturn, type FormPage,
-  type SignChange, type SolutionFill, type CutLot,
+  type SignChange, type SolutionFill, type CutLot, solutionCheck, type SolutionCheckRow,
 } from './br-form';
 import type { CutRowCell } from './ship-check';
+
+/* 원료 대조는 양식 칸만 보는 순수 셈이라 br-form 에 둔다 (시험이 바로 읽는다). 여기서도 내보낸다 */
+export { solutionCheck, type SolutionCheckRow };
 
 /** 한 공정의 양식 하나 - 고르는 단추 · 빈 칸 수에 쓴다 */
 export interface BrFormTab {
@@ -89,9 +92,19 @@ export interface BrSheet {
   solutionLotId?: string | null;
   /** 본 기록서 재단 줄의 제조번호 · 모델명 · 수량 (0159 · 출고 전 형명 검토) */
   cut?: CutRowCell[];
+  /**
+   * 원액 로트 화면에서 - 이 원액을 쓴 배치 일차 가운데 이미 잠긴(인쇄 · 마감) 것 («B261104-01 2일차»).
+   * 있으면 칸을 고칠 때 사유를 받는다 (정밀 점검 C · 사용자 2026-11-27 «알리고 사유 받기»).
+   */
+  printed?: string[];
+  /** 원액 제조 때 차감한 원료와 PBS 제조기록서에 적은 부여로트번호 · 결과를 품목마다 견준 것 */
+  solutionCheck?: SolutionCheckRow[];
 }
 
 interface FormRow { id: string; doc_no: string; title: string | null; form: BrForm }
+
+/** 원액 로트가 적는 PBS 제조기록서 양식 하나 (solutionForms) */
+export type SolutionDoc = FormRow;
 
 /**
  * 그 제품표준서 판 · 공정이 쓰는 제조기록서 양식 전부. 본 기록서가 별첨보다 먼저 (번호가 짧다).
@@ -141,6 +154,11 @@ export interface SolutionLink {
   /** 원액 로트 id */
   lotId?: string;
   entries?: Record<string, Record<string, Entry>>;
+  /**
+   * 그 원액 로트가 적는 양식 - 문서 번호 → 양식 (solutionForms). 배치의 별첨은 배치 판의 양식이
+   * 아니라 이 양식으로 그린다 - 판마다 칸 자리가 달라 원액 칸이 다른 판 양식에서는 비었다.
+   */
+  forms?: Record<string, SolutionDoc>;
 }
 
 /**
@@ -186,7 +204,32 @@ export async function solutionLink(db: Db, lotNo: string | null): Promise<Soluti
        from v_solution_input where solution_lot_no = $1
       order by item_code, material_lot_no`, [lotNo]);
   const { id, ...rest } = info;
-  return { info: rest, inputs, lotId: id, entries: await solutionEntries(db, id) };
+  const forms = Object.fromEntries((await solutionForms(db, id)).map((d) => [d.doc_no, d]));
+  return { info: rest, inputs, lotId: id, entries: await solutionEntries(db, id), forms };
+}
+
+/**
+ * 이 원액을 쓴 배치 일차 가운데 이미 잠긴(인쇄 · 마감) 것 (정밀 점검 C · 2026-11-27).
+ *
+ * 배치의 별첨은 원액 칸을 그대로 그린다. 그 일차를 인쇄한 뒤 원액 칸을 고치면 다시 뽑는 종이가
+ * 처음 종이와 달라진다 (운영: B261104-01 2 · 4일차 11-20 인쇄, L261105-01 칸 11-25 기입).
+ * 원액 칸은 자료 식별자 밖이라 조회도 «같음» 이다 - 그래서 고칠 때 사유를 받고 감사추적에 남긴다
+ * (사용자 «알리고 사유 받기». 막지는 않는다).
+ *
+ * «쓴» 은 그 원액 로트를 투입했거나 본 기록서 «관리번호 부여» 칸에 그 번호를 적은 기록이다.
+ */
+export async function solutionLockedDays(db: Db, lotId: string): Promise<string[]> {
+  return (await db.rows<{ label: string }>(
+    `select distinct wo.batch_no, pr.day_no, wo.batch_no || ' ' || pr.day_no || '일차' as label
+       from process_record pr
+       join work_order wo on wo.id = pr.work_order_id
+       join material_lot sl on sl.id = $1::uuid
+      where is_locked(pr.work_order_id, pr.day_no, pr.worker_id)
+        and (exists (select 1 from material_issue mi
+                      where mi.process_record_id = pr.id and mi.material_lot_id = sl.id)
+             or exists (select 1 from br_entry e
+                         where e.process_record_id = pr.id and btrim(e.value) = sl.lot_no))
+      order by wo.batch_no, pr.day_no`, [lotId])).map((x) => x.label);
 }
 
 /** 원액 로트에 적은 칸 (0145). 양식 id → 칸 자리 → 값 */
@@ -202,15 +245,39 @@ async function solutionEntries(db: Db, lotId: string): Promise<Record<string, Re
 }
 
 /**
- * 원액 품목이 쓰는 제조기록서 양식 (PBS 제조기록서). 별첨 양식 가운데 제목에 그 품목 이름이
- * 든 것 («알칼리 처리 별첨(20X PBS 제조) 제조기록서»). 현행이 먼저, 같은 번호면 최신 판.
+ * 원액 로트가 적는 제조기록서 양식 (PBS 제조기록서) - 문서 번호마다 하나. 별첨 양식 가운데 제목에
+ * 그 품목 이름이 든 것 («알칼리 처리 별첨(20X PBS 제조) 제조기록서»).
+ *
+ * 원액 기록은 원액 로트의 것이다 (정밀 점검 C · 2026-11-27). 같은 번호라도 판마다(Rev.00 현행 ·
+ * Rev.01 개정안) 칸 자리가 달라, 한 로트는 한 양식에 적고 배치 별첨도 그 양식으로 그린다. 고르는 차례:
+ *   1. 그 로트에 이미 적은 양식 - 적은 자리를 지킨다
+ *   2. 제조일에 시행 중이던 판에 묶인 양식 (개정안이 시행된 뒤 만든 원액은 개정안에 적는다)
+ *   3. 현행 양식, 같으면 최신 판
+ * 전에는 «현행 먼저» 하나라 원액 칸이 늘 현행 양식에 붙었고, 개정안에 묶인 판의 배치 별첨은
+ * 묶인 양식을 그려 원액 칸이 비어 보였다.
+ *
+ * lotId 가 null 이면 원액 로트 전부 (일차 기록서 인쇄가 한 번에 읽는다).
  */
-export async function solutionForms(db: Db, itemName: string): Promise<FormRow[]> {
-  return db.rows<FormRow>(
-    `select distinct on (doc_no) id, doc_no, title, form from mfg_doc
-      where kind = 'BR' and form is not null and doc_no ~ '-[0-9]+-[0-9]+$'
-        and position(lower($1) in lower(coalesce(title, ''))) > 0
-      order by doc_no, is_current desc, revision desc`, [itemName]);
+export async function solutionFormRows(db: Db, lotId: string | null): Promise<(SolutionDoc & { lot_id: string })[]> {
+  return db.rows<SolutionDoc & { lot_id: string }>(
+    `select distinct on (ml.id, d.doc_no) ml.id as lot_id, d.id, d.doc_no, d.title, d.form
+       from material_lot ml
+       join item i on i.id = ml.item_id
+       join mfg_doc d on d.kind = 'BR' and d.form is not null and d.doc_no ~ '-[0-9]+-[0-9]+$'
+                     and position(lower(i.name) in lower(coalesce(d.title, ''))) > 0
+      where ml.made_on is not null and ($1::uuid is null or ml.id = $1::uuid)
+      order by ml.id, d.doc_no,
+               exists (select 1 from solution_br_entry e
+                        where e.material_lot_id = ml.id and e.doc_id = d.id and e.value <> '') desc,
+               coalesce((select dm.verified_at is not null and dm.status = 'ACTIVE'
+                                and dm.effective_from is not null and dm.effective_from <= ml.made_on
+                           from device_master dm where dm.id = d.device_master_id), false) desc,
+               d.is_current desc, d.revision desc`, [lotId]);
+}
+
+/** 그 원액 로트가 적는 양식들 (solutionFormRows) */
+export async function solutionForms(db: Db, lotId: string): Promise<SolutionDoc[]> {
+  return (await solutionFormRows(db, lotId)).map(({ lot_id: _lot, ...d }) => d);
 }
 
 /**
@@ -224,7 +291,7 @@ export async function solutionSheet(db: Db, lotId: string, docId?: string | null
        from material_lot ml join item i on i.id = ml.item_id
       where ml.id = $1 and ml.made_on is not null`, [lotId]);
   if (!lot) return null;
-  const docs = await solutionForms(db, lot.item_name);
+  const docs = await solutionForms(db, lotId);
   if (docs.length === 0) return null;
   const at = docId ? Math.max(0, docs.findIndex((x) => x.id === docId)) : 0;
   const sol = await solutionLink(db, lot.lot_no);
@@ -265,6 +332,8 @@ export async function solutionSheet(db: Db, lotId: string, docId?: string | null
     title: `원액 ${lot.lot_no} · ${doc.title ?? doc.doc_no}`, equipRefs: [], appendix: true,
     forms, empty: emptyOfForms(forms), changes, people, mine: lot.mine,
     solutionLot: lot.lot_no,
+    printed: await solutionLockedDays(db, lotId),
+    solutionCheck: solutionCheck(shown, sol.inputs),
   };
 }
 
@@ -356,25 +425,33 @@ export async function brSheet(db: Db, recordId: string, docId?: string | null): 
 
   /* 양식마다 채워 빈 칸을 센다. 지금 보이는 양식의 채운 모양은 그대로 쓴다 */
   let shown: FormPage[] = [];
+  let shownSize = docs[at].form.page;
   let changes: SignChange[] = [];
   let opt = { total: 0, done: 0 };
+  let check: SolutionCheckRow[] | undefined;
   const forms: BrFormTab[] = docs.map((doc, i) => {
     /*
      * 별첨이 원액 로트를 따르면 그 로트에 적은 칸을 보여 준다 (0145). 배치에서는 보기만이고
      * 빈 칸도 이 배치의 것으로 세지 않는다 - 원액 로트 화면에서 적는다.
+     *
+     * 그리는 양식도 그 원액 로트의 것이다 (정밀 점검 C). 배치 판에 묶인 개정안 양식과 원액이 적힌
+     * 현행 양식은 칸 자리가 달라, 배치 판 양식으로 그리면 원액 칸이 비었다.
      */
     const linked = i > 0 && !!sol;
-    const entries = linked ? (sol!.entries?.[doc.id] ?? {}) : (byDoc.get(doc.id) ?? {});
-    const filled = i === 0 ? mainFilled : fillOne(doc.form, { ...base, entries }, true, sol);
+    const sdoc = linked ? (sol!.forms?.[doc.doc_no] ?? doc) : doc;
+    const entries = linked ? (sol!.entries?.[sdoc.id] ?? {}) : (byDoc.get(doc.id) ?? {});
+    const filled = i === 0 ? mainFilled : fillOne(sdoc.form, { ...base, entries }, true, sol);
     const all = linked ? [] : fieldsOf(filled.pages);
     const need = all.filter((c) => !c.op);
     /* 아직 적지 않은 꼭 적을 칸 - 원액 로트를 따르는 별첨이면 그 로트 기록서의 것 */
     const pend = fieldsOf(filled.pages).filter((c) => !c.op && !cellDone(c)).map((c) => c.lb ?? '칸');
     if (i === at) {
       shown = filled.pages;
+      shownSize = sdoc.form.page;
       changes = filled.changes;
       const o = all.filter((c) => c.op);
       opt = { total: o.length, done: o.filter((c) => c.v).length };
+      if (linked) check = solutionCheck(filled.pages, sol!.inputs);
     }
     return {
       docId: doc.id, docNo: doc.doc_no, label: formLabel(doc.title, i === 0), main: i === 0,
@@ -392,7 +469,7 @@ export async function brSheet(db: Db, recordId: string, docId?: string | null): 
       where u.is_active and exists (select 1 from user_role r where r.user_id = u.id)
       order by u.full_name`)).map((x) => x.full_name);
   return {
-    recordId, docId: doc.id, docNo: doc.doc_no, size: doc.form.page, pages: shown,
+    recordId, docId: doc.id, docNo: doc.doc_no, size: shownSize, pages: shown,
     total: cur.total, done: cur.done, optTotal: opt.total, optDone: opt.done,
     locked: r.locked, workDate: r.work_date, dayNo: r.day_no, worker: r.worker_name,
     title: `${r.op_name} · ${doc.doc_no}`,
@@ -402,6 +479,7 @@ export async function brSheet(db: Db, recordId: string, docId?: string | null): 
     /* 보이는 별첨이 원액 로트를 따르면 여기서는 보기만 (0145) */
     linked: at > 0 && !!sol, solutionLot: sol?.info.lot_no ?? null, solutionLotId: sol?.lotId ?? null,
     cut: mainFilled.cut,
+    solutionCheck: check,
   };
 }
 

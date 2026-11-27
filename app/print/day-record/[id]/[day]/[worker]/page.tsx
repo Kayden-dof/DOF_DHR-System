@@ -6,7 +6,7 @@ import { logPrint, printGate, viewParam } from '@/lib/print';
 import { PrintDenied } from '@/components/denied';
 import PrintFrame, { Sheet, SignRow, FormSheet } from '@/components/print-frame';
 import { type BrForm, type FillReturn, type CutLot } from '@/lib/br-form';
-import { fillOne, linkedSolution, type SolutionLink } from '@/lib/br-sheet';
+import { fillOne, linkedSolution, solutionFormRows, type SolutionLink, type SolutionDoc } from '@/lib/br-sheet';
 import { dayRecordPayload, hashable, type RecRow } from '@/lib/print-payload';
 import { chunkRows } from '@/lib/print-pages';
 import { markFlags, flagOps, type FlagRow } from '@/lib/flag-mark';
@@ -369,6 +369,11 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = fal
       (byDoc[e.doc_id] ??= {})[e.field] = { value: e.value, by: e.by, at: e.at };
       solEntries.set(e.lot, byDoc);
     }
+    /* 원액 로트가 적는 양식 - 별첨은 배치 판의 양식이 아니라 이 양식으로 그린다 (정밀 점검 C · lib/br-sheet) */
+    const solForms = new Map<string, Record<string, SolutionDoc>>();
+    for (const { lot_id: lot, ...f } of await solutionFormRows(db, null)) {
+      solForms.set(lot, { ...(solForms.get(lot) ?? {}), [f.doc_no]: f });
+    }
     const solutions = new Map<string, SolutionLink>();
     for (const x of await db.rows<SolutionLink['info'] & { id: string; inputs: SolutionLink['inputs'] }>(
       `select ml.id, ml.lot_no, ml.made_on::text as made_on, u.full_name as maker,
@@ -381,7 +386,7 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = fal
         where ml.made_on is not null`)) {
       solutions.set(x.lot_no, {
         info: { lot_no: x.lot_no, made_on: x.made_on, maker: x.maker }, inputs: x.inputs,
-        lotId: x.id, entries: solEntries.get(x.id) ?? {},
+        lotId: x.id, entries: solEntries.get(x.id) ?? {}, forms: solForms.get(x.id) ?? {},
       });
     }
     /* 그 배치의 제품 로트 - 재단 줄 «제조번호 · 모델명 · 수량» 의 처음 값 (사용자 2026-11-25). 자료 식별자 밖이다 */
@@ -431,13 +436,17 @@ export async function DayRecordDoc({ id, dayNo, worker, bare = false, view = fal
     const linked = linkedSolution(main.pages);
     const sol = linked ? look.solutions.get(linked) ?? null : null;
     return docs.flatMap((doc, i) => {
-      /* 별첨이 원액 로트를 따르면 그 로트에 적은 칸 (0145 · PBS 제조기록서는 원액 로트에 적는다) */
-      const entries = i > 0 && sol ? (sol.entries?.[doc.id] ?? {}) : entriesOf(doc.id);
+      /*
+       * 별첨이 원액 로트를 따르면 그 로트에 적은 칸을, 그 로트가 적는 양식으로 (0145 · 정밀 점검 C).
+       * 판마다 양식 칸 자리가 달라 배치 판의 양식으로 그리면 원액 칸이 비었다.
+       */
+      const sdoc = i > 0 && sol ? (sol.forms?.[doc.doc_no] ?? doc) : doc;
+      const entries = i > 0 && sol ? (sol.entries?.[sdoc.id] ?? {}) : entriesOf(doc.id);
       /* 별첨은 적은 칸이 있거나 따르는 원액 로트가 있을 때만 (위 머리말 · PBS 제조기록서 연동) */
       if (i > 0 && Object.keys(entries).length === 0 && !sol) return [];
-      const filled = i === 0 ? main : fillOne(doc.form, { ...base, entries }, true, sol);
+      const filled = i === 0 ? main : fillOne(sdoc.form, { ...base, entries }, true, sol);
       if (hlFlags.length) marked += markFlags(filled.pages, r.operation_code, hlFlags);
-      return [{ r, size: doc.form.page, pages: filled.pages, lost: filled.lost }];
+      return [{ r, size: sdoc.form.page, pages: filled.pages, lost: filled.lost }];
     });
   });
   const plain = records.filter((r) => !formsOf.has(r.operation_code));

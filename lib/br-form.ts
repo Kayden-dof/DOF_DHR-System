@@ -1132,3 +1132,75 @@ export function formHasSignRoom(page: FormPage) {
   const bottom = Math.max(0, ...page.tables.map((t) => t.y + t.rows.reduce((a, r) => a + r.h, 0)));
   return bottom + 8 + 41 <= 550;
 }
+
+/* ---------------------------------------------------------------------------
+   원료 차감과 PBS 제조기록서 칸 (정밀 점검 C · 2026-11-27)
+--------------------------------------------------------------------------- */
+/**
+ * 원액 제조 때 차감한 원료와 PBS 제조기록서 칸을 품목마다 견준 줄 (정밀 점검 C · 2026-11-27).
+ * 판정하지 않는다 - 같은지 다른지만 알린다. 막지 않는다.
+ */
+export interface SolutionCheckRow {
+  code: string; name: string; uom: string;
+  /** 차감한 원료 로트 · 양 (v_solution_input · 반납을 뺀 순량) */
+  usedLots: string[]; usedQty: number | null;
+  /** 기록서에 적은 부여로트번호 · 결과 */
+  writtenLot: string | null; writtenQty: number | null;
+  /** same 같음 · diff 다름 · blank 아직 안 적음 */
+  state: 'same' | 'diff' | 'blank';
+}
+
+/**
+ * 원액 제조 때 차감한 원료와 PBS 제조기록서에 적은 칸을 품목마다 견준다 (정밀 점검 C · 2026-11-27).
+ *
+ * 같은 사실이 두 곳에 있다 - 차감은 원액 제조(stock_movement · v_solution_input), 기록서는 사람이
+ * 다시 적은 칸(solution_br_entry, 사용자 2026-11-25 «직접 기입»). 기록서를 적는 것은 그대로 두고,
+ * 둘이 갈리면 보이게만 한다.
+ *
+ * 칸 찾기는 양식 판이 달라도 같게 한다: 부여로트번호 칸(lotno)은 품목 코드(ic)를 갖고, 그 칸의
+ * 이름(lb)이 자재명이다. 결과 칸(number · bs)은 이름에 그 자재명이 든다.
+ */
+export function solutionCheck(pages: FormPage[], inputs: FillIssue[]): SolutionCheckRow[] {
+  const cells = pages.flatMap((p) => p.tables.flatMap((t) => t.rows.flatMap((r) => r.cells)));
+  const lotCell = new Map<string, FormCell>();
+  const codeOf = new Map<string, string>();
+  for (const c of cells) {
+    if (c.k !== 'lotno' || !c.ic) continue;
+    lotCell.set(c.ic, c);
+    if (c.lb) codeOf.set(c.lb.trim(), c.ic);
+  }
+  const qtyCell = new Map<string, FormCell>();
+  for (const c of cells) {
+    if (c.k !== 'number' || !c.bs || !c.lb) continue;
+    const code = c.lb.split('·').map((x) => codeOf.get(x.trim())).find(Boolean);
+    if (code && !qtyCell.has(code)) qtyCell.set(code, c);
+  }
+  const used = new Map<string, { name: string; uom: string; lots: string[]; qty: number }>();
+  for (const x of inputs) {
+    const u = used.get(x.item_code) ?? { name: x.item_name, uom: x.usage_uom, lots: [], qty: 0 };
+    u.lots.push(x.lot_no);
+    u.qty += Number(x.qty);
+    used.set(x.item_code, u);
+  }
+  const num = (v?: string) => {
+    const s = (v ?? '').replace(/[^0-9.\-]/g, '');
+    return s === '' || !Number.isFinite(Number(s)) ? null : Number(s);
+  };
+  const codes = [...new Set([...used.keys(), ...lotCell.keys()])].sort();
+  return codes.map((code) => {
+    const u = used.get(code);
+    const lc = lotCell.get(code);
+    const writtenLot = (lc?.v ?? '').trim() || null;
+    const writtenQty = num(qtyCell.get(code)?.v);
+    const usedQty = u ? Number(u.qty.toFixed(6)) : null;
+    const usedLots = [...new Set(u?.lots ?? [])].sort();
+    const wrote = writtenLot ? [...new Set(writtenLot.split(/[,\s]+/).filter(Boolean))].sort() : [];
+    const lotDiff = !!writtenLot && wrote.join() !== usedLots.join();
+    const qtyDiff = writtenQty !== null && (usedQty === null || Math.abs(writtenQty - usedQty) > 1e-6);
+    const state = lotDiff || qtyDiff ? 'diff' : !writtenLot || writtenQty === null ? 'blank' : 'same';
+    return {
+      code, name: u?.name ?? lc?.lb ?? code, uom: u?.uom ?? qtyCell.get(code)?.u ?? '',
+      usedLots, usedQty, writtenLot, writtenQty, state,
+    };
+  });
+}

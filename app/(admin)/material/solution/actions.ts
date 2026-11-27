@@ -46,15 +46,25 @@ export async function saveSolutionEntry(
       let signKind: 'worker' | 'date' | null = null;
       for (const p of before.pages) for (const t of p.tables) for (const r of t.rows)
         for (const c of r.cells) if (c.id === field && c.sg && !c.ck) signKind = c.sg;
-      if (signKind && reason) {
-        await db.rows(`select set_config('app.change_reason', $1, true)`, [`서명 고침 · ${reason}`]);
+      /*
+       * 이 원액을 쓴 배치 일차가 이미 잠겼으면(인쇄 · 마감) 사유를 받는다 (정밀 점검 C · 사용자
+       * 2026-11-27 «알리고 사유 받기»). 별첨은 원액 칸을 그대로 그리므로, 고치면 다시 뽑는 종이가
+       * 처음 종이와 달라진다. 막지 않고 사유를 감사추적과 그 칸에 남긴다.
+       */
+      const printed = before.printed ?? [];
+      if (printed.length > 0 && !reason) {
+        throw new Error(`이 원액을 쓴 ${printed.join(' · ')}는 이미 인쇄 · 마감됐습니다. 고치는 사유를 적으십시오`);
+      }
+      const why = signKind ? `서명 고침 · ${reason}` : printed.length > 0 ? `인쇄 뒤 고침 · ${reason}` : '';
+      if (reason && why) {
+        await db.rows(`select set_config('app.change_reason', $1, true)`, [why]);
       }
       await db.rows(
         `insert into solution_br_entry (material_lot_id, doc_id, field, value, entered_by, sign, why)
          values ($1, $2, $3, $4, $5, $6, $7)
          on conflict (material_lot_id, doc_id, field)
            do update set value = excluded.value, sign = excluded.sign, why = excluded.why`,
-        [lotId, docId, field, v, me.id, signKind, signKind ? reason || null : null]);
+        [lotId, docId, field, v, me.id, signKind, (signKind || printed.length > 0) ? reason || null : null]);
       return solutionSheet(db, lotId, docId);
     }, { reason: v ? '원액 제조기록서 칸 적음' : '원액 제조기록서 칸 비움' });
     return sheet ?? { error: '제조기록서를 다시 읽지 못했습니다' };

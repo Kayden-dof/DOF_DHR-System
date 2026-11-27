@@ -57,6 +57,7 @@ const SECTIONS = {
   '42_order_plan.mjs':   '[0164] 주문에서 생산 계획 · 자재 소요',
   '43_order_plan_lib.mjs': '[0164] 배치 나누기 · 날짜 놓기',
   '44_force_issue.mjs':  '[0165] 관리자 강제 투입',
+  '45_solution_check.mjs': '[점검 C] 원료 차감과 PBS 제조기록서 대조',
   '40_sales_order.mjs':  '[0159] 수주 장부 · 출고는 주문 줄로 · 형명 일괄 검토',
   // 감사추적을 실제로 비우므로 08 바로 앞이다.
   '16_open_delete.mjs': '[0122]  감사추적 비우기 · 쓰지 않은 계정 지우기',
