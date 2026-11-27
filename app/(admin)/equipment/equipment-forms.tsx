@@ -25,6 +25,12 @@ export interface EquipBuy {
   vendor_address: string | null;
   /** 시간당 감가상각비. 셋 중 하나라도 비면 null */
   hourly_cost: string | number | null;
+  /*
+   * 제조기록서 시각 줄에서 센 실제 가동시간 (0179 · 사용자 2026-11-27 «설비의 월 가동시간은 제조기록서에서
+   * 수집 가능한가»). 이번 달 · 지난 3개월 가운데 기록이 있는 달의 평균
+   */
+  rec_month_hours?: string | number | null;
+  rec_avg_hours?: string | number | null;
 }
 
 export interface EquipRow extends EquipBuy {
@@ -102,6 +108,12 @@ function BuyFields({ e }: { e?: EquipBuy }) {
             <input id={`${uid}-monthly_hours`} name="monthly_hours" inputMode="decimal" autoComplete="off"
                    defaultValue={v('monthly_hours')} placeholder="160"
                    className="input tnum" />
+            {(e?.rec_month_hours != null || e?.rec_avg_hours != null) && (
+              <p className="mt-1 text-xs text-muted">
+                제조기록서 기준 이번 달 <span className="tnum">{e?.rec_month_hours ?? 0}</span>시간
+                {e?.rec_avg_hours != null && <> · 지난 3개월 평균 <span className="tnum">{e.rec_avg_hours}</span>시간</>}
+              </p>
+            )}
           </div>
         </div>
 

@@ -2,15 +2,18 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { BrSheetView, type SheetCtx } from '@/app/(work)/work/[id]/br-sheet';
+import { BrSheetView, type SheetCtx, type EquipOpt } from '@/app/(work)/work/[id]/br-sheet';
+import { setTimeEquipment } from '@/app/(work)/work/actions';
 import type { BrSheet } from '@/lib/br-sheet';
 import { loadRecordSheet, saveRecordEntry } from '../../../record-actions';
 
 /* 정정 사유 - 고르거나 적는다. 칸을 고칠 때마다 이 사유가 정정 내역에 남는다 */
 const WHY = ['종이 기록서에 맞춤', '입력 착오 정정', '날짜 · 시각 바로잡음'];
 
-export default function RecordSheetClient({ initial, recordId, woId, title, locked }: {
+export default function RecordSheetClient({ initial, recordId, woId, title, locked, equip }: {
   initial: BrSheet; recordId: string; woId: string; title: string; locked: boolean;
+  /** 시각 줄에 고를 설비 (0179) */
+  equip: EquipOpt[];
 }) {
   const router = useRouter();
   const [sheet, setSheet] = useState(initial);
@@ -56,6 +59,7 @@ export default function RecordSheetClient({ initial, recordId, woId, title, lock
           save: (docId, field, value, cellWhy) => saveRecordEntry(recordId, docId, field, value, cellWhy || why),
           load: (docId) => loadRecordSheet(recordId, docId),
         }}
+        timeEquip={{ opts: equip, save: (docId, field, ids) => setTimeEquipment(recordId, docId, field, ids) }}
       />
     </div>
   );

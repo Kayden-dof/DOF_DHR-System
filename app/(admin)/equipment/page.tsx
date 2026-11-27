@@ -73,6 +73,14 @@ export default async function EquipmentPage({ searchParams }: { searchParams: Se
               e.vendor_name, e.vendor_contact_name, e.vendor_phone,
               e.vendor_email, e.vendor_site, e.vendor_address,
               equipment_hourly_cost(e.code) as hourly_cost,
+              /* 제조기록서 시각 줄에서 센 가동시간 (0179) */
+              (select round(sum(h.hours), 1) from v_equipment_hours h
+                where h.equipment_id = e.id
+                  and h.month = date_trunc('month', timezone('Asia/Seoul', now()))::date) as rec_month_hours,
+              (select round(avg(h.hours), 1) from v_equipment_hours h
+                where h.equipment_id = e.id
+                  and h.month >= (date_trunc('month', timezone('Asia/Seoul', now())) - interval '3 months')::date
+                  and h.month < date_trunc('month', timezone('Asia/Seoul', now()))::date) as rec_avg_hours,
               v.performed_on::text as performed_on,
               v.valid_until::text as valid_until,
               v.report_no,
@@ -193,6 +201,13 @@ export default async function EquipmentPage({ searchParams }: { searchParams: Se
       detail: statRows(
         exempt.map((e) => eqRow(e, '대상 아님')),
         '해당 설비가 없습니다') },
+    /* 제조기록서 시각 줄에 고른 설비의 시간 합 (0179) */
+    { label: '이번 달 가동', value: Math.round(active.reduce((a, e) => a + Number(e.rec_month_hours ?? 0), 0)), unit: '시간',
+      detail: statRows(
+        active.filter((e) => Number(e.rec_month_hours ?? 0) > 0)
+          .sort((a, b) => Number(b.rec_month_hours) - Number(a.rec_month_hours))
+          .map((e) => eqRow(e, `${e.rec_month_hours}시간`)),
+        '이번 달 시각 줄에 고른 설비가 없습니다') },
   ];
 
   return (

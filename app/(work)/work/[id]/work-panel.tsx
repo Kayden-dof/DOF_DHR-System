@@ -19,7 +19,7 @@ import { isNoExpiry } from '@/lib/equipment-check';
 import { altSuffix } from '@/lib/units';
 import {
   startRecord, issueMaterial, endRecord, closeDay, cutAtField,
-  amendIssue, returnIssue, dayGaps, fixRecord, skipLot, unskipLot, type DayGap,
+  amendIssue, returnIssue, dayGaps, fixRecord, skipLot, unskipLot, setTimeEquipment, type DayGap,
 } from '../actions';
 
 
@@ -831,6 +831,13 @@ function OperationCard({
     woId, linked: op.equipment, allEquipment, bom: op.bom, lots,
     issues: rec?.issues ?? [], expiryWarnDays, sheets, loadUnit,
   };
+  /*
+   * 시각 줄에 고를 설비 (0179) - 그 공정에 걸린 설비와 이 기록에 쓴 설비. 겹치면 하나로
+   */
+  const timeOpts: EquipOpt[] = [
+    ...op.equipment,
+    ...allEquipment.filter((e) => (br.sheet?.equipRefs ?? []).includes(e.id)),
+  ].filter((e, i, all) => all.findIndex((x) => x.id === e.id) === i);
   const recorded = new Set((rec?.issues ?? []).map((x) => x.item_id));
   /*
    * 기록서 자재 칸에 «-»(사용 안 함)로 적은 자재 (사용자 2026-11-20 «파우치 라벨이랑 인디케이터는
@@ -984,6 +991,7 @@ function OperationCard({
       {open && br.sheet && (
         <BrSheetView sheet={br.sheet} onSheet={br.setSheet} onClose={() => setOpen(false)}
                      busy={br.pending} ctx={ctx} readOnly={locked}
+                     timeEquip={{ opts: timeOpts, save: (docId, field, ids) => setTimeEquipment(br.sheet!.recordId, docId, field, ids) }}
                      endSlot={running && rec ? (cancel) => (
                        <EndForm woId={woId} rec={rec} op={op} missing={missing} unused={unused} flags={flags} compact
                                 empty={emptyOf(br.sheet!)} onCancel={cancel}

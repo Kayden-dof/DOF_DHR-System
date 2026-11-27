@@ -91,8 +91,10 @@ export default async function CostPage() {
      * 기록 수(시각 없음 · 단가 없음)는 기록이 배치 하나에 속하므로 더해도
      * 맞지만, 셋을 한 자리에서 세는 편이 다음에 또 헷갈리지 않는다.
      */
-    gaps: await db.one<{ untimed: number; no_rate: number; no_equip: number }>(
+    gaps: await db.one<{ untimed: number; no_rate: number; no_equip: number; no_pick: number }>(
       `select (select count(*)::int from v_process_cost where not timed) as untimed,
+              /* 시각을 적고 쓴 설비를 아직 고르지 않은 줄 (0179) */
+              (select count(*)::int from v_br_time where not equip_set) as no_pick,
               (select count(*)::int from v_process_cost
                 where timed and labour_rate is null)                     as no_rate,
               (select count(distinct equipment_id)::int from v_process_cost
@@ -148,16 +150,22 @@ export default async function CostPage() {
         * §8.5 와 같은 규율이다.
         */}
       {(() => {
-        const { untimed = 0, no_rate: noRate = 0, no_equip: noEquip = 0 } = d.gaps ?? {};
-        if (!untimed && !noRate && !noEquip) return null;
+        const { untimed = 0, no_rate: noRate = 0, no_equip: noEquip = 0, no_pick: noPick = 0 } = d.gaps ?? {};
+        if (!untimed && !noRate && !noEquip && !noPick) return null;
         return (
           <div className="card border-warn/40 bg-warn-bg p-4">
             <h3 className="text-xs font-semibold text-ink">원가에서 빠진 것</h3>
             <ul className="mt-2 space-y-1 text-xs leading-relaxed text-ink">
               {untimed > 0 && (
                 <li>
-                  · 시작 · 종료 시각이 비어 있는 기록 <b className="tnum">{untimed}</b>건.
+                  · 제조기록서에 시작 ~ 종료 시각이 적히지 않은 기록 <b className="tnum">{untimed}</b>건.
                   그 기록은 0시간으로 잡혀 공수와 설비 몫이 얹히지 않습니다.
+                </li>
+              )}
+              {noPick > 0 && (
+                <li>
+                  · 쓴 설비를 고르지 않은 시각 줄 <b className="tnum">{noPick}</b>건.
+                  그 줄의 시간에는 설비 몫이 얹히지 않습니다. 기록서의 시각 칸을 누르면 고릅니다.
                 </li>
               )}
               {noRate > 0 && (

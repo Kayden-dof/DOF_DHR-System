@@ -21,18 +21,45 @@ import { masterData as master, newWorkOrder } from '../fixtures.mjs';
  * 날짜는 DB 에서 받아 온다. 지어 쓰면 발행일보다 앞선 작업일이 되어 구조
  * 불변식에 걸린다 (0052) - 그 규칙이 맞고, 시험이 맞춰야 한다.
  */
-async function record(t, m, wo, { op, worker, day, hours, equip }) {
+/*
+ * 시간은 제조기록서 시각 칸으로 센다 (0179 · 사용자 2026-11-27 «기록의 시작 시간 기준은 사용하지 않습니다»).
+ * 기록의 시작 · 종료(started_at · ended_at)는 옮겨 적은 때라 일부러 엉뚱한 날로 둔다 - 셈에 끼면 시험이 깨진다.
+ * hours 를 주면 시각 칸 «09:00~HH:00» 하나를 적고, equip 을 주면 그 줄에 그 설비를 고른다.
+ */
+let DOC = null;
+const doc = (t, m) => (DOC ??= t.val(
+  `insert into mfg_doc (product_code, op_code, kind, doc_no, title, revision, registered_by, form)
+   values ('LC-TEST', 'WS-DX2401-01', 'BR', 'F706-LC-01', '원가 시험 기록서', 'Rev.00', $1,
+           '{"page":{"w":842,"h":595},"pages":[{"texts":[],"tables":[]}]}'::jsonb)
+   returning id`, [m.admin]));
+
+async function record(t, m, wo, { op, worker, day, hours, equip, field = 'p0t0r0c1' }) {
   const today = await t.val(`select (timezone('Asia/Seoul', now()))::date::text`);
-  const start = `${today} 09:00:00+09`;
-  const end = hours == null ? null
-    : `${today} ${String(9 + hours).padStart(2, '0')}:00:00+09`;
-  return t.val(
-    `insert into process_record
-       (work_order_id, operation_id, day_no, work_date, worker_id,
-        equipment_id, started_at, ended_at)
-     values ($1,$2,$3,$8::date,$4,$5,$6::timestamptz,$7::timestamptz)
-     returning id`,
-    [wo, op, day, worker, equip ?? null, start, end, today]);
+  await t.setActor(m.admin);
+  try {
+    const pr = await t.val(
+      `insert into process_record
+         (work_order_id, operation_id, day_no, work_date, worker_id,
+          equipment_id, started_at, ended_at)
+       values ($1,$2,$3,$6::date,$4,$5, now() - interval '30 days', now() - interval '40 days')
+       returning id`,
+      [wo, op, day, worker, equip ?? null, today]);
+    if (hours != null) {
+      const d = await doc(t, m);
+      await t.rows(
+        `insert into br_entry (process_record_id, doc_id, field, value, entered_by) values ($1,$2,$3,$4,$5)`,
+        [pr, d, field, `09:00~${String(9 + hours).padStart(2, '0')}:00`, m.admin]);
+      if (equip !== undefined) {
+        await t.rows(
+          `insert into br_time_equipment (process_record_id, doc_id, field, equipment_ids, set_by)
+           values ($1,$2,$3, array(select id from equipment where code = any($4::text[])), $5)`,
+          [pr, d, field, equip ? [equip] : [], m.admin]);
+      }
+    }
+    return pr;
+  } finally {
+    await t.setActor(null);
+  }
 }
 
 export default [
@@ -162,9 +189,57 @@ export default [
       `select pre_cut_labour, pre_cut_equip, untimed_records
          from v_batch_cost where work_order_id = $1`, [wo.id]);
 
-    t.eq(Number(b.pre_cut_labour), 60000, '2시간 × 30,000');
-    t.eq(Number(b.pre_cut_equip), 2000,   '2시간 × 1,000');
+    t.eq(Number(b.pre_cut_labour), 60000, '2시간 × 30,000 (제조기록서 시각 칸)');
+    t.eq(Number(b.pre_cut_equip), 2000,   '2시간 × 1,000 (그 줄에 고른 설비)');
     t.eq(b.untimed_records, 1, '시각이 빈 기록을 센다');
+  },
+},
+
+{
+  id: 'LC-07', expect: '확인',
+  name: '제조기록서 시각 칸을 시간으로 읽는다 (같은 날 · 날짜 붙은 칸 · 보기에 딸린 시각 · 자정 넘김)',
+  async run(t) {
+    const h = async (v) => {
+      const r = await t.val(`select br_time_hours($1, date '2026-11-05')::text`, [v]);
+      return r == null ? null : Number(r);
+    };
+    t.eq(await h('09:20~09:40'), 0.3333, '같은 날');
+    t.eq(await h('11/07 08:54~11/10 08:05'), 71.1833, '날짜가 붙은 칸 (동결건조)');
+    t.eq(await h('추가 충진 O, 충진시간 : ~ :|10:27~10:38'), 0.1833, '보기에 딸린 시각');
+    t.eq(await h('23:30~00:30'), 1, '자정을 넘긴 줄');
+    t.eq(await h('확인'), null, '시각이 아닌 값은 셈하지 않는다');
+    t.eq(await h('09:20~'), null, '끝이 비면 셈하지 않는다');
+  },
+},
+
+{
+  id: 'LC-08', expect: '확인',
+  name: '설비 가동시간은 그 설비를 고른 시각 줄만 더한다 (고르지 않으면 설비 몫이 없다)',
+  async run(t) {
+    const m = await master(t);
+    const wo = await newWorkOrder(t, m);
+    await t.rows(
+      `insert into equipment (code, name, purchase_price, useful_life_months, salvage_value, monthly_hours)
+       values ('LC-EQ-8', '시험 설비 8', 9600000, 60, 0, 160)`);   /* 시간당 1,000 */
+    /* 한 기록에 시각 줄 셋: 3시간은 이 설비, 1시간은 설비 안 씀, 2시간은 아직 고르지 않음 */
+    const pr = await record(t, m, wo.id, { op: m.ops['WS-DX2401-01'], worker: m.worker, day: 1,
+                                           hours: 3, equip: 'LC-EQ-8', field: 'p0t0r0c1' });
+    const d = await doc(t, m);
+    await t.setActor(m.admin);
+    await t.rows(`insert into br_entry (process_record_id, doc_id, field, value, entered_by)
+                  values ($1,$2,'p0t0r1c1','13:00~14:00',$3), ($1,$2,'p0t0r2c1','14:00~16:00',$3)`, [pr, d, m.admin]);
+    await t.rows(`insert into br_time_equipment (process_record_id, doc_id, field, equipment_ids, set_by)
+                  values ($1,$2,'p0t0r1c1','{}',$3)`, [pr, d, m.admin]);
+    await t.setActor(null);
+
+    const hours = Number(await t.val(
+      `select sum(hours) from v_equipment_hours where code = 'LC-EQ-8'`));
+    t.eq(hours, 3, '고른 줄의 시간만');
+    const [c] = await t.rows(`select hours, equip_rate from v_process_cost where process_record_id = $1`, [pr]);
+    t.eq(Number(c.hours), 6, '공수 시간은 시각 줄 전부');
+    t.eq(Number(c.hours) * Number(c.equip_rate), 3000, '설비 몫은 고른 줄 3시간 × 1,000');
+    t.eq(Number(await t.val(`select count(*)::int from v_br_time where process_record_id = $1 and not equip_set`, [pr])), 1,
+         '고르지 않은 줄을 센다');
   },
 },
 
@@ -185,16 +260,10 @@ export default [
     await t.rows(
       `insert into equipment (code, name) values ('LC-EQ-X', '상각 정보 없는 설비')`);
 
-    const today = await t.val(`select (timezone('Asia/Seoul', now()))::date::text`);
+    /* 시각 줄에 그 설비를 골랐다 (0179) - 설비 몫은 고른 줄에서만 생긴다 */
     for (const op of ['WS-DX2401-01', 'WS-DX2401-02']) {
       const wo = await newWorkOrder(t, m);
-      await t.rows(
-        `insert into process_record
-           (work_order_id, operation_id, day_no, work_date, worker_id, equipment_id,
-            started_at, ended_at)
-         values ($1,$2,1,$3::date,$4,'LC-EQ-X',
-                 ($3 || ' 09:00:00+09')::timestamptz, ($3 || ' 10:00:00+09')::timestamptz)`,
-        [wo.id, m.ops[op], today, m.worker]);
+      await record(t, m, wo.id, { op: m.ops[op], worker: m.worker, day: 1, hours: 1, equip: 'LC-EQ-X' });
     }
 
     /* 배치 둘이 같은 설비 하나를 썼다. 더하면 둘, 한 번에 세면 하나다 */

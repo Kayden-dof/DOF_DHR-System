@@ -461,6 +461,44 @@ export async function saveBrEntry(
 }
 
 /* ---------------------------------------------------------------------------
+   시각 칸에 쓴 설비 (0179 · 사용자 2026-11-27 «시간을 기입할때 … 해당 공정에 사용되는 장비 리스트를
+   같이 띄우고 안썼으면 안쓰고, 썼으면 장비를 같이 클릭해서 전산상에는 기록을 쌓는거지»)
+
+   빈 묶음은 «설비 안 씀». 종이에 찍지 않고 원가 · 설비 가동시간 셈에만 쓴다 - 그래서 마감(인쇄)한 일차에도
+   붙일 수 있다. 고를 수 있는 설비는 그 공정에 걸린 설비와 이 기록에 쓴 설비다 (화면이 내놓는 것과 같다).
+--------------------------------------------------------------------------- */
+export async function setTimeEquipment(
+  recordId: string, docId: string, field: string, equipmentIds: string[],
+): Promise<BrSheet | { error: string }> {
+  try {
+    const me = await worker();
+    if (!/^p\d+t\d+r\d+c\d+$/.test(field)) return { error: '칸 자리가 올바르지 않습니다' };
+    const ids = [...new Set((Array.isArray(equipmentIds) ? equipmentIds : []).map(String))].slice(0, 20);
+    const sheet = await withActor(me.id, async (db) => {
+      if (!(await brFormOfRecord(db, recordId, docId))) throw new Error('이 공정의 제조기록서 양식이 아닙니다');
+      if (ids.length) {
+        const ok = await db.val<boolean>(
+          `select bool_and(x = any(
+                    array(select oe.equipment_id from operation_equipment oe
+                            join process_record pr on pr.operation_id = oe.operation_id where pr.id = $1)
+                    || array(select v.equipment_id from v_process_equipment v where v.process_record_id = $1)))
+             from unnest($2::uuid[]) x`, [recordId, ids]);
+        if (!ok) throw new Error('이 공정에 걸린 설비가 아닙니다');
+      }
+      await db.rows(
+        `insert into br_time_equipment (process_record_id, doc_id, field, equipment_ids, set_by)
+         values ($1, $2, $3, $4::uuid[], $5)
+         on conflict (process_record_id, doc_id, field) do update set equipment_ids = excluded.equipment_ids`,
+        [recordId, docId, field, ids, me.id]);
+      return brSheet(db, recordId, docId);
+    }, { reason: ids.length ? '시각 줄에 쓴 설비' : '시각 줄 설비 안 씀' });
+    return sheet ?? { error: '제조기록서를 다시 읽지 못했습니다' };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
+/* ---------------------------------------------------------------------------
    기록서 중심 화면 (사용자 2026-11-11 «작업 시작하면 제조기록서가 바로 뜨고 거기에서
    장비 시약 이런게 다 입력 가능한 형태로»)
 

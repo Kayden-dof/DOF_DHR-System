@@ -35,6 +35,14 @@ export default async function RecordSheetPage({ params, searchParams }: {
          from process_record r join work_order w on w.id = r.work_order_id
          join dmr_operation o on o.id = r.operation_id join app_user u on u.id = r.worker_id
         where r.id = $1 and r.work_order_id = $2`, [pr, id]),
+    /* 시각 줄에 고를 설비 (0179) - 그 공정에 걸린 설비와 이 기록에 쓴 설비 */
+    equip: await db.rows<{ id: string; code: string; name: string; valid_until: string | null }>(
+      `select e.id::text, e.code, e.name, null::text as valid_until
+         from equipment e
+        where e.id in (select oe.equipment_id from operation_equipment oe
+                         join process_record r on r.operation_id = oe.operation_id where r.id = $1)
+           or e.id in (select v.equipment_id from v_process_equipment v where v.process_record_id = $1)
+        order by e.code`, [pr]),
     /* 쓸 수 있는 로트: 이 공정 구성표 품목 먼저, 그 밖의 로트는 «구성표 밖» 으로 (투입 더하기 · 0165) */
     lots: await db.rows<IssueLot>(
       `select ml.id, i.code || ' ' || i.name as item, ml.lot_no,
@@ -61,7 +69,7 @@ export default async function RecordSheetPage({ params, searchParams }: {
     <div className="space-y-3">
       <RecordSheetClient initial={{ ...d.sheet, locked: false }} recordId={pr} woId={id}
                          title={`${d.head.batch_no} · ${d.head.day_no}일차 · ${chem(d.head.op_name)} · ${d.head.worker}`}
-                         locked={d.head.locked} />
+                         locked={d.head.locked} equip={d.equip} />
       <IssuePanel recordId={pr} woId={id} lots={d.lots} />
     </div>
   );

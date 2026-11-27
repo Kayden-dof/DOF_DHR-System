@@ -69,6 +69,13 @@ export interface BrSheet {
   title: string;
   /** 이 기록에 쓴 설비 (첫 설비부터, 대장 참조). 기기번호 칸의 고르는 창이 읽는다 */
   equipRefs: string[];
+  /**
+   * 시각 칸마다 쓴 설비 (0179 · 사용자 2026-11-27 «시간을 기입할때 … 장비 리스트를 같이 띄우고»). 칸 자리 → 설비 id.
+   * 빈 묶음은 «설비 안 씀». 칸이 없으면 아직 고르지 않은 것
+   */
+  timeEquip?: Record<string, string[]>;
+  /** 아직 고르지 않은 시각 칸의 처음 고름 - 같은 양식 같은 칸에서 지난번에 고른 설비 (현장 누름을 줄인다) */
+  timeEquipDefault?: Record<string, string[]>;
   /** 지금 보이는 양식이 별첨인가 */
   appendix: boolean;
   /** 이 공정의 현행 양식 전부. 본 기록서가 처음 */
@@ -464,6 +471,14 @@ export async function brSheet(db: Db, recordId: string, docId?: string | null): 
   });
   const doc = docs[at];
   const cur = forms[at];
+  /* 시각 칸마다 쓴 설비 (0179) - 이 기록 것, 그리고 같은 양식 같은 칸에서 가장 최근에 고른 것 */
+  const timeEquip = Object.fromEntries((await db.rows<{ field: string; ids: string[] }>(
+    `select field, equipment_ids::text[] as ids from br_time_equipment
+      where process_record_id = $1 and doc_id = $2`, [recordId, doc.id])).map((x) => [x.field, x.ids]));
+  const timeEquipDefault = Object.fromEntries((await db.rows<{ field: string; ids: string[] }>(
+    `select distinct on (field) field, equipment_ids::text[] as ids from br_time_equipment
+      where doc_id = $1 and process_record_id <> $2
+      order by field, set_at desc`, [doc.id, recordId])).map((x) => [x.field, x.ids]));
   const people = (await db.rows<{ full_name: string }>(
     `select u.full_name from app_user u
       where u.is_active and exists (select 1 from user_role r where r.user_id = u.id)
@@ -474,6 +489,7 @@ export async function brSheet(db: Db, recordId: string, docId?: string | null): 
     locked: r.locked, workDate: r.work_date, dayNo: r.day_no, worker: r.worker_name,
     title: `${r.op_name} · ${doc.doc_no}`,
     equipRefs: [r.equipment_ref, ...(r.extra_equipment_refs ?? [])].filter(Boolean) as string[],
+    timeEquip, timeEquipDefault,
     appendix: at > 0, forms, empty: emptyOfForms(forms),
     changes, people: [...new Set(people)], mine: r.mine === true,
     /* 보이는 별첨이 원액 로트를 따르면 여기서는 보기만 (0145) */
