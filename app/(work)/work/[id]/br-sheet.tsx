@@ -423,7 +423,7 @@ export function BrSheetView({ sheet, onSheet, onClose, busy, ctx, endSlot, readO
       ) : (
         <FieldEditor key={live.id} cell={live} workDate={sheet.workDate}
                      equip={timeEquip && timeCell(live) ? { opts: timeEquip.opts, initial: equipOf(live.id!) } : undefined}
-                     onSaveTime={saveTime}
+                     onSaveTime={saveTime} onSaveEquip={saveEquipOnly}
                      basis={live.bs ? {
                        value: find(live.bs.id)?.v ?? null,
                        /* 기준 칸에 적고 이 칸은 연 채로 둔다 - 기준을 적은 뒤 바로 수치를 적는다 */
@@ -758,29 +758,34 @@ function LotNoPicker({ cell, ctx, busy, error, onSave, onClose }: {
 /* ---------------------------------------------------------------------------
    시각 줄에 쓴 설비 (0179). 그 공정의 설비를 늘어놓고, 쓴 것만 누른다. 안 썼으면 아무것도 누르지 않는다.
 --------------------------------------------------------------------------- */
-function EquipChips({ opts, sel, onChange, busy }: {
+function EquipChips({ opts, sel, onChange, busy, tail }: {
   opts: EquipOpt[]; sel: string[]; onChange: (ids: string[]) => void; busy: boolean;
+  /** 줄 끝에 둘 것 («설비만 저장») */
+  tail?: React.ReactNode;
 }) {
   if (opts.length === 0) return null;
-  /* 작게 세로로 - 시각 옆 한 단에 든다. 안 썼으면 누르지 않는다 */
+  /*
+   * 시작 · 종료 줄과 같은 모양의 한 줄 (사용자 2026-11-27 «뭐야 이 어중간한 배치는»). 이름 칸 폭(w-12)을 맞추고
+   * 설비는 가로로 늘어놓는다. 안 썼으면 누르지 않는다.
+   */
   return (
-    <div className="min-w-[9rem]">
-      <p className="text-xs text-muted">쓴 설비 <span className="text-faint">· 안 썼으면 비움</span></p>
-      <div className="mt-1 flex flex-col gap-1">
-        {opts.map((o) => {
-          const on = sel.includes(o.id);
-          return (
-            <button key={o.id} type="button" disabled={busy} aria-pressed={on} title={o.name}
-                    onClick={() => onChange(on ? sel.filter((x) => x !== o.id) : [...sel, o.id])}
-                    className={`flex min-h-10 items-center gap-1.5 rounded-md border px-2.5 py-1 text-left text-sm
-                                ${on ? 'border-brand bg-brand-soft font-semibold text-ink' : 'border-line bg-surface text-muted'}`}>
-              <span aria-hidden>{on ? '■' : '□'}</span>
-              <span className="font-mono">{o.code}</span>
-              <span className="truncate text-xs">{o.name}</span>
-            </button>
-          );
-        })}
-      </div>
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="w-12 text-base font-semibold text-ink">설비</span>
+      {opts.map((o) => {
+        const on = sel.includes(o.id);
+        return (
+          <button key={o.id} type="button" disabled={busy} aria-pressed={on} title={o.name}
+                  onClick={() => onChange(on ? sel.filter((x) => x !== o.id) : [...sel, o.id])}
+                  className={`inline-flex h-11 items-center gap-1.5 rounded-md border px-3 text-sm
+                              ${on ? 'border-brand bg-brand-soft font-semibold text-ink' : 'border-line bg-surface text-muted'}`}>
+            <span aria-hidden>{on ? '■' : '□'}</span>
+            <span className="font-mono">{o.code}</span>
+            <span className="text-xs">{o.name}</span>
+          </button>
+        );
+      })}
+      <span className="text-xs text-faint">안 썼으면 비워 둡니다</span>
+      {tail}
     </div>
   );
 }
@@ -807,12 +812,14 @@ function TimeEquipEditor({ cell, opts, initial, busy, error, onSave, onClose }: 
   );
 }
 
-function FieldEditor({ cell, workDate, basis, busy, error, onSave, onCancel, equip, onSaveTime }: {
+function FieldEditor({ cell, workDate, basis, busy, error, onSave, onCancel, equip, onSaveTime, onSaveEquip }: {
   cell: FormCell; workDate: string; busy: boolean; error: string | null;
   onSave: (v: string) => void; onCancel: () => void;
   /** 시각 칸이면 그 줄에 쓴 설비를 함께 고른다 (0179) */
   equip?: { opts: EquipOpt[]; initial: string[] };
   onSaveTime?: (v: string, ids: string[]) => void;
+  /** 이미 적힌 시각은 그대로 두고 설비만 (정정 화면에서 시각 정정이 한 번 더 남지 않게) */
+  onSaveEquip?: (ids: string[]) => void;
   /** 기준 생산량 칸의 지금 값과 적기 (cell.bs 가 있을 때) */
   basis?: { value: string | null; set: (v: string) => void };
 }) {
@@ -888,8 +895,14 @@ function FieldEditor({ cell, workDate, basis, busy, error, onSave, onCancel, equ
             ))}
           </div>
           {blank === 'time' && (
-            <div className={`grid items-start gap-3 ${equip?.opts.length ? 'sm:grid-cols-[auto_minmax(0,1fr)]' : ''}`}>
-              {equip && <EquipChips opts={equip.opts} sel={sel} onChange={setSel} busy={busy} />}
+            <div className="space-y-2">
+              {equip && (
+            <EquipChips opts={equip.opts} sel={sel} onChange={setSel} busy={busy}
+                        tail={cell.v && onSaveEquip ? (
+                          <button type="button" disabled={busy} onClick={() => onSaveEquip(sel)}
+                                  className="btn-ghost ml-auto text-sm">설비만 저장</button>
+                        ) : undefined} />
+          )}
               <TimePair s={{ d: workDate, t: extra.split('~')[0] ?? '' }} e={{ d: workDate, t: extra.split('~')[1] ?? '' }}
                         dated={false}
                         onDone={(a, b) => putTime(`${pick}|${a.t}~${b.t}`)} busy={busy} />
@@ -933,11 +946,17 @@ function FieldEditor({ cell, workDate, basis, busy, error, onSave, onCancel, equ
 
       {cell.k === 'time' && (
         /*
-         * 쓴 설비는 시각 왼쪽에 (사용자 2026-11-27 «시간의 왼쪽.. 먼저 클릭하고 시간을 입력할수있도록»). «지금» 은
-         * 누르면 바로 저장되므로 설비를 먼저 고르는 차례가 맞다.
+         * 쓴 설비를 시각보다 먼저 (사용자 2026-11-27 «먼저 클릭하고 시간을 입력할수있도록»). «지금» 은 누르면 바로
+         * 저장되므로 설비를 먼저 고르는 차례가 맞다. 시작 · 종료와 같은 모양의 줄로 그 위에 둔다.
          */
-        <div className={`mt-3 grid items-start gap-3 ${equip?.opts.length ? 'sm:grid-cols-[auto_minmax(0,1fr)]' : ''}`}>
-          {equip && <EquipChips opts={equip.opts} sel={sel} onChange={setSel} busy={busy} />}
+        <div className="mt-3 space-y-2">
+          {equip && (
+            <EquipChips opts={equip.opts} sel={sel} onChange={setSel} busy={busy}
+                        tail={cell.v && onSaveEquip ? (
+                          <button type="button" disabled={busy} onClick={() => onSaveEquip(sel)}
+                                  className="btn-ghost ml-auto text-sm">설비만 저장</button>
+                        ) : undefined} />
+          )}
           <TimePair s={s} e={e} dated={!!cell.dt} busy={busy}
                     onDone={(a, b) => putTime(timeValue(a, b))} />
         </div>

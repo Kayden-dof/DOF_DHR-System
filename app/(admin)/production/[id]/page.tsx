@@ -650,7 +650,9 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
         */}
       <Panel
         title="일차별 기록지"
-        note="인쇄하면 그 묶음이 잠깁니다 (S04)"
+        note={d.days.some((r) => r.locked)
+          ? '인쇄하면 그 묶음이 잠깁니다 (S04) · 재발행하면 앞 종이는 회수해 아래 인쇄 이력에 적습니다'
+          : '인쇄하면 그 묶음이 잠깁니다 (S04)'}
         action={!readOnly && d.days.some((r) => r.locked) ? (
           <Link href={`/print/day-record/${wo.id}/all`} className="btn-ghost">
             묶음 발행 ({d.days.filter((r) => r.locked).length}건)
@@ -687,7 +689,7 @@ export default async function BatchPage({ params }: { params: Promise<{ id: stri
                     </td>
                     <td className="td tnum text-right text-muted">{r.printed || ''}</td>
                     <td className="td text-right">
-                      <span className="inline-flex items-start gap-2">
+                      <span className="inline-flex items-center gap-2">
                         {/* 읽기로 연다 - 인쇄하지 않고 잠그지 않는다 (사용자 2026-11-20 «관리자는 제조기록서 읽기로라도») */}
                         <Link href={`/print/day-record/${wo.id}/${r.day_no}/${r.worker_id}?view=1`} className="btn-quiet">
                           보기

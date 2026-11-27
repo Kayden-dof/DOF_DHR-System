@@ -713,11 +713,12 @@ export function DayPrintLink({
    * 재발행 옆 회수 안내 (UI/UX 검수 2026-11-11). 같은 기록의 종이가 두 장 도는 것이
    * 가장 위험한데, 재발행 단추는 앞 종이를 거둬들이라는 말을 하지 않았다.
    */
+  /*
+   * 안내는 줄마다 되풀이하지 않고 판 머리 설명에 한 번 (사용자 2026-11-27 «배치 정렬 좀») - 단추 밑에 두면 그
+   * 칸만 높아져 줄이 어긋났고, 옆에 두면 표가 넘쳤다. 단추에 올려도 같은 말이 뜬다.
+   */
   return (
-    <span className="inline-flex flex-col items-end gap-1">
-      <Link href={href} className="btn-ghost">재발행</Link>
-      <span className="text-xs text-muted">앞 종이는 회수해 아래 인쇄 이력에 적습니다</span>
-    </span>
+    <Link href={href} className="btn-ghost" title="앞 종이는 회수해 아래 인쇄 이력에 적습니다">재발행</Link>
   );
 }
 
