@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { withActor, dbMessage } from '@/lib/db';
 import { requireUser, hasRole } from '@/lib/session';
 import type { FormState } from '@/lib/forms';
+import { BOM_BASIS_SQL } from '@/lib/min-stock';
 
 async function mgr() {
   const user = await requireUser();
@@ -512,6 +513,67 @@ export async function suggestMinStock(): Promise<FormState> {
     return {
       ok: true,
       message: `${n}개 품목을 다시 셈했습니다. 자재 구성표에 든 품목은 한 배치 소요량 x 4 로 최소 재고선을 잡았습니다.`,
+    };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
+/*
+ * 최소 재고선 직접 정정 · 자동값으로 되돌리기 (0175 · 사용자 2026-11-27 «재고에서 최소 재고선을
+ * 바로 고칠 수 있도록, 자동으로 다시 세는 위치에서 정정»).
+ *
+ * 직접 정한 선은 min_stock_manual 로 남아 다시 셈이 덮지 않는다. 되돌리기는 다시 셈이 선을 정하는
+ * 품목(구성표 4배치 · 포장재 고정)에만 있다 - 그 밖은 원래 사람이 정하는 선이라 돌아갈 자동값이 없다.
+ */
+export async function setMinStock(_p: FormState, form: FormData): Promise<FormState> {
+  try {
+    const me = await mgr();
+    const raw = String(form.get('min_stock') ?? '').trim();
+    const value = raw === '' ? null : Number(raw);
+    if (value !== null && (!Number.isFinite(value) || value < 0)) {
+      throw new Error('최소 재고선은 0 이상의 숫자로 적으십시오');
+    }
+    const why = String(form.get('reason') ?? '').trim();
+    const row = await withActor(me.id, (db) =>
+      db.one<{ code: string; usage_uom: string }>(
+        `update item set min_stock = $2, min_stock_manual = true
+          where id = $1 and type not in ('SOLUTION', 'FIN')
+          returning code, usage_uom`,
+        [String(form.get('id') ?? ''), value]),
+      { reason: '최소 재고선 직접 정정' + (why ? ` · ${why}` : '') });
+    if (!row) throw new Error('최소 재고선을 둘 수 있는 자재가 아닙니다');
+    bump();
+    revalidatePath('/settings/items');
+    revalidatePath('/material/items');
+    return {
+      ok: true,
+      message: value === null
+        ? `${row.code} 최소 재고선을 비웠습니다.`
+        : `${row.code} 최소 재고선을 ${value.toLocaleString('ko-KR')} ${row.usage_uom} 로 정했습니다.`,
+    };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
+export async function resetMinStock(_p: FormState, form: FormData): Promise<FormState> {
+  try {
+    const me = await mgr();
+    const row = await withActor(me.id, (db) =>
+      db.one<{ code: string; usage_uom: string; min_stock: string }>(
+        `update item set min_stock = min_stock_auto, min_stock_manual = false
+          where id = $1 and min_stock_auto is not null and min_stock_basis ~ $2
+          returning code, usage_uom, min_stock::text`,
+        [String(form.get('id') ?? ''), BOM_BASIS_SQL]),
+      { reason: '최소 재고선 자동값으로 되돌림' });
+    if (!row) throw new Error('자재 구성표로 셈하는 품목만 자동값으로 되돌릴 수 있습니다');
+    bump();
+    revalidatePath('/settings/items');
+    revalidatePath('/material/items');
+    return {
+      ok: true,
+      message: `${row.code} 최소 재고선을 자동값 ${Number(row.min_stock).toLocaleString('ko-KR')} ${row.usage_uom} 로 되돌렸습니다.`,
     };
   } catch (e) {
     return { error: dbMessage(e) };

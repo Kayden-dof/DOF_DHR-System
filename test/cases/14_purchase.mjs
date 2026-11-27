@@ -170,4 +170,37 @@ export default [
   },
 },
 
+{
+  id: 'PO-08', expect: '통과',
+  name: '직접 고친 최소 재고선은 다시 셈이 덮지 않고, 되돌리면 다시 잡힌다 (0175)',
+  async run(t) {
+    const m = await master(t);
+    const line = () => t.one(
+      `select min_stock::numeric as s, min_stock_auto::numeric as a, min_stock_manual as hand
+         from item where id = $1`, [m.reagent2]);
+
+    /* 구성표 품목: 다시 셈이 선을 자동값으로 잡는다 */
+    await t.rows(`update item set min_stock_manual = false where id = $1`, [m.reagent2]);
+    await t.val(`select suggest_min_stock(90)`);
+    const a = await line();
+    t.eq(Number(a.a) > 0, true, '자동값이 셈해졌는가');
+    t.eq(Number(a.s), Number(a.a), '선 = 자동값');
+
+    /* 사람이 고치면 다시 셈이 선을 두고 자동값만 다시 적는다 */
+    await t.rows(`update item set min_stock = 7, min_stock_manual = true, min_stock_auto = 1 where id = $1`,
+                 [m.reagent2]);
+    await t.val(`select suggest_min_stock(90)`);
+    const b = await line();
+    t.eq(Number(b.s), 7, '직접 고친 선이 남는가');
+    t.eq(Number(b.a), Number(a.a), '자동값은 새로 셈해지는가');
+
+    /* 되돌리면(재고 화면 resetMinStock 과 같은 쓰기) 다음 다시 셈부터 다시 자동값이 선을 정한다 */
+    await t.rows(`update item set min_stock = 99, min_stock_manual = false where id = $1`, [m.reagent2]);
+    await t.val(`select suggest_min_stock(90)`);
+    const c = await line();
+    t.eq(Number(c.s), Number(a.a), '되돌린 뒤 선 = 자동값');
+    t.eq(c.hand, false, '직접 표시가 풀렸는가');
+  },
+},
+
 ];

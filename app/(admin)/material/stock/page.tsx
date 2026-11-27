@@ -9,6 +9,7 @@ import { fmtDate, num } from '@/lib/fmt';
 import { ITEM_TYPES } from '@/lib/forms';
 import { Panel, Empty, Tag } from '@/components/ui';
 import StockTools from './stock-tools';
+import MinStockCell from './min-stock-cell';
 import { loadItemProducts, loadProductCodes } from '@/lib/item-products';
 
 export const dynamic = 'force-dynamic';
@@ -63,6 +64,10 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
      */
     products: await loadProductCodes(db),
     belong: await loadItemProducts(db),
+    /* 최소 재고선을 누가 정했는가 - 자동값 · 근거 · 직접 정정 (0175). 표의 칸에서 고친다 */
+    minStock: await db.rows<{ id: string; auto: string | null; basis: string | null; manual: boolean }>(
+      `select id, min_stock_auto::text as auto, min_stock_basis as basis, min_stock_manual as manual
+         from item where type not in ('SOLUTION', 'FIN')`),
     alerts: await db.val<number>(`select count(*)::int from v_reorder_alert`),
     /*
      * «유효기한 확인» 이 넘길 로트 수 (UI/UX 검수 2026-11-11). expire_material_lots()
@@ -73,6 +78,8 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
         where status = 'AVAILABLE' and expiry_date is not null
           and expiry_date < (timezone('Asia/Seoul', now()))::date`),
   }));
+
+  const minOf = new Map(d.minStock.map((x) => [x.id, x]));
 
   /* 품목 → 드는 제품들 */
   const productsOf = new Map<string, string[]>();
@@ -160,7 +167,15 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
                         </td>
                         <td className="td tnum text-right text-muted">{r.lot_count || ''}</td>
                         <td className="td tnum text-right text-muted">
-                          {r.min_stock ? Number(r.min_stock) : ''}
+                          {/* 원액은 자체 생산이라 선을 두지 않는다 (0172) */}
+                          {r.type === 'SOLUTION' ? '' : (
+                            <MinStockCell readOnly={viewer} item={{
+                              id: r.item_id, code: r.code, name: r.name, uom: r.usage_uom,
+                              value: r.min_stock, auto: minOf.get(r.item_id)?.auto ?? null,
+                              basis: minOf.get(r.item_id)?.basis ?? null,
+                              manual: minOf.get(r.item_id)?.manual ?? false,
+                            }} />
+                          )}
                         </td>
                         <td className="td tnum ">{fmtDate(r.nearest_expiry)}</td>
                       </tr>

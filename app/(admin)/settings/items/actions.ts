@@ -24,8 +24,8 @@ export async function createItem(_p: FormState, form: FormData): Promise<FormSta
     await withActor(me.id, (db) =>
       db.rows(
         `insert into item (code, name, type, purchase_uom, usage_uom, conversion,
-                           min_stock, lead_days, shelf_life_months, lot_tracked)
-         values ($1,$2,$3::item_type,$4,$5,$6,$7,$8,$9,$10)`,
+                           min_stock, lead_days, shelf_life_months, lot_tracked, min_stock_manual)
+         values ($1,$2,$3::item_type,$4,$5,$6,$7,$8,$9,$10,$7::numeric is not null)`,
         [code, name,
          String(form.get('type') ?? 'REAGENT'),
          String(form.get('purchase_uom') ?? '').trim(),
@@ -188,7 +188,13 @@ export async function updateItem(_p: FormState, form: FormData): Promise<FormSta
          * 변경을 막고, 바꾸는 길은 사용기간 이력이다. 화면에서 칸을 뺐으므로 폼에 값이
          * 없다 - 그대로 $5 를 쓰면 비어 있는 값으로 바꾸려다 거부된다.
          */
+        /*
+         * 선을 바꾸면 직접 정한 값으로 남긴다 (0175). 그래야 «최소 재고선 다시 셈» 이 덮지 않는다.
+         * 같은 값으로 저장하면 표시를 바꾸지 않는다 - 이름만 고쳤는데 직접 정정이 되면 안 된다.
+         */
         `update item set name = $2, min_stock = $3, lead_days = $4,
+                         min_stock_manual = case when min_stock is distinct from $3
+                                                 then true else min_stock_manual end,
                          shelf_life_months = case when type = 'FIN' then shelf_life_months else $5 end,
                          is_active = $6,
                          default_supplier_id = $7,

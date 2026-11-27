@@ -244,6 +244,7 @@ export const FIELD_LABEL: Record<string, string> = {
   min_stock:              '최소 재고선',
   min_stock_auto:         '최소 재고선 제안값',
   min_stock_basis:        '산출 근거',
+  min_stock_manual:       '최소 재고선 직접 정정',
   lead_days:              '조달 일수',
   default_supplier_id:    '기본 공급자',
   shelf_life_months:      '사용기간 (개월)',

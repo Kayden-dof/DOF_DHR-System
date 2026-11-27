@@ -43,6 +43,12 @@ export default function StockTools({ alerts, expirable }: {
           <>유효기한 확인으로 넘길 로트가 지금은 없습니다.</>
         )}
       </p>
+      {/* 다시 셈이 무엇을 덮고 무엇을 두는지 단추 곁에 적는다 (0175 · 사용자 2026-11-27) */}
+      <p className="text-right text-xs leading-relaxed text-muted">
+        최소 재고선 다시 셈은 자재 구성표에 든 품목의 선을 4배치 기준으로 다시 잡습니다.
+        표의 최소 재고선 숫자를 눌러 바로 고칠 수 있고, 직접 고친 선(<b className="text-ink">직접</b>)은
+        다시 셈이 덮지 않습니다.
+      </p>
       {/*
         * 결과는 화면 오른쪽 위에 띄운다. 여기 아래에 붙이면 표가 밀린다
         * (사용자 지적 2026-09-08).

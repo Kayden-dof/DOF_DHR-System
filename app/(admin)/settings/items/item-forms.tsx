@@ -11,6 +11,7 @@ import { Dialog, useDialog } from '@/components/dialog';
 import { createItem, updateItem, bulkItems, generateFinished, previewFinished,
          type GenResult, type PreviewRow } from './actions';
 import { num } from '@/lib/fmt';
+import { bomGoverned } from '@/lib/min-stock';
 
 export interface ItemRow {
   /** 어디서 사는가. 발주 화면이 미리 골라 준다 (6차 감사 N7) */
@@ -28,6 +29,8 @@ export interface ItemRow {
   min_stock: string | null;
   min_stock_auto: string | null;
   min_stock_basis: string | null;
+  /** 사람이 선을 직접 정함 - 다시 셈이 덮지 않는다 (0175) */
+  min_stock_manual?: boolean;
   lead_days: number | null;
   shelf_life_months: number | null;
   is_active: boolean;
@@ -449,9 +452,11 @@ export function ItemRowView({ it, suppliers, products = [] }: {
                   <b className="text-ink">자동 산출값 {num(it.min_stock_auto)}</b>
                   {it.min_stock_basis ? ` · ${it.min_stock_basis}` : ''}
                   <br />
-                  {/* 구성표에 든 품목은 4배치 기준이 최소 재고선을 잡는다 (0169) */}
-                  {/x 4 배치|포장재 최소 수량/.test(it.min_stock_basis ?? '')
-                    ? '자재 구성표로 셈한 값으로 최소 재고선을 잡습니다. 여기서 고쳐도 재고 화면의 «최소 재고선 다시 셈» 에서 이 값으로 돌아갑니다.'
+                  {/* 구성표에 든 품목은 4배치 기준이 최소 재고선을 잡는다 (0169). 직접 정한 선은 두고 (0175) */}
+                  {bomGoverned(it.min_stock_basis)
+                    ? (it.min_stock_manual
+                        ? '지금 선은 직접 정한 값이라 «최소 재고선 다시 셈» 이 덮지 않습니다. 자동값으로 되돌리는 자리는 재고 화면의 최소 재고선 숫자입니다.'
+                        : '자재 구성표로 셈한 값으로 최소 재고선을 잡습니다. 위에서 고치면 직접 정한 값으로 남아 «최소 재고선 다시 셈» 이 덮지 않습니다.')
                     : '제안일 뿐이며 최소 재고선을 덮어쓰지 않습니다. 쓰려면 위 항목에 직접 입력하십시오.'}
                 </p>
               )}
