@@ -54,7 +54,7 @@ export default function MinStockCell({ item, readOnly = false }: { item: MinStoc
                    placeholder="비우면 선을 두지 않음" className="input tnum" />
           </div>
           <div>
-            <label className="label" htmlFor={`${uid}-r`}>사유 (선택)</label>
+            <label className="label" htmlFor={`${uid}-r`}>사유</label>
             <input id={`${uid}-r`} name="reason" autoComplete="off" className="input"
                    placeholder="예: 다음 달 생산을 늘림" />
           </div>
