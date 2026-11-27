@@ -27,9 +27,31 @@
    위탁 조건이지 프로그램의 성질이 아니다.
 --------------------------------------------------------------------------- */
 
-alter table device_master add column if not exists sheet_min int;
-alter table device_master add column if not exists sheet_max int;
-alter table device_master add column if not exists steril_box_qty int;
+/*
+ * 열을 세우는 그 한 번만 지금 값을 옮겨 심는다 (2026-11-27 정밀 점검).
+ *
+ * 지금 강제하고 있는 값을 그대로 옮긴다. 옮기면서 동작이 바뀌면 안 된다 - 그런데 전에는
+ * 이 update 가 맨 위에 따로 있었고, deploy-db 는 배포마다 이관 파일 전부를 다시 돌린다.
+ * 그래서 사람이 비운 칸(= 상한 없음 · 박스 수 안 셈)을 배포가 1 · 30 · 50 으로 되돌렸다.
+ * 운영에서 실제로 DX2402 Rev.00 의 «상한 없음» 이 30 이 되고(11-10), 비운 멸균 박스가
+ * 50 으로 돌아왔다(11-19). 열이 이미 있으면 그 값은 사람이 정한 것이므로 건드리지 않는다.
+ */
+do $$
+begin
+  if (select count(*) from information_schema.columns
+       where table_schema = 'public' and table_name = 'device_master'
+         and column_name in ('sheet_min', 'sheet_max', 'steril_box_qty')) < 3 then
+    alter table device_master add column if not exists sheet_min int;
+    alter table device_master add column if not exists sheet_max int;
+    alter table device_master add column if not exists steril_box_qty int;
+
+    update device_master
+       set sheet_min = coalesce(sheet_min, 1),
+           sheet_max = coalesce(sheet_max, 30),
+           steril_box_qty = coalesce(steril_box_qty, 50)
+     where sheet_min is null or sheet_max is null or steril_box_qty is null;
+  end if;
+end $$;
 
 comment on column device_master.sheet_min is
   '배치 장입 장수 하한. 비우면 1';
@@ -37,13 +59,6 @@ comment on column device_master.sheet_max is
   '배치 장입 장수 상한. 비우면 상한 없음';
 comment on column device_master.steril_box_qty is
   '멸균 발송 박스 한 개에 담는 제품 수. 비우면 화면이 박스 수를 세지 않는다';
-
-/* 지금 강제하고 있는 값을 그대로 옮긴다. 옮기면서 동작이 바뀌면 안 된다 */
-update device_master
-   set sheet_min = coalesce(sheet_min, 1),
-       sheet_max = coalesce(sheet_max, 30),
-       steril_box_qty = coalesce(steril_box_qty, 50)
- where sheet_min is null or sheet_max is null or steril_box_qty is null;
 
 do $$
 begin

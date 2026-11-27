@@ -47,18 +47,16 @@ comment on column org_brand.expiry_warn_days is
 
 -- === N6. 재작업 수량을 적는 공정 ===========================================
 
-alter table dmr_operation
-  add column if not exists takes_rework boolean not null default false;
-
-comment on column dmr_operation.takes_rework is
-  '이 공정에서 재작업(재포장) 수량을 적는가. 전에는 공정 이름에 "포장" 이 '
-  '들어가는지로 정했다 - 그 공정을 달리 부르는 제조소는 그 칸을 못 봤다 '
-  '(6차 감사 N6)';
-
 /*
  * 이미 있는 제품표준서에는 지금 화면이 하던 대로를 옮겨 심는다. 그래야
  * 고친 뒤에도 같은 자리에 같은 칸이 난다. 새로 만드는 곳에는 아무것도
  * 심지 않는다 - 그 제조소가 고른다.
+ *
+ * ── 열을 세우는 그 한 번만 (2026-11-27 정밀 점검) ───────────────────────
+ * 전에는 열 추가와 옮겨 심기가 맨 위에 따로 있었고, deploy-db 는 배포마다 이관
+ * 파일 전부를 다시 돈다. 그래서 사람이 포장 공정의 재작업 칸을 꺼도 다음 배포가
+ * 다시 켰고, 그때마다 동결 트리거도 내렸다 올렸다. 열이 이미 있으면 그 칸은
+ * 사람이 고른 값이므로 건드리지 않는다.
  *
  * ── 동결 트리거를 이 문장에서만 내린다 ────────────────────────────────
  * 0089 가 지시가 나간 개정본의 공정을 얼린다. 옳은 차단이고, 사람이 고쳐
@@ -69,12 +67,25 @@ comment on column dmr_operation.takes_rework is
  * 감사 트리거는 그대로 둔다 - 무엇이 바뀌었는지는 남아야 한다. 그래서
  * session_replication_role 로 전부 내리지 않고 그 트리거 하나만 내린다.
  */
-alter table dmr_operation disable trigger dmr_operation_frozen;
+do $$
+begin
+  if not exists (select 1 from information_schema.columns
+                  where table_schema = 'public' and table_name = 'dmr_operation'
+                    and column_name = 'takes_rework') then
+    alter table dmr_operation
+      add column takes_rework boolean not null default false;
 
-update dmr_operation set takes_rework = true
- where not takes_rework and name like '%포장%';
+    alter table dmr_operation disable trigger dmr_operation_frozen;
+    update dmr_operation set takes_rework = true
+     where not takes_rework and name like '%포장%';
+    alter table dmr_operation enable trigger dmr_operation_frozen;
+  end if;
+end $$;
 
-alter table dmr_operation enable trigger dmr_operation_frozen;
+comment on column dmr_operation.takes_rework is
+  '이 공정에서 재작업(재포장) 수량을 적는가. 전에는 공정 이름에 "포장" 이 '
+  '들어가는지로 정했다 - 그 공정을 달리 부르는 제조소는 그 칸을 못 봤다 '
+  '(6차 감사 N6)';
 
 
 -- === N1 이 함수에도 있었다 =================================================

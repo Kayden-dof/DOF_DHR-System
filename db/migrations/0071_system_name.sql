@@ -13,19 +13,8 @@
    비우면 그 자리는 아무것도 그리지 않는다. 지어내지 않는다.
 --------------------------------------------------------------------------- */
 
-alter table org_brand add column if not exists system_name       text;
-alter table org_brand add column if not exists system_name_long  text;
-alter table org_brand add column if not exists system_tagline    text;
-
-comment on column org_brand.system_name is
-  '머리줄에 붙는 짧은 이름 (DHR)';
-comment on column org_brand.system_name_long is
-  '로그인 화면에 풀어 쓰는 이름 (Device History Record)';
-comment on column org_brand.system_tagline is
-  '그 아래 한 줄 (제조기록 지원 시스템)';
-
 /*
- * 지금 화면에 나오는 값을 그대로 옮긴다.
+ * 지금 화면에 나오는 값을 그대로 옮긴다 - 열을 세우는 그 한 번만.
  *
  * where 절이 없으면 배포마다 이 줄이 다시 쓰인다. 값은 그대로인데 감사
  * 트리거는 UPDATE 를 잡으므로, 감사추적에 "이관 계정이 회사 표시를 바꿨다" 가
@@ -34,12 +23,32 @@ comment on column org_brand.system_tagline is
  * 감사추적이 답해야 하는 것은 "무엇이 언제 누구에 의해 바뀌었는가" 다 (§1).
  * 바뀌지 않은 것을 적으면 그 대장을 읽는 사람이 진짜 변경을 찾지 못한다.
  *
- * 채울 것이 있을 때만 쓴다.
+ * where 절만으로는 모자랐다 (2026-11-27 정밀 점검). deploy-db 는 배포마다 이관
+ * 파일 전부를 다시 돌므로, 사람이 설정에서 비운 칸(= 그 자리를 그리지 않음)을
+ * 다음 배포가 기본값으로 되살렸다. 열이 이미 있으면 그 값은 사람이 정한 것이다.
  */
-update org_brand
-   set system_name      = coalesce(system_name, 'DHR'),
-       system_name_long = coalesce(system_name_long, 'Device History Record'),
-       system_tagline   = coalesce(system_tagline, '제조기록 지원 시스템')
- where system_name is null
-    or system_name_long is null
-    or system_tagline is null;
+do $$
+begin
+  if (select count(*) from information_schema.columns
+       where table_schema = 'public' and table_name = 'org_brand'
+         and column_name in ('system_name', 'system_name_long', 'system_tagline')) < 3 then
+    alter table org_brand add column if not exists system_name       text;
+    alter table org_brand add column if not exists system_name_long  text;
+    alter table org_brand add column if not exists system_tagline    text;
+
+    update org_brand
+       set system_name      = coalesce(system_name, 'DHR'),
+           system_name_long = coalesce(system_name_long, 'Device History Record'),
+           system_tagline   = coalesce(system_tagline, '제조기록 지원 시스템')
+     where system_name is null
+        or system_name_long is null
+        or system_tagline is null;
+  end if;
+end $$;
+
+comment on column org_brand.system_name is
+  '머리줄에 붙는 짧은 이름 (DHR)';
+comment on column org_brand.system_name_long is
+  '로그인 화면에 풀어 쓰는 이름 (Device History Record)';
+comment on column org_brand.system_tagline is
+  '그 아래 한 줄 (제조기록 지원 시스템)';
