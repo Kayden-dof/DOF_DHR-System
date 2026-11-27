@@ -248,6 +248,20 @@ export default [
     /* 원액 자체는 자체 생산이라 선을 두지 않는다 (0172) */
     t.eq(await t.val(`select min_stock from item where id = $1`, [sol]), null, '원액 선 없음');
 
+    /* 품목 수정 창(saveRecipe)은 앱 권한으로 처방을 고치고 지운다 - 감사추적에 남는다 */
+    await t.rows(`select set_config('app.user_id', $1, false)`, [m.admin]);
+    await t.asRole('app_role', async () => {
+      await t.rows(`update solution_recipe set qty_per_unit = 30 where solution_item_id = $1`, [sol]);
+      await t.rows(`update item set batch_use = 2 where id = $1`, [sol]);
+      await t.val(`select suggest_min_stock(90)`);
+    });
+    t.eq(Number(await t.val(`select min_stock from item where id = $1`, [rg])), 240, '고친 처방 30 x 2 L x 4');
+    await t.asRole('app_role', () =>
+      t.rows(`delete from solution_recipe where solution_item_id = $1`, [sol]));
+    t.eq(await t.val(
+      `select count(*)::int from audit_log where table_name = 'solution_recipe' and action = 'DELETE'
+          and old_value->>'solution_item_id' = $1`, [sol]), 1, '지운 처방 줄이 감사추적에');
+
     await t.rows(`update device_master set status = 'DRAFT' where id = $1`, [act]);
   },
 },

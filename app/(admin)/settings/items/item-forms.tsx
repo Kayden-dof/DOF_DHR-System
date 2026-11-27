@@ -12,6 +12,8 @@ import { createItem, updateItem, bulkItems, generateFinished, previewFinished,
          type GenResult, type PreviewRow } from './actions';
 import { num } from '@/lib/fmt';
 import { bomGoverned } from '@/lib/min-stock';
+import type { RecipeInput } from '@/lib/solution-recipe';
+import { RecipeEditor } from './recipe-editor';
 
 export interface ItemRow {
   /** 어디서 사는가. 발주 화면이 미리 골라 준다 (6차 감사 N7) */
@@ -31,6 +33,8 @@ export interface ItemRow {
   min_stock_basis: string | null;
   /** 사람이 선을 직접 정함 - 다시 셈이 덮지 않는다 (0175) */
   min_stock_manual?: boolean;
+  /** 원액의 한 배치 사용량 (0176) */
+  batch_use?: string | null;
   lead_days: number | null;
   shelf_life_months: number | null;
   is_active: boolean;
@@ -229,12 +233,15 @@ PM-005 | 파우치 라벨 (1차) | 포장재`}
 
 /* -------------------------------------------------------------------------- */
 
-export function ItemRowView({ it, suppliers, products = [] }: {
+export function ItemRowView({ it, suppliers, products = [], recipe = [], inputs = [] }: {
   it: ItemRow;
   /** 어디서 사는가. 발주 화면이 이것을 미리 골라 준다 (6차 감사 N7) */
   suppliers: { id: string; name: string }[];
   /** 판이 있는 제품 코드들. «쓰는 제품» 칸의 고를 거리 */
   products?: string[];
+  /** 원액이면 그 처방 줄과 고를 원료 (0176) */
+  recipe?: { input_item_id: string; qty: string }[];
+  inputs?: RecipeInput[];
 }) {
   /* 라벨과 입력을 잇는다 (4차 감사 G2). 같은 부품이 여러 번 그려져도 겹치지 않는다 */
   const uid = useId();
@@ -462,6 +469,10 @@ export function ItemRowView({ it, suppliers, products = [] }: {
               )}
               <div className="sm:col-span-2"><Msg state={state} /></div>
             </form>
+            {it.type === 'SOLUTION' && (
+              <RecipeEditor id={it.id} uom={it.usage_uom} batchUse={it.batch_use ?? null}
+                            lines={recipe} inputs={inputs} />
+            )}
       </Dialog>
     </>
   );

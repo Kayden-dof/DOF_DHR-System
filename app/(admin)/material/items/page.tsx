@@ -7,6 +7,7 @@ import { MATERIAL_NAV } from '../../sections';
 import { ITEM_TYPES } from '@/lib/forms';
 import { loadItemRows } from '@/lib/item-list';
 import { loadProductCodes } from '@/lib/item-products';
+import { loadRecipes, loadRecipeInputs } from '@/lib/solution-recipe';
 import { Panel, Empty, Tag } from '@/components/ui';
 import { NewItemForm, ItemRowView, type ItemRow } from '../../settings/items/item-forms';
 
@@ -30,9 +31,12 @@ export default async function MaterialItemsPage({ searchParams }: { searchParams
   const type = sp.type || null;
   const q = (sp.q || '').trim() || null;
 
-  const { items, counts, suppliers, products } = await withActor(user.id, async (db) => ({
+  const { items, counts, suppliers, products, recipes, recipeInputs } = await withActor(user.id, async (db) => ({
     /* 품목 수정 창의 «쓰는 제품» 고를 거리 (0174) */
     products: await loadProductCodes(db),
+    /* 원액 품목의 처방 · 고를 원료 (0176) */
+    recipes: await loadRecipes(db),
+    recipeInputs: await loadRecipeInputs(db),
     /* 품목마다 어디서 사는지 고를 수 있게 (6차 감사 N7) */
     suppliers: await db.rows<{ id: string; name: string }>(
       `select id, name from supplier order by status desc, name`),
@@ -105,7 +109,9 @@ export default async function MaterialItemsPage({ searchParams }: { searchParams
                 </tr>
               </thead>
               <tbody>
-                {items.map((it) => <ItemRowView key={it.id} it={it} suppliers={suppliers} products={products} />)}
+                {items.map((it) => <ItemRowView key={it.id} it={it} suppliers={suppliers} products={products}
+                    recipe={recipes.filter((r) => r.solution_item_id === it.id)}
+                    inputs={it.type === 'SOLUTION' ? recipeInputs : undefined} />)}
               </tbody>
             </table>
           </div>

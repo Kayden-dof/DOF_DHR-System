@@ -10,6 +10,68 @@ import { recordPrice } from '@/lib/price';
 // 계정 · 채번 · 공급자는 여전히 시스템관리자만 만진다.
 const admin = () => requireRole(['SYS_ADMIN', 'PROD_MGR'], '생산관리자 또는 시스템관리자만 기준정보를 관리할 수 있습니다');
 
+/*
+ * 원액 처방 · 한 배치 사용량 (0176 · 사용자 2026-11-27 «화면도 만들어 줘»).
+ *
+ * 처방은 원액 1 사용 단위에 드는 원료 양, 한 배치 사용량은 표준 배치(20장) 한 번에 쓰는 원액 양이다.
+ * 최소 재고선 다시 셈이 «처방 x 한 배치 사용량 x 4» 로 원료의 선을 잡으므로, 저장한 뒤 바로 다시 센다
+ * (직접 정한 선은 그대로 둔다, 0175). 빠진 줄은 지운다 - 감사추적에 지운 줄이 남는다.
+ */
+export async function saveRecipe(_p: FormState, form: FormData): Promise<FormState> {
+  try {
+    const me = await admin();
+    const id = String(form.get('id') ?? '');
+    const rawUse = String(form.get('batch_use') ?? '').trim();
+    const use = rawUse === '' ? null : Number(rawUse);
+    if (use !== null && !(Number.isFinite(use) && use > 0)) throw new Error('한 배치 사용량은 0 보다 큰 숫자로 적으십시오');
+
+    const ids = form.getAll('input_item_id').map((v) => String(v).trim());
+    const qtys = form.getAll('qty').map((v) => String(v).trim());
+    const lines: { item: string; qty: number }[] = [];
+    ids.forEach((item, i) => {
+      const q = qtys[i] ?? '';
+      if (item === '' && q === '') return;
+      if (item === '') throw new Error(`${i + 1}번째 줄의 원료를 고르십시오`);
+      const n = Number(q);
+      if (!(Number.isFinite(n) && n > 0)) throw new Error(`${i + 1}번째 줄의 양을 0 보다 큰 숫자로 적으십시오`);
+      if (lines.some((l) => l.item === item)) throw new Error('같은 원료를 두 줄에 적었습니다. 한 줄로 합치십시오');
+      lines.push({ item, qty: n });
+    });
+
+    const result = await withActor(me.id, async (db) => {
+      const sol = await db.one<{ code: string }>(
+        `select code from item where id = $1 and type = 'SOLUTION'`, [id]);
+      if (!sol) throw new Error('원액 품목만 처방을 둘 수 있습니다');
+      if (lines.length) {
+        const ok = await db.val<number>(
+          `select count(*)::int from item where id = any($1::uuid[]) and type not in ('SOLUTION', 'FIN')`,
+          [lines.map((l) => l.item)]);
+        if (ok !== lines.length) throw new Error('처방의 원료는 사 오는 자재만 고를 수 있습니다');
+      }
+      await db.rows(`update item set batch_use = $2 where id = $1 and batch_use is distinct from $2`, [id, use]);
+      await db.rows(
+        `delete from solution_recipe where solution_item_id = $1 and not (input_item_id = any($2::uuid[]))`,
+        [id, lines.map((l) => l.item)]);
+      for (const l of lines) {
+        await db.rows(
+          `insert into solution_recipe (solution_item_id, input_item_id, qty_per_unit, source)
+           values ($1, $2, $3, '품목 수정 창에서 정함')
+           on conflict (solution_item_id, input_item_id) do update
+             set qty_per_unit = excluded.qty_per_unit, source = excluded.source
+             where solution_recipe.qty_per_unit is distinct from excluded.qty_per_unit`,
+          [id, l.item, l.qty]);
+      }
+      await db.val<number>(`select suggest_min_stock(90)`);
+      return sol.code;
+    }, { reason: '원액 처방 · 한 배치 사용량 변경 (품목 수정 창)' });
+
+    for (const p of ['/settings/items', '/material/items', '/material/stock', '/material/orders', '/']) revalidatePath(p);
+    return { ok: true, message: `${result} 처방을 저장하고 최소 재고선을 다시 셈했습니다.` };
+  } catch (e) {
+    return { error: dbMessage(e) };
+  }
+}
+
 const num = (v: FormDataEntryValue | null) => {
   const s = String(v ?? '').trim();
   return s === '' ? null : Number(s);
